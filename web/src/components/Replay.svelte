@@ -139,11 +139,23 @@
           </button>
         </div>
       {/if}
-      <div class="info body-medium">
-        <span class="label-large">{step >= n ? t('replay_end') : t('replay_step', step + 1, n)}</span>
+      {#snippet analyzeButton()}
         {#if deciding}
-          <span class="decide ellipsis">{deciding.seat === rec.me ? t('replay_you_chose', actionText(deciding.action)) : t('replay_seat_chose', names[deciding.seat], actionText(deciding.action))}</span>
+          <button class="btn filled analyze" onclick={analyze}><Icon name="assessment" size={20} />{t('analyze_title')}</button>
+        {:else if step >= n && !showResult}
+          <button class="btn tonal analyze" onclick={() => (showResult = true)}>{t('replay_result')}</button>
         {/if}
+      {/snippet}
+      <!-- Upright: the step and the choice made, with the analysis button at their end; the steps under them (the app's
+           ReplayScreen: all seven in one row left the button no room at a large font). -->
+      <div class="info-row">
+        <div class="info body-medium">
+          <span class="label-large">{step >= n ? t('replay_end') : t('replay_step', step + 1, n)}</span>
+          {#if deciding}
+            <span class="decide ellipsis">{deciding.seat === rec.me ? t('replay_you_chose', actionText(deciding.action)) : t('replay_seat_chose', names[deciding.seat], actionText(deciding.action))}</span>
+          {/if}
+        </div>
+        {#if !side}{@render analyzeButton()}{/if}
       </div>
       <div class="buttons">
         <button class="btn icon tonal" aria-label={t('replay_start')} disabled={step === 0} onclick={() => (step = 0)}><Icon name="skipPrev" /></button>
@@ -152,12 +164,7 @@
         <button class="btn icon filled" aria-label={t('replay_next')} disabled={step >= n} onclick={next}><Icon name="next" /></button>
         <button class="btn icon tonal mirror" aria-label={t('replay_next_decision')} disabled={step >= n} onclick={nextMine}><Icon name="undo" /></button>
         <button class="btn icon tonal" aria-label={t('replay_end')} disabled={step >= n} onclick={() => { step = n; showResult = true; }}><Icon name="skipNext" /></button>
-        <span class="grow"></span>
-        {#if deciding}
-          <button class="btn filled analyze" onclick={analyze}><Icon name="assessment" size={20} />{t('analyze_title')}</button>
-        {:else if step >= n && !showResult}
-          <button class="btn tonal analyze" onclick={() => (showResult = true)}>{t('replay_result')}</button>
-        {/if}
+        {#if side}{@render analyzeButton()}{/if}
       </div>
     </div>
   {/if}
@@ -171,7 +178,6 @@
   .side .info { flex-direction: column; gap: 2px; }
   .side .decide { white-space: normal; }
   .side .buttons { display: grid; grid-template-columns: repeat(3, 42px); gap: 6px; justify-content: center; }
-  .side .grow { display: none; }
   .side .analyze { grid-column: 1 / -1; justify-content: center; }
   .side-top { display: flex; justify-content: space-between; }
   .side-top .on { background: var(--secondary-container); }
@@ -179,11 +185,11 @@
   .chip.on { background: var(--secondary-container); color: var(--on-secondary-container); border-color: transparent; }
   .table-wrap { flex: 1; min-height: 0; position: relative; }
   .controls { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 6px 10px 8px; background: var(--surface-container); }
-  .info { display: flex; gap: 12px; align-items: baseline; min-width: 0; }
+  .info-row { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+  .info { flex: 1; display: flex; gap: 12px; align-items: baseline; min-width: 0; }
   .decide { color: var(--on-surface-variant); min-width: 0; }
-  .buttons { display: flex; align-items: center; gap: 4px; }
+  .buttons { display: flex; align-items: center; justify-content: space-between; gap: 4px; max-width: 480px; }
   .buttons .btn.icon { width: 42px; min-height: 42px; border-radius: 21px; }
-  .grow { flex: 1; }
   .mirror :global(svg) { transform: scaleX(-1); }
   .analyze { gap: 6px; }
   .sheet { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 12px;
