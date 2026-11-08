@@ -550,7 +550,10 @@ json GuiEngine::handle(const json& req) {
       bots[s] = ps[s].is_null() ? nullptr : player(ps[s].get<string>());
     unique_ptr<Rand> rand = randOf(req);
     vector<Action> legal;
-    for(int guard = 0; guard < 10000 && game.phase() != Game::OVER; guard++) {
+    // "steps": at most this many decision points (each: every bot that must decide then); by default until a person
+    // must decide or the hand is over.
+    int steps = getInt(req, "steps", 10000);
+    for(int guard = 0; guard < steps && game.phase() != Game::OVER; guard++) {
       vector<int> pending = game.pending();
       bool waitingForPerson = false;
       vector<pair<int, Action>> decisions;
@@ -598,6 +601,14 @@ json GuiEngine::handle(const json& req) {
 
   if(cmd == "analyze") {
     return analysisJson(game, seatOf(req));
+  }
+
+  if(cmd == "pending") {
+    json seats = json::array();
+    for(int s : game.pending())
+      seats.push_back(s);
+    return json{{"phase", PHASE_NAMES[game.phase()]}, {"current", game.current()}, {"pending", seats},
+                {"actions", (int)rec.actions.size()}, {"event_count", (int)game.events().size()}};
   }
 
   throw StringError("Unknown cmd: " + cmd);

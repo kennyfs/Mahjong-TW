@@ -49,8 +49,12 @@
 //                             "hands": [TILES x4] when over or with reveal}
 //   {"cmd": "act", "game": RECORD, "seat": s, "action": ACTION}      checked, appended -> {"game": RECORD}
 //   {"cmd": "bot", "game": RECORD, "seat": s, "player": SPEC, "seed": S?}   -> {"action": ACTION}
-//   {"cmd": "advance", "game": RECORD, "players": [SPEC|null x4], "seed": S?}
-//       The bots (non-null) decide until a null seat must decide or the hand is over  -> {"game": RECORD}
+//   {"cmd": "advance", "game": RECORD, "players": [SPEC|null x4], "seed": S?, "steps": n?}
+//       The bots (non-null) decide until a null seat must decide or the hand is over, or for at most `steps` decision
+//       points (each one: every bot that must decide then)  -> {"game": RECORD}
+//   {"cmd": "pending", "game": RECORD}
+//       Who must decide now, as the room (the authority) sees it  -> {"phase", "current", "pending": [seats that must
+//       still decide], "actions": n (the record's), "event_count": n}
 //   {"cmd": "next", "game": RECORD, "start_dealer": s, "seed": S?}
 //       The next hand of a game (一將) after this one: the dealer and streak from the result, the round wind moving on
 //       when the deal comes back to start_dealer  -> {"game": RECORD, "game_over": bool (after the north round)}

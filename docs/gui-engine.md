@@ -71,6 +71,16 @@ Loop: `view` (show, animate the new events), `act` when it is the human's turn, 
 (every hand, revealed). `next` deals the next hand of a game (一將): dealer and streak from the result, the round
 wind moving on when the deal comes back to the starting dealer, `game_over` after the north round.
 
+An authority that paces the bots (a battle room, or practice showing each bot's turn on its own) advances one
+decision point at a time: `advance` with `"steps": 1` lets every bot that must decide now decide, once, and stops.
+`pending` tells it who must decide, as only the authority may know (a seat's `view` never says which other seats
+still have to decide on a discard):
+
+```
+>> {"cmd":"pending","game":GAME}
+<< {"phase":"react","current":0,"pending":[1,3],"actions":12,"event_count":17}
+```
+
 Bot seeds: a bot spec that uses randomness (`random`, the network later with sampling) decides from the request's
 seed. Pass a seed built from the hand and the record's length (as above) and a replay, or another player of the
 same hand, meets the same bot choices. `greedy` uses no randomness.

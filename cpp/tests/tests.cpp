@@ -377,6 +377,30 @@ static void testGuiEngine() {
     json n = engine.handle(json{{"cmd", "next"}, {"game", g}, {"start_dealer", 0}, {"seed", "n"}});
     testAssert(n["game"]["setup"]["dealer"] == v["result"]["next_dealer"]);
   }
+  // One decision point at a time (as a room paces the bots), and who must decide: the same hand as all at once.
+  {
+    json players = json::array({"greedy", "greedy", "greedy", "greedy"});
+    json g0 = engine.handle(json{{"cmd", "new"}, {"rules", "standard,see"}, {"seed", "steps"}})["game"];
+    json all = engine.handle(json{{"cmd", "advance"}, {"game", g0}, {"players", players}})["game"];
+    json g = g0;
+    for(int step = 0; step < 1000; step++) {
+      json p = engine.handle(json{{"cmd", "pending"}, {"game", g}});
+      testAssert(p["actions"] == g["actions"].size());
+      if(p["phase"] == "over") {
+        testAssert(p["pending"].empty());
+        break;
+      }
+      testAssert(!p["pending"].empty());
+      for(const json& s : p["pending"]) {
+        json v = engine.handle(json{{"cmd", "view"}, {"game", g}, {"seat", s}});
+        testAssert(v["my_turn"].get<bool>() && v["event_count"] == p["event_count"]);
+      }
+      size_t before = g["actions"].size();
+      g = engine.handle(json{{"cmd", "advance"}, {"game", g}, {"players", players}, {"steps", 1}})["game"];
+      testAssert(g["actions"].size() == before + p["pending"].size());
+    }
+    testAssert(g == all);
+  }
   // Errors are answers, not crashes.
   testAssert(json::parse(engine.handleLine("{\"cmd\": \"nope\"}")).contains("error"));
   testAssert(json::parse(engine.handleLine("not json")).contains("error"));
