@@ -1,0 +1,321 @@
+package io.github.kennyfs.mahjong.battle
+
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import com.google.android.gms.nearby.Nearby
+import com.google.android.gms.nearby.connection.AdvertisingOptions
+import com.google.android.gms.nearby.connection.ConnectionInfo
+import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback
+import com.google.android.gms.nearby.connection.ConnectionResolution
+import com.google.android.gms.nearby.connection.ConnectionsClient
+import com.google.android.gms.nearby.connection.DiscoveredEndpointInfo
+import com.google.android.gms.nearby.connection.DiscoveryOptions
+import com.google.android.gms.nearby.connection.EndpointDiscoveryCallback
+import com.google.android.gms.nearby.connection.Payload
+import com.google.android.gms.nearby.connection.PayloadCallback
+import com.google.android.gms.nearby.connection.PayloadTransferUpdate
+import com.google.android.gms.nearby.connection.Strategy
+import io.github.kennyfs.mahjong.protocol.BattleJson
+import io.github.kennyfs.mahjong.protocol.ClientMsg
+import io.github.kennyfs.mahjong.protocol.History
+import io.github.kennyfs.mahjong.protocol.Hub
+import io.github.kennyfs.mahjong.protocol.ServerMsg
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
+import java.util.concurrent.TimeUnit
+
+// Copied from Thirteen's battle/Links.kt (the protocol's package and the Nearby service renamed): the same ways to a
+// room, a server's WebSocket, a phone nearby, or this phone's own hub.
+
+/** A client's way to its room: a server, a hosting phone nearby, or this phone's own hosted room. */
+interface Link {
+  fun send(msg: ClientMsg)
+  fun close()
+}
+
+/** What a link reports, always on the main thread. */
+interface LinkListener {
+  fun onMessage(link: Link, msg: ServerMsg)
+  /** The link is gone (not after close()). */
+  fun onDown(link: Link, reason: String)
+}
+
+private val main = Handler(Looper.getMainLooper())
+
+private fun decode(text: String): ServerMsg? = runCatching { BattleJson.decodeFromString(ServerMsg.serializer(), text) }.getOrNull()
+
+private fun encode(msg: ClientMsg) = BattleJson.encodeToString(ClientMsg.serializer(), msg)
+
+/**
+ * The server's address as a WebSocket URL: "host[:port]" becomes wss://host[:port]/ws; ws:// is only for a server
+ * on this device or the emulator's host (res/xml/network_security_config.xml); null for anything else.
+ */
+fun serverUrl(input: String): String? {
+  var s = input.trim()
+  if (s.isEmpty() || s.any { it.isWhitespace() }) return null
+  s = when {
+    s.startsWith("wss://") || s.startsWith("ws://") -> s
+    s.startsWith("https://") -> "wss://" + s.removePrefix("https://")
+    s.startsWith("http://") -> "ws://" + s.removePrefix("http://")
+    // A server on this device or the emulator's host (testing): no TLS.
+    s.substringBefore('/').substringBefore(':') in setOf("localhost", "127.0.0.1", "10.0.2.2") -> "ws://$s"
+    else -> "wss://$s"
+  }
+  val rest = s.substringAfter("://")
+  val host = rest.substringBefore("/").substringBefore(":").substringBefore("]").removePrefix("[")
+  if (host.isEmpty()) return null
+  if (s.startsWith("ws://") && host !in setOf("localhost", "127.0.0.1", "10.0.2.2")) return null
+  return if ('/' in rest) s else "$s/ws"
+}
+
+/**
+ * Whether a server's URL (serverUrl's) is on the local network: a private (10/8, 172.16/12, 192.168/16), link-local or
+ * unique local address, a ".local" name or a name without a dot. An app that targets Android 17 reaches those only
+ * with ACCESS_LOCAL_NETWORK granted (a runtime permission); without it a connection just times out. This includes
+ * 10.0.2.2, the emulator's name for its host. A public name that resolves to a local address is not caught.
+ */
+fun isLocalNetwork(url: String): Boolean {
+  val authority = url.substringAfter("://").substringBefore("/")
+  val host = (if (authority.startsWith("[")) authority.substringAfter("[").substringBefore("]") else authority.substringBefore(":")).lowercase()
+  if (host == "localhost" || host == "::1" || host.startsWith("127.")) return false
+  if (':' in host) return host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")
+  val parts = host.split('.')
+  val ip = parts.mapNotNull { it.toIntOrNull() }
+  if (parts.size == 4 && ip.size == 4) {
+    return ip[0] == 10 || ip[0] == 172 && ip[1] in 16..31 || ip[0] == 192 && ip[1] == 168 || ip[0] == 169 && ip[1] == 254
+  }
+  return host.endsWith(".local") || '.' !in host
+}
+
+class WsLink(url: String, private val listener: LinkListener) : Link {
+  private var closed = false
+  private val socket: WebSocket = CLIENT.newWebSocket(Request.Builder().url(url).build(), object : WebSocketListener() {
+    override fun onMessage(webSocket: WebSocket, text: String) {
+      val msg = decode(text) ?: return
+      main.post { if (!closed) listener.onMessage(this@WsLink, msg) }
+    }
+
+    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+      webSocket.close(1000, null)
+      down(reason)
+    }
+
+    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = down(t.message ?: "failure")
+
+    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = down(reason)
+  })
+
+  private fun down(reason: String) {
+    main.post {
+      if (!closed) {
+        closed = true
+        listener.onDown(this, reason)
+      }
+    }
+  }
+
+  override fun send(msg: ClientMsg) {
+    socket.send(encode(msg))
+  }
+
+  override fun close() {
+    closed = true
+    socket.close(1000, null)
+  }
+
+  companion object {
+    private val CLIENT = OkHttpClient.Builder().pingInterval(20, TimeUnit.SECONDS).connectTimeout(15, TimeUnit.SECONDS).build()
+  }
+}
+
+/** The hosting phone's own seat in its hub: no network in between. */
+class LocalLink(private val hub: Hub, private val scope: CoroutineScope, private val listener: LinkListener) : Link {
+  private var closed = false
+  private val conn = hub.open(Hub.LOCAL, { msg -> main.post { if (!closed) listener.onMessage(this, msg) } }, {})
+
+  override fun send(msg: ClientMsg) {
+    scope.launch { hub.receive(conn, encode(msg)) }
+  }
+
+  override fun close() {
+    closed = true
+    hub.closed(conn)
+  }
+}
+
+const val SERVICE_ID = "io.github.kennyfs.mahjong.battle"
+private val STRATEGY = Strategy.P2P_STAR
+/** Nearby's limit for a bytes payload is 32 KB. */
+private const val MAX_PAYLOAD = 30_000
+
+/**
+ * A room hosted on this phone for nearby phones: it advertises, accepts every connection (joining still takes the
+ * room's PIN, checked by the hub with its failure limit) and passes payloads to the hub. Nearby encrypts the
+ * connection. Every remote endpoint counts as one address for the hub's limits, as endpoint ids are new each time.
+ */
+class NearbyHost(context: Context, private val hub: Hub, private val scope: CoroutineScope, name: String, onError: (String) -> Unit) {
+  private val client: ConnectionsClient = Nearby.getConnectionsClient(context)
+  private val conns = HashMap<String, Hub.Connection>()
+
+  private val payloads = object : PayloadCallback() {
+    override fun onPayloadReceived(endpointId: String, payload: Payload) {
+      val conn = conns[endpointId] ?: return
+      val bytes = payload.asBytes() ?: return
+      if (bytes.size > 4096) return client.disconnectFromEndpoint(endpointId)
+      scope.launch { hub.receive(conn, bytes.decodeToString()) }
+    }
+
+    override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {}
+  }
+
+  private val lifecycle = object : ConnectionLifecycleCallback() {
+    override fun onConnectionInitiated(endpointId: String, info: ConnectionInfo) {
+      client.acceptConnection(endpointId, payloads)
+    }
+
+    override fun onConnectionResult(endpointId: String, result: ConnectionResolution) {
+      if (!result.status.isSuccess) return
+      conns[endpointId] = hub.open("nearby", { msg -> sendTo(endpointId, msg) }, { client.disconnectFromEndpoint(endpointId) })
+    }
+
+    override fun onDisconnected(endpointId: String) {
+      conns.remove(endpointId)?.let(hub::closed)
+    }
+  }
+
+  init {
+    // The client is the app's one: a room left a moment ago may still advertise (8001, already advertising).
+    current = this
+    client.stopAdvertising()
+    client.startAdvertising(name, SERVICE_ID, lifecycle, AdvertisingOptions.Builder().setStrategy(STRATEGY).build())
+      .addOnFailureListener { onError(it.message ?: it.toString()) }
+  }
+
+  /** A message to an endpoint; a long history goes in parts, each within a payload. */
+  private fun sendTo(endpointId: String, msg: ServerMsg) {
+    val bytes = BattleJson.encodeToString(ServerMsg.serializer(), msg).encodeToByteArray()
+    if (bytes.size > MAX_PAYLOAD && msg is History && msg.outcomes.size > 1) {
+      val half = msg.outcomes.size / 2
+      sendTo(endpointId, History(msg.outcomes.take(half)))
+      sendTo(endpointId, History(msg.outcomes.drop(half)))
+      return
+    }
+    main.post { client.sendPayload(endpointId, Payload.fromBytes(bytes)) }
+  }
+
+  /** Stops advertising the room, keeping its connections; not another room's, hosted since. */
+  fun stopAdvertising() {
+    if (current === this) client.stopAdvertising()
+  }
+
+  /** Stops the room: its advertising (if no other room has started since) and its own connections, not another's. */
+  fun stop() {
+    stopAdvertising()
+    if (current === this) current = null
+    for ((endpointId, c) in conns) {
+      client.disconnectFromEndpoint(endpointId)
+      hub.closed(c)
+    }
+    conns.clear()
+  }
+
+  private companion object {
+    /** The room advertising now, of the ones this app has hosted. */
+    var current: NearbyHost? = null
+  }
+}
+
+/**
+ * A room's advertised name: what the players see, and for a room carried on by another phone, the room (the start of
+ * its id) and its epoch after a tab, so the players find it again. See [roomTag].
+ */
+fun advertised(shown: String, room: String? = null, epoch: Int = 0): String =
+  shown.replace('\t', ' ') + if (room != null && epoch > 0) "\t${room.take(8)}:$epoch" else ""
+
+/** What the players see of an advertised name. */
+fun shownName(advertised: String) = advertised.substringBefore('\t')
+
+/** The room and epoch of an advertised name, for a room carried on by another phone. */
+fun roomTag(advertised: String): Pair<String, Int>? {
+  val tag = advertised.substringAfter('\t', "").takeIf { it.isNotEmpty() } ?: return null
+  return tag.substringBefore(':') to (tag.substringAfter(':').toIntOrNull() ?: return null)
+}
+
+/** Rooms advertised nearby: endpoint id to the host's advertised name. */
+class NearbyFinder(context: Context, private val onChange: (Map<String, String>) -> Unit, onError: (String) -> Unit) {
+  private val client = Nearby.getConnectionsClient(context)
+  private val found = LinkedHashMap<String, String>()
+
+  init {
+    // A search left a moment ago may still run (8002, already discovering).
+    client.stopDiscovery()
+    client.startDiscovery(SERVICE_ID, object : EndpointDiscoveryCallback() {
+      override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
+        if (info.serviceId != SERVICE_ID) return
+        found[endpointId] = info.endpointName
+        onChange(found.toMap())
+      }
+
+      override fun onEndpointLost(endpointId: String) {
+        found.remove(endpointId)
+        onChange(found.toMap())
+      }
+    }, DiscoveryOptions.Builder().setStrategy(STRATEGY).build()).addOnFailureListener { onError(it.message ?: it.toString()) }
+  }
+
+  fun stop() = client.stopDiscovery()
+}
+
+/** A connection to a room hosted nearby; messages sent before it is up wait for it. */
+class NearbyLink(context: Context, private val endpointId: String, name: String, private val listener: LinkListener) : Link {
+  private val client = Nearby.getConnectionsClient(context)
+  private var up = false
+  private var closed = false
+  private val queue = mutableListOf<ClientMsg>()
+
+  init {
+    client.requestConnection(name, endpointId, object : ConnectionLifecycleCallback() {
+      override fun onConnectionInitiated(endpointId: String, info: ConnectionInfo) {
+        client.acceptConnection(endpointId, object : PayloadCallback() {
+          override fun onPayloadReceived(endpointId: String, payload: Payload) {
+            val msg = payload.asBytes()?.let { decode(it.decodeToString()) } ?: return
+            if (!closed) listener.onMessage(this@NearbyLink, msg)
+          }
+
+          override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {}
+        })
+      }
+
+      override fun onConnectionResult(endpointId: String, result: ConnectionResolution) {
+        if (!result.status.isSuccess) return down(result.status.statusMessage ?: "not connected")
+        up = true
+        queue.forEach(::send)
+        queue.clear()
+      }
+
+      override fun onDisconnected(endpointId: String) = down("disconnected")
+    }).addOnFailureListener { down(it.message ?: it.toString()) }
+  }
+
+  private fun down(reason: String) {
+    if (closed) return
+    closed = true
+    listener.onDown(this, reason)
+  }
+
+  override fun send(msg: ClientMsg) {
+    if (!up) queue += msg
+    else client.sendPayload(endpointId, Payload.fromBytes(encode(msg).encodeToByteArray()))
+  }
+
+  override fun close() {
+    closed = true
+    client.disconnectFromEndpoint(endpointId)
+  }
+}

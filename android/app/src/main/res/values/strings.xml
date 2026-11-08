@@ -216,7 +216,7 @@
   <string name="analysis_clear">清空</string>
   <string name="analysis_random">隨機發一手</string>
   <string name="analysis_need_tiles">手牌要 %1$d 張（現在 %2$d 張）。</string>
-  <string name="analysis_editing">正在編輯：%1$s</string>
+  <string name="analysis_editing">正在編輯</string>
   <string name="analysis_palette_hint">點下面的牌加入，點上面的牌移除。</string>
   <string name="keys_title">鍵盤操作</string>
   <string name="key_choose">← →　選牌</string>
@@ -237,7 +237,7 @@
   <string name="replay_result">看結果</string>
   <string name="replay_nothing">這一手沒有紀錄。</string>
   <string name="replay_pass">過</string>
-  <string name="analysis_title_decision">分析：%1$s 的決定</string>
+  <string name="analysis_title_decision">分析：%1$s的決定</string>
   <string name="analysis_source_note">依據</string>
   <string name="analysis_turn_of">%1$s 的回合</string>
   <string name="analysis_seat_you">你（自己）</string>
@@ -320,4 +320,20 @@
   <string name="battle_no_connection">連不上伺服器（%1$s）。</string>
   <string name="battle_closed">房間已經關了。</string>
   <string name="battle_lost">和伺服器的連線斷了。</string>
+  <!-- Battles: the app only (a server's address, phones nearby) -->
+  <string name="battle_server_none">還沒設定伺服器</string>
+  <string name="battle_server_app_hint">例如 example.com（模擬器測試用 10.0.2.2:8091）</string>
+  <string name="battle_online">線上</string>
+  <string name="battle_online_info">透過網路上的對戰伺服器，和任何地方的人對戰。</string>
+  <string name="battle_nearby">附近的手機</string>
+  <string name="battle_nearby_info">不用網路：用藍牙和 Wi-Fi 和旁邊的手機連線。一支手機開房，其他手機找到房間、輸入房號加入。</string>
+  <string name="battle_host_table">在這支手機開一桌</string>
+  <string name="battle_host_contest">在這支手機開同牌賽</string>
+  <string name="battle_find">找附近的房間</string>
+  <string name="battle_finding">正在找附近的房間…</string>
+  <string name="battle_stop_finding">停止</string>
+  <string name="battle_join_nearby">加入 %1$s 的房間</string>
+  <string name="battle_permissions">需要「附近的裝置」權限，才能和附近的手機連線。</string>
+  <string name="battle_local_network">需要「區域網路」權限，才能連上區域網路裡的伺服器。</string>
+  <string name="battle_hosting">這支手機是房主：離開會關掉整個房間。</string>
 </resources>

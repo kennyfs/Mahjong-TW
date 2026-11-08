@@ -1,0 +1,122 @@
+package io.github.kennyfs.mahjong
+
+// Tiles by their engine names: "1m"-"9m" (萬), "1p"-"9p" (筒), "1s"-"9s" (條), "1z"-"7z" (東南西北白發中), "1f"-"8f"
+// (春夏秋冬梅蘭菊竹). TILES strings list them grouped by suit ("123m55z"). The web page's lib/tiles.ts and lib/seats.ts.
+object Tiles {
+  private const val SUITS = "mpszf"
+  private const val NUMERALS = "一二三四五六七八九"
+  private const val HONORS = "東南西北白發中"
+  private const val FLOWER_NAMES = "春夏秋冬梅蘭菊竹"
+
+  /** All 34 kinds in order, and the 8 flowers. */
+  val KINDS: List<String> = listOf('m', 'p', 's').flatMap { s -> (1..9).map { "$it$s" } } + (1..7).map { "${it}z" }
+  val FLOWERS: List<String> = (1..8).map { "${it}f" }
+
+  /** "123m55z" -> 1m 2m 3m 5z 5z. */
+  fun parse(s: String?): List<String> {
+    if (s.isNullOrEmpty()) return emptyList()
+    val out = ArrayList<String>()
+    val digits = StringBuilder()
+    for (c in s) {
+      if (c.isDigit()) digits.append(c)
+      else if (c in SUITS) {
+        for (d in digits) out += "$d$c"
+        digits.clear()
+      }
+    }
+    return out
+  }
+
+  /** The tiles as a TILES string, sorted. */
+  fun string(tiles: List<String>): String = buildString {
+    for (suit in SUITS) {
+      val ds = tiles.filter { it[1] == suit }.map { it[0] }.sorted()
+      if (ds.isNotEmpty()) append(ds.joinToString("")).append(suit)
+    }
+  }
+
+  /** Order of kinds: characters, dots, bamboo, honors, flowers. */
+  fun index(t: String): Int {
+    val n = t[0] - '0'
+    return when (t[1]) {
+      'm' -> n - 1
+      'p' -> 8 + n
+      's' -> 17 + n
+      'z' -> 26 + n
+      else -> 33 + n
+    }
+  }
+
+  fun sort(ts: List<String>) = ts.sortedBy(::index)
+
+  fun isFlower(t: String) = t.length == 2 && t[1] == 'f'
+
+  /** "五萬", "三筒", "七條", "東", "白", "春". */
+  fun name(t: String): String {
+    val n = t[0] - '0'
+    return when (t[1]) {
+      'm' -> "${NUMERALS[n - 1]}萬"
+      'p' -> "${NUMERALS[n - 1]}筒"
+      's' -> "${NUMERALS[n - 1]}條"
+      'z' -> HONORS[n - 1].toString()
+      else -> FLOWER_NAMES[n - 1].toString()
+    }
+  }
+
+  fun wind(w: Int): String = HONORS.getOrNull(w)?.toString() ?: "?"
+
+  /** `tiles` without one copy of each of `remove`. */
+  fun without(tiles: List<String>, remove: List<String>): List<String> {
+    val out = tiles.toMutableList()
+    for (r in remove) out.remove(r)
+    return out
+  }
+}
+
+/** Where a seat sits as the player sees it: the player at the bottom, the next (下家) at the right, the previous at the left. */
+enum class Side { BOTTOM, RIGHT, TOP, LEFT }
+
+fun sideOf(seat: Int, me: Int): Side = Side.entries[(seat - me + 4) % 4]
+fun seatAt(side: Side, me: Int): Int = (me + side.ordinal) % 4
+
+/** How many concealed tiles a seat holds now. */
+fun concealedCount(view: View, seat: Int): Int {
+  val p = view.position.players[seat]
+  return 16 - 3 * p.melds.size + if (view.phase == "self" && view.current == seat) 1 else 0
+}
+
+/** A meld's tiles in the order to show them (another player's concealed kong as four backs: nulls). */
+fun meldTiles(m: Meld): List<String?> {
+  if (m.tile == null) return listOf(null, null, null, null)
+  val ts = m.tiles ?: emptyList()
+  if (m.type == "ankan") return listOf(null, ts.getOrNull(1) ?: m.tile, ts.getOrNull(2) ?: m.tile, null)
+  if (ts.isNotEmpty()) return ts
+  // A meld set up by hand (the analysis' position) has its kind and tile only.
+  return when (m.type) {
+    "chi" -> (0..2).map { "${m.tile[0] + it}${m.tile[1]}" }
+    "pon" -> List(3) { m.tile }
+    else -> List(4) { m.tile }
+  }
+}
+
+fun flowersOf(p: PlayerPos) = Tiles.parse(p.flowers)
+
+/** A record's action (a chow by its lowest tile) as the full action: the chow's three tiles. */
+fun fullAction(a: Action): Action {
+  if (a.type == "chi" && a.tile != null && a.tiles == null) return a.copy(tiles = (0..2).map { "${a.tile[0] + it}${a.tile[1]}" })
+  return a
+}
+
+/** Whether an analysis' action is the one a record says was taken (claims are told apart by their kind only). */
+fun isTaken(legal: Action, taken: Action): Boolean {
+  if (legal.type != taken.type) return false
+  if (legal.type in setOf("discard", "ankan", "kakan", "chi")) return legal.tile == taken.tile
+  return true
+}
+
+/** The tiles an action shows: a chow's three, a discard's or a kong's one. */
+fun actionTiles(a: Action): List<String> = when {
+  a.type == "chi" && !a.tiles.isNullOrEmpty() -> a.tiles
+  a.tile != null && a.type != "pass" -> listOf(a.tile)
+  else -> emptyList()
+}

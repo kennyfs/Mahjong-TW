@@ -1,0 +1,11 @@
+build/
+.gradle/
+.kotlin/
+local.properties
+local.env
+build-apk.log
+*.iml
+.idea/
+.cxx/
+device-tests.log
+emulator.log
