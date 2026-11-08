@@ -401,6 +401,38 @@ static void testGuiEngine() {
     }
     testAssert(g == all);
   }
+  // A view held at the last discard: nothing after it (the next draw) until the room shows it. Where someone may
+  // claim the discard, the held view is the plain one.
+  {
+    json players = json::array({"greedy", "greedy", "greedy", "greedy"});
+    json g = engine.handle(json{{"cmd", "new"}, {"rules", "simple,none"}, {"seed", "hold"}})["game"];
+    int plain = 0, claimable = 0;
+    for(int step = 0; step < 1000; step++) {
+      json p = engine.handle(json{{"cmd", "pending"}, {"game", g}});
+      if(p["phase"] == "over")
+        break;
+      g = engine.handle(json{{"cmd", "advance"}, {"game", g}, {"players", players}, {"steps", 1}})["game"];
+      const json& last = g["actions"].back();
+      if(last[1] != "discard")
+        continue;
+      int seat = last[0];
+      for(int s = 0; s < 4; s++) {
+        json v = engine.handle(json{{"cmd", "view"}, {"game", g}, {"seat", s}});
+        json h = engine.handle(json{{"cmd", "view"}, {"game", g}, {"seat", s}, {"hold", true}});
+        const json& lastEvent = h["events"].back();
+        testAssert(lastEvent["type"] == "discard" && lastEvent["seat"] == seat);
+        if(v["phase"] == "react") {
+          testAssert(h == v);
+          claimable++;
+        } else if(v["phase"] == "self") {
+          testAssert(h["phase"] == "react" && !h["my_turn"].get<bool>() && h["legal"].empty());
+          testAssert(h["event_count"].get<int>() < v["event_count"].get<int>());
+          plain++;
+        }
+      }
+    }
+    testAssert(plain > 0 && claimable > 0);
+  }
   // Errors are answers, not crashes.
   testAssert(json::parse(engine.handleLine("{\"cmd\": \"nope\"}")).contains("error"));
   testAssert(json::parse(engine.handleLine("not json")).contains("error"));

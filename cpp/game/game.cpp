@@ -403,7 +403,7 @@ void Game::act(int s, const Action& a) {
             any = true;
           }
         }
-        if(!any)
+        if(!any && !hold_)
           resolveRob();
         return;
       }
@@ -454,7 +454,7 @@ void Game::afterDiscard(int d, int kind) {
     mustDecide_[i] = legal.size() > 1;  // more than PASS
     any = any || mustDecide_[i];
   }
-  if(!any)
+  if(!any && !hold_)
     resolveReact();
 }
 

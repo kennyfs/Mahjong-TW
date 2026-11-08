@@ -81,6 +81,12 @@ still have to decide on a discard):
 << {"phase":"react","current":0,"pending":[1,3],"actions":12,"event_count":17}
 ```
 
+A room shows every discard at once and what follows it (the next draw, or a claim) only after a short claim window
+that is the same whether anyone may claim or not, so the pause tells nobody who could. A `view` with `"hold": true`
+stops at a last discard (or added kong) that nobody may claim (or rob): its last event is the discard, `phase` is
+`react` (`rob_kong`) with nobody to decide, and the next draw is not in it yet. Where someone may claim, it is the
+plain view.
+
 Bot seeds: a bot spec that uses randomness (`random`, the network later with sampling) decides from the request's
 seed. Pass a seed built from the hand and the record's length (as above) and a replay, or another player of the
 same hand, meets the same bot choices. `greedy` uses no randomness.

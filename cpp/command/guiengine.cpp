@@ -350,12 +350,14 @@ static Action normalized(const Game& game, Action a) {
   return a;
 }
 
-void GuiJson::replay(const Record& r, Game& game) {
+void GuiJson::replay(const Record& r, Game& game, bool holdLast) {
   game.start(r.setup, r.wall);
   for(size_t i = 0; i < r.actions.size(); i++) {
     int s = r.actions[i].first;
     if(s < 0 || s > 3)
       throw StringError("Bad seat in action " + Global::intToString((int)i));
+    if(holdLast && i + 1 == r.actions.size())
+      game.hold(true);
     game.act(s, normalized(game, r.actions[i].second));
   }
 }
@@ -517,7 +519,9 @@ json GuiEngine::handle(const json& req) {
   // The rest take a game.
   GuiJson::Record rec = GuiJson::parseRecord(req.at("game"));
   Game game(Rules::parse(rec.rules));
-  GuiJson::replay(rec, game);
+  // "hold": the view stops at a last discard (or added kong) nobody may claim, before the next draw.
+  bool hold = cmd == "view" && getBool(req, "hold");
+  GuiJson::replay(rec, game, hold);
 
   if(cmd == "view")
     return viewOf(game, seatOf(req), getInt(req, "since", 0), getBool(req, "reveal"));

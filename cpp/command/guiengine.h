@@ -96,7 +96,8 @@ namespace GuiJson {
   nlohmann::json record(const Record& r);
   Record parseRecord(const nlohmann::json& j);
   // Starts `game` (made with the record's rules) and applies the actions; throws StringError on an illegal one.
-  void replay(const Record& r, Game& game);
+  // `holdLast`: the last action is applied held (Game::hold): a last discard nobody may claim stops there.
+  void replay(const Record& r, Game& game, bool holdLast = false);
 }
 
 #endif // COMMAND_GUIENGINE_H_

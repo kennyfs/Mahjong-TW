@@ -125,6 +125,10 @@ class Game {
   void legalActions(int seat, std::vector<Action>& out) const;
   // Throws StringError on an illegal action.
   void act(int seat, const Action& a);
+  // Held: a discard (or an added kong) that nobody may claim (or rob) does not go on to the next draw; the game stays
+  // in REACT (ROB_KONG) with nobody to decide. For showing the discard on its own, before what follows it (a room
+  // shows that only after its claim window, docs/gui-engine.md); a held game takes no more actions.
+  void hold(bool on) { hold_ = on; }
 
   const Rules& rules() const { return rules_; }
   const HandSetup& setup() const { return setup_; }
@@ -175,6 +179,7 @@ class Game {
   bool anyCall_ = false;         // a chow, pung or exposed kong has been made
   int claimSeat_ = -1, claimTile_ = -1;
   bool claimLast_ = false;  // the claim is on the last discard
+  bool hold_ = false;
   // REACT and ROB_KONG: per seat, whether it must decide, its options and its decision.
   bool mustDecide_[4] = {false, false, false, false};
   bool decided_[4] = {false, false, false, false};
