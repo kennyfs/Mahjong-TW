@@ -1,0 +1,163 @@
+// The table's sizes for the room it has: how wide each kind of tile is, how the four rivers (discards) are laid out
+// around the center, and how much room the players' panels take. Wide (a phone held sideways, a computer) or tall
+// (a phone upright). The same arithmetic as the app's TableLayout.kt, so both look alike. Sizes in px (the app's dp).
+//
+// Tiles stay large: the player's own are the ones tapped (40 px or more on a phone, never fewer than 30), and an
+// upright phone wraps the hand after HAND_ROW tiles rather than shrinking them. The others' tiles and the rivers
+// stay large enough to read (22 px and up on a phone).
+import { TILE_RATIO } from '../components/Tile.svelte';
+
+/** Tiles a row of the player's hand on a tall table (the drawn tile apart at the end of the last row). */
+export const HAND_ROW = 8;
+/** The gap before the drawn tile, in tile widths. */
+export const DRAWN_GAP = 0.3;
+/** The gap between the rows of a wrapped hand, in tile heights (room for a lifted tile, too). */
+export const ROW_GAP = 0.2;
+/** How far a chosen tile is lifted, in tile heights. */
+export const LIFT = 0.2;
+/** A flower's width, for the melds' tiles'. */
+export const FLOWER_SCALE = 0.82;
+/** Lines of the others' melds and flowers on a tall table (their tiles get smaller when there are more). */
+export const OPP_LINES = 2;
+
+/** The gaps between melds (Melds.svelte): between lines, and between melds in a line. */
+export const meldGaps = (w: number) => ({ row: Math.max(3, w * 0.16), col: Math.max(3, w * 0.14) });
+
+/** How many lines melds of these tile counts and these flowers take in `width` px, with tiles `w` px wide. */
+export function meldLines(counts: number[], flowers: number, width: number, w: number): number {
+  const gap = meldGaps(w).col;
+  const items = [...counts.map((c) => c * w), ...Array<number>(flowers).fill(w * FLOWER_SCALE)];
+  let lines = items.length ? 1 : 0;
+  let x = 0;
+  for (const it of items) {
+    if (x > 0 && x + gap + it > width) {
+      lines++;
+      x = it;
+    } else x += (x > 0 ? gap : 0) + it;
+  }
+  return lines;
+}
+
+/** The largest tile width from `max` down to `min` at which these melds and flowers fit in `lines` lines. */
+export function fitMelds(counts: number[], flowers: number, width: number, lines: number, max: number, min = 16): number {
+  for (let w = max; w > min; w -= 0.5) if (meldLines(counts, flowers, width, w) <= lines) return w;
+  return min;
+}
+
+export interface TableSizes {
+  wide: boolean;
+  /** The player's own concealed tiles. */
+  hand: number;
+  /** The player's hand: tiles a row (0: one row). */
+  handRow: number;
+  /** The player's melds and flowers. */
+  meld: number;
+  /** Every river's tiles. */
+  river: number;
+  /** Others' melds and flowers. */
+  opp: number;
+  /** Others' concealed tiles, as backs (0: a count instead). */
+  back: number;
+  /** Tiles a row in the top and bottom rivers, and rows; tiles a row in the side rivers, and rows. */
+  acrossCols: number;
+  acrossRows: number;
+  sideCols: number;
+  sideRows: number;
+  /** The side players' panels' width (wide); the others' strip's height; the player's area's height. */
+  sideW: number;
+  topH: number;
+  meH: number;
+  /** The box in the middle (round, wall, turn). */
+  boxW: number;
+  boxH: number;
+  /** The table's width (wide: no wider than its parts need, so that it keeps together on a large window). */
+  tableW: number;
+  /** The words' size on the table, px. */
+  font: number;
+}
+
+const H = (w: number) => w * TILE_RATIO;
+/** A river's room, in tiles (a hand has seldom more discards a player). */
+const RIVER = 20;
+/** The rivers' tiles on a tall table: no smaller than this while the hand can give room. */
+const MIN_RIVER = 26;
+
+/** Sizes for a table of w x h px; `maxHand` caps the hand's tiles (a computer's big window). */
+export function tableSizes(w: number, h: number, maxHand = 64): TableSizes {
+  const wide = w >= h * 1.1;
+  // A table no wider than this for its height: the side players stay near the middle on a large window.
+  if (wide) w = Math.min(w, h * 2.3);
+  if (wide) {
+    // The hand: 17 tiles and the drawn one's gap across the width (the player's name plate is above it, at the
+    // left), at most about a sixth of the height.
+    const hand = Math.max(24, Math.min(maxHand, (w - 24) / (17 + DRAWN_GAP + 0.3), (h * 0.165) / TILE_RATIO));
+    const meld = hand * 0.78;
+    // The others' tiles: larger on a large window.
+    const opp = Math.max(22, Math.min(hand * 0.66, h >= 900 ? 44 : 36));
+    const meH = H(hand) * (1 + LIFT) + 10;
+    const topH = H(opp) + 12;
+    const centerH = h - meH - topH - 6;
+    const sideMin = Math.max(opp * 3.4 + 16, 128);
+    // The rivers: the largest tile for which a layout fits, wide rivers of 2 rows across (3 when there is room) and
+    // side rivers of 3 to 5 columns, each holding 20 tiles or more (a longer river's tiles get smaller), the box
+    // between the rows 1.3 rows high.
+    let best: { river: number; acrossCols: number; acrossRows: number; sideCols: number } | null = null;
+    for (let river = Math.min(hand * 0.85, h >= 900 ? 60 : 52); river >= 12 && !best; river -= 0.5) {
+      for (const acrossRows of [3, 2]) {
+        const boxRows = 1.3;
+        if ((2 * acrossRows + boxRows) * H(river) + 14 > centerH) continue;
+        const sideRows = Math.floor((centerH - 4) / H(river));
+        const acrossCols = Math.max(9, Math.ceil(RIVER / acrossRows));
+        const sideCols = [3, 4, 5].find((c) => c * sideRows >= RIVER);
+        if (!sideCols) continue;
+        if ((acrossCols + 2 * sideCols) * river + 28 > w - 2 * sideMin) continue;
+        best = { river, acrossCols, acrossRows, sideCols };
+        break;
+      }
+    }
+    const b = best ?? { river: 12, acrossCols: 11, acrossRows: 2, sideCols: 4 };
+    const river = b.river;
+    const riversW = (b.acrossCols + 2 * b.sideCols) * river + 28;
+    // The side panels: room for a meld and some flowers a line, no more; the hand's row, then, says how wide the
+    // table is.
+    const handRowW = (17 + DRAWN_GAP + 0.3) * hand + 24;
+    const tableW = Math.min(w, Math.max(handRowW, riversW + 2 * Math.max(sideMin, opp * 4.6 + 16)));
+    const sideW = Math.max(sideMin, (tableW - riversW) / 2);
+    const sideRows = Math.max(4, Math.floor((centerH - 4) / H(river)));
+    const boxH = Math.max(H(river) * 1.3, Math.min(H(river) * 1.8, centerH - 2 * b.acrossRows * H(river) - 14));
+    return {
+      wide, hand, handRow: 0, meld, river, opp, back: Math.max(10, opp * 0.66), acrossCols: b.acrossCols, acrossRows: b.acrossRows,
+      sideCols: b.sideCols, sideRows, sideW, topH, meH, boxW: b.acrossCols * river, boxH, tableW,
+      font: Math.max(14, Math.min(18, opp * 0.46)),
+    };
+  }
+  // Tall (a phone upright): the others along the top, each in a column over their river (the previous at the left,
+  // the one opposite in the middle, the next at the right) with OPP_LINES lines of melds and flowers; the rivers the
+  // whole width; the player's name plate, melds and flowers in a line over the hand, which wraps after HAND_ROW
+  // tiles (the drawn one apart at the end of the last row).
+  // The rivers stay 26 px or more: on a short table the hand gets smaller (not below 30) to leave them the room.
+  const tall = (hand: number) => {
+    const meld = Math.min(hand * 0.72, 40);
+    const opp = Math.max(22, Math.min(hand * 0.6, 32));
+    const meldLine = Math.max(30, H(meld));
+    const meH = meldLine + 4 + H(hand) * (2 + ROW_GAP + LIFT) + 6;
+    const topH = 28 + OPP_LINES * (H(opp) + meldGaps(opp).row) + 4;
+    const centerH = h - meH - topH - 4;
+    // The rivers: 3 columns at the sides, 6 across in 3 rows; as wide as the table allows, unless its height says less.
+    let river = Math.min(hand * 0.9, (w - 24) / (acrossCols + 2 * sideCols));
+    while (river > 16 && (2 * acrossRows + 1.3) * H(river) + 14 > centerH) river -= 0.5;
+    return { hand, meld, opp, meH, topH, centerH, river };
+  };
+  const sideCols = 3;
+  const acrossCols = 6;
+  const acrossRows = 3;
+  let fit = tall(Math.max(30, Math.min(maxHand, (w - 10) / (HAND_ROW + DRAWN_GAP + 1))));
+  while (fit.river < MIN_RIVER && fit.hand > 30) fit = tall(Math.max(30, fit.hand - 1));
+  const { hand, meld, opp, meH, topH, centerH, river } = fit;
+  const sideRows = Math.max(4, Math.floor((centerH - 4) / H(river)));
+  const boxH = Math.max(H(river) * 1.3, Math.min(H(river) * 2, centerH - 2 * acrossRows * H(river) - 14));
+  return {
+    wide, hand, handRow: HAND_ROW, meld, river, opp, back: 0, acrossCols, acrossRows, sideCols, sideRows, sideW: (w - 8) / 3,
+    topH, meH, boxW: acrossCols * river, boxH, tableW: w, font: 14,
+  };
+}

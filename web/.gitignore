@@ -1,0 +1,8 @@
+node_modules/
+dist/
+# Built by build-engine.sh.
+engine-files/
+# Made from the app's strings.xml by scripts/strings.mjs.
+src/generated/
+build/
+__pycache__/
