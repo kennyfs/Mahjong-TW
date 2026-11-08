@@ -12,19 +12,21 @@
   import Dialog from './components/Dialog.svelte';
   import Icon, { type IconName } from './components/Icon.svelte';
   import Analyze from './components/Analyze.svelte';
+  import Battle from './components/Battle.svelte';
   import Play from './components/Play.svelte';
   import Records from './components/Records.svelte';
   import Replay from './components/Replay.svelte';
   import Rules from './components/Rules.svelte';
   import Settings from './components/Settings.svelte';
   import TileDefs from './components/TileDefs.svelte';
+  import { battle } from './lib/battle.svelte';
   import * as engine from './lib/engine';
   import { practice } from './lib/practice.svelte';
   import { editor } from './lib/position-editor.svelte';
   import { records } from './lib/records.svelte';
 
   // For the page's screenshot and test scripts (scripts/*.py): the state and the engine, only when asked.
-  if (new URLSearchParams(location.search).has('test')) Object.assign(window, { mahjong: { practice, engine, settings, nav, shared, editor, records } });
+  if (new URLSearchParams(location.search).has('test')) Object.assign(window, { mahjong: { practice, engine, settings, nav, shared, editor, records, battle } });
   const tabs: [Screen, string, IconName, IconName][] = [
     ['PLAY', 'nav_play', 'tileOutlined', 'tile'], ['BATTLE', 'nav_battle', 'groupsOutlined', 'groups'],
     ['ANALYZE', 'nav_analyze', 'assessmentOutlined', 'assessment'],
@@ -76,7 +78,8 @@
     shared.reviewId = id;
     nav.open('review');
   }
-  const immersive = false;
+  // At a battle's table, the other screens are out of reach (a tap away from leaving it by mistake).
+  const immersive = $derived(battle.playing && nav.screen === 'BATTLE' && nav.sub === null);
 </script>
 
 <TileDefs />
@@ -89,7 +92,7 @@
     {/each}
   </nav>
   <main>
-    {#if (nav.screen === 'PLAY' || nav.screen === 'RECORDS') && nav.sub === 'review'}
+    {#if (nav.screen === 'PLAY' || nav.screen === 'RECORDS' || nav.screen === 'BATTLE') && nav.sub === 'review'}
       <Replay id={shared.reviewId} onback={() => nav.back()} />
     {:else if nav.screen === 'PLAY' && nav.sub === 'rules'}
       <Rules onback={() => nav.back()} />
@@ -97,6 +100,8 @@
       <Play onreview={review} />
     {:else if nav.screen === 'RECORDS'}
       <Records onreview={review} />
+    {:else if nav.screen === 'BATTLE'}
+      <Battle onreview={review} />
     {:else if nav.screen === 'ANALYZE'}
       <Analyze />
     {:else if nav.screen === 'SETTINGS'}
