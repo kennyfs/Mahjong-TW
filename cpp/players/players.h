@@ -1,0 +1,33 @@
+#ifndef PLAYERS_PLAYERS_H_
+#define PLAYERS_PLAYERS_H_
+
+#include "../core/rand.h"
+#include "../game/game.h"
+
+#include <memory>
+#include <string>
+#include <vector>
+
+// A player decides for one seat, using only what that seat may see: its own hand (game.seat(seat).hand), everyone's
+// melds, flowers and discards, and game.visibleCounts(seat).
+class Player {
+ public:
+  virtual ~Player() {}
+  virtual std::string name() const = 0;
+  // `legal` is game.legalActions(seat), never empty.
+  virtual Action decide(const Game& game, int seat, const std::vector<Action>& legal, Rand& rand) = 0;
+};
+
+// Specs:
+//   random   wins whenever it can, otherwise a uniformly random legal action;
+//   greedy   wins whenever it can; discards for the fewest tiles from ready (shanten), then the most tiles that
+//            improve it (ukeire); calls a chow or pung only when it lowers shanten; declares kongs that do not
+//            raise it; never defends.
+std::unique_ptr<Player> makePlayer(const std::string& spec);
+
+namespace Greedy {
+  // The number of unseen tiles (by `visible`) that lower the shanten of a 3 numSets + 1 hand.
+  int ukeire(const Counts& hand, int numSets, const Counts& visible, int shanten);
+}
+
+#endif // PLAYERS_PLAYERS_H_

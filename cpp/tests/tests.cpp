@@ -1,0 +1,329 @@
+#include "../tests/tests.h"
+
+#include "../command/play.h"
+#include "../core/test.h"
+#include "../game/shape.h"
+
+#include <iostream>
+
+using namespace std;
+
+static Counts C(const string& s) { return Tiles::countsOf(Tiles::parse(s)); }
+static int T(const string& s) {
+  vector<int> t = Tiles::parse(s);
+  testAssert(t.size() == 1);
+  return t[0];
+}
+
+static void testTiles() {
+  testAssert(Tiles::toString(Tiles::parse("3m 1m 2m 11z 9s 5f")) == "123m9s11z5f");
+  testAssert(Tiles::name(0) == "1m" && Tiles::name(33) == "7z" && Tiles::name(41) == "8f");
+  testAssert(Tiles::chineseName(T("5p")) == "五筒" && Tiles::chineseName(T("7z")) == "中");
+  testAssert(Tiles::chineseName(T("7f")) == "菊");
+  bool threw = false;
+  try { Tiles::parse("8z"); } catch(const StringError&) { threw = true; }
+  testAssert(threw);
+  threw = false;
+  try { Tiles::parse("12"); } catch(const StringError&) { threw = true; }
+  testAssert(threw);
+}
+
+static void testShape() {
+  // 17 tiles, five sets and a pair.
+  testAssert(Shape::isComplete(C("123m456m789m234p55s777z"), 5));
+  testAssert(!Shape::isComplete(C("123m456m789m234p56s777z"), 5));
+  testAssert(Shape::isComplete(C("11122233344455566m"), 5));
+  testAssert(Shape::isComplete(C("55z"), 0));
+  testAssert(!Shape::isComplete(C("5z6z"), 0));
+  // Waits.
+  auto waitsOf = [](const string& s, int numSets) {
+    uint64_t w = Shape::rawWaits(C(s), numSets);
+    vector<int> out;
+    for(int k = 0; k < 34; k++)
+      if(w & ((uint64_t)1 << k))
+        out.push_back(k);
+    return Tiles::toString(out);
+  };
+  testAssert(waitsOf("123m456m789m234p5s777z", 5) == "5s");
+  testAssert(waitsOf("123m456m789m234p45s77z", 5) == "36s");
+  testAssert(waitsOf("1112345678999m", 4) == "123456789m");  // nine gates in 14 tiles (4 sets + pair)
+  testAssert(waitsOf("3555m111p999p123s789s", 5) == "34m");
+  // Readings: 111222333m reads as three pungs or three chows.
+  vector<Shape::Reading> rs;
+  Shape::readings(C("111222333m456p789s55z"), 5, rs);
+  testAssert(rs.size() == 2);
+  Shape::readings(C("11122233344455566m"), 5, rs);
+  for(const Shape::Reading& r : rs)
+    testAssert(r.n == 6);
+  // Each multiset of groups once.
+  for(size_t i = 0; i < rs.size(); i++)
+    for(size_t j = i + 1; j < rs.size(); j++) {
+      vector<pair<int, int>> a, b;
+      for(int g = 0; g < 6; g++) {
+        a.push_back({rs[i].groups[g].type, rs[i].groups[g].kind});
+        b.push_back({rs[j].groups[g].type, rs[j].groups[g].kind});
+      }
+      sort(a.begin(), a.end());
+      sort(b.begin(), b.end());
+      testAssert(a != b);
+    }
+}
+
+// Shanten against its inductive characterization: -1 exactly when complete; for 3n+1 tiles, 0 exactly when some
+// tile completes the hand and otherwise one draw and discard can lower it by exactly one and never more; for 3n+2
+// tiles, the best discard's.
+static void testShanten() {
+  Rand rand("shanten");
+  testAssert(Shape::shanten(C("123m456m789m234p55s777z"), 5) == -1);
+  testAssert(Shape::shanten(C("123m456m789m234p5s777z"), 5) == 0);
+  testAssert(Shape::shanten(C("147m258p369s1234z"), 5) >= 6);
+  for(int iter = 0; iter < 300; iter++) {
+    int numSets = 1 + (int)rand.nextUInt(5);
+    // Hands from a small part of the wall make close shapes more likely.
+    vector<int> pool;
+    int suitMask = 1 + (int)rand.nextUInt(15);
+    for(int k = 0; k < 34; k++)
+      if(suitMask & (1 << Tiles::suitOf(k)))
+        for(int i = 0; i < 4; i++)
+          pool.push_back(k);
+    int n = 3 * numSets + 1;
+    if((int)pool.size() < n + 1)
+      continue;
+    for(int i = (int)pool.size() - 1; i > 0; i--)
+      swap(pool[i], pool[rand.nextUInt(i + 1)]);
+    Counts c{};
+    for(int i = 0; i < n; i++)
+      c[pool[i]]++;
+    int s = Shape::shanten(c, numSets);
+    uint64_t w = Shape::rawWaits(c, numSets);
+    testAssert((s == 0) == (w != 0));
+    int bestAfter = 100, worstAfter = -100;
+    for(int j = 0; j < 34; j++) {
+      if(c[j] >= 4)
+        continue;  // shanten takes at most four of a kind
+      c[j]++;
+      int s2 = Shape::shanten(c, numSets);
+      testAssert((s2 == -1) == Shape::isComplete(c, numSets));
+      int best = 100;
+      for(int k = 0; k < 34; k++) {
+        if(c[k] == 0)
+          continue;
+        c[k]--;
+        int s3 = Shape::shanten(c, numSets);
+        c[k]++;
+        best = min(best, s3);
+        bestAfter = min(bestAfter, s3);
+      }
+      if(s2 >= 0)
+        testAssert(s2 == best);
+      worstAfter = max(worstAfter, best);
+      c[j]--;
+    }
+    if(s >= 1)
+      testAssert(bestAfter == s - 1);
+    testAssert(bestAfter >= s - 1);
+  }
+}
+
+static Tai::WinInfo win(const string& hand, const string& winTile, bool selfDraw, vector<Meld> melds = {}) {
+  Tai::WinInfo w;
+  w.concealed = C(hand);
+  w.winTile = T(winTile);
+  w.selfDraw = selfDraw;
+  w.melds = melds;
+  return w;
+}
+
+static Meld meld(Meld::Type t, const string& tile) {
+  Meld m;
+  m.type = t;
+  m.kind = m.called = (uint8_t)T(tile);
+  m.from = 1;
+  if(t == Meld::ANKAN)
+    m.from = -1;
+  return m;
+}
+
+static void testTai() {
+  Rules simple = Rules::parse("simple,none");
+  Rules standard = Rules::parse("standard,none");
+  Rules masters = Rules::parse("masters,none");
+  ostringstream out;
+
+  // Pure suit, concealed, self-drawn; 78m waited on 6m and 9m.
+  Tai::WinInfo a = win("123456789m234678m55m", "9m", true);
+  out << Tai::compute(simple, a).toString() << endl;
+  out << Tai::compute(standard, a).toString() << endl;
+  a.lastTile = true;
+  a.replacement = true;
+  out << Tai::compute(standard, a).toString() << endl;
+  // A pair wait on the red dragon.
+  Tai::WinInfo b = win("123m456p999p789s234s77z", "7z", false);
+  out << Tai::compute(simple, b).toString() << endl;
+  b.flowers = 0x21;  // 1f 6f
+  out << Tai::compute(Rules::parse("simple,see"), b).toString() << endl;
+  out << Tai::compute(Rules::parse("simple,seat"), b).toString() << endl;  // east: 1f counts, 6f does not
+  b.flowers = 0x1F;  // 1f-4f, 5f
+  out << Tai::compute(Rules::parse("simple,seat"), b).toString() << endl;  // 1f, 5f and the seasons
+  // All chows: two-sided wait, discard, no honors.
+  Tai::WinInfo c = win("123m456m99m789p234s567s", "2s", false);
+  out << Tai::compute(standard, c).toString() << endl;
+  c.selfDraw = true;
+  out << Tai::compute(standard, c).toString() << endl;
+  // All pungs with a pung: pair wait, four concealed pungs; then a pung wait completed by a discard.
+  vector<Meld> pon5p = {meld(Meld::PON, "5p")};
+  out << Tai::compute(standard, win("111m222p999s777z33s", "3s", false, pon5p)).toString() << endl;
+  out << Tai::compute(standard, win("111m222p999s777z33s", "9s", false, pon5p)).toString() << endl;
+  // Big dragons.
+  out << Tai::compute(standard, win("555666777z123m44p789s", "4p", false)).toString() << endl;
+  // All melded: standard 2, masters 2 + single wait.
+  vector<Meld> five = {meld(Meld::PON, "5p"), meld(Meld::PON, "7z"), meld(Meld::PON, "1z"), meld(Meld::PON, "9s"),
+                       meld(Meld::PON, "2m")};
+  out << Tai::compute(standard, win("99m", "9m", false, five)).toString() << endl;
+  out << Tai::compute(masters, win("99m", "9m", false, five)).toString() << endl;
+  out << Tai::compute(masters, win("99m", "9m", true, five)).toString() << endl;
+  // Little winds, seat east, round south, self-drawn.
+  Tai::WinInfo d = win("111222333z44z123456m", "6m", true);
+  d.roundWind = 1;
+  out << Tai::compute(standard, d).toString() << endl;
+  // Single wait: 3555m waits on 3m and 4m. Strict: none; loose: a pair wait on 3m.
+  out << Tai::compute(simple, win("33555m111p999p123s789s", "3m", false)).toString() << endl;
+  Rules loose = simple;
+  loose.dutingLoose = 1;
+  out << Tai::compute(loose, win("33555m111p999p123s789s", "3m", false)).toString() << endl;
+  // A concealed kong keeps the hand concealed; heavenly hand replaces concealed and self-draw.
+  Tai::WinInfo e = win("123m456m789m234s55m", "5m", true, {meld(Meld::ANKAN, "9p")});
+  out << Tai::compute(standard, e).toString() << endl;
+  e.heavenly = true;
+  out << Tai::compute(standard, e).toString() << endl;
+
+  TestCommon::expect("tai", out, R"(
+門清1 自摸1 清一色8 = 10
+門清1 自摸1 不求人1 清一色8 = 11
+門清1 自摸1 不求人1 清一色8 海底撈月1 = 12
+門清1 獨聽1 = 2
+門清1 獨聽1 花牌2 = 4
+門清1 獨聽1 花牌1 = 3
+門清1 獨聽1 花牌2 花槓2 = 6
+門清1 平胡2 = 3
+門清1 自摸1 不求人1 = 3
+獨聽1 三元牌1 碰碰胡4 四暗刻5 = 11
+三元牌1 碰碰胡4 三暗刻2 = 7
+門清1 獨聽1 大三元8 三暗刻2 = 12
+全求人2 圈風1 門風1 三元牌1 碰碰胡4 = 9
+全求人2 獨聽1 圈風1 門風1 三元牌1 碰碰胡4 = 10
+自摸1 半求1 獨聽1 圈風1 門風1 三元牌1 碰碰胡4 = 10
+門清1 自摸1 不求人1 圈風1 門風1 小四喜8 三暗刻2 混一色4 = 19
+門清1 = 1
+門清1 獨聽1 = 2
+門清1 自摸1 不求人1 獨聽1 = 4
+天胡24 獨聽1 = 25
+)");
+}
+
+// Tiles in hands, melds, uncalled discards, flowers and the wall add up to the full set.
+static void checkConservation(const Game& g) {
+  int counts[Tiles::NUM_ALL] = {0};
+  for(int s = 0; s < 4; s++) {
+    const SeatState& st = g.seat(s);
+    for(int k = 0; k < 34; k++)
+      counts[k] += st.hand[k];
+    for(const Meld& m : st.melds)
+      for(int t : m.tiles())
+        counts[t]++;
+    for(const Discard& d : st.discards)
+      if(!d.called)
+        counts[d.kind]++;
+    for(int f = 0; f < 8; f++)
+      if(st.flowers & (1 << f))
+        counts[Tiles::FLOWER_BASE + f]++;
+  }
+  // The undrawn wall: everything not accounted for must be exactly what is left.
+  int total = 0;
+  for(int t = 0; t < Tiles::NUM_ALL; t++) {
+    testAssert(counts[t] <= (Tiles::isFlower(t) ? 1 : 4));
+    total += counts[t];
+  }
+  testAssert(total <= g.rules().numTiles());
+}
+
+static void testGames() {
+  for(const char* spec : {"simple,none", "standard,see", "masters,seat", "standard,seat,multi_ron=1,keep=0"}) {
+    Rules rules = Rules::parse(spec);
+    Rand rand(string("games:") + spec);
+    unique_ptr<Player> owned[4];
+    Player* players[4];
+    for(int s = 0; s < 4; s++) {
+      owned[s] = makePlayer(s % 2 == 0 ? "greedy" : "random");
+      players[s] = owned[s].get();
+    }
+    Game game(rules);
+    int wins = 0, draws = 0;
+    for(int h = 0; h < 400; h++) {
+      HandSetup setup = Play::randomSetup(rand);
+      setup.dealer = (int)rand.nextUInt(4);
+      vector<uint8_t> wall = Game::shuffledWall(rules, rand);
+      uint64_t seed = rand.nextUInt64();
+      game.start(setup, wall);
+      Rand r1(seed);
+      Play::playOut(game, players, r1, [&](const Game& g, int s, const Action&) {
+        checkConservation(g);
+        // The deciding seat holds 3n+2 tiles in SELF and 3n+1 otherwise.
+        const SeatState& st = g.seat(s);
+        int n = Tiles::total(st.hand) + 3 * (int)st.melds.size();
+        testAssert(n == (g.phase() == Game::SELF ? 17 : 16));
+      });
+      const HandResult& res = game.result();
+      int baseSum = 0, taiSum = 0;
+      for(int s = 0; s < 4; s++) {
+        baseSum += res.baseDelta[s];
+        taiSum += res.taiDelta[s];
+      }
+      testAssert(baseSum == 0 && taiSum == 0);
+      // Payments follow section 7.
+      if(!res.exhausted) {
+        int expectTai[4] = {0, 0, 0, 0};
+        for(size_t i = 0; i < res.winners.size(); i++) {
+          int w = res.winners[i];
+          for(int p = 0; p < 4; p++) {
+            if(p == w || (res.loser >= 0 && p != res.loser))
+              continue;
+            int amt = res.tai[i].total + ((w == setup.dealer || p == setup.dealer) ? res.dealerTai : 0);
+            expectTai[w] += amt;
+            expectTai[p] -= amt;
+          }
+        }
+        for(int s = 0; s < 4; s++)
+          testAssert(expectTai[s] == res.taiDelta[s]);
+        wins++;
+      }
+      else {
+        draws++;
+        testAssert(res.nextDealer == setup.dealer && res.nextStreak == setup.streak + rules.drawStreak);
+      }
+      // Replaying the same wall and seed gives the same hand.
+      vector<Event> events = game.events();
+      game.start(setup, wall);
+      Rand r2(seed);
+      Play::playOut(game, players, r2);
+      testAssert(game.events().size() == events.size());
+      for(size_t i = 0; i < events.size(); i++)
+        testAssert(game.events()[i].toString() == events[i].toString());
+    }
+    testAssert(wins > 50 && draws > 0);
+  }
+}
+
+void Tests::runAll() {
+  testTiles();
+  cout << "tiles ok" << endl;
+  testShape();
+  cout << "shape ok" << endl;
+  testShanten();
+  cout << "shanten ok" << endl;
+  testTai();
+  cout << "tai ok" << endl;
+  testGames();
+  cout << "games ok" << endl;
+  cout << "All tests passed" << endl;
+}

@@ -1,0 +1,152 @@
+#include "../players/players.h"
+
+#include "../core/global.h"
+#include "../game/shape.h"
+
+#include <algorithm>
+
+using namespace std;
+
+static const Action* findType(const vector<Action>& legal, Action::Type t) {
+  for(const Action& a : legal)
+    if(a.type == t)
+      return &a;
+  return nullptr;
+}
+
+namespace {
+  class RandomPlayer : public Player {
+   public:
+    string name() const override { return "random"; }
+    Action decide(const Game&, int, const vector<Action>& legal, Rand& rand) override {
+      if(const Action* a = findType(legal, Action::TSUMO))
+        return *a;
+      if(const Action* a = findType(legal, Action::RON))
+        return *a;
+      return legal[rand.nextUInt((uint32_t)legal.size())];
+    }
+  };
+
+  // How much a kind is worth keeping when shanten and ukeire tie: honors first, then terminals, then the rest.
+  int keepValue(int k) {
+    if(Tiles::isHonor(k))
+      return 0;
+    int n = k % 9;
+    return n == 0 || n == 8 ? 1 : (n == 1 || n == 7 ? 2 : 3);
+  }
+
+  class GreedyPlayer : public Player {
+   public:
+    string name() const override { return "greedy"; }
+
+    // The best discard of a 3 numSets + 2 hand: (shanten, -ukeire, keep value) smallest.
+    static int bestDiscard(const Counts& hand, int numSets, const Counts& visible, int* outShanten) {
+      int bestKind = -1, bestS = 100, bestU = -1, bestV = 100;
+      Counts c = hand;
+      for(int k = 0; k < Tiles::NUM_KINDS; k++) {
+        if(c[k] == 0)
+          continue;
+        c[k]--;
+        int s = Shape::shanten(c, numSets);
+        if(s <= bestS) {
+          int u = Greedy::ukeire(c, numSets, visible, s);
+          int v = keepValue(k);
+          if(s < bestS || u > bestU || (u == bestU && v < bestV)) {
+            bestKind = k;
+            bestS = s;
+            bestU = u;
+            bestV = v;
+          }
+        }
+        c[k]++;
+      }
+      if(outShanten)
+        *outShanten = bestS;
+      return bestKind;
+    }
+
+    Action decide(const Game& game, int seat, const vector<Action>& legal, Rand&) override {
+      if(const Action* a = findType(legal, Action::TSUMO))
+        return *a;
+      if(const Action* a = findType(legal, Action::RON))
+        return *a;
+      const SeatState& st = game.seat(seat);
+      int numSets = 5 - (int)st.melds.size();
+      Counts visible = game.visibleCounts(seat);
+
+      if(game.phase() == Game::SELF) {
+        if(const Action* a = findType(legal, Action::KAKAN))
+          return *a;
+        int s0;
+        int discard = bestDiscard(st.hand, numSets, visible, &s0);
+        for(const Action& a : legal) {
+          if(a.type != Action::ANKAN)
+            continue;
+          Counts c = st.hand;
+          c[a.kind] -= 4;
+          if(Shape::shanten(c, numSets - 1) <= s0)
+            return a;
+        }
+        return Action(Action::DISCARD, discard);
+      }
+
+      // A discard to call: only a chow or pung that lowers shanten.
+      int s0 = Shape::shanten(st.hand, numSets);
+      Action best(Action::PASS);
+      int bestS = s0;
+      for(const Action& a : legal) {
+        if(a.type != Action::PON && a.type != Action::CHI)
+          continue;
+        Counts c = st.hand;
+        if(a.type == Action::PON) {
+          c[a.kind] -= 2;
+        }
+        else {
+          int t = game.claimTile();
+          for(int k = a.kind; k <= a.kind + 2; k++)
+            if(k != t)
+              c[k]--;
+        }
+        int s1;
+        bestDiscard(c, numSets - 1, visible, &s1);
+        if(s1 < bestS) {
+          bestS = s1;
+          best = a;
+        }
+      }
+      return best;
+    }
+  };
+}
+
+int Greedy::ukeire(const Counts& hand, int numSets, const Counts& visible, int shanten) {
+  Counts c = hand;
+  int total = 0;
+  for(int k = 0; k < Tiles::NUM_KINDS; k++) {
+    int left = 4 - visible[k];
+    if(left <= 0)
+      continue;
+    bool near = c[k] > 0;
+    if(!near && k < 27) {
+      int n = k % 9;
+      for(int d = -2; d <= 2 && !near; d++)
+        if(d != 0 && n + d >= 0 && n + d < 9 && c[k + d] > 0)
+          near = true;
+    }
+    if(!near)
+      continue;
+    c[k]++;
+    if(Shape::shanten(c, numSets) < shanten)
+      total += left;
+    c[k]--;
+  }
+  return total;
+}
+
+unique_ptr<Player> makePlayer(const string& spec) {
+  if(spec == "random")
+    return unique_ptr<Player>(new RandomPlayer());
+  if(spec == "greedy")
+    return unique_ptr<Player>(new GreedyPlayer());
+  throw StringError("Unknown player: " + spec);
+}
