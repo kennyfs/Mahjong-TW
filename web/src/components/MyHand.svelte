@@ -26,6 +26,8 @@
     const out: number[][] = [];
     for (let i = 0; i < n; i += size) out.push(Array.from({ length: Math.min(size, n - i) }, (_, k) => i + k));
     if (!out.length) out.push([]);
+    // A seventeenth tile not drawn (the dealer's at the deal) ends the second row, as a drawn tile would: two rows.
+    if (perRow > 0 && !drawn && out.length > 1 && out[out.length - 1].length === 1) out[out.length - 2].push(...out.pop()!);
     if (drawn) out[out.length - 1].push(n);
     return out;
   });

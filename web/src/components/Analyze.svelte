@@ -86,7 +86,7 @@
 {#snippet section(s: Section, title: string, body: import('svelte').Snippet)}
   <div class="section" class:on={isOn(s)} role="button" tabindex="0" onclick={() => (ed.section = s)}
     onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') ed.section = s; }}>
-    <div class="sec-title label-large">{title}{#if isOn(s)}<span class="editing">{t('analysis_editing', '')}</span>{/if}</div>
+    <div class="sec-title label-large">{title}{#if isOn(s)}<span class="editing">{t('analysis_editing')}</span>{/if}</div>
     {@render body()}
   </div>
 {/snippet}
@@ -145,7 +145,7 @@
         {/snippet}
         {@render section({ kind: 'melds', seat }, t('analysis_melds'), meldsBody)}
         {#snippet flowersBody()}{@render tiles(ed.flowers[seat], { kind: 'flowers', seat }, sw * 0.85)}{/snippet}
-        {#if !settings.spec.startsWith('simple,none') || ed.flowers[seat].length}
+        {#if settings.rules.flowers !== 'none' || ed.flowers[seat].length}
           {@render section({ kind: 'flowers', seat }, t('analysis_flowers'), flowersBody)}
         {/if}
         {#snippet discardsBody()}{@render tiles(ed.discards[seat], { kind: 'discards', seat }, sw * 0.85)}{/snippet}
@@ -153,16 +153,19 @@
       {/each}
 
       {#if !ui.wide}
-        <div class="run">
-          {#if missing}<span class="body-medium dim">{missing}</span>{/if}
-          <button class="btn filled" disabled={!!missing || running} onclick={run}>{t('analysis_run')}</button>
-        </div>
         {#if error}<p class="bad body-medium pad">{t('analysis_error', error)}</p>{/if}
         {#if result}<div class="results" bind:this={resultsEl}><AnalysisList analysis={result} w={sw} /></div>{/if}
       {/if}
     </div>
 
     <div class="side">
+      {#if !ui.wide}
+        <!-- A tall window: the button over the palette, always in view (the results come under the editor). -->
+        <div class="run">
+          {#if missing}<span class="body-medium dim">{missing}</span>{/if}
+          <button class="btn filled" disabled={!!missing || running} onclick={run}>{t('analysis_run')}</button>
+        </div>
+      {/if}
       <div class="palette">
         <div class="body-small dim hint">{t('analysis_palette_hint')}</div>
         <div class="grid" style="grid-template-columns: repeat(9, {pw}px)">

@@ -1,8 +1,8 @@
 <!--
   One decision's analysis, from a finished hand (its review): the engine's figures for each legal action of the
   deciding seat, the one taken marked, with the table as that seat saw it. A large window shows both side by side; a
-  phone shows the seat's hand over the list, and the whole table at a tap (so that no tile gets small). Only after
-  the hand: never while it is played.
+  phone shows the seat's hand beside the list when sideways and over it when upright, and the whole table at a tap
+  (so that no tile gets small). Only after the hand: never while it is played.
 -->
 <script lang="ts">
   import type { AnalysisTarget } from '../lib/app.svelte';
@@ -11,7 +11,7 @@
   import { flowersOf, meldTiles } from '../lib/seats';
   import { parseTiles, sortTiles, tileName, windName, without } from '../lib/tiles';
   import type { Analysis, View } from '../lib/types';
-  import { ui } from '../lib/ui.svelte';
+  import { NAV_RAIL, ui } from '../lib/ui.svelte';
   import AnalysisList from './AnalysisList.svelte';
   import Icon from './Icon.svelte';
   import Table from './Table.svelte';
@@ -36,6 +36,8 @@
   const names = $derived(target?.names ?? [t('you'), t('cpu_n', 1), t('cpu_n', 2), t('cpu_n', 3)]);
   const seat = $derived(target?.seat ?? 0);
   const sideBySide = $derived(ui.wide && ui.w >= 1000);
+  // A phone sideways: the hand in one column, the list in the other (as the app's DecisionAnalysisScreen).
+  const sideways = $derived(ui.wide && !sideBySide);
 
   // The deciding seat's tiles: the drawn one apart, or the discard decided on.
   const mine = $derived.by(() => {
@@ -54,7 +56,7 @@
     if (mine?.drawn) return `${head}・${t('analysis_drawn')} ${tileName(mine.drawn)}`;
     return head;
   });
-  const hw = $derived(Math.min(44, (Math.min(ui.w, 720) - 32) / 9.4));
+  const hw = $derived(sideways ? Math.min(44, ((ui.w - NAV_RAIL) / 2 - 24) / 9.4) : Math.min(44, (Math.min(ui.w, 720) - 32) / 9.4));
 </script>
 
 {#snippet summary()}
@@ -101,6 +103,16 @@
     <div class="table-wrap">
       {#if view && target}<Table {view} me={seat} {names} interactive={false} />{/if}
     </div>
+  {:else if sideways}
+    <div class="body">
+      <div class="scroll half">{@render summary()}</div>
+      <div class="scroll half">
+        {#if analysis}
+          <div class="section-header">{t('analysis_results')}</div>
+          <div class="list"><AnalysisList {analysis} chosen={target?.chosen ?? null} w={Math.max(30, hw * 0.8)} /></div>
+        {:else if !error}<div class="loading"><span class="spinner"></span></div>{/if}
+      </div>
+    </div>
   {:else}
     <div class="scroll"><div class="readable">
       {@render summary()}
@@ -120,6 +132,7 @@
   .table-wrap { flex: 1; min-height: 0; min-width: 0; position: relative; }
   .results { flex: 0 0 min(460px, 40%); min-height: 0; overflow: auto; padding-bottom: 16px; }
   .scroll { flex: 1; overflow: auto; padding-bottom: 16px; }
+  .half { flex: 1 1 0; min-width: 0; }
   .readable { max-width: 760px; margin: 0 auto; }
   .summary { display: flex; flex-direction: column; gap: 8px; padding: 8px 16px; }
   .hand { display: flex; flex-wrap: wrap; row-gap: 6px; align-items: flex-end; }
