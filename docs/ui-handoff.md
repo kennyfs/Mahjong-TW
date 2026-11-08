@@ -1,7 +1,7 @@
 # Handoff: the app and the web page
 
-For the session that builds the interfaces (the Android app, the web page, and the battle server). Written by the
-engine session on 2026-11-09. Read it whole before starting.
+For the session that builds the first version of the interfaces (the Android app, the web page, and the battle
+server). Written by the engine session on 2026-11-09. Read it whole before starting.
 
 ## 1. Where things stand
 
@@ -18,9 +18,11 @@ engine session on 2026-11-09. Read it whole before starting.
 
 ## 2. Your job
 
-A first version that is decent to use, not a finished product: the user will ask for changes later, in this same
-session (all later app work happens here). Sessions never run at the same time, so you have the checkout and the
-machine's quota to yourself.
+A first version that is decent to use, not a finished product. **This session is a one-off**: when its work is
+done the user stops using it, and the engine session takes over all development again, the app included. The app
+work resumes there only much later, after the rules are settled and a nearly final network is trained, so whoever
+picks it up will have none of this session's context: leave the work so it can be continued cold (section 7).
+Sessions never run at the same time, so you have the checkout and the machine's quota to yourself.
 
 - Work on the branch `ui` (made from `master` and checked out by the engine session); commit only there. The user fast-forwards `master` to it later, so
   never rewrite `master` and never rebase onto anything.
@@ -150,12 +152,24 @@ network); keep Thirteen's structure so it can be added (Thirteen's reduced ORT b
 - Never send files with SendUserFile: put builds and screenshots under `mahjong-files/` and give the path; the user
   fetches them with rsync or sftp.
 - `reference/` is not committed.
-- The project memory in `~/.claude/projects/-HOME-Mahjong-TW/memory/` (shared with the engine session)
-  has the user's decisions on rules, resources and files; keep it up to date.
+- The project memory in `~/.claude/projects/-HOME-Mahjong-TW/memory/` is shared with the engine
+  session: it has the user's decisions on rules, resources and files. Add to it what the user tells you that should
+  outlive this session (preferences on the look and the behavior of the app, workflow rules), one fact per file.
 
 ## 7. When you finish
 
-Leave the branch committed and clean, with the build and test steps in `android/README.md` and `web/README.md` and
-the layout table in `README.md` updated; build an APK into `mahjong-files/apk/` and the web page into
-`mahjong-files/` too; then tell the user, in Traditional Chinese, what exists, where the APK, web build and
-screenshots are, and what is missing or rough. Then stop: the next step is the user's (confirming the rules).
+The next session to touch the app is the engine session, months of work later. Leave it everything it needs:
+
+- The branch committed and clean (`git status` empty), the layout table in `README.md` updated.
+- `android/README.md`, `web/README.md` and a server section (like Thirteen's `docs/battle.md`): how to build, run,
+  test and take the standard screenshots, with the exact commands and scripts, so the loop can be restarted
+  without rediscovering the environment.
+- `docs/app.md`: the screens and where each lives in the code; the design decisions and why (what was taken from
+  Thirteen, what was changed for mahjong); the user's feedback during this session and what was done about it;
+  where the network plugs in (bots, analysis, the contest's scoring); what is missing or rough, as a list to work
+  from.
+- An APK in `mahjong-files/apk/`, the web build in `mahjong-files/`, the final screenshots in
+  `mahjong-files/shots/`.
+
+Then tell the user, in Traditional Chinese, what exists, where the APK, the web build and the screenshots are, and
+what is missing or rough, and stop.

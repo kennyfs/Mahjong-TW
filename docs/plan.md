@@ -96,9 +96,11 @@ A light search at decision time on a computer (sampling the hidden tiles and pla
 Sessions do not overlap, so they share the checkout and the machine's quota.
 
 1. Engine and rules (done, on `master`).
-2. The app and the web page, a first version, in a separate session on branch `ui` (docs/ui-handoff.md). It uses
-   the engine through docs/gui-engine.md, with the `greedy` bot and the efficiency analysis.
+2. The app and the web page, a first version, in a one-off separate session on branch `ui` (docs/ui-handoff.md;
+   it leaves its notes in docs/app.md). It uses the engine through docs/gui-engine.md, with the `greedy` bot and
+   the efficiency analysis. Everything after it is done in the engine session again.
 3. The family's rules confirmed; `ui` merged into `master` (fast-forward); 3.2 to 3.4 above. **No training before
    the rules are confirmed**: the flow of play may differ in details beyond the tai.
 4. Training.
-5. The network in the app and the web page (bots, analysis, the puzzle contest's scoring).
+5. With a nearly final network: the app and the web page again (the network as bots and analysis, the
+   contest's scoring, the user's changes).
