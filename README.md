@@ -8,9 +8,14 @@ on the author's Thirteen (十三張) project.
 - Plan: [docs/plan.md](docs/plan.md).
 
 - The engine's JSON interface for the app and the web page: [docs/gui-engine.md](docs/gui-engine.md).
+- The app and the web page, their status, decisions and what is missing: [docs/app.md](docs/app.md); battles and the
+  battle server: [docs/battle.md](docs/battle.md).
 
 Status: the C++ engine (rules, scoring, the play of a hand), two baseline players, tile-efficiency analysis, and the
-JSON engine for interfaces. No network yet; no app or web page yet (branch `ui`, [docs/ui-handoff.md](docs/ui-handoff.md)).
+JSON engine for interfaces; the first prototype of the Android app ([android/](android/README.md)), the web page
+([web/](web/README.md)) and the battle server (branch `ui`): practice against bots, battles (online, and phones nearby
+in the app), the analysis of positions and of every decision of a finished hand, records, rules and settings. No
+network yet: the bots and the analysis use tile efficiency.
 
 ## Layout
 
@@ -27,6 +32,11 @@ JSON engine for interfaces. No network yet; no app or web page yet (branch `ui`,
 | `cpp/command/guiengine.*` | The JSON engine of the interfaces (docs/gui-engine.md); `mahjong gui` serves it on stdin and stdout. |
 | `cpp/command/` | Subcommands; `mahjong help` lists them. |
 | `cpp/tests/` | Unit tests. |
+| `art/` | `make_tiles.py`: the tiles' faces as paths (glyphs from Noto Serif CJK), written for the app (`TileArt.kt`) and the page (`tile-art.ts`). |
+| `android/` | The Android app (Kotlin, Jetpack Compose; the engine through JNI): [android/README.md](android/README.md). |
+| `web/` | The web page (Svelte 5, Vite; the engine as WebAssembly): [web/README.md](web/README.md). |
+| `protocol/` | The battle protocol, rooms and their limits (Kotlin), shared by the server and the app: [docs/battle.md](docs/battle.md). |
+| `server/` | The battle server (Ktor over WebSockets, `mahjong gui` processes as the engine), its Docker image and Caddy site. |
 
 ## Building
 
