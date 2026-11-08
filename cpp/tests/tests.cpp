@@ -1,6 +1,8 @@
 #include "../tests/tests.h"
 
+#include "../command/guiengine.h"
 #include "../command/play.h"
+#include "../players/analysis.h"
 #include "../core/test.h"
 #include "../game/shape.h"
 
@@ -314,6 +316,72 @@ static void testGames() {
   }
 }
 
+
+// The GUI engine: records replay to the same hand; a seat's view hides what it cannot see; a position taken from a
+// game and loaded back gives the seat the same choices and figures.
+static void testGuiEngine() {
+  using json = nlohmann::json;
+  GuiEngine engine;
+  Rand rand("gui");
+  for(int iter = 0; iter < 30; iter++) {
+    string spec = iter % 3 == 0 ? "simple,none" : iter % 3 == 1 ? "standard,see" : "masters,seat";
+    json g = engine.handle(json{{"cmd", "new"}, {"rules", spec}, {"seed", "g" + Global::intToString(iter)},
+                                {"setup", {{"dealer", iter % 4}, {"round", iter % 4}, {"streak", iter % 3}}}})["game"];
+    int person = iter % 4;
+    json players = json::array();
+    for(int s = 0; s < 4; s++)
+      players.push_back(s == person ? json(nullptr) : json(s % 2 ? "random" : "greedy"));
+    for(int step = 0; step < 300; step++) {
+      g = engine.handle(json{{"cmd", "advance"}, {"game", g}, {"players", players}, {"seed", step}})["game"];
+      json v = engine.handle(json{{"cmd", "view"}, {"game", g}, {"seat", person}});
+      if(v["phase"] == "over")
+        break;
+      testAssert(v["my_turn"].get<bool>());
+      // Others' draws are hidden.
+      for(const json& e : v["events"])
+        if(e["type"] == "draw" && e["seat"] != person)
+          testAssert(e["tile"].is_null());
+      testAssert(!v.contains("hands"));
+      // The same choices from the position alone.
+      GuiJson::Record rec = GuiJson::parseRecord(g);
+      Game game(Rules::parse(rec.rules));
+      GuiJson::replay(rec, game);
+      Position pos = GuiJson::parsePosition(v["position"]);
+      Game loaded(Rules::parse(rec.rules));
+      loaded.loadPosition(pos, rand);
+      vector<Action> a1, a2;
+      game.legalActions(person, a1);
+      loaded.legalActions(person, a2);
+      testAssert(a1.size() == a2.size());
+      for(size_t i = 0; i < a1.size(); i++)
+        testAssert(a1[i] == a2[i]);
+      vector<Analysis::ActionInfo> f1 = Analysis::efficiency(game, person), f2 = Analysis::efficiency(loaded, person);
+      testAssert(f1.size() == f2.size());
+      for(size_t i = 0; i < f1.size(); i++)
+        testAssert(f1[i].shanten == f2[i].shanten && f1[i].ukeire == f2[i].ukeire &&
+                   f1[i].waits.size() == f2[i].waits.size() && f1[i].winTai == f2[i].winTai);
+      // The person plays like greedy.
+      json act = engine.handle(json{{"cmd", "bot"}, {"game", g}, {"seat", person}, {"player", "greedy"}})["action"];
+      g = engine.handle(json{{"cmd", "act"}, {"game", g}, {"seat", person}, {"action", act}})["game"];
+    }
+    json v = engine.handle(json{{"cmd", "view"}, {"game", g}, {"seat", person}});
+    testAssert(v["phase"] == "over" && v["hands"].size() == 4);
+    double sum = 0;
+    for(const json& p : v["result"]["points"])
+      sum += p.get<double>();
+    testAssert(sum == 0);
+    // The record survives a round trip through text.
+    GuiJson::Record rec = GuiJson::parseRecord(json::parse(g.dump()));
+    testAssert(GuiJson::record(rec) == g);
+    // The next hand.
+    json n = engine.handle(json{{"cmd", "next"}, {"game", g}, {"start_dealer", 0}, {"seed", "n"}});
+    testAssert(n["game"]["setup"]["dealer"] == v["result"]["next_dealer"]);
+  }
+  // Errors are answers, not crashes.
+  testAssert(json::parse(engine.handleLine("{\"cmd\": \"nope\"}")).contains("error"));
+  testAssert(json::parse(engine.handleLine("not json")).contains("error"));
+}
+
 void Tests::runAll() {
   testTiles();
   cout << "tiles ok" << endl;
@@ -325,5 +393,7 @@ void Tests::runAll() {
   cout << "tai ok" << endl;
   testGames();
   cout << "games ok" << endl;
+  testGuiEngine();
+  cout << "gui engine ok" << endl;
   cout << "All tests passed" << endl;
 }

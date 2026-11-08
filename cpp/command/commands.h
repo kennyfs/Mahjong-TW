@@ -10,6 +10,7 @@ namespace Commands {
   int show(std::vector<std::string> args);
   int tai(std::vector<std::string> args);
   int benchmark(std::vector<std::string> args);
+  int gui(std::vector<std::string> args);
 }
 
 #endif // COMMAND_COMMANDS_H_

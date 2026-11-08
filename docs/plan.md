@@ -25,6 +25,10 @@ How to build a strong, light Taiwanese mahjong player, what exists now, and what
 - Players `random` and `greedy` (fewest tiles from ready, then the most improving tiles; calls only when they lower
   shanten; no defense, no tai awareness).
 - `match` (duplicate walls, 4 rotations or 24 orders, multithreaded), `show`, `tai`, `benchmark`.
+- `Position` (what one seat knows) and loading it back with the hidden tiles filled at random: for the analysis of a
+  position set up by hand, and later for sampling in a search.
+- Tile-efficiency analysis of every legal action, and the JSON engine of the interfaces (docs/gui-engine.md):
+  stateless, a hand travels as its record (rules, setup, wall, decisions) and is replayed per request.
 
 Speed on one thread (`mahjong benchmark`): shanten of a 16-tile hand 0.38 µs; a hand between four `random` players
 0.09 ms, between four `greedy` players 1.8 ms (most of it the improving-tile counts). `match` with 32 threads plays
@@ -85,5 +89,16 @@ Self-play runs on the workstation (32 cores); training on the home GPU or Colab 
 
 ### 3.5 Later
 
-A light search at decision time on a computer (sampling the hidden tiles and playing out with the network), the app
-and the web page (the engine as WebAssembly, as in Thirteen).
+A light search at decision time on a computer (sampling the hidden tiles and playing out with the network).
+
+## 4. Order of work
+
+Sessions do not overlap, so they share the checkout and the machine's quota.
+
+1. Engine and rules (done, on `master`).
+2. The app and the web page, a first version, in a separate session on branch `ui` (docs/ui-handoff.md). It uses
+   the engine through docs/gui-engine.md, with the `greedy` bot and the efficiency analysis.
+3. The family's rules confirmed; `ui` merged into `master` (fast-forward); 3.2 to 3.4 above. **No training before
+   the rules are confirmed**: the flow of play may differ in details beyond the tai.
+4. Training.
+5. The network in the app and the web page (bots, analysis, the puzzle contest's scoring).

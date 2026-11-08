@@ -7,7 +7,10 @@ on the author's Thirteen (十三張) project.
   standard, masters, or any values) are parameters.
 - Plan: [docs/plan.md](docs/plan.md).
 
-Status: the C++ engine (rules, scoring, the play of a hand) and two baseline players. No network yet.
+- The engine's JSON interface for the app and the web page: [docs/gui-engine.md](docs/gui-engine.md).
+
+Status: the C++ engine (rules, scoring, the play of a hand), two baseline players, tile-efficiency analysis, and the
+JSON engine for interfaces. No network yet; no app or web page yet (branch `ui`, [docs/ui-handoff.md](docs/ui-handoff.md)).
 
 ## Layout
 
@@ -19,7 +22,9 @@ Status: the C++ engine (rules, scoring, the play of a hand) and two baseline pla
 | `cpp/game/rules.*` | Rule parameters and presets (docs/rules.md section 11). |
 | `cpp/game/tai.*` | Melds and the tai of a winning hand (section 9). |
 | `cpp/game/game.*` | One hand as a state machine: deal, flowers, draws, calls and their priority, missed wins, robbing a kong, the end of the wall, flower wins, payments and the next dealer. |
-| `cpp/players/` | Players: `random`, `greedy` (tile efficiency, no defense). |
+| `cpp/players/players.*` | Players: `random`, `greedy` (tile efficiency, no defense). |
+| `cpp/players/analysis.*` | Figures for each legal action (shanten, improving tiles, waits and their tai): the analysis shown in the app until the network exists. |
+| `cpp/command/guiengine.*` | The JSON engine of the interfaces (docs/gui-engine.md); `mahjong gui` serves it on stdin and stdout. |
 | `cpp/command/` | Subcommands; `mahjong help` lists them. |
 | `cpp/tests/` | Unit tests. |
 
@@ -50,6 +55,9 @@ build/mahjong tai --hand 111222333z44z123456m --win 6m --tsumo --round-wind S --
 
 # Speed.
 build/mahjong benchmark
+
+# The interfaces' JSON engine: one request per line in, one answer per line out.
+echo '{"cmd":"new","rules":"simple,see","seed":"x"}' | build/mahjong gui
 ```
 
 Rules specs are comma-separated presets and `name=value` overrides, e.g. `simple,see,base=2,draw_streak=0`

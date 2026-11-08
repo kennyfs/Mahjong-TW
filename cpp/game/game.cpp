@@ -645,3 +645,178 @@ Counts Game::visibleCounts(int s) const {
   }
   return c;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Positions
+
+Position Game::positionOf(int s) const {
+  Position p;
+  p.setup = setup_;
+  p.setup.eastSeat = eastSeat_;
+  p.me = s;
+  p.hand = seats_[s].hand;
+  if(phase_ == SELF && cur_ == s) {
+    p.drawn = drawn_;
+    p.afterCall = afterCall_;
+  }
+  else if((phase_ == REACT || phase_ == ROB_KONG) && s != claimSeat_) {
+    p.claimSeat = claimSeat_;
+    p.claimTile = claimTile_;
+    p.robKong = phase_ == ROB_KONG;
+  }
+  for(int q = 0; q < 4; q++) {
+    Position::Player& pl = p.players[q];
+    pl.melds = seats_[q].melds;
+    if(q != s)
+      for(Meld& m : pl.melds)
+        if(m.type == Meld::ANKAN)
+          m.kind = m.called = Position::UNKNOWN;
+    pl.flowers = seats_[q].flowers;
+    pl.discards = seats_[q].discards;
+  }
+  p.wallLeft = wallLeft();
+  return p;
+}
+
+void Game::loadPosition(const Position& p, Rand& rand) {
+  if(p.me < 0 || p.me > 3 || p.claimSeat > 3 || p.claimSeat == p.me)
+    throw StringError("Bad seat in position");
+  setup_ = p.setup;
+  eastSeat_ = setup_.eastSeat < 0 ? setup_.dealer : setup_.eastSeat;
+  events_.clear();
+  result_ = HandResult();
+  anyCall_ = false;
+  int used[Tiles::NUM_KINDS] = {0};
+  uint8_t flowersShown = 0;
+  for(int s = 0; s < 4; s++) {
+    seats_[s] = SeatState();
+    const Position::Player& pl = p.players[s];
+    seats_[s].melds = pl.melds;
+    seats_[s].flowers = pl.flowers;
+    seats_[s].discards = pl.discards;
+    if(flowersShown & pl.flowers)
+      throw StringError("A flower shown twice");
+    flowersShown |= pl.flowers;
+    for(const Meld& m : pl.melds) {
+      if(m.kind == Position::UNKNOWN) {
+        if(m.type != Meld::ANKAN || s == p.me)
+          throw StringError("Only another player's concealed kong can be of unknown kind");
+        continue;
+      }
+      for(int t : m.tiles())
+        used[t]++;
+      if(m.isOpen())
+        anyCall_ = true;
+    }
+    for(const Discard& d : pl.discards)
+      if(!d.called)
+        used[d.kind]++;
+  }
+  if(flowersShown && !rules_.hasFlowers())
+    throw StringError("Flowers shown, but the rules have none");
+  for(int k = 0; k < Tiles::NUM_KINDS; k++)
+    used[k] += p.hand[k];
+  bool react = p.claimSeat >= 0;
+  int claimTile = p.claimTile;
+  if(react && claimTile < 0) {
+    if(p.robKong || p.players[p.claimSeat].discards.empty())
+      throw StringError("A claim needs its tile");
+    claimTile = p.players[p.claimSeat].discards.back().kind;
+  }
+  if(react && p.robKong)
+    used[claimTile]++;
+  // Others' concealed kongs of unknown kind: any kind nobody has seen.
+  for(int s = 0; s < 4; s++)
+    for(Meld& m : seats_[s].melds) {
+      if(m.kind != Position::UNKNOWN)
+        continue;
+      vector<int> free;
+      for(int k = 0; k < Tiles::NUM_KINDS; k++)
+        if(used[k] == 0)
+          free.push_back(k);
+      if(free.empty())
+        throw StringError("No kind left for a concealed kong");
+      int k = free[rand.nextUInt((uint32_t)free.size())];
+      m.kind = m.called = (uint8_t)k;
+      used[k] += 4;
+    }
+  for(int k = 0; k < Tiles::NUM_KINDS; k++)
+    if(used[k] > 4)
+      throw StringError("More than four of " + Tiles::name(k));
+  int mine = Tiles::total(p.hand) + 3 * (int)p.players[p.me].melds.size();
+  if(mine != (react ? 16 : 17))
+    throw StringError("The hand has " + Global::intToString(Tiles::total(p.hand)) + " tiles; with " +
+                      Global::intToString((int)p.players[p.me].melds.size()) + " melds it needs " +
+                      Global::intToString((react ? 16 : 17) - 3 * (int)p.players[p.me].melds.size()));
+  seats_[p.me].hand = p.hand;
+
+  // Deal what `me` cannot see.
+  vector<uint8_t> pool;
+  for(int k = 0; k < Tiles::NUM_KINDS; k++)
+    for(int i = used[k]; i < 4; i++)
+      pool.push_back((uint8_t)k);
+  for(int i = (int)pool.size() - 1; i > 0; i--)
+    swap(pool[i], pool[rand.nextUInt((uint32_t)(i + 1))]);
+  size_t next = 0;
+  for(int s = 0; s < 4; s++) {
+    if(s == p.me)
+      continue;
+    int need = 16 - 3 * (int)seats_[s].melds.size();
+    if(need < 1 || next + need > pool.size())
+      throw StringError("Not enough tiles for the other hands");
+    for(int i = 0; i < need; i++)
+      seats_[s].hand[pool[next++]]++;
+  }
+  wall_.assign(pool.begin() + next, pool.end());
+  if(rules_.hasFlowers())
+    for(int f = 0; f < Tiles::NUM_FLOWERS; f++)
+      if(!(flowersShown & (1 << f)))
+        wall_.push_back((uint8_t)(Tiles::FLOWER_BASE + f));
+  for(int i = (int)wall_.size() - 1; i > 0; i--)
+    swap(wall_[i], wall_[rand.nextUInt((uint32_t)(i + 1))]);
+  int remaining = (int)wall_.size();
+  int target = p.wallLeft >= 0 ? p.wallLeft + rules_.keep : remaining;
+  front_ = max(0, remaining - target);
+  back_ = remaining;
+
+  for(int s = 0; s < 4; s++) {
+    SeatState& st = seats_[s];
+    st.hasDiscarded = !st.discards.empty();
+    st.draws = (int)st.discards.size();
+    for(const Meld& m : st.melds)
+      st.declaredKong = st.declaredKong || m.isKong();
+  }
+  if(!react) {
+    enterSelf(p.me, p.drawn, p.afterCall);
+    return;
+  }
+  cur_ = p.claimSeat;
+  drawn_ = -1;
+  afterCall_ = false;
+  replacementWin_ = false;
+  claimSeat_ = p.claimSeat;
+  claimTile_ = claimTile;
+  claimLast_ = !p.robKong && wallLeft() <= 0;
+  phase_ = p.robKong ? ROB_KONG : REACT;
+  for(int i = 0; i < 4; i++) {
+    mustDecide_[i] = decided_[i] = canRon_[i] = false;
+    if(i == claimSeat_)
+      continue;
+    canRon_[i] = winTai(i) >= 0;
+    if(p.robKong) {
+      mustDecide_[i] = canRon_[i];
+      continue;
+    }
+    vector<Action> legal;
+    mustDecide_[i] = true;
+    legalActions(i, legal);
+    mustDecide_[i] = legal.size() > 1;
+  }
+  // Nobody can claim: the play goes on, as after any discard.
+  if(pending().empty()) {
+    if(p.robKong)
+      resolveRob();
+    else
+      resolveReact();
+  }
+}

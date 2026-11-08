@@ -40,7 +40,10 @@ add_executable(mahjong
   ${CORE_SOURCES}
   ${GAME_SOURCES}
   players/players.cpp
+  players/analysis.cpp
   command/play.cpp
+  command/guiengine.cpp
+  command/gui.cpp
   command/runtests.cpp
   command/match.cpp
   command/show.cpp

@@ -83,6 +83,31 @@ struct HandResult {
   std::string toString(double base) const;
 };
 
+// What one seat knows: the setup, its own hand, everyone's melds (others' concealed kongs with kind UNKNOWN),
+// flowers and discards, the tiles left, and whose decision it is. A game gives it (Game::positionOf), and a position
+// entered by hand (for analysis) loads into a game with the hidden tiles dealt at random (Game::loadPosition).
+struct Position {
+  static constexpr uint8_t UNKNOWN = 255;
+  struct Player {
+    std::vector<Meld> melds;
+    uint8_t flowers = 0;
+    std::vector<Discard> discards;
+  };
+  HandSetup setup;
+  int me = 0;
+  Counts hand{};
+  // Deciding on its own turn (SELF): the tile just drawn, -1 after a chow or pung (afterCall) or when unknown.
+  int drawn = -1;
+  bool afterCall = false;
+  // Deciding on another player's discard instead: that player, and the tile (-1: its last discard). With robKong,
+  // on the tile of its added kong (its pung still shows three).
+  int claimSeat = -1;
+  int claimTile = -1;
+  bool robKong = false;
+  Player players[4];
+  int wallLeft = -1;  // -1: whatever the tiles leave
+};
+
 class Game {
  public:
   enum Phase { SELF, REACT, ROB_KONG, OVER };
@@ -118,6 +143,13 @@ class Game {
   const std::vector<Event>& events() const { return events_; }
   const HandResult& result() const { return result_; }
   const std::vector<uint8_t>& wall() const { return wall_; }
+
+  // What `seat` knows now (in SELF for the current seat, in REACT and ROB_KONG for the deciding seats).
+  Position positionOf(int seat) const;
+  // Replaces the state with a position: the tiles `me` cannot see are dealt at random to the other hands (and to the
+  // others' unknown concealed kongs) and to the wall. Unknown history counts as plain (no missed win, a draw for each
+  // discard). Throws StringError on an impossible position (more than four of a kind, wrong hand size).
+  void loadPosition(const Position& p, Rand& rand);
 
   // The tiles of each kind that `seat` can see: its own hand and melds, the others' melds (except concealed kongs)
   // and every discard not called.
