@@ -1,0 +1,20 @@
+# The server image needs cpp/, protocol/ and server/; the site web/ too, with the app's strings.
+*
+!cpp
+!protocol
+!server
+!web
+!android/app/src/main/res/values*/strings.xml
+web/node_modules
+web/dist
+web/build
+web/engine-files
+web/src/generated
+web/scripts/__pycache__
+cpp/build*
+server/build
+server/.gradle
+server/.kotlin
+protocol/build
+**/.gradle
+**/.kotlin
