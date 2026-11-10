@@ -159,7 +159,8 @@ void Game::log(Event::Type t, int seat, int tile, int extra) {
 void Game::drawFor(int s, bool replacement, bool kongReplacement) {
   bool flowerReplacement = false;
   while(true) {
-    if((!replacement && back_ - front_ - rules_.keep <= 0) || back_ <= front_) {
+    // The last `keep` tiles are never drawn, replacements included (docs/rules.md 3.4).
+    if(back_ - front_ - rules_.keep <= 0 || back_ <= front_) {
       finishExhausted();
       return;
     }

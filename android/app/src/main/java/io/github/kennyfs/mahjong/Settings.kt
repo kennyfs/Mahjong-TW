@@ -68,8 +68,7 @@ class Settings(context: Context) {
 
   private val stored: StoredSettings = runCatching { EngineJson.decodeFromString<StoredSettings>(prefs.getString("settings", null) ?: "{}") }.getOrDefault(StoredSettings())
 
-  // A tai preset no longer listed (the old "simple") reads as the default.
-  var rules by mutableStateOf(stored.rules.let { if (it.tai in Rules.TAI_PRESETS) it else it.copy(tai = RuleChoice().tai) })
+  var rules by mutableStateOf(stored.rules)
   var length by mutableStateOf(stored.length)
   var bot by mutableStateOf(if (BOTS.any { it.first == stored.bot }) stored.bot else "greedy")
   var speed by mutableStateOf(stored.speed)

@@ -84,33 +84,42 @@ void Rules::set(const string& name, double value) {
   throw StringError("Unknown rule parameter: " + name);
 }
 
-// "simple" is the old name of simple1, kept so that older records still read.
 const char* const Rules::TAI_PRESETS[] = {"simple1", "simple2", "standard", "masters", nullptr};
 const char* const Rules::FLOWER_PRESETS[] = {"none", "see", "seat", nullptr};
 
 void Rules::applyPreset(const string& name) {
-  if(name == "simple1" || name == "simple" || name == "simple2" || name == "standard" || name == "masters") {
-    // Every tai item off, then the preset's (docs/rules.md section 9).
+  if(name == "simple1" || name == "simple2" || name == "standard" || name == "masters") {
+    // Every tai item off, then the preset's (docs/rules.md section 9). The presets also set the base and whether a
+    // discard can make several winners.
     dealer = 1;
-    streak = 2;
-    menqing = 1;
     zimo = 1;
-    menqingZimo = 1;
-    duting = 1;
-    qingyise = 8;
+    menqing = menqingZimo = duting = qingyise = 0;
     eightFlowers = sevenRobOne = 0;
     pinghu = quanqiu = quanqiuDuting = banqiu = 0;
     roundWind = seatWind = dragon = xiaosanyuan = dasanyuan = xiaosixi = dasixi = dasixiWinds = 0;
     pengpenghu = sananke = sianke = wuanke = hunyise = ziyise = 0;
     qianggang = gangshang = haidi = hedi = tianhu = dihu = renhu = 0;
     anyWind = noHonorFlower = kongTai = ankongTai = 0;
-    if(name == "simple1" || name == "simple")
-      return;
-    if(name == "simple2") {
-      // Southern Taiwan, 136 tiles: no concealed hand (provisional, docs/rules.md section 9).
-      menqing = menqingZimo = 0;
+    if(name == "simple1") {
+      // Southern Taiwan: dealer, streak and self-draw only; base 2 tai; 截胡.
+      streak = 1;
+      base = 2;
+      multiRon = 0;
       return;
     }
+    menqing = menqingZimo = duting = 1;
+    if(name == "simple2") {
+      // The family rules: 門清一摸三, strict single wait, pure suit 1; 一炮多響.
+      streak = 1;
+      qingyise = 1;
+      base = 1;
+      multiRon = 1;
+      return;
+    }
+    streak = 2;
+    qingyise = 8;
+    base = 1;
+    multiRon = 0;
     eightFlowers = sevenRobOne = 8;
     pinghu = 2;
     quanqiu = 2;

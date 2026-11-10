@@ -34,7 +34,7 @@ Speed on one thread (`mahjong benchmark`): shanten of a 16-tile hand 0.38 µs; a
 0.09 ms, between four `greedy` players 1.8 ms (most of it the improving-tile counts). `match` with 32 threads plays
 about 14,000 greedy hands per second.
 
-First results (5,000 duplicate walls × 4 rotations, `simple,none`):
+First results (5,000 duplicate walls × 4 rotations, under the first `simple` preset, now close to `simple2`):
 
 | Players | Result per hand | Win | Self-draw | Deal-in | Exhaustive draw |
 |---|---|---|---|---|---|

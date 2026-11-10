@@ -47,8 +47,11 @@ Terms used throughout:
    deal, the players show their flowers and draw replacements in turn order starting from the dealer, and repeat
    passes until nobody holds a flower. During play, a flower drawn is shown and replaced at once. Showing flowers is
    automatic: it is never a decision.
-4. **The end of the wall.** When only 16 tiles remain in the wall (`keep`), nothing more is drawn. A replacement draw
-   for a flower is still made below that mark; a kong may only be declared while an ordinary draw is still possible.
+4. **The end of the wall.** The last 16 tiles of the wall (`keep`) are never drawn: when only 16 remain, the hand
+   ends. A replacement draw (kong or flower) takes a tile from the back, so the 16 kept tiles move forward by one and
+   the tile that would have been drawn last is kept instead; there are always 16. A kong may only be declared while
+   an ordinary draw is still possible; a flower drawn as the last tile before the mark ends the hand without a
+   replacement (an exhaustive draw).
 
 ## 4. A turn
 
@@ -62,8 +65,9 @@ Terms used throughout:
    an exposed kong (明槓, three in hand, then a replacement draw). Only the discarder's next player may chow (吃) it, with
    two tiles of the same suit that make a chow with it; there may be up to three ways. After a chow or a pung the
    caller discards any tile (no restriction on discarding the same kind). The turn continues from the caller.
-4. **Priority:** a win comes before a pung or a kong, which comes before a chow. Only one player can win on a discard
-   (截胡, no 一炮多響): the first one in turn order after the discarder. (`multi_ron=1`: every player who claims it wins.)
+4. **Priority:** a win comes before a pung or a kong, which comes before a chow. With `multi_ron=0` (截胡: `simple1`,
+   `standard`, `masters`) only one player can win on a discard: the first one in turn order after the discarder. With
+   `multi_ron=1` (一炮多響: `simple2`) every player who claims it wins, and the discarder pays each.
 5. Players decide on a discard at the same time, without seeing each other's choices.
 6. On the last discard (nothing left to draw) only a win may be claimed.
 
@@ -94,13 +98,14 @@ Terms used throughout:
 
 ## 7. Payments
 
-A win is worth `base + tai` per payer, where `base` is the base (底) measured in tai (default 1: 底 and 台 are equal)
+A win is worth `base + tai` per payer, where `base` is the base (底) measured in tai (2 in `simple1`, 1 in the
+other presets: 底 and 台 equal)
 and `tai` is the hand's tai (section 9), plus the dealer's tai when the dealer is involved:
 
 - **Self-draw:** each of the other three pays.
 - **Discard (or robbed kong):** only the discarder pays.
-- **Dealer's tai (莊家台, 連莊拉莊):** `dealer + streak × N`, where N is the dealer's streak (default 1 + 2N: 連一拉一 is
-  3, 連二拉二 is 5). It is added to every payment between the dealer and another player: when the dealer wins, each payer
+- **Dealer's tai (莊家台, 連莊拉莊):** `dealer + streak × N`, where N is the dealer's streak (`simple1` and `simple2`: 1 + N, 連一拉一 is
+  2; `standard` and `masters`: 1 + 2N, 連一拉一 is 3, 連二拉二 is 5). It is added to every payment between the dealer and another player: when the dealer wins, each payer
   pays it; when another player wins, the dealer pays it if the dealer pays.
 
 Points are zero-sum. Results are reported in tai, so `base` only changes how a base compares with a tai.
@@ -118,21 +123,22 @@ the reading with the most tai counts. The dealer's tai of section 7 is not part 
 
 The columns are the tai presets (section 11), listed in this order:
 
-- `simple1` (簡單1, the default; the user's family rules, confirmed 2026-11-10): only dealer, streak, concealed,
-  self-draw (a concealed self-draw is 3: 門清一摸三), single wait (strict) and pure suit. No flower wins, no tai
-  for a win on a replacement (槓上開花: only its self-draw counts). `simple` is its old name, still read.
-- `simple2` (簡單2, southern Taiwan, 136 tiles without flowers; **provisional**, questions pending): as `simple1`
-  without the concealed items.
+- `simple1` (簡單1, the default; southern Taiwan, usually without flowers; confirmed 2026-11-10): only dealer,
+  streak (1 + N) and self-draw. Base 2 tai (底:台 = 2:1), 截胡.
+- `simple2` (簡單2; the user's family rules, confirmed 2026-11-10): dealer, streak (1 + N), concealed, self-draw (a
+  concealed self-draw is 3: 門清一摸三), single wait (strict) and pure suit (1). Base 1 tai, 一炮多響.
+- Neither has flower wins or tai for a win on a replacement (槓上開花: only its self-draw counts), robbing a kong
+  (allowed, no tai) and so on; with `see` each flower is one tai.
 - `standard` (MJ888 and Wikibooks, majority where they differ) and `masters` (Mahjong Masters 2025).
 
 | Item | Parameter | simple1 | simple2 | standard | masters | Definition |
 |---|---|---:|---:|---:|---:|---|
 | 莊家 Dealer | `dealer` | 1 | 1 | 1 | 1 | Section 7. |
-| 連莊拉莊 Streak | `streak` | 2 | 2 | 2 | 2 | Per streak count, section 7. |
-| 門清 Concealed | `menqing` | 1 | 0 | 1 | 1 | No chow, pung or exposed or added kong (a concealed kong is fine). |
+| 連莊拉莊 Streak | `streak` | 1 | 1 | 2 | 2 | Per streak count, section 7. |
+| 門清 Concealed | `menqing` | 0 | 1 | 1 | 1 | No chow, pung or exposed or added kong (a concealed kong is fine). |
 | 自摸 Self-draw | `zimo` | 1 | 1 | 1 | 1 | Winning on one's own draw. |
-| 不求人 Concealed self-draw bonus | `menqing_zimo` | 1 | 0 | 1 | 1 | Extra when both concealed and self-draw (門清自摸 = 1 + 1 + this = 3, 門清一摸三). |
-| 獨聽 Single wait | `duting` | 1 | 1 | 1 | 1 | Edge, closed or pair wait (邊張, 中洞, 單吊), see 9.1. |
+| 不求人 Concealed self-draw bonus | `menqing_zimo` | 0 | 1 | 1 | 1 | Extra when both concealed and self-draw (門清自摸 = 1 + 1 + this = 3, 門清一摸三). |
+| 獨聽 Single wait | `duting` | 0 | 1 | 1 | 1 | Edge, closed or pair wait (邊張, 中洞, 單吊), see 9.1. |
 | 平胡 All chows | `pinghu` | 0 | 0 | 2 | 2 | Five chows, a number pair, no honors and no flowers anywhere, a discard win, a two-sided wait and not a single wait (9.1). May combine with concealed. |
 | 全求人 All melded | `quanqiu` | 0 | 0 | 2 | 2 | All five sets are melds (chow, pung, exposed or added kong) and the win is on a discard (single wait on the pair). |
 | 全求人 adds single wait | `quanqiu_duting` | 0 | 0 | 0 | 1 | Whether 全求人 also scores 獨聽 (masters: 2 + 1 = 3). |
@@ -150,7 +156,7 @@ The columns are the tai presets (section 11), listed in this order:
 | 四暗刻 Four concealed pungs | `sianke` | 0 | 0 | 5 | 5 | Replaces 三暗刻. |
 | 五暗刻 Five concealed pungs | `wuanke` | 0 | 0 | 8 | 8 | Replaces 三暗刻 and 四暗刻. |
 | 混一色 Half flush | `hunyise` | 0 | 0 | 4 | 4 | One number suit and honors. |
-| 清一色 Pure suit | `qingyise` | 8 | 8 | 8 | 8 | One number suit, no honors. |
+| 清一色 Pure suit | `qingyise` | 0 | 1 | 8 | 8 | One number suit, no honors. |
 | 字一色 All honors | `ziyise` | 0 | 0 | 8 | 16 | Only honors (other items such as pungs and winds still count). |
 | 搶槓 Robbing a kong | `qianggang` | 0 | 0 | 1 | 1 | Winning on another player's added kong. |
 | 槓上開花 Win on a replacement | `gangshang` | 0 | 0 | 1 | 1 | Self-drawn on a replacement after a flower, a concealed or an added kong (not an exposed kong). |
@@ -196,21 +202,21 @@ value (plus the dealer's tai and the base):
   holder of the eighth pays as a discarder.
 
 A value of 0 turns the flower win off: they are part of the tai preset (0 in `simple1` and `simple2`, 8 in
-`standard` and `masters`), so `see` in the family rules is just one tai per flower. `flower_set` is 0 in `see`. (No flowers count toward all chows: any flower
+`standard` and `masters`), so `see` with the simple presets is just one tai per flower. `flower_set` is 0 in `see`. (No flowers count toward all chows: any flower
 rules out 平胡.)
 
 ## 11. Rule parameters and presets
 
 A rules spec is a comma-separated list of preset names and `name=value` overrides, applied left to right, for example
-`simple1,none` (the default), `standard,seat` or `simple1,see,base=2,draw_streak=0`. Tai presets: `simple1`,
-`simple2`, `standard`, `masters` (section 9; they also set the flower wins). Flower presets: `none`, `see`, `seat`
+`simple1,none` (the default), `standard,seat` or `simple2,see,base=2,draw_streak=0`. Tai presets: `simple1`,
+`simple2`, `standard`, `masters` (section 9; they also set the flower wins, `base` and `multi_ron`). Flower presets: `none`, `see`, `seat`
 (section 10: the flower mode, `flower_tai` and `flower_set`). The other parameters:
 
 | Parameter | Default | Meaning |
 |---|---:|---|
-| `base` | 1 | The base (底) in tai. |
+| `base` | 2 | The base (底) in tai (2 in `simple1`, 1 in the other tai presets). |
 | `draw_streak` | 1 | 1: an exhaustive draw adds to the dealer's streak; 0: it keeps it. |
-| `multi_ron` | 0 | 1: every player who claims a discard wins on it. |
+| `multi_ron` | 0 | 1: every player who claims a discard wins on it (1 in `simple2`). |
 | `keep` | 16 | Tiles left in the wall when it ends. |
 | `min_tai` | 0 | The least tai a win needs. |
 | `duting_loose` | 0 | Section 9.1. |

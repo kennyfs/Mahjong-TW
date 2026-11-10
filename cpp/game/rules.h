@@ -12,16 +12,16 @@ struct Rules {
   int flowers = NO_FLOWERS;
   int flowerTai = 1;     // per flower (see) or per flower of one's seat (seat)
   int flowerSet = 0;     // 花槓, per complete set of seasons or plants
-  int eightFlowers = 0;  // 八仙過海 (set by the tai presets: 0 in simple1 and simple2)
+  int eightFlowers = 0;  // 八仙過海 (set by the tai presets: 8 in standard and masters)
   int sevenRobOne = 0;   // 七搶一
 
   // --- Tai (section 9) ---
   int dealer = 1;
-  int streak = 2;
-  int menqing = 1;
+  int streak = 1;
+  int menqing = 0;
   int zimo = 1;
-  int menqingZimo = 1;
-  int duting = 1;
+  int menqingZimo = 0;
+  int duting = 0;
   int pinghu = 0;
   int quanqiu = 0;
   int quanqiuDuting = 0;
@@ -39,7 +39,7 @@ struct Rules {
   int sianke = 0;
   int wuanke = 0;
   int hunyise = 0;
-  int qingyise = 8;
+  int qingyise = 0;
   int ziyise = 0;
   int qianggang = 0;
   int gangshang = 0;
@@ -54,7 +54,7 @@ struct Rules {
   int ankongTai = 0;
 
   // --- Play ---
-  double base = 1.0;
+  double base = 2.0;
   int drawStreak = 1;
   int multiRon = 0;
   int keep = 16;

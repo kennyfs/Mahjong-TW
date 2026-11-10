@@ -147,8 +147,8 @@ static Meld meld(Meld::Type t, const string& tile) {
 }
 
 static void testTai() {
-  Rules simple = Rules::parse("simple1,none");
-  testAssert(Rules::parse("simple,none").toString() == simple.toString());  // the old name
+  Rules simple = Rules::parse("simple2,none");
+  testAssert(Rules().toString() == Rules::parse("simple1,none").toString());  // the default
   Rules standard = Rules::parse("standard,none");
   Rules masters = Rules::parse("masters,none");
   ostringstream out;
@@ -156,7 +156,7 @@ static void testTai() {
   // Pure suit, concealed, self-drawn; 78m waited on 6m and 9m.
   Tai::WinInfo a = win("123456789m234678m55m", "9m", true);
   out << Tai::compute(simple, a).toString() << endl;
-  out << Tai::compute(Rules::parse("simple2"), a).toString() << endl;
+  out << Tai::compute(Rules::parse("simple1"), a).toString() << endl;
   out << Tai::compute(standard, a).toString() << endl;
   a.lastTile = true;
   a.replacement = true;
@@ -165,10 +165,10 @@ static void testTai() {
   Tai::WinInfo b = win("123m456p999p789s234s77z", "7z", false);
   out << Tai::compute(simple, b).toString() << endl;
   b.flowers = 0x21;  // 1f 6f
-  out << Tai::compute(Rules::parse("simple,see"), b).toString() << endl;
-  out << Tai::compute(Rules::parse("simple,seat"), b).toString() << endl;  // east: 1f counts, 6f does not
+  out << Tai::compute(Rules::parse("simple2,see"), b).toString() << endl;
+  out << Tai::compute(Rules::parse("simple2,seat"), b).toString() << endl;  // east: 1f counts, 6f does not
   b.flowers = 0x1F;  // 1f-4f, 5f
-  out << Tai::compute(Rules::parse("simple,seat"), b).toString() << endl;  // 1f, 5f and the seasons
+  out << Tai::compute(Rules::parse("simple2,seat"), b).toString() << endl;  // 1f, 5f and the seasons
   // All chows: two-sided wait, discard, no honors.
   Tai::WinInfo c = win("123m456m99m789p234s567s", "2s", false);
   out << Tai::compute(standard, c).toString() << endl;
@@ -202,8 +202,8 @@ static void testTai() {
   out << Tai::compute(standard, e).toString() << endl;
 
   TestCommon::expect("tai", out, R"(
-門清1 自摸1 不求人1 清一色8 = 11
-自摸1 清一色8 = 9
+門清1 自摸1 不求人1 清一色1 = 4
+自摸1 = 1
 門清1 自摸1 不求人1 清一色8 = 11
 門清1 自摸1 不求人1 清一色8 海底撈月1 = 12
 門清1 獨聽1 = 2
@@ -253,7 +253,7 @@ static void checkConservation(const Game& g) {
 }
 
 static void testGames() {
-  for(const char* spec : {"simple,none", "standard,see", "masters,seat", "standard,seat,multi_ron=1,keep=0"}) {
+  for(const char* spec : {"simple1,none", "simple2,see", "standard,see", "masters,seat", "standard,seat,multi_ron=1,keep=0"}) {
     Rules rules = Rules::parse(spec);
     Rand rand(string("games:") + spec);
     unique_ptr<Player> owned[4];
@@ -327,7 +327,7 @@ static void testGuiEngine() {
   GuiEngine engine;
   Rand rand("gui");
   for(int iter = 0; iter < 30; iter++) {
-    string spec = iter % 3 == 0 ? "simple,none" : iter % 3 == 1 ? "standard,see" : "masters,seat";
+    string spec = iter % 3 == 0 ? (iter % 2 ? "simple1,none" : "simple2,see") : iter % 3 == 1 ? "standard,see" : "masters,seat";
     json g = engine.handle(json{{"cmd", "new"}, {"rules", spec}, {"seed", "g" + Global::intToString(iter)},
                                 {"setup", {{"dealer", iter % 4}, {"round", iter % 4}, {"streak", iter % 3}}}})["game"];
     int person = iter % 4;
@@ -408,7 +408,7 @@ static void testGuiEngine() {
   // claim the discard, the held view is the plain one.
   {
     json players = json::array({"greedy", "greedy", "greedy", "greedy"});
-    json g = engine.handle(json{{"cmd", "new"}, {"rules", "simple,none"}, {"seed", "hold"}})["game"];
+    json g = engine.handle(json{{"cmd", "new"}, {"rules", "simple1,none"}, {"seed", "hold"}})["game"];
     int plain = 0, claimable = 0;
     for(int step = 0; step < 1000; step++) {
       json p = engine.handle(json{{"cmd", "pending"}, {"game", g}});

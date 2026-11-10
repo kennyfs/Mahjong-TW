@@ -54,8 +54,8 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 
 ## Decisions made here (provisional unless the user confirmed them)
 
-- **Defaults**: 簡單 tai and 無花 (the user's choice, memory `rules-decisions`); base 1 (底 1 台 = 1 point), i.e.
-  payments are "base + tai" per payer. The presets and every parameter's name and value come from the engine
+- **Defaults**: 簡單1 tai (southern rules, base 2) and 無花; the tai presets are 簡單1, 簡單2 (the family's),
+  標準, 大師 (docs/rules.md section 9, changed 2026-11-10 after this prototype); payments are "base + tai" per payer. The presets and every parameter's name and value come from the engine
   (`{"cmd":"rules"}`), never from a table in the UI.
 - **Names**: the app is 台灣麻將 (`app_name`); package `io.github.kennyfs.mahjong` (as Thirteen's
   `io.github.kennyfs.thirteen`). The tabs: 練習, 對戰, 分析, 紀錄, 設定.
@@ -111,6 +111,14 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 - Everything else is the handoff's (docs/ui-handoff.md).
 
 ## Missing or rough (the next steps, roughly in order)
+
+**Bugs the user found on the prototype (2026-11-10, APK 0.0.15 or the last commit of `ui`), not yet looked at**
+(the plan puts app work after training; there are likely more):
+
+- Android: tapping the base's + or − button (底) crashes the app.
+- 所有參數 (every parameter) on the rules page never expands.
+- Sometimes a tile cannot be discarded.
+
 
 1. **Test on real devices**: the release APK on a phone (sideways and upright), rooms nearby on two or three phones,
    the page on a phone's browser (its full-screen request when sideways).
