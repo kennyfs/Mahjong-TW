@@ -176,12 +176,15 @@ def train_loop(args, remote, stop):
                 f"--actor-init {rdir}/ckpt/actor_{i - 1}.pt --critic-init {rdir}/ckpt/critic_{i - 1}.pt "
                 f"--actor-out {rdir}/ckpt/actor_{i}.pt --critic-out {rdir}/ckpt/critic_{i}.pt "
                 f"--export {rdir}/models/actor_{i}.onnx --log-file {rdir}/train.jsonl --amp {args.train_args}")
-            # Started detached, so that a broken link does not stop it; its exit code lands in a file.
+            # Started detached (its own session; the pause lets it get there before this shell ends), so that a
+            # broken link does not stop it; its exit code lands in a file. Not started twice: the pattern finds the
+            # trainer itself (a command line that begins with the Python), not the shells that carry its text.
+            running = f"^[^ ]*python[^ ]* python/train1.py .*ckpt/actor_{i}.pt"
             launch = (
                 f"mkdir -p {rdir}/status {rdir}/logs {rdir}/models {rdir}/ckpt; cd {rdir}; "
-                f"if [ ! -e status/{name}.code ] && ! pgrep -f 'actor-out {rdir}/ckpt/actor_{i}.pt' > /dev/null; then "
-                f"nohup bash -c {shlex.quote(command + f' > {rdir}/logs/{name}.log 2>&1; echo $? > {rdir}/status/{name}.code')} "
-                f"> /dev/null 2>&1 < /dev/null & fi; echo ok")
+                f"if [ ! -e status/{name}.code ] && ! pgrep -f {shlex.quote(running)} > /dev/null; then "
+                f"setsid nohup bash -c {shlex.quote(command + f' > {rdir}/logs/{name}.log 2>&1; echo $? > {rdir}/status/{name}.code')} "
+                f"> /dev/null 2>&1 < /dev/null & sleep 1; fi; echo ok")
             remote.until(f"starting training {i}", lambda: remote.run(launch)[0] == 0, run)
             log(run, f"training {i} started")
             code = None
@@ -217,7 +220,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     here = os.path.dirname(os.path.abspath(__file__))
     ap.add_argument("--run", required=True, help="The run's directory here")
-    ap.add_argument("--remote", required=True, help="HOST:DIR of the training machine")
+    ap.add_argument("--role", default="both", choices=("both", "selfplay"),
+                    help="selfplay: only play, into RUN; the training machine fetches the hands and sends the "
+                         "networks itself (python/train_loop.py there)")
+    ap.add_argument("--remote", help="HOST:DIR of the training machine (--role both)")
     ap.add_argument("--ssh-config", help="ssh configuration file that knows HOST")
     ap.add_argument("--remote-python", default="python3")
     ap.add_argument("--engine", default=os.path.join(here, "..", "cpp", "build", "mahjong"))
@@ -241,10 +247,12 @@ def main():
         os.makedirs(os.path.join(args.run, sub), exist_ok=True)
     if newest_model(args.run) < 0:
         raise SystemExit(f"Put the first network at {args.run}/models/actor_0.onnx")
-    remote = Remote(args.remote, args.ssh_config)
     stop = threading.Event()
-    threads = [threading.Thread(target=selfplay_loop, args=(args, stop)),
-               threading.Thread(target=train_loop, args=(args, remote, stop))]
+    threads = [threading.Thread(target=selfplay_loop, args=(args, stop))]
+    if args.role == "both":
+        if not args.remote:
+            raise SystemExit("--role both needs --remote")
+        threads.append(threading.Thread(target=train_loop, args=(args, Remote(args.remote, args.ssh_config), stop)))
     for t in threads:
         t.start()
     try:

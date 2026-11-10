@@ -63,9 +63,10 @@ cpp/build/mahjong selfplay -m RUN/models/actor_0.onnx --opponent greedy -n 30000
 python python/train1.py --data RUN/selfplay/iter_1 --actor-init RUN/ckpt/actor_0.pt --critic-init RUN/ckpt/critic_0.pt \
     --actor-out RUN/ckpt/actor_1.pt --critic-out RUN/ckpt/critic_1.pt --export RUN/models/actor_1.onnx --amp
 
-# The loop, on the self-play machine; it drives the training machine over ssh.
-python python/loop1.py --run RUN --remote HOST:REMOTE_DIR --ssh-config SSH_CONFIG --remote-python PYTHON \
-    --hands 300000 --threads 32
+# The loop. Self-play machine; SHARE/RUN is all the training machine may read and write:
+python python/loop1.py --role selfplay --run SHARE/RUN --hands 100000 --threads 32
+# Training machine, with stage 0's actor and critic at RUN2/ckpt/actor_0.pt and RUN2/ckpt/critic_0.pt:
+python python/train_loop.py --run RUN2 --share HOST:RUN --ssh-key ~/.ssh/mahjong_sync --bwlimit 200 --train-args "--amp"
 ```
 
 - `selfplay` plays 64 hands at once per thread and evaluates their pending decisions in one batch. Of each hand it
@@ -79,11 +80,32 @@ python python/loop1.py --run RUN --remote HOST:REMOTE_DIR --ssh-config SSH_CONFI
   learn the critic's and the actual outcome. Its last line reports the held-out hands: `critic_explains` (the share
   of the results' variance the critic explains), `fork_explains` and `fork_slope` (its predicted against the
   realized difference between a fork's two actions), `kl` and `improve`.
-- `loop1.py` expects `RUN/models/actor_0.onnx` here, and `REMOTE_DIR/ckpt/actor_0.pt`, `REMOTE_DIR/ckpt/critic_0.pt`
-  and the repository at `REMOTE_DIR/Mahjong-TW` there. Self-play of iteration i uses the newest network that has
-  come back; training of an iteration starts when its hands are complete. Every `--eval-every` iterations the newest
-  network plays duplicate matches against greedy and against network 0; results go to `RUN/eval.jsonl`. Stopping
-  and starting again continues. `--bwlimit` limits the copies when the link is slow or shared.
+- The loop has two sides that share one directory on the self-play machine, and only data crosses between them:
+  hands one way, networks and logs the other. `loop1.py --role selfplay` expects `SHARE/RUN/models/actor_0.onnx`. It
+  plays iteration i with the newest network there into `selfplay/iter_i` (the name appears when the iteration is
+  complete), at most `--ahead` iterations beyond the newest network, against itself and, in a fifth of the hands,
+  greedy players and earlier networks. Every `--eval-every` iterations the newest network plays duplicate matches
+  against greedy and against network 0; results go to `eval.jsonl`.
+- `train_loop.py` runs on the training machine. It copies iteration i when it is there, runs `train1.py` from
+  iteration i − 1's checkpoints, sends back `models/actor_i.onnx`, `train.jsonl`, its log and the directory of
+  `--logs` (to `remote_logs/`), and deletes the hands. Before each iteration it reads `train_args.txt` from the
+  shared directory: lines of `NAME VALUE` for `lr`, `critic-lr`, `kl`, `corr`, `entropy`, `pg`, `distill`,
+  `aux-scale` and `batch` (numbers only). A file `STOP` there ends it when it has nothing to train. Both sides
+  continue where they were when started again.
+- The training machine needs no more than rsync into that one directory:
+
+  ```bash
+  # Training machine:
+  ssh-keygen -t ed25519 -N "" -C mahjong_sync -f ~/.ssh/mahjong_sync
+  # Self-play machine, one line in ~/.ssh/authorized_keys (SHARE in full):
+  command="/usr/bin/rrsync -no-lock SHARE",restrict ssh-ed25519 AAAA... mahjong_sync
+  ```
+
+  Paths the training machine names (`HOST:RUN`) are then relative to SHARE. After an error other than "not there
+  yet" it waits five minutes, so a missing key does not look like an attack.
+- `loop1.py --role both --remote HOST:REMOTE_DIR --ssh-config SSH_CONFIG --remote-python PYTHON` is the other way
+  round: the self-play machine starts each training run on the training machine over ssh (the repository at
+  `REMOTE_DIR/Mahjong-TW`, the checkpoints at `REMOTE_DIR/ckpt`).
 
 ## Measured
 
@@ -95,7 +117,9 @@ On 28 to 32 threads of a 2-socket server (self-play machine) and a desktop GPU w
 | Expanding samples (`libmahjong_data.so`) | 1,800 samples/s per thread |
 | `train0.py`, actor (1.02M parameters), bf16 | 15,000 samples/s |
 | The network, ONNX Runtime, one thread | 1.6 ms a decision alone, 0.8 ms in batches of 64 |
-| `selfplay` with forks | about 9 hands/s per thread (100 evaluations a hand) |
+| `train0.py`, critic (192 wide, 6 layers), bf16 | 9,500 samples/s |
+| `train1.py`, actor and that critic | about 4,000 samples/s |
+| `selfplay` with forks (88 evaluations a hand) | 11 hands/s on 1 thread, 87 on 8, 183 on 32 |
 
 Stage 0, first experiments (2.2M labelled decisions, read once; evaluated on 331,000 decisions of other hands;
 ± 0.005):
@@ -109,5 +133,27 @@ Stage 0, first experiments (2.2M labelled decisions, read once; evaluated on 331
 | The weight of the paired differences ×4 | −0.008 |
 | Batches of 256 | −0.020 |
 
-The training-only heads are worth far more than any other choice tried. With 2.2M decisions the network is not yet
-at greedy's level (it loses 0.24 points a hand as one among three greedy players, with 20% wins against 26%).
+| The training-only heads' weights ×0.5, ×2, ×4 | −0.036, −0.017, −0.015 |
+| A ResNet (128 wide, 6 blocks) in place of the Transformer | −0.028 |
+
+The training-only heads are worth far more than any other choice tried; their weights stay as they are. The ResNet
+is no better and slower for its size, so the Transformer stays.
+
+More data alone made it worse: 12.8M decisions gave −0.047. The policy head's target (the best action by the
+labels, nearly one-hot) is noisy, and its gradient through the shared layers hurt the outcome heads. Since then the
+policy has a head of its own, and in stage 0 it learns from the trunk without changing it (`--policy-through`
+restores the old way). With that, on 9.2M decisions (10 minutes on the GPU; `s128`):
+
+| Measure | Result |
+|---|---:|
+| Q's choice against greedy's, points per decision | +0.0165 ± 0.0052 |
+| The policy head's choice against greedy's | +0.020 |
+| One network among three greedy players, points per hand (`simple1,none`) | +0.136 ± 0.032 (wins 25.3%, deals in 13.6%; greedy 19.7%) |
+| One greedy player among three networks | −0.088 ± 0.035 |
+| Playing the policy head's best action instead | +0.108 ± 0.039 |
+| Sampling from the policy head (as self-play does) | +0.004 ± 0.038 |
+
+So stage 0 ends above greedy, which was its gate. The self-play machine is the slow side: 183 hands a second on 32
+threads feed about 1,500 samples a second, a fraction of what the GPU trains. `mc` (a Monte Carlo player over
+greedy playouts) is no yardstick: with 400 playouts a decision it loses 0.6 points a hand to greedy, because one
+hand's result varies by several points whatever the discard.

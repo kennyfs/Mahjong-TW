@@ -13,7 +13,7 @@ only a kind's type (number tile of some rank, wind, dragon) and an attention bia
 suit and the distance in rank, and so on), so exchanging suits changes nothing.
 
 Heads. Per action (76: discard and kong per kind, 8 special ones), from the kind's token or from the deciding seat's
-context: a policy logit; the logits of 17 outcome events (the ten of my own result in the order of
+context: a policy logit (from a head of its own); the logits of 17 outcome events (the ten of my own result in the order of
 cpp/learn/outcome.h, the six among the other seats, the exhaustive draw); and for each of my ten events the tai of
 its winner, given that it happens. The expected result of an action is composed from these exactly by the rules'
 coefficients (compose_q, the same as Learn::eventCoefficients). Per opponent: how far from ready, and per kind the
@@ -48,7 +48,7 @@ EVENT_NAMES = ("tsumo", "ron_1", "ron_2", "ron_3", "deal_in_1", "deal_in_2", "de
                "opp_tsumo_2", "opp_tsumo_3")
 OTHER_BITS = (6, 7, 9, 11, 13, 14)
 NUM_OUTCOMES = NUM_EVENTS + len(OTHER_BITS) + 1  # and the exhaustive draw
-ACTION_OUT = 1 + NUM_OUTCOMES + NUM_EVENTS
+ACTION_OUT = NUM_OUTCOMES + NUM_EVENTS            # per action: the outcomes' logits, then the winners' tai
 TAI_SCALE = 8.0
 # Where the kind features say "the tile just drawn" and "the tile on offer" (Features::KO_DRAWN, KO_CLAIM).
 KO_DRAWN = 4
@@ -66,7 +66,7 @@ NUM_RELATIONS = 48
 @dataclass
 class ModelConfig:
     full: bool = False        # the critic: the full state is part of the inputs
-    arch: str = "transformer"
+    arch: str = "transformer"  # or "resnet": residual blocks over the kinds with global pooling (num_heads, ff unused)
     d_model: int = 128
     num_layers: int = 5
     num_heads: int = 4
@@ -155,10 +155,80 @@ class Block(nn.Module):
         return x
 
 
+class ActionHead(nn.Module):
+    """A vector per action (76): discard and kong from the kind's token, the eight special actions from their
+    features in the global vector; all of them with the deciding seat's context (its token, the tokens of the tile
+    on offer and of the tile drawn, the mean over the kinds)."""
+
+    def __init__(self, c, out, width, kind_features):
+        super().__init__()
+        d = c.d_model
+        self.out = out
+        self.go_actions, self.ga_size = c.go_actions, c.ga_size
+        self.context = nn.Linear(4 * d, width)
+        self.kind_hidden = nn.Linear(d, width)
+        self.kind_skip = nn.Linear(kind_features, width, bias=False) if c.skip else None
+        self.kind_out = nn.Linear(width, 2 * out)
+        self.special_in = nn.Linear(c.ga_size, width)
+        self.special_emb = nn.Parameter(torch.randn(NUM_SPECIAL, width) * 0.02)
+        self.special_out = nn.Linear(width, out)
+
+    def forward(self, h, kind, glob):
+        """-> (per action [B, 76, out], the context [B, width])."""
+        b = h.shape[0]
+        hk, me = h[:, :NUM_KINDS], h[:, NUM_KINDS]
+        claim = (kind[:, :, KO_CLAIM:KO_CLAIM + 1] * hk).sum(dim=1)
+        drawn = (kind[:, :, KO_DRAWN:KO_DRAWN + 1] * hk).sum(dim=1)
+        ctx = self.context(torch.cat([me, claim, drawn, hk.mean(dim=1)], dim=-1))
+        zk = self.kind_hidden(hk) + ctx[:, None]
+        if self.kind_skip is not None:
+            zk = zk + self.kind_skip(kind)
+        ok = self.kind_out(F.gelu(zk)).reshape(b, NUM_KINDS, 2, self.out)
+        blocks = glob[:, self.go_actions:self.go_actions + NUM_SPECIAL * self.ga_size].reshape(
+            b, NUM_SPECIAL, self.ga_size)
+        zs = F.gelu(self.special_in(blocks) + self.special_emb + ctx[:, None])
+        return torch.cat([ok[:, :, 0], ok[:, :, 1], self.special_out(zs)], dim=1), F.gelu(ctx)
+
+
+class KindConv(nn.Module):
+    """A convolution over the kinds: width 3 along the ranks of each suit (the three suits share it), and a linear
+    map for each honor, which has no neighbours."""
+
+    def __init__(self, c):
+        super().__init__()
+        self.suit = nn.Conv1d(c, c, 3, padding=1)
+        self.honor = nn.Linear(c, c)
+
+    def forward(self, x):
+        b, _, c = x.shape
+        suits = self.suit(x[:, :27].reshape(b * 3, 9, c).transpose(1, 2)).transpose(1, 2).reshape(b, 27, c)
+        return torch.cat([suits, self.honor(x[:, 27:])], dim=1)
+
+
+class ResBlock(nn.Module):
+    """A pre-activation residual block over the 34 kinds. With `pool`, the mean and the maximum over the kinds of
+    part of the first convolution's output are added to every kind (KataGo's global pooling), which is how distant
+    kinds and the seats' state reach each other."""
+
+    def __init__(self, c, pool):
+        super().__init__()
+        self.norm1 = nn.LayerNorm(c)
+        self.conv1 = KindConv(c)
+        self.norm2 = nn.LayerNorm(c)
+        self.conv2 = KindConv(c)
+        self.pool = nn.Linear(2 * c, c) if pool else None
+
+    def forward(self, x):
+        h = self.conv1(F.gelu(self.norm1(x)))
+        if self.pool is not None:
+            h = h + self.pool(torch.cat([h.mean(dim=1), h.max(dim=1).values], dim=-1)).unsqueeze(1)
+        return x + self.conv2(F.gelu(self.norm2(h)))
+
+
 class MahjongNet(nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
-        if config.arch != "transformer":
+        if config.arch not in ("transformer", "resnet"):
             raise ValueError(f"Unknown architecture {config.arch}")
         self.config = config
         c = config
@@ -171,17 +241,20 @@ class MahjongNet(nn.Module):
         self.type_emb = nn.Parameter(torch.randn(11, d) * 0.02)
         self.register_buffer("types", torch.tensor(kind_types()), persistent=False)
         self.register_buffer("rel", torch.from_numpy(relations()), persistent=False)
-        self.att_bias = nn.Parameter(torch.zeros(c.num_layers, c.num_heads, NUM_RELATIONS))
-        self.blocks = nn.ModuleList([Block(d, c.num_heads, c.ff) for _ in range(c.num_layers)])
+        if c.arch == "transformer":
+            self.att_bias = nn.Parameter(torch.zeros(c.num_layers, c.num_heads, NUM_RELATIONS))
+            self.blocks = nn.ModuleList([Block(d, c.num_heads, c.ff) for _ in range(c.num_layers)])
+        else:
+            # Every other block pools; the seats' tokens are made after the trunk, from their features and the
+            # pooled kinds.
+            self.blocks = nn.ModuleList([ResBlock(d, i % 2 == 1) for i in range(c.num_layers)])
+            self.seat_pool = nn.Linear(2 * d, d)
         self.norm = nn.LayerNorm(d)
-        # Actions.
-        self.context = nn.Linear(4 * d, hd)
-        self.kind_hidden = nn.Linear(d, hd)
-        self.kind_skip = nn.Linear(c.kind_obs + (c.kind_full if full else 0), hd, bias=False) if c.skip else None
-        self.kind_out = nn.Linear(hd, 2 * ACTION_OUT)
-        self.special_in = nn.Linear(c.ga_size, hd)
-        self.special_emb = nn.Parameter(torch.randn(NUM_SPECIAL, hd) * 0.02)
-        self.special_out = nn.Linear(hd, ACTION_OUT)
+        # Actions: the outcome events and the winners' tai from one head, the policy from its own (so that stage 0
+        # can train the policy without its gradient reaching the trunk).
+        kind_features = c.kind_obs + (c.kind_full if full else 0)
+        self.outcome_head = ActionHead(c, ACTION_OUT, hd, kind_features)
+        self.policy_head = ActionHead(c, 1, hd // 2, kind_features)
         # Per (seat, kind), per seat, per kind and for the deciding seat.
         self.pair_kind = nn.Linear(d, c.pair)
         self.pair_seat = nn.Linear(d, c.pair)
@@ -199,28 +272,17 @@ class MahjongNet(nn.Module):
         d = self.config.d_model
         xk = self.kind_in(kind) + self.type_emb[self.types] + g[:, None, :d]
         xs = self.seat_in(seat) + g[:, None, d:]
+        if self.config.arch == "resnet":
+            # The seats' features reach the kinds through the global vector's place: their sum is added to every kind.
+            xk = xk + xs.sum(dim=1, keepdim=True)
+            for block in self.blocks:
+                xk = block(xk)
+            pooled = self.seat_pool(torch.cat([xk.mean(dim=1), xk.max(dim=1).values], dim=-1))
+            return self.norm(torch.cat([xk, xs + pooled.unsqueeze(1)], dim=1))
         x = torch.cat([xk, xs], dim=1)
         for i, block in enumerate(self.blocks):
             x = block(x, self.att_bias[i][:, self.rel])
         return self.norm(x)
-
-    def action_heads(self, h, kind, glob):
-        """-> (per action [B, 76, ACTION_OUT], the deciding seat's context [B, head])."""
-        c = self.config
-        b = h.shape[0]
-        hk, me = h[:, :NUM_KINDS], h[:, NUM_KINDS]
-        claim = (kind[:, :, KO_CLAIM:KO_CLAIM + 1] * hk).sum(dim=1)
-        drawn = (kind[:, :, KO_DRAWN:KO_DRAWN + 1] * hk).sum(dim=1)
-        ctx = self.context(torch.cat([me, claim, drawn, hk.mean(dim=1)], dim=-1))
-        zk = self.kind_hidden(hk) + ctx[:, None]
-        if self.kind_skip is not None:
-            zk = zk + self.kind_skip(kind)
-        zk = F.gelu(zk)
-        ok = self.kind_out(zk).reshape(b, NUM_KINDS, 2, ACTION_OUT)
-        blocks = glob[:, c.go_actions:c.go_actions + NUM_SPECIAL * c.ga_size].reshape(b, NUM_SPECIAL, c.ga_size)
-        zs = F.gelu(self.special_in(blocks) + self.special_emb + ctx[:, None])
-        out = torch.cat([ok[:, :, 0], ok[:, :, 1], self.special_out(zs)], dim=1)
-        return out, F.gelu(ctx)
 
     def pair_heads(self, hk, hs):
         """Kind tokens [B, 34, d] and some seats' tokens [B, S, d] -> [B, S, 34, PAIR_OUT]."""
@@ -235,19 +297,21 @@ class MahjongNet(nn.Module):
                 torch.cat([batch["seat"], batch["seat_full"]], dim=-1),
                 torch.cat([batch["global"], batch["global_full"]], dim=-1))
 
-    def forward(self, kind, seat, glob):
+    def forward(self, kind, seat, glob, detach_policy=False):
         """Everything, as a dict (the trainers' form).
 
         policy [B, 76] logits; outcomes [B, 76, 17] logits; tai [B, 76, 10]; pair [B, 4, 34, PAIR_OUT];
-        seats [B, 4, SEAT_OUT]; chow [B, 34] logits; me [B, ME_OUT]; trunk [B, 38, d].
+        seats [B, 4, SEAT_OUT]; chow [B, 34] logits; me [B, ME_OUT]; trunk [B, 38, d]. With detach_policy the
+        policy head reads the trunk without sending gradients into it.
         """
         h = self.trunk(kind, seat, glob)
         hk, hs = h[:, :NUM_KINDS], h[:, NUM_KINDS:]
-        act, ctx = self.action_heads(h, kind, glob)
+        act, ctx = self.outcome_head(h, kind, glob)
+        policy, _ = self.policy_head(h.detach() if detach_policy else h, kind, glob)
         return {
-            "policy": act[..., 0],
-            "outcomes": act[..., 1:1 + NUM_OUTCOMES],
-            "tai": act[..., 1 + NUM_OUTCOMES:] * TAI_SCALE,
+            "policy": policy[..., 0],
+            "outcomes": act[..., :NUM_OUTCOMES],
+            "tai": act[..., NUM_OUTCOMES:] * TAI_SCALE,
             "pair": self.pair_heads(hk, hs),
             "seats": self.seat_out(hs),
             "chow": self.chow_out(hk).squeeze(-1),
@@ -272,10 +336,10 @@ class Shipped(nn.Module):
         m = self.m
         h = m.trunk(kind, seat, glob)
         hk, hs = h[:, :NUM_KINDS], h[:, NUM_KINDS:]
-        act, _ = m.action_heads(h, kind, glob)
-        policy = act[..., 0]
-        events = torch.sigmoid(act[..., 1:1 + NUM_EVENTS])
-        tai = act[..., 1 + NUM_OUTCOMES:] * TAI_SCALE
+        act, _ = m.outcome_head(h, kind, glob)
+        policy = m.policy_head(h, kind, glob)[0][..., 0]
+        events = torch.sigmoid(act[..., :NUM_EVENTS])
+        tai = act[..., NUM_OUTCOMES:] * TAI_SCALE
         pair = m.pair_heads(hk, hs[:, 1:])
         ready = torch.softmax(m.seat_out(hs[:, 1:])[..., :4], dim=-1)
         return policy, events, tai, ready, torch.sigmoid(pair[..., 0]), pair[..., 1] * TAI_SCALE

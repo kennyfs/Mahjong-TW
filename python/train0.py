@@ -49,7 +49,7 @@ def evaluate(model, held, weights, args, use_amp, device):
 
 def grad_report(model, batch, weights, args):
     """The size of each group's gradient at the trunk's output, relative to the main heads'."""
-    out = model(*model.inputs(batch))
+    out = model(*model.inputs(batch), detach_policy=not args.policy_through)
     terms, _ = loss_terms(out, batch, args.policy_temp)
     groups = {"main": MAIN, "opponents": OPPONENTS, **AUX_GROUPS}
     norms = {}
@@ -82,8 +82,10 @@ def main():
     ap.add_argument("--warmup", type=int, default=1000)
     ap.add_argument("--weight-decay", type=float, default=0.01)
     ap.add_argument("--ema", type=float, default=0.999, help="EMA decay of the exported weights (0 disables)")
-    ap.add_argument("--policy-temp", type=float, default=0.03,
+    ap.add_argument("--policy-temp", type=float, default=0.01,
                     help="Temperature of the policy target, in typical payments")
+    ap.add_argument("--policy-through", action="store_true",
+                    help="Let the policy loss's gradient into the trunk (it hurt the event heads when measured)")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--amp", action="store_true", help="bf16 autocast on CUDA")
     ap.add_argument("--threads", type=int, help="CPU threads of PyTorch")
@@ -124,6 +126,8 @@ def main():
     full = model.config.full
     weights = weights_for(full=full, aux=args.aux_scale,
                           overrides={k: float(v) for k, v in (w.split("=") for w in args.weight)})
+    if full:
+        weights["policy"] = 0.0  # The critic does not play.
     print(f"Model: {model.config.to_dict()}, {model.num_parameters()} parameters", flush=True)
 
     ema = copy.deepcopy(model).eval()
@@ -186,8 +190,10 @@ def main():
         for group in opt.param_groups:
             group["lr"] = lr
         b = to_torch(batch, device)
+        # The policy's target is a softmax of the composed results, which are noisy: its gradient stays out of the
+        # trunk here (--policy-through lets it in).
         with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_amp):
-            out = model(*model.inputs(b))
+            out = model(*model.inputs(b), detach_policy=not args.policy_through)
         terms, metrics = loss_terms(out, b, args.policy_temp)
         loss = total_loss(terms, weights)
         opt.zero_grad(set_to_none=True)
@@ -205,18 +211,25 @@ def main():
         for k, v in {**terms, **metrics, "loss": loss}.items():
             sums[k] = sums.get(k, 0.0) + float(v.detach())
         count += 1
-        if step % args.log_every == 0 or step == steps:
+        if step % args.log_every == 0:
             rec = {"step": total_steps, "lr": lr, "samples_per_s": step * args.batch / (time.time() - start)}
             rec.update({k: v / count for k, v in sums.items()})
             if args.grad_report:
                 rec.update({"grad_" + k: v for k, v in grad_report(model, b, weights, args).items()})
             record(rec)
             sums, count = {}, 0
-        if step % args.eval_every == 0 or step == steps:
+        if step % args.eval_every == 0:
             rec = {"step": total_steps, "held": 1}
             rec.update(evaluate(ema if args.ema > 0 else model, held, weights, args, use_amp, device))
             record(rec)
     stream.close()
+    if count:
+        rec = {"step": total_steps, "lr": lr, "samples_per_s": step * args.batch / (time.time() - start)}
+        rec.update({k: v / count for k, v in sums.items()})
+        record(rec)
+    rec = {"step": total_steps, "held": 1}
+    rec.update(evaluate(ema if args.ema > 0 else model, held, weights, args, use_amp, device))
+    record(rec)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     save_checkpoint(args.out, model, opt, {"total_steps": total_steps, "ema": ema.state_dict()})

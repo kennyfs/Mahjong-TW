@@ -6,7 +6,8 @@
 Per checkpoint (its EMA weights): the losses of the heads, and what its choices are worth. The result of the
 network's choice minus the result of the action the plain greedy player would play, in points per decision, is an
 unbiased estimate of what one decision by the network gains over greedy when everybody plays greedy afterwards;
-it is also given by the kind of decision.
+it is also given by the kind of decision. Checkpoints after the first are also compared with the first decision by
+decision, which is far more precise than comparing the two figures.
 """
 
 import argparse
@@ -45,6 +46,7 @@ def main():
     total = sum(len(b["played"]) for b in data)
     print(f"{total} decisions", flush=True)
 
+    first_gain = None
     for path in args.checkpoints:
         model, state = load_checkpoint(path, device)
         if "ema" in state:
@@ -53,6 +55,7 @@ def main():
         sums = {}
         # Per kind of decision: count, the network differs from greedy, gain of Q's choice, its square, of the policy's.
         by_kind = torch.zeros(len(KINDS), 5, dtype=torch.float64)
+        gains = []
         neg = torch.finfo(torch.float32).min
         with torch.no_grad():
             for batch in data:
@@ -72,6 +75,7 @@ def main():
                 gain_q = (q_label.gather(1, best_q) - base).squeeze(-1).double().cpu()
                 gain_pi = (q_label.gather(1, best_pi) - base).squeeze(-1).double().cpu()
                 differs = (best_q != greedy).squeeze(-1).double().cpu()
+                gains.append(gain_q)
                 kind = b["info"][:, 3].long().cpu()
                 for k in range(len(KINDS)):
                     m = (kind == k).double()
@@ -85,6 +89,15 @@ def main():
         se = ((sq_all / n_all - (gain_all / n_all) ** 2) / n_all).sqrt()
         print(f"  Q's choice against greedy's: {gain_all / n_all:+.4f} +- {se:.4f} points per decision; "
               f"the policy's {by_kind[:, 4].sum() / n_all:+.4f}")
+        gains = torch.cat(gains)
+        if first_gain is None:
+            first_gain = gains
+        else:
+            # Against the first checkpoint on the same decisions: the difference is zero wherever the two choose
+            # alike, so it is known far better than either figure.
+            d = gains - first_gain
+            print(f"  against the first checkpoint: {d.mean():+.4f} +- {d.std() / len(d) ** 0.5:.4f} "
+                  f"(they choose differently in {(d != 0).double().mean():.3f} of the decisions with unequal results)")
         for k, name in enumerate(KINDS):
             n, d, g, sq, gp = by_kind[k].tolist()
             if n > 0:

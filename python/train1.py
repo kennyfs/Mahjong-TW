@@ -222,7 +222,7 @@ def main():
     stream = Stream(library, files, args.batch, seed=args.seed + total_steps, part="train", group=args.group)
     actor.train()
     critic.train()
-    sums, count, step = {}, 0, 0
+    sums, count, step, bad = {}, 0, 0, 0
     start = time.time()
     for batch in stream:
         if step >= steps:
@@ -231,6 +231,13 @@ def main():
         b = to_torch(batch, device)
         actor_loss, critic_loss, report, _ = step_losses(actor, critic, b, args, actor_weights, critic_weights,
                                                          use_amp, device)
+        if not bool(torch.isfinite(actor_loss + critic_loss)):
+            # Nobody watches this run: a batch that gives no finite loss is left out, and a run of them ends it
+            # with an error before the networks are saved.
+            bad += 1
+            if bad > 20:
+                raise SystemExit("The losses are not finite")
+            continue
         a_opt.zero_grad(set_to_none=True)
         c_opt.zero_grad(set_to_none=True)
         (actor_loss + critic_loss).backward()
@@ -246,12 +253,16 @@ def main():
         for k, v in report.items():
             sums[k] = sums.get(k, 0.0) + float(v.detach())
         count += 1
-        if step % args.log_every == 0 or step == steps:
+        if step % args.log_every == 0:
             rec = {"step": total_steps, "samples_per_s": step * args.batch / (time.time() - start)}
             rec.update({k: v / count for k, v in sums.items()})
             record(rec)
             sums, count = {}, 0
     stream.close()
+    if count:
+        rec = {"step": total_steps, "samples_per_s": step * args.batch / (time.time() - start)}
+        rec.update({k: v / count for k, v in sums.items()})
+        record(rec)
 
     exported = ema if args.ema > 0 else actor
     if held:

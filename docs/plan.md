@@ -83,12 +83,11 @@ ONNX Runtime; logs in `mahjong-files/logs/bench_*.log`):
 | Transformer, width 96, 4 layers | 38 | 0.47M | 0.36 ms |
 | 1D residual network, 128 channels, 8 blocks | 34 | 0.85M | 0.45 ms |
 
-So 32 threads evaluate some 25,000 to 40,000 decisions a second: a few hundred hands a second with the network in
-all four seats. Training the same network on this machine's CPUs is slow (300 samples/s on one thread, 1,200 with
-16), so training belongs on the GPU, where about 10,000 samples a second are expected for the actor alone (scaled
-from Thirteen's 39,000 rows/s; to be measured). **Self-play here outruns training on one GPU several times over**,
-the reverse of Thirteen: training steps are the scarce resource, and spare CPU time is best spent on better targets
-(3.4).
+Those were the estimates. Measured (5.3): with the records, the forks and 64 hands at once per thread, one thread
+evaluates 1,000 decisions a second and 32 threads 16,000, which is 183 hands a second with the network in all four
+seats (beyond 8 threads the gain is small; not yet understood). Training belongs on the GPU: a desktop GPU trains the
+actor at 15,000 samples a second, and actor and critic together at about 4,000. **So the GPU outruns self-play, as
+in Thirteen**: hands are the scarce resource, and what is recorded of each hand decides how far they go (3.4).
 
 ## 3. The design
 
@@ -207,6 +206,12 @@ losses of the heads that ship, and by CPU cost):
   the losses enough to matter.
 - The training-only heads: with and without them, then group by group if the gain is unclear.
 
+Results (docs/training.md; 5.3): the Transformer stays (a residual network of the same width was no better and, at
+this size, slower); the training-only heads are the largest gain of all (−0.105 without them against −0.017 points
+per decision) and their weights stay as planned; kind features fed straight to the action heads, three passes and
+smaller batches change nothing clearly. The sizes (96, 128 and 160 wide) and the tokens for the last discards are
+still to be compared.
+
 ### 3.4 Training
 
 **Stage 0: exact targets from the greedy player (supervised; hours).**
@@ -234,9 +239,15 @@ a tenth of the hands (principle 6).
 - The data is made to be read once or twice. One hand in a hundred is held out; if the held-out losses stop falling
   while the training losses go on, the answer is more data (hours of this machine), not more passes.
 
-Gate: the stage 0 network against `greedy` (one among three, and three against one) and against `mc`. It has to
-beat `greedy` clearly in both forms; if it does not, something in the pipeline is wrong, and it is found here, not
-inside the self-play loop.
+Gate: the stage 0 network against `greedy` (one among three, and three against one). It has to beat `greedy`
+clearly in both forms; if it does not, something in the pipeline is wrong, and it is found here, not inside the
+self-play loop. (`mc` was to be a second opponent; it is far below `greedy` at any affordable number of playouts.)
+
+Passed (5.3): +0.136 ± 0.032 points a hand as one among three greedy players, and the greedy player among three
+networks loses 0.088 ± 0.035. Two things differ from the text above. The policy head has a head of its own and, in
+stage 0, learns from the trunk without changing it: its nearly one-hot target is noisy, and through shared layers
+it made the outcome heads worse the more data there was. And there was no second round on the network's own
+positions: stage 1 starts from the first network, whose self-play gives exactly those positions.
 
 **Stage 1: self-play with a full-information critic (days).**
 
@@ -283,18 +294,17 @@ Why this shape:
 - Small steps accumulate many noisy estimates in the policy; replacing the policy each iteration by a softmax of the
   newest Q would act on one estimate, and with four learners at once it tends to swing.
 
-**Fresh data, read once.** This machine plays hands faster than the GPU can train on them, so in stage 1 nothing
-is read twice: an iteration's samples are trained on once, and the advantages come from the critic as it was before
+**Fresh data, read once.** In stage 1 nothing is read twice: an iteration's samples are trained on once, and the advantages come from the critic as it was before
 it saw them. That closes the usual way value heads go wrong late in training, learning the results in the window by
 heart; a critic that sees the wall would be the quickest to do it. (KataGo reads a sample about four times, and its
 ablation with 600 playouts on every move overfitted for lack of games.) One hand in a hundred is held out, and the
 losses of the critic and of the event heads on those hands are reported beside the training losses.
 
-Starting values, to be tuned by the diagnostics of 3.5: 300,000 hands an iteration (about 20 minutes here), with 8
-recorded decisions and one or two forks each: 2.4M samples, which the GPU should train on in the same time (actor
-and critic together at about 2,000 samples a second; to be measured, and the sizes follow). If the GPU proves faster
-than self-play can feed it, more decisions per hand are recorded first (up to about 15); a second reading, for the
-critic only, comes after that and is watched on the held-out hands. Advantages are divided by the typical payment
+Starting values, to be tuned by the diagnostics of 3.5: 100,000 hands an iteration (about 9 minutes here), with 8
+recorded decisions and one or two forks each: 0.8M samples, which the GPU trains on in 4 minutes. The GPU is faster
+than self-play can feed it, so, in this order: more decisions per hand are recorded (up to about 15); the critic
+grows (it costs nothing in the app); a second reading, for the critic only, comes after that and is watched on the
+held-out hands. Advantages are divided by the typical payment
 under the hand's rules, so that rules with large tai do not dominate the steps; every sample gets a random symmetry
 (section 1).
 
@@ -312,16 +322,16 @@ Overall the flowers come to about 46 / 34 / 20%. In a quarter of the hands of ev
 are varied as well: the base (1 to 5), several winners on a discard, the streak's tai, the streak after a draw, the
 loose single wait. Dealer and round wind are uniform, the streak 0 to 3 (60, 25, 10, 5%).
 
-**The loop** is Thirteen's: self-play here (32 threads), training on the home GPU or Colab, records by rsync and
-networks back (`remote_loop.py`, the restricted ssh key, `check_onnx.py`, `fp16_weights.py`). Unlike Thirteen the GPU
-works the whole time; the estimates above give some 20M hands (about 10 GB of records) and 170M trained decisions
-a day.
+**The loop** is Thirteen's: self-play here (32 threads, `loop1.py --role selfplay`), training on the home GPU
+(`train_loop.py`), hands by rsync and networks back, through a key that allows rsync into one directory and nothing
+else. Only data crosses between the machines: hands one way; networks, logs and a file of numeric training options
+the other. The measured speeds give some 15M hands (about 4.5 GB of records) and 120M recorded decisions a day.
 
 ### 3.5 Evaluation, and when to stop
 
 - **Duplicate matches** (the same walls, seats rotated), in both forms: one new network among three opponents, and
   three new ones against one opponent (playing against copies of oneself and against others can rank differently).
-  Opponents: `greedy`, `mc`, the stage 0 network, and the networks of 1, 5 and 20 iterations before. Result per hand
+  Opponents: `greedy`, the stage 0 network, and the networks of 1, 5 and 20 iterations before. Result per hand
   with its standard error; win, self-draw, deal-in and call rates, average tai, how often a win is declined. Under
   `simple1,none`, `simple2,none`, `simple2,see` and `standard,seat`.
 - **Training diagnostics**: how much of the results the critic explains, by stage of the hand; on held-out forks,
@@ -375,9 +385,9 @@ Sessions do not overlap, so they share the checkout and the machine's quota.
 3. The family's rules confirmed (done: `simple1`, `simple2`).
 4. The engine for learning (3.2): features, actions, events, records, the data library, branches, the `net` and `mc`
    players, with tests; the model and trainer in Python; ONNX Runtime on this machine; the real speeds of self-play
-   and of training on the GPU, which settle the sizes above.
-5. Stage 0: data, the comparisons of 3.3, the first network and its matches.
-6. Stage 1: the loop on the two machines, until the stop rule.
+   and of training on the GPU, which settle the sizes above (done).
+5. Stage 0: data, the comparisons of 3.3, the first network and its matches (done; the gate passed).
+6. Stage 1: the loop on the two machines, until the stop rule (the loop is built and tested; running it is next).
 7. With the final network: the app and the web page again (the network as bots and analysis, the contest's scoring,
    the bugs and requests noted in docs/app.md).
 
@@ -401,7 +411,7 @@ information, duplicate matches, and the expected result of a hand as the objecti
 | Baselines | Tai-aware and defensive greedy, flat Monte Carlo | Flat Monte Carlo only | Hand-tuned heuristics cost more than they tell; the stage 0 network takes their place. |
 | Rules sampling | By the old presets | By `simple1`, `simple2`, `standard`, `masters` and random values, with the app's settings varied | The presets changed; whatever the app can set should have been seen. |
 | Evaluation | Duplicate matches | Both seatings, the critic's diagnostics, the fixed-point test, the stop rule, people by review | To know when it is done, and how far from "perfect". |
-| Bottleneck | Assumed self-play, as in Thirteen | Measured: training on the GPU | Spare CPU goes to forks; the GPU runs all the time. |
+| Bottleneck | Assumed self-play, as in Thirteen | Measured: training on the GPU | Spare CPU goes to forks; the GPU runs all the time. (Measured since: the reverse, 5.3.) |
 
 ### 5.2 The second review: KataGo's methods
 
@@ -429,3 +439,17 @@ shape, and the methods of the search itself have nothing to attach to.
 | **Net size grown during the run.** | Not adopted: the shipped size is small and fixed. A 0.5M start remains a fallback (3.6). |
 | **Fixup, then fixed-variance initialization**: no batch normalization at inference. | Layer normalization: the same computation in training and in the app. |
 | **Methods of the search**: subtree value bias correction, variance-scaled cPUCT, uncertainty-weighted playouts, optimistic policy, shaped Dirichlet noise, root policy temperature. | Nothing to attach them to. The entropy bonus does the root temperature's work (it keeps equally good actions alive). They come back if 3.7's search is built. |
+
+### 5.3 What building it changed (2026-11-11)
+
+Measurements are in docs/training.md.
+
+| Topic | Planned | Now | Why |
+|---|---|---|---|
+| Bottleneck | Training on the GPU | Self-play: 183 hands a second on 32 threads feed 1,500 samples a second; the GPU trains 4,000 | Records, forks and 88 evaluations a hand cost more than estimated, and the threads scale poorly beyond 8. Iterations are 100,000 hands; the GPU's slack goes to more recorded decisions per hand and a larger critic. |
+| Policy head | An output of the shared action head | A head of its own; in stage 0 its gradient stops at the trunk | With 12.8M decisions the network was worse than with 2.2M (−0.047 against −0.017): the nearly one-hot target is noisy and pulled the shared layers away from the outcome heads. Separated: +0.0165 on 9.2M. |
+| Stage 0's data | Read once or twice, a second round on the network's positions | 22M labelled decisions, one round | The first round passed the gate; stage 1's self-play gives the network's own positions. |
+| Residual network | A candidate trunk | Dropped | No better at equal width (−0.028 against −0.017), and slower than the Transformer at 1M parameters. |
+| Training-only heads | To be measured | Kept, weights as planned | −0.105 without them; halving their weights −0.036; doubling or quadrupling them changes nothing. |
+| `mc` | A yardstick and part of the gate | Neither | With 400 playouts a decision it loses 0.6 points a hand to `greedy`: one hand's result varies by several points whatever the discard, which is the reason for principle 6 in the first place. |
+| The two machines | The self-play machine drives the trainer over ssh (Thirteen's `remote_loop.py`) | Each side runs its own loop over a shared directory; the trainer holds a key for rsync into it only | The training machine is somebody's desktop: nothing that runs there should come from elsewhere without its owner. |
