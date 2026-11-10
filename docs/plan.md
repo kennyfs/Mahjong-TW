@@ -210,8 +210,8 @@ losses of the heads that ship, and by CPU cost):
 Results (docs/training.md; 5.3): the Transformer stays (a residual network of the same width was no better and, at
 this size, slower); the training-only heads are the largest gain of all (−0.105 without them against −0.017 points
 per decision) and their weights stay as planned; kind features fed straight to the action heads, three passes and
-smaller batches change nothing clearly. The sizes (96, 128 and 160 wide) and the tokens for the last discards are
-still to be compared.
+smaller batches change nothing clearly. The sizes compared (0.5M, 1.1M and 1.9M parameters) play alike
+at this stage, so 1M stays. The tokens for the last discards are still to be compared.
 
 ### 3.4 Training
 

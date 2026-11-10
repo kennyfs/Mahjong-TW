@@ -154,8 +154,27 @@ restores the old way). With that, on 9.2M decisions (10 minutes on the GPU; `s12
 | Playing the policy head's best action instead | +0.108 ± 0.039 |
 | Sampling from the policy head (as self-play does) | +0.004 ± 0.038 |
 
+Sizes of the actor, each on the same 9.2M decisions; the matches are 10,000 deals with the four seatings:
+
+| Actor | Parameters | Q's choice against greedy's | One among three greedy players |
+|---|---:|---:|---:|
+| 96 wide, 4 layers | 0.52M | +0.0137 ± 0.0050 | +0.112 ± 0.018 |
+| 128 wide, 5 layers | 1.06M | +0.0165 ± 0.0052 | +0.127 ± 0.017 |
+| 160 wide, 6 layers | 1.89M | +0.0214 ± 0.0053 | +0.110 ± 0.017 |
+
+No size is better than another here (one of 96 among three of 128: +0.003 ± 0.019), so 128 stays; whether a
+stronger player needs the capacity is not something greedy opponents can show. The critic (192 wide, 6 layers,
+2.71M parameters, 21.4M decisions) reaches an event loss of 1.62 on held-out hands where the actor has 2.04.
+
 So stage 0 ends above greedy, which was its gate. The self-play machine is the slow side: 225 hands a second on 32
 threads feed about 1,800 samples a second, half of what the GPU trains. (Small batches are faster on many threads:
 a thread's working memory then stays in its own cache.) `mc` (a Monte Carlo player over
 greedy playouts) is no yardstick: with 400 playouts a decision it loses 0.6 points a hand to greedy, because one
 hand's result varies by several points whatever the discard.
+
+Stage 1, the first iteration (100,000 hands by the stage 0 network, 790,000 samples, held-out hands): the critic
+explains 27% of the variance of the results; over 1,489 forks its predicted difference between the two actions has
+slope 0.99 against the realized one (0.34 against 1.19 points in size, so it explains 8% of a single fork). The
+exported policy is 0.022 in KL from the playing one, and better by 0.0010 points a decision by the critic's
+values. Training an iteration takes 130 seconds (6,100 samples a second), fetching it 140 (at 200 KiB/s), playing
+it 450: the GPU idles two thirds of the time.
