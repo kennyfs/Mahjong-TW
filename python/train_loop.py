@@ -36,15 +36,29 @@ def log(run, text):
         f.write(line + "\n")
 
 
-def rsync(args, src, dst, quiet=False):
-    ssh = "ssh -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=30"
+def ssh_command(args):
+    ssh = args.ssh + " -o BatchMode=yes -o ConnectTimeout=30 -o ServerAliveInterval=30"
     if args.ssh_key:
         ssh += f" -o IdentitiesOnly=yes -i {args.ssh_key}"
-    cmd = ["rsync", "-az", "--partial", "-e", ssh]
+    return ssh
+
+
+def rsync(args, src, dst, quiet=False):
+    cmd = ["rsync", "-az", "--partial", "-e", ssh_command(args)]
     if args.bwlimit:
         cmd.append(f"--bwlimit={args.bwlimit}")
     r = subprocess.run(cmd + [src, dst], capture_output=True, text=True)
     return r.returncode
+
+
+def listing(args, path):
+    """The names in a directory of the other side; None when it cannot be reached. (Asking for a file that is not
+    there says nothing: rrsync ends the connection, as a dead link would.)"""
+    r = subprocess.run(["rsync", "--list-only", "-e", ssh_command(args), path.rstrip("/") + "/"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    return [line.split()[-1] for line in r.stdout.splitlines() if line.strip()]
 
 
 def newest(run):
@@ -75,6 +89,7 @@ def main():
     ap.add_argument("--run", required=True, help="The run's directory here")
     ap.add_argument("--share", required=True, help="HOST:PATH of the run's directory on the self-play machine")
     ap.add_argument("--ssh-key", help="Private key for that machine (default: ssh's own choice)")
+    ap.add_argument("--ssh", default="ssh", help="The ssh command")
     ap.add_argument("--bwlimit", type=int, default=0, help="Limit of the copies, KiB/s")
     ap.add_argument("--python", default=sys.executable)
     ap.add_argument("--train-args", default="--amp", help="Arguments for train1.py")
@@ -92,20 +107,24 @@ def main():
     wait = 20
     while True:
         data = os.path.join(run, "selfplay", f"iter_{i}")
-        # Only whole iterations appear under this name there. rsync says 23 when it is not there yet; anything else
-        # is the link or the login, and is not tried again for five minutes (failed logins in a row get a host
-        # banned).
-        code = rsync(args, f"{args.share}/selfplay/iter_{i}/", data + ".part/")
-        if code != 0:
-            if code != 23:
-                log(run, f"cannot reach the self-play machine (rsync code {code}); again in five minutes")
-                time.sleep(300)
-                continue
-            if rsync(args, f"{args.share}/STOP", os.path.join(run, "STOP")) == 0:
+        # Only whole iterations appear under this name there. After a failure of the link or the login, nothing is
+        # tried for five minutes (failed logins in a row get a host banned).
+        names = listing(args, f"{args.share}/selfplay")
+        if names is None:
+            log(run, "cannot reach the self-play machine; again in five minutes")
+            time.sleep(300)
+            continue
+        if f"iter_{i}" not in names:
+            if "STOP" in (listing(args, args.share) or []):
                 log(run, "STOP is set on the other side; ending")
                 return
             time.sleep(wait)
             wait = min(120, wait + 10)
+            continue
+        code = rsync(args, f"{args.share}/selfplay/iter_{i}/", data + ".part/")
+        if code != 0:
+            log(run, f"fetching iteration {i} failed (rsync code {code}); again in a minute")
+            time.sleep(60)
             continue
         wait = 20
         os.rename(data + ".part", data)
