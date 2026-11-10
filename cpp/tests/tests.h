@@ -3,6 +3,8 @@
 
 namespace Tests {
   void runAll();
+  // The learning interface (cpp/learn).
+  void runLearn();
 }
 
 #endif // TESTS_TESTS_H_

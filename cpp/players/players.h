@@ -22,7 +22,8 @@ class Player {
 //   random   wins whenever it can, otherwise a uniformly random legal action;
 //   greedy   wins whenever it can; discards for the fewest tiles from ready (shanten), then the most tiles that
 //            improve it (ukeire); calls a chow or pung only when it lowers shanten; declares kongs that do not
-//            raise it; never defends.
+//            raise it; never defends. Variations for training data, as greedy:eps=0.1,calls=more: eps is the chance
+//            of a random discard; calls=more also calls when that keeps the shanten, calls=none never calls.
 std::unique_ptr<Player> makePlayer(const std::string& spec);
 
 namespace Greedy {

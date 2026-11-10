@@ -36,12 +36,25 @@ set(GAME_SOURCES
   game/game.cpp
 )
 
+set(LEARN_SOURCES
+  learn/actions.cpp
+  learn/outcome.cpp
+  learn/features.cpp
+  learn/record.cpp
+  learn/expand.cpp
+)
+
 add_executable(mahjong
   ${CORE_SOURCES}
   ${GAME_SOURCES}
+  ${LEARN_SOURCES}
+  learn/sampling.cpp
+  learn/datafile.cpp
+  dataio/npz.cpp
   players/players.cpp
   players/analysis.cpp
   command/play.cpp
+  command/gen0.cpp
   command/guiengine.cpp
   command/gui.cpp
   command/runtests.cpp
@@ -50,6 +63,7 @@ add_executable(mahjong
   command/tai.cpp
   command/benchmark.cpp
   tests/tests.cpp
+  tests/learntests.cpp
   main.cpp
 )
 
@@ -61,4 +75,17 @@ target_link_libraries(mahjong PRIVATE Threads::Threads)
 target_compile_options(mahjong PRIVATE -Wall -Wextra -Wno-sign-compare)
 if(USE_NATIVE)
   target_compile_options(mahjong PRIVATE -march=native)
+endif()
+
+# The data library, loaded by python/mahjong/data.py to turn hand records into training batches.
+add_library(mahjong_data SHARED
+  ${CORE_SOURCES}
+  ${GAME_SOURCES}
+  ${LEARN_SOURCES}
+  learn/learn_c.cpp
+)
+target_link_libraries(mahjong_data PRIVATE Threads::Threads)
+target_compile_options(mahjong_data PRIVATE -Wall -Wextra -Wno-sign-compare)
+if(USE_NATIVE)
+  target_compile_options(mahjong_data PRIVATE -march=native)
 endif()

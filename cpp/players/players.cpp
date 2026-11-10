@@ -37,7 +37,10 @@ namespace {
 
   class GreedyPlayer : public Player {
    public:
-    string name() const override { return "greedy"; }
+    // eps: the chance of a random discard on its own turn. calls: -1 never chows or pungs, 0 only when that brings
+    // the hand closer to ready, 1 also when it keeps the distance.
+    GreedyPlayer(double eps, int calls, const string& spec) : eps_(eps), calls_(calls), spec_(spec) {}
+    string name() const override { return spec_; }
 
     // The best discard of a 3 numSets + 2 hand: (shanten, -ukeire, keep value) smallest.
     static int bestDiscard(const Counts& hand, int numSets, const Counts& visible, int* outShanten) {
@@ -65,7 +68,7 @@ namespace {
       return bestKind;
     }
 
-    Action decide(const Game& game, int seat, const vector<Action>& legal, Rand&) override {
+    Action decide(const Game& game, int seat, const vector<Action>& legal, Rand& rand) override {
       if(const Action* a = findType(legal, Action::TSUMO))
         return *a;
       if(const Action* a = findType(legal, Action::RON))
@@ -75,6 +78,13 @@ namespace {
       Counts visible = game.visibleCounts(seat);
 
       if(game.phase() == Game::SELF) {
+        if(eps_ > 0.0 && rand.nextDouble() < eps_) {
+          vector<Action> discards;
+          for(const Action& a : legal)
+            if(a.type == Action::DISCARD)
+              discards.push_back(a);
+          return discards[rand.nextUInt((uint32_t)discards.size())];
+        }
         if(const Action* a = findType(legal, Action::KAKAN))
           return *a;
         int s0;
@@ -90,10 +100,12 @@ namespace {
         return Action(Action::DISCARD, discard);
       }
 
-      // A discard to call: only a chow or pung that lowers shanten.
+      // A discard to call: only a chow or pung that lowers shanten (or keeps it, for a player that likes to call).
+      if(calls_ < 0)
+        return Action(Action::PASS);
       int s0 = Shape::shanten(st.hand, numSets);
       Action best(Action::PASS);
-      int bestS = s0;
+      int bestS = s0 + (calls_ > 0 ? 1 : 0);
       for(const Action& a : legal) {
         if(a.type != Action::PON && a.type != Action::CHI)
           continue;
@@ -116,6 +128,11 @@ namespace {
       }
       return best;
     }
+
+   private:
+    double eps_;
+    int calls_;
+    string spec_;
   };
 }
 
@@ -146,7 +163,24 @@ int Greedy::ukeire(const Counts& hand, int numSets, const Counts& visible, int s
 unique_ptr<Player> makePlayer(const string& spec) {
   if(spec == "random")
     return unique_ptr<Player>(new RandomPlayer());
-  if(spec == "greedy")
-    return unique_ptr<Player>(new GreedyPlayer());
+  if(spec == "greedy" || spec.rfind("greedy:", 0) == 0) {
+    // greedy:eps=0.1,calls=more (or none): variations for training data.
+    double eps = 0.0;
+    int calls = 0;
+    if(spec.size() > 7) {
+      for(const string& tok : Global::split(spec.substr(7), ',')) {
+        size_t eq = tok.find('=');
+        string key = eq == string::npos ? tok : tok.substr(0, eq), value = eq == string::npos ? "" : tok.substr(eq + 1);
+        if(key == "eps" && Global::tryStringToDouble(value, eps) && eps >= 0.0 && eps <= 1.0)
+          continue;
+        if(key == "calls" && (value == "more" || value == "none" || value == "normal")) {
+          calls = value == "more" ? 1 : value == "none" ? -1 : 0;
+          continue;
+        }
+        throw StringError("Bad option for the greedy player: " + tok);
+      }
+    }
+    return unique_ptr<Player>(new GreedyPlayer(eps, calls, spec));
+  }
   throw StringError("Unknown player: " + spec);
 }

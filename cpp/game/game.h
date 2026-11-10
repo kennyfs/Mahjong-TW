@@ -138,6 +138,10 @@ class Game {
   const SeatState& seat(int s) const { return seats_[s]; }
   // Tiles that can still be drawn (0 at the end of the wall).
   int wallLeft() const { int n = back_ - front_ - rules_.keep; return n < 0 ? 0 : n; }
+  // The wall between these indices is undrawn: ordinary draws take wall()[wallFront()] and on, replacements
+  // wall()[wallBack() - 1] and down.
+  int wallFront() const { return front_; }
+  int wallBack() const { return back_; }
   // In REACT: the discard; in ROB_KONG: the kong's tile.
   int claimSeat() const { return claimSeat_; }
   int claimTile() const { return claimTile_; }

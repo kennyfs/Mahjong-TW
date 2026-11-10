@@ -454,5 +454,6 @@ void Tests::runAll() {
   cout << "games ok" << endl;
   testGuiEngine();
   cout << "gui engine ok" << endl;
+  runLearn();
   cout << "All tests passed" << endl;
 }
