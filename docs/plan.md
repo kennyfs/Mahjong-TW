@@ -83,9 +83,10 @@ ONNX Runtime; logs in `mahjong-files/logs/bench_*.log`):
 | Transformer, width 96, 4 layers | 38 | 0.47M | 0.36 ms |
 | 1D residual network, 128 channels, 8 blocks | 34 | 0.85M | 0.45 ms |
 
-Those were the estimates. Measured (5.3): with the records, the forks and 64 hands at once per thread, one thread
-evaluates 1,000 decisions a second and 32 threads 16,000, which is 183 hands a second with the network in all four
-seats (beyond 8 threads the gain is small; not yet understood). Training belongs on the GPU: a desktop GPU trains the
+Those were the estimates. Measured (5.3): with the records and the forks, one thread
+evaluates 1,000 decisions a second and 32 threads 20,000, which is 225 hands a second with the network in all four
+seats (each thread plays 8 hands at once: with larger batches its working memory leaves its cache, and 32 threads
+give only 16 times one thread). Training belongs on the GPU: a desktop GPU trains the
 actor at 15,000 samples a second, and actor and critic together at about 4,000. **So the GPU outruns self-play, as
 in Thirteen**: hands are the scarce resource, and what is recorded of each hand decides how far they go (3.4).
 
@@ -300,7 +301,7 @@ heart; a critic that sees the wall would be the quickest to do it. (KataGo reads
 ablation with 600 playouts on every move overfitted for lack of games.) One hand in a hundred is held out, and the
 losses of the critic and of the event heads on those hands are reported beside the training losses.
 
-Starting values, to be tuned by the diagnostics of 3.5: 100,000 hands an iteration (about 9 minutes here), with 8
+Starting values, to be tuned by the diagnostics of 3.5: 100,000 hands an iteration (about 8 minutes here), with 8
 recorded decisions and one or two forks each: 0.8M samples, which the GPU trains on in 4 minutes. The GPU is faster
 than self-play can feed it, so, in this order: more decisions per hand are recorded (up to about 15); the critic
 grows (it costs nothing in the app); a second reading, for the critic only, comes after that and is watched on the
@@ -325,7 +326,7 @@ loose single wait. Dealer and round wind are uniform, the streak 0 to 3 (60, 25,
 **The loop** is Thirteen's: self-play here (32 threads, `loop1.py --role selfplay`), training on the home GPU
 (`train_loop.py`), hands by rsync and networks back, through a key that allows rsync into one directory and nothing
 else. Only data crosses between the machines: hands one way; networks, logs and a file of numeric training options
-the other. The measured speeds give some 15M hands (about 4.5 GB of records) and 120M recorded decisions a day.
+the other. The measured speeds give some 19M hands (about 5.5 GB of records) and 150M recorded decisions a day.
 
 ### 3.5 Evaluation, and when to stop
 
@@ -446,7 +447,7 @@ Measurements are in docs/training.md.
 
 | Topic | Planned | Now | Why |
 |---|---|---|---|
-| Bottleneck | Training on the GPU | Self-play: 183 hands a second on 32 threads feed 1,500 samples a second; the GPU trains 4,000 | Records, forks and 88 evaluations a hand cost more than estimated, and the threads scale poorly beyond 8. Iterations are 100,000 hands; the GPU's slack goes to more recorded decisions per hand and a larger critic. |
+| Bottleneck | Training on the GPU | Self-play: 225 hands a second on 32 threads feed 1,800 samples a second; the GPU trains 4,000 | Records, forks and 88 evaluations a hand cost more than estimated, and the threads scale poorly beyond 8. Iterations are 100,000 hands; the GPU's slack goes to more recorded decisions per hand and a larger critic. |
 | Policy head | An output of the shared action head | A head of its own; in stage 0 its gradient stops at the trunk | With 12.8M decisions the network was worse than with 2.2M (−0.047 against −0.017): the nearly one-hot target is noisy and pulled the shared layers away from the outcome heads. Separated: +0.0165 on 9.2M. |
 | Stage 0's data | Read once or twice, a second round on the network's positions | 22M labelled decisions, one round | The first round passed the gate; stage 1's self-play gives the network's own positions. |
 | Residual network | A candidate trunk | Dropped | No better at equal width (−0.028 against −0.017), and slower than the Transformer at 1M parameters. |

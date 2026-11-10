@@ -69,7 +69,7 @@ python python/loop1.py --role selfplay --run SHARE/RUN --hands 100000 --threads 
 python python/train_loop.py --run RUN2 --share HOST:RUN --ssh-key ~/.ssh/mahjong_sync --bwlimit 200 --train-args "--amp"
 ```
 
-- `selfplay` plays 64 hands at once per thread and evaluates their pending decisions in one batch. Of each hand it
+- `selfplay` plays several hands at once per thread (`--slots`) and evaluates their pending decisions in one batch. Of each hand it
   marks 8 of the learner's decisions (half evenly, half in proportion to max Q − Σ π Q by the network's own heads)
   and stores the playing policy there; at 1 or 2 of them it plays another action and finishes the hand again with
   the same players and the same random numbers (a fork). `--greedy-labels` gives the marks stage 0's labels instead
@@ -119,7 +119,8 @@ On 28 to 32 threads of a 2-socket server (self-play machine) and a desktop GPU w
 | The network, ONNX Runtime, one thread | 1.6 ms a decision alone, 0.8 ms in batches of 64 |
 | `train0.py`, critic (192 wide, 6 layers), bf16 | 9,500 samples/s |
 | `train1.py`, actor and that critic | about 4,000 samples/s |
-| `selfplay` with forks (88 evaluations a hand) | 11 hands/s on 1 thread, 87 on 8, 183 on 32 |
+| `selfplay` with forks (88 evaluations a hand), 64 hands at once per thread | 11 hands/s on 1 thread, 87 on 8, 183 on 32 |
+| The same on 32 threads with 32, 16, 8, 4 hands at once | 187, 215, 225, 215 hands/s (the loop uses 8) |
 
 Stage 0, first experiments (2.2M labelled decisions, read once; evaluated on 331,000 decisions of other hands;
 ± 0.005):
@@ -153,7 +154,8 @@ restores the old way). With that, on 9.2M decisions (10 minutes on the GPU; `s12
 | Playing the policy head's best action instead | +0.108 ± 0.039 |
 | Sampling from the policy head (as self-play does) | +0.004 ± 0.038 |
 
-So stage 0 ends above greedy, which was its gate. The self-play machine is the slow side: 183 hands a second on 32
-threads feed about 1,500 samples a second, a fraction of what the GPU trains. `mc` (a Monte Carlo player over
+So stage 0 ends above greedy, which was its gate. The self-play machine is the slow side: 225 hands a second on 32
+threads feed about 1,800 samples a second, half of what the GPU trains. (Small batches are faster on many threads:
+a thread's working memory then stays in its own cache.) `mc` (a Monte Carlo player over
 greedy playouts) is no yardstick: with 400 playouts a decision it loses 0.6 points a hand to greedy, because one
 hand's result varies by several points whatever the discard.

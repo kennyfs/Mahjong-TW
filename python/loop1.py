@@ -228,9 +228,10 @@ def main():
     ap.add_argument("--remote-python", default="python3")
     ap.add_argument("--engine", default=os.path.join(here, "..", "cpp", "build", "mahjong"))
     ap.add_argument("--iterations", type=int, default=1000000, help="Stop after this iteration")
-    ap.add_argument("--hands", type=int, default=300000, help="Hands per iteration")
+    ap.add_argument("--hands", type=int, default=100000, help="Hands per iteration")
     ap.add_argument("--threads", type=int, default=32)
-    ap.add_argument("--slots", type=int, default=64)
+    ap.add_argument("--slots", type=int, default=8,
+                    help="Hands a thread plays at once; with 32 threads, small batches are faster (caches)")
     ap.add_argument("--marks", type=int, default=8)
     ap.add_argument("--forks", type=float, default=1.5)
     ap.add_argument("--opponent-rate", type=float, default=0.2)
