@@ -3,7 +3,7 @@
 An AI for Taiwanese 16-tile mahjong, with a light network meant to run on a phone or a web page on the CPU. Modeled
 on the author's Thirteen (十三張) project.
 
-- Rules: [docs/rules.md](docs/rules.md). The flower settings (none, 見花見台, 正花) and the tai table (simple,
+- Rules: [docs/rules.md](docs/rules.md). The flower settings (none, 見花見台, 正花) and the tai table (simple1, simple2,
   standard, masters, or any values) are parameters.
 - Plan: [docs/plan.md](docs/plan.md).
 
@@ -55,7 +55,7 @@ build/mahjong runtests
 
 ```bash
 # Duplicate matches: each wall is played once per rotation of the four players (--all-orders: all 24 orders).
-build/mahjong match -p greedy -p random -p greedy -p random -n 5000 -t 32 --rules simple,none
+build/mahjong match -p greedy -p random -p greedy -p random -n 5000 -t 32 --rules simple1,none
 
 # One hand, printed (-v: the deciding player's hand before each decision).
 build/mahjong show -s demo1 --rules standard,seat
@@ -67,10 +67,10 @@ build/mahjong tai --hand 111222333z44z123456m --win 6m --tsumo --round-wind S --
 build/mahjong benchmark
 
 # The interfaces' JSON engine: one request per line in, one answer per line out.
-echo '{"cmd":"new","rules":"simple,see","seed":"x"}' | build/mahjong gui
+echo '{"cmd":"new","rules":"simple1,see","seed":"x"}' | build/mahjong gui
 ```
 
-Rules specs are comma-separated presets and `name=value` overrides, e.g. `simple,see,base=2,draw_streak=0`
+Rules specs are comma-separated presets and `name=value` overrides, e.g. `simple1,see,base=2,draw_streak=0`
 (docs/rules.md section 11).
 
 ## License

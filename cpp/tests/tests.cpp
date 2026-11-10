@@ -147,7 +147,8 @@ static Meld meld(Meld::Type t, const string& tile) {
 }
 
 static void testTai() {
-  Rules simple = Rules::parse("simple,none");
+  Rules simple = Rules::parse("simple1,none");
+  testAssert(Rules::parse("simple,none").toString() == simple.toString());  // the old name
   Rules standard = Rules::parse("standard,none");
   Rules masters = Rules::parse("masters,none");
   ostringstream out;
@@ -155,6 +156,7 @@ static void testTai() {
   // Pure suit, concealed, self-drawn; 78m waited on 6m and 9m.
   Tai::WinInfo a = win("123456789m234678m55m", "9m", true);
   out << Tai::compute(simple, a).toString() << endl;
+  out << Tai::compute(Rules::parse("simple2"), a).toString() << endl;
   out << Tai::compute(standard, a).toString() << endl;
   a.lastTile = true;
   a.replacement = true;
@@ -200,7 +202,8 @@ static void testTai() {
   out << Tai::compute(standard, e).toString() << endl;
 
   TestCommon::expect("tai", out, R"(
-門清1 自摸1 清一色8 = 10
+門清1 自摸1 不求人1 清一色8 = 11
+自摸1 清一色8 = 9
 門清1 自摸1 不求人1 清一色8 = 11
 門清1 自摸1 不求人1 清一色8 海底撈月1 = 12
 門清1 獨聽1 = 2

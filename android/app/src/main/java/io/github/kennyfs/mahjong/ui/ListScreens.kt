@@ -77,7 +77,7 @@ fun localTime(stamp: String): String =
 @Composable
 fun rulesOf(spec: String): String {
   val parts = spec.split(',')
-  val tai = parts.getOrNull(0)?.takeIf { it in Rules.TAI_PRESETS } ?: "simple"
+  val tai = parts.getOrNull(0)?.takeIf { it in Rules.TAI_PRESETS } ?: "simple1"
   val flowers = parts.getOrNull(1)?.takeIf { it in Rules.FLOWER_PRESETS } ?: "none"
   return rulesChip(tai, flowers, parts.size > 2)
 }
@@ -278,7 +278,10 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
   }
 }
 
-private fun taiDesc(p: String) = when (p) { "standard" -> R.string.tai_standard_desc; "masters" -> R.string.tai_masters_desc; else -> R.string.tai_simple_desc }
+private fun taiDesc(p: String) = when (p) {
+  "simple2" -> R.string.tai_simple2_desc; "standard" -> R.string.tai_standard_desc; "masters" -> R.string.tai_masters_desc
+  else -> R.string.tai_simple1_desc
+}
 private fun flowerDesc(p: String) = when (p) { "see" -> R.string.flowers_see_desc; "seat" -> R.string.flowers_seat_desc; else -> R.string.flowers_none_desc }
 
 @Composable

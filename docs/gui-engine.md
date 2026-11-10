@@ -20,8 +20,8 @@ their concealed kongs, and, while several players may claim a discard, which of 
 ## A practice hand
 
 ```
->> {"cmd":"new","rules":"simple,see","setup":{"dealer":0,"east":-1,"round":0,"streak":0},"seed":"demo"}
-<< {"game":{"rules":"simple,see","setup":{...},"wall":"7z2p9p7s9s5f2s4m...","actions":[]}}
+>> {"cmd":"new","rules":"simple1,see","setup":{"dealer":0,"east":-1,"round":0,"streak":0},"seed":"demo"}
+<< {"game":{"rules":"simple1,see","setup":{...},"wall":"7z2p9p7s9s5f2s4m...","actions":[]}}
 ```
 
 The human plays seat 1; the bots play the others. `advance` lets the bots decide until the human must (or the hand
@@ -117,7 +117,7 @@ fields will be added, none removed), so a screen should show what is present.
 The analysis screen (a position set up by hand) sends a POSITION instead of a game:
 
 ```
->> {"cmd":"analyze","rules":"simple,none","position":{"setup":{"dealer":0,"east":-1,"round":0,"streak":0},
+>> {"cmd":"analyze","rules":"simple1,none","position":{"setup":{"dealer":0,"east":-1,"round":0,"streak":0},
      "me":0,"hand":"123456789m234s5m7z","drawn":"5m","after_call":false,"claim":null,
      "players":[{"melds":[{"type":"ankan","tile":"9p"}],"flowers":"","discards":[]},
                 {"melds":[],"flowers":"","discards":[]},{"melds":[],"flowers":"","discards":[]},
@@ -133,9 +133,9 @@ says why; show it.
 ## Scoring and rules
 
 `tai` scores a winning hand (the scoring help screen, and checking a hand entered by hand). `rules` turns a spec
-into the full spec and every parameter's value, and lists the presets: tai presets `simple`, `standard`, `masters`
+into the full spec and every parameter's value, and lists the presets: tai presets `simple1`, `simple2`, `standard`, `masters`
 and flower presets `none`, `see`, `seat` (in that order: the order to show them). A spec is a comma list of presets
-and `param=value` (docs/rules.md section 11), e.g. `simple,see,base=2`; flowers and tai are set apart, so a settings
+and `param=value` (docs/rules.md section 11), e.g. `simple1,see,base=2`; flowers and tai are set apart, so a settings
 screen has the two preset rows and an advanced list of parameters (the `items` give each tai item's Chinese name).
 
 ## Errors

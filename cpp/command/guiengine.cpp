@@ -324,7 +324,7 @@ json GuiJson::record(const Record& r) {
 
 GuiJson::Record GuiJson::parseRecord(const json& j) {
   Record r;
-  r.rules = getString(j, "rules", "simple,none");
+  r.rules = getString(j, "rules", "simple1,none");
   r.setup = parseSetup(j.contains("setup") ? j["setup"] : json(nullptr));
   string wall = j.at("wall").get<string>();
   for(int t : Tiles::parse(wall))
@@ -441,7 +441,7 @@ json GuiEngine::handle(const json& req) {
   string cmd = req.at("cmd").get<string>();
 
   if(cmd == "rules") {
-    Rules rules = Rules::parse(getString(req, "rules", "simple,none"));
+    Rules rules = Rules::parse(getString(req, "rules", "simple1,none"));
     json values = json::object();
     for(const Rules::Param& p : Rules::params())
       values[p.name] = rules.get(p.name);
@@ -457,7 +457,7 @@ json GuiEngine::handle(const json& req) {
   }
 
   if(cmd == "tai") {
-    Rules rules = Rules::parse(getString(req, "rules", "simple,none"));
+    Rules rules = Rules::parse(getString(req, "rules", "simple1,none"));
     Tai::WinInfo w;
     w.concealed = Tiles::countsOf(Tiles::parse(req.at("hand").get<string>()));
     if(req.contains("melds"))
@@ -498,7 +498,7 @@ json GuiEngine::handle(const json& req) {
   }
 
   if(cmd == "new") {
-    string spec = getString(req, "rules", "simple,none");
+    string spec = getString(req, "rules", "simple1,none");
     Rules rules = Rules::parse(spec);
     GuiJson::Record r;
     r.rules = spec;
@@ -509,7 +509,7 @@ json GuiEngine::handle(const json& req) {
   }
 
   if(cmd == "analyze" && req.contains("position")) {
-    Game game(Rules::parse(getString(req, "rules", "simple,none")));
+    Game game(Rules::parse(getString(req, "rules", "simple1,none")));
     Position p = GuiJson::parsePosition(req["position"]);
     unique_ptr<Rand> rand = randOf(req);
     game.loadPosition(p, *rand);

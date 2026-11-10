@@ -220,7 +220,7 @@ class RoomTest {
 
   @Test
   fun aContestDealsEveryoneTheSameWall(): Unit = runBlocking {
-    val settings = RoomSettings(Mode.CONTEST, hands = 2, rules = RuleChoice("simple", "none"), timeLimit = 5)
+    val settings = RoomSettings(Mode.CONTEST, hands = 2, rules = RuleChoice("simple1", "none"), timeLimit = 5)
     val a = Client("Alice")
     val b = Client("Bob")
     a.hello()

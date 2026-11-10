@@ -82,7 +82,7 @@ int Commands::tai(vector<string> args) {
     TCLAP::ValueArg<string> meldsArg("", "melds", "Melds, e.g. \"pon:555p chi:345m kan:1111z ankan:9999s\"", false,
                                      "", "MELDS");
     TCLAP::ValueArg<string> winArg("", "win", "The winning tile", true, "", "TILE");
-    TCLAP::ValueArg<string> rulesArg("", "rules", "Rules spec (default simple,none)", false, "simple,none", "SPEC");
+    TCLAP::ValueArg<string> rulesArg("", "rules", "Rules spec (default simple1,none)", false, "simple1,none", "SPEC");
     TCLAP::ValueArg<string> seatArg("", "seat-wind", "Seat wind E/S/W/N (default E)", false, "E", "WIND");
     TCLAP::ValueArg<string> roundArg("", "round-wind", "Round wind E/S/W/N (default E)", false, "E", "WIND");
     TCLAP::ValueArg<string> flowersArg("", "flowers", "Flowers held, e.g. 1f5f", false, "", "TILES");

@@ -12,12 +12,12 @@ import kotlinx.serialization.encodeToString
  * (docs/rules.md section 11). Names and values of the parameters come from the engine ({"cmd":"rules"}).
  */
 @Serializable
-data class RuleChoice(val tai: String = "simple", val flowers: String = "none", val overrides: Map<String, Int> = emptyMap()) {
+data class RuleChoice(val tai: String = "simple1", val flowers: String = "none", val overrides: Map<String, Int> = emptyMap()) {
   val spec: String get() = (listOf(tai, flowers) + overrides.keys.sorted().map { "$it=${overrides[it]}" }).joinToString(",")
 }
 
 object Rules {
-  val TAI_PRESETS = listOf("simple", "standard", "masters")
+  val TAI_PRESETS = listOf("simple1", "simple2", "standard", "masters")
   val FLOWER_PRESETS = listOf("none", "see", "seat")
   /** The parameters of the flowers, and of the play (not tai); every other one is a tai item. */
   val FLOWER_PARAMS = listOf("flowers", "flower_tai", "flower_set", "eight_flowers", "seven_rob_one")
@@ -40,7 +40,9 @@ object Rules {
   fun values(spec: String): Map<String, Int> =
     spec.split(',').mapNotNull { p -> p.split('=').takeIf { it.size == 2 }?.let { it[0] to (it[1].toIntOrNull() ?: 0) } }.toMap()
 
-  fun taiLabel(p: String) = when (p) { "standard" -> R.string.tai_standard; "masters" -> R.string.tai_masters; else -> R.string.tai_simple }
+  fun taiLabel(p: String) = when (p) {
+    "simple2" -> R.string.tai_simple2; "standard" -> R.string.tai_standard; "masters" -> R.string.tai_masters; else -> R.string.tai_simple1
+  }
   fun flowerLabel(p: String) = when (p) { "see" -> R.string.flowers_see; "seat" -> R.string.flowers_seat; else -> R.string.flowers_none }
 }
 
@@ -66,7 +68,8 @@ class Settings(context: Context) {
 
   private val stored: StoredSettings = runCatching { EngineJson.decodeFromString<StoredSettings>(prefs.getString("settings", null) ?: "{}") }.getOrDefault(StoredSettings())
 
-  var rules by mutableStateOf(stored.rules)
+  // A tai preset no longer listed (the old "simple") reads as the default.
+  var rules by mutableStateOf(stored.rules.let { if (it.tai in Rules.TAI_PRESETS) it else it.copy(tai = RuleChoice().tai) })
   var length by mutableStateOf(stored.length)
   var bot by mutableStateOf(if (BOTS.any { it.first == stored.bot }) stored.bot else "greedy")
   var speed by mutableStateOf(stored.speed)

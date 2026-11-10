@@ -12,15 +12,15 @@ struct Rules {
   int flowers = NO_FLOWERS;
   int flowerTai = 1;     // per flower (see) or per flower of one's seat (seat)
   int flowerSet = 0;     // 花槓, per complete set of seasons or plants
-  int eightFlowers = 8;  // 八仙過海
-  int sevenRobOne = 8;   // 七搶一
+  int eightFlowers = 0;  // 八仙過海 (set by the tai presets: 0 in simple1 and simple2)
+  int sevenRobOne = 0;   // 七搶一
 
   // --- Tai (section 9) ---
   int dealer = 1;
   int streak = 2;
   int menqing = 1;
   int zimo = 1;
-  int menqingZimo = 0;
+  int menqingZimo = 1;
   int duting = 1;
   int pinghu = 0;
   int quanqiu = 0;
@@ -79,7 +79,7 @@ struct Rules {
   static const char* const FLOWER_PRESETS[];
   void applyPreset(const std::string& name);
 
-  // "PRESET,PRESET,name=value,..." applied left to right on top of the default (simple, none). Throws StringError.
+  // "PRESET,PRESET,name=value,..." applied left to right on top of the default (simple1, none). Throws StringError.
   static Rules parse(const std::string& spec);
   // Every parameter as name=value, comma-separated.
   std::string toString() const;

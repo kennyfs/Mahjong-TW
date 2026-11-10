@@ -16,7 +16,7 @@ int Commands::benchmark(vector<string> args) {
   try {
     TCLAP::CmdLine cmd("Times the building blocks on one thread.", ' ', "0");
     TCLAP::ValueArg<int> handsArg("n", "hands", "Hands per player type (default 2000)", false, 2000, "N");
-    TCLAP::ValueArg<string> rulesArg("", "rules", "Rules spec (default simple,none)", false, "simple,none", "SPEC");
+    TCLAP::ValueArg<string> rulesArg("", "rules", "Rules spec (default simple1,none)", false, "simple1,none", "SPEC");
     cmd.add(handsArg);
     cmd.add(rulesArg);
     cmd.parse(args);
@@ -34,7 +34,7 @@ int Commands::benchmark(vector<string> args) {
   {
     vector<Counts> hands;
     for(int i = 0; i < 20000; i++) {
-      vector<uint8_t> wall = Game::shuffledWall(Rules::parse("simple,none"), rand);
+      vector<uint8_t> wall = Game::shuffledWall(Rules::parse("simple1,none"), rand);
       Counts c{};
       for(int j = 0; j < 16; j++)
         c[wall[j]]++;

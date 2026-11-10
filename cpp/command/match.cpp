@@ -58,8 +58,8 @@ int Commands::match(vector<string> args) {
       "or all 24 orders with --all-orders), so every player plays every seat with the same tiles.", ' ', "0");
     TCLAP::MultiArg<string> playerArg("p", "player", "Player spec (random, greedy). Give exactly four.", true, "SPEC");
     TCLAP::ValueArg<int> dealsArg("n", "deals", "Number of deals (default 1000)", false, 1000, "N");
-    TCLAP::ValueArg<string> rulesArg("", "rules", "Rules spec (docs/rules.md section 11, default simple,none)", false,
-                                     "simple,none", "SPEC");
+    TCLAP::ValueArg<string> rulesArg("", "rules", "Rules spec (docs/rules.md section 11, default simple1,none)", false,
+                                     "simple1,none", "SPEC");
     TCLAP::ValueArg<int> threadsArg("t", "threads", "Threads (default 1)", false, 1, "N");
     TCLAP::ValueArg<string> seedArg("s", "seed", "Seed (default: random)", false, "", "SEED");
     TCLAP::SwitchArg permsArg("", "all-orders", "Play all 24 seatings instead of the 4 rotations", false);

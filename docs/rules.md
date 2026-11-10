@@ -116,48 +116,53 @@ The hand's tai is the sum of the items below that apply, under the rules' values
 reading the hand as five sets and a pair is tried, with the winning tile in any set or the pair it can complete, and
 the reading with the most tai counts. The dealer's tai of section 7 is not part of the hand's tai.
 
-The three columns are the tai presets (section 11): `simple` (the default: only dealer, streak, concealed, self-draw,
-single wait and pure suit), `standard` (MJ888 and Wikibooks, majority where they differ) and `masters` (Mahjong Masters
-2025).
+The columns are the tai presets (section 11), listed in this order:
 
-| Item | Parameter | simple | standard | masters | Definition |
-|---|---|---:|---:|---:|---|
-| 莊家 Dealer | `dealer` | 1 | 1 | 1 | Section 7. |
-| 連莊拉莊 Streak | `streak` | 2 | 2 | 2 | Per streak count, section 7. |
-| 門清 Concealed | `menqing` | 1 | 1 | 1 | No chow, pung or exposed or added kong (a concealed kong is fine). |
-| 自摸 Self-draw | `zimo` | 1 | 1 | 1 | Winning on one's own draw. |
-| 不求人 Concealed self-draw bonus | `menqing_zimo` | 0 | 1 | 1 | Extra when both concealed and self-draw (門清自摸 = 1 + 1 + this = 3 in `standard`). |
-| 獨聽 Single wait | `duting` | 1 | 1 | 1 | Edge, closed or pair wait (邊張, 中洞, 單吊), see 9.1. |
-| 平胡 All chows | `pinghu` | 0 | 2 | 2 | Five chows, a number pair, no honors and no flowers anywhere, a discard win, a two-sided wait and not a single wait (9.1). May combine with concealed. |
-| 全求人 All melded | `quanqiu` | 0 | 2 | 2 | All five sets are melds (chow, pung, exposed or added kong) and the win is on a discard (single wait on the pair). |
-| 全求人 adds single wait | `quanqiu_duting` | 0 | 0 | 1 | Whether 全求人 also scores 獨聽 (masters: 2 + 1 = 3). |
-| 半求 All melded, self-drawn | `banqiu` | 0 | 0 | 1 | As 全求人 but self-drawn (it also scores self-draw and single wait). |
-| 圈風 Round wind | `round_wind` | 0 | 1 | 1 | A pung of the round wind. |
-| 門風 Seat wind | `seat_wind` | 0 | 1 | 1 | A pung of one's seat wind (both when they are the same wind). |
-| 三元 Dragon pung | `dragon` | 0 | 1 | 1 | Per pung of a dragon. |
-| 小三元 Little dragons | `xiaosanyuan` | 0 | 4 | 4 | Two dragon pungs and a dragon pair; replaces their 三元. |
-| 大三元 Big dragons | `dasanyuan` | 0 | 8 | 8 | Three dragon pungs; replaces their 三元. |
-| 小四喜 Little winds | `xiaosixi` | 0 | 8 | 8 | Three wind pungs and a wind pair; the wind items still count. |
-| 大四喜 Big winds | `dasixi` | 0 | 16 | 16 | Four wind pungs. |
-| 大四喜 keeps wind items | `dasixi_winds` | 0 | 0 | 1 | Whether 圈風 and 門風 still count with 大四喜. |
-| 碰碰胡 All pungs | `pengpenghu` | 0 | 4 | 4 | Five pungs (or kongs). |
-| 三暗刻 Three concealed pungs | `sananke` | 0 | 2 | 2 | Concealed pungs (in the hand, or concealed kongs). A pung completed by a discard is not concealed. |
-| 四暗刻 Four concealed pungs | `sianke` | 0 | 5 | 5 | Replaces 三暗刻. |
-| 五暗刻 Five concealed pungs | `wuanke` | 0 | 8 | 8 | Replaces 三暗刻 and 四暗刻. |
-| 混一色 Half flush | `hunyise` | 0 | 4 | 4 | One number suit and honors. |
-| 清一色 Pure suit | `qingyise` | 8 | 8 | 8 | One number suit, no honors. |
-| 字一色 All honors | `ziyise` | 0 | 8 | 16 | Only honors (other items such as pungs and winds still count). |
-| 搶槓 Robbing a kong | `qianggang` | 0 | 1 | 1 | Winning on another player's added kong. |
-| 槓上開花 Win on a replacement | `gangshang` | 0 | 1 | 1 | Self-drawn on a replacement after a flower, a concealed or an added kong (not an exposed kong). |
-| 海底撈月 Last tile | `haidi` | 0 | 1 | 1 | Self-drawn on the last tile; not together with 槓上開花. |
-| 河底撈魚 Last discard | `hedi` | 0 | 1 | 1 | Winning on the last discard. |
-| 天胡 Heavenly hand | `tianhu` | 0 | 24 | 16 | The dealer wins before their first discard (without a kong). Replaces concealed and self-draw. |
-| 地胡 Earthly hand | `dihu` | 0 | 16 | 16 | Another player self-draws on their first draw, with no chow, pung or kong so far. Replaces concealed and self-draw. |
-| 人胡 Human hand | `renhu` | 0 | 0 | 16 | Another player wins on a discard before their first discard, with no chow, pung or kong so far. Replaces concealed. |
-| 見風見台 Any wind pung | `any_wind` | 0 | 0 | 0 | Per wind pung, instead of 圈風 and 門風 (明星3缺1's 見花見字 option). |
-| 無字無花 No honors, no flowers | `no_honor_flower` | 0 | 0 | 0 | (見花見字 option.) |
-| 明槓 Kong | `kong_tai` | 0 | 0 | 0 | Per exposed or added kong (見花見字 option). |
-| 暗槓 Concealed kong | `ankong_tai` | 0 | 0 | 0 | Per concealed kong (見花見字 option). |
+- `simple1` (簡單1, the default; the user's family rules, confirmed 2026-11-10): only dealer, streak, concealed,
+  self-draw (a concealed self-draw is 3: 門清一摸三), single wait (strict) and pure suit. No flower wins, no tai
+  for a win on a replacement (槓上開花: only its self-draw counts). `simple` is its old name, still read.
+- `simple2` (簡單2, southern Taiwan, 136 tiles without flowers; **provisional**, questions pending): as `simple1`
+  without the concealed items.
+- `standard` (MJ888 and Wikibooks, majority where they differ) and `masters` (Mahjong Masters 2025).
+
+| Item | Parameter | simple1 | simple2 | standard | masters | Definition |
+|---|---|---:|---:|---:|---:|---|
+| 莊家 Dealer | `dealer` | 1 | 1 | 1 | 1 | Section 7. |
+| 連莊拉莊 Streak | `streak` | 2 | 2 | 2 | 2 | Per streak count, section 7. |
+| 門清 Concealed | `menqing` | 1 | 0 | 1 | 1 | No chow, pung or exposed or added kong (a concealed kong is fine). |
+| 自摸 Self-draw | `zimo` | 1 | 1 | 1 | 1 | Winning on one's own draw. |
+| 不求人 Concealed self-draw bonus | `menqing_zimo` | 1 | 0 | 1 | 1 | Extra when both concealed and self-draw (門清自摸 = 1 + 1 + this = 3, 門清一摸三). |
+| 獨聽 Single wait | `duting` | 1 | 1 | 1 | 1 | Edge, closed or pair wait (邊張, 中洞, 單吊), see 9.1. |
+| 平胡 All chows | `pinghu` | 0 | 0 | 2 | 2 | Five chows, a number pair, no honors and no flowers anywhere, a discard win, a two-sided wait and not a single wait (9.1). May combine with concealed. |
+| 全求人 All melded | `quanqiu` | 0 | 0 | 2 | 2 | All five sets are melds (chow, pung, exposed or added kong) and the win is on a discard (single wait on the pair). |
+| 全求人 adds single wait | `quanqiu_duting` | 0 | 0 | 0 | 1 | Whether 全求人 also scores 獨聽 (masters: 2 + 1 = 3). |
+| 半求 All melded, self-drawn | `banqiu` | 0 | 0 | 0 | 1 | As 全求人 but self-drawn (it also scores self-draw and single wait). |
+| 圈風 Round wind | `round_wind` | 0 | 0 | 1 | 1 | A pung of the round wind. |
+| 門風 Seat wind | `seat_wind` | 0 | 0 | 1 | 1 | A pung of one's seat wind (both when they are the same wind). |
+| 三元 Dragon pung | `dragon` | 0 | 0 | 1 | 1 | Per pung of a dragon. |
+| 小三元 Little dragons | `xiaosanyuan` | 0 | 0 | 4 | 4 | Two dragon pungs and a dragon pair; replaces their 三元. |
+| 大三元 Big dragons | `dasanyuan` | 0 | 0 | 8 | 8 | Three dragon pungs; replaces their 三元. |
+| 小四喜 Little winds | `xiaosixi` | 0 | 0 | 8 | 8 | Three wind pungs and a wind pair; the wind items still count. |
+| 大四喜 Big winds | `dasixi` | 0 | 0 | 16 | 16 | Four wind pungs. |
+| 大四喜 keeps wind items | `dasixi_winds` | 0 | 0 | 0 | 1 | Whether 圈風 and 門風 still count with 大四喜. |
+| 碰碰胡 All pungs | `pengpenghu` | 0 | 0 | 4 | 4 | Five pungs (or kongs). |
+| 三暗刻 Three concealed pungs | `sananke` | 0 | 0 | 2 | 2 | Concealed pungs (in the hand, or concealed kongs). A pung completed by a discard is not concealed. |
+| 四暗刻 Four concealed pungs | `sianke` | 0 | 0 | 5 | 5 | Replaces 三暗刻. |
+| 五暗刻 Five concealed pungs | `wuanke` | 0 | 0 | 8 | 8 | Replaces 三暗刻 and 四暗刻. |
+| 混一色 Half flush | `hunyise` | 0 | 0 | 4 | 4 | One number suit and honors. |
+| 清一色 Pure suit | `qingyise` | 8 | 8 | 8 | 8 | One number suit, no honors. |
+| 字一色 All honors | `ziyise` | 0 | 0 | 8 | 16 | Only honors (other items such as pungs and winds still count). |
+| 搶槓 Robbing a kong | `qianggang` | 0 | 0 | 1 | 1 | Winning on another player's added kong. |
+| 槓上開花 Win on a replacement | `gangshang` | 0 | 0 | 1 | 1 | Self-drawn on a replacement after a flower, a concealed or an added kong (not an exposed kong). |
+| 海底撈月 Last tile | `haidi` | 0 | 0 | 1 | 1 | Self-drawn on the last tile; not together with 槓上開花. |
+| 河底撈魚 Last discard | `hedi` | 0 | 0 | 1 | 1 | Winning on the last discard. |
+| 天胡 Heavenly hand | `tianhu` | 0 | 0 | 24 | 16 | The dealer wins before their first discard (without a kong). Replaces concealed and self-draw. |
+| 地胡 Earthly hand | `dihu` | 0 | 0 | 16 | 16 | Another player self-draws on their first draw, with no chow, pung or kong so far. Replaces concealed and self-draw. |
+| 人胡 Human hand | `renhu` | 0 | 0 | 0 | 16 | Another player wins on a discard before their first discard, with no chow, pung or kong so far. Replaces concealed. |
+| 見風見台 Any wind pung | `any_wind` | 0 | 0 | 0 | 0 | Per wind pung, instead of 圈風 and 門風 (明星3缺1's 見花見字 option). |
+| 無字無花 No honors, no flowers | `no_honor_flower` | 0 | 0 | 0 | 0 | (見花見字 option.) |
+| 明槓 Kong | `kong_tai` | 0 | 0 | 0 | 0 | Per exposed or added kong (見花見字 option). |
+| 暗槓 Concealed kong | `ankong_tai` | 0 | 0 | 0 | 0 | Per concealed kong (見花見字 option). |
 
 ### 9.1 Single wait (獨聽)
 
@@ -190,14 +195,16 @@ value (plus the dealer's tai and the base):
 - **七搶一 (`seven_rob_one`, 8):** one player holds 7 flowers and another the eighth. The holder of the 7 wins, and the
   holder of the eighth pays as a discarder.
 
-A value of 0 turns the flower win off. `flower_set` is 0 in `see`. (No flowers count toward all chows: any flower
+A value of 0 turns the flower win off: they are part of the tai preset (0 in `simple1` and `simple2`, 8 in
+`standard` and `masters`), so `see` in the family rules is just one tai per flower. `flower_set` is 0 in `see`. (No flowers count toward all chows: any flower
 rules out 平胡.)
 
 ## 11. Rule parameters and presets
 
 A rules spec is a comma-separated list of preset names and `name=value` overrides, applied left to right, for example
-`simple,none` (the default), `standard,seat` or `simple,see,base=2,draw_streak=0`. Tai presets: `simple`, `standard`,
-`masters` (section 9). Flower presets: `none`, `see`, `seat` (section 10). The other parameters:
+`simple1,none` (the default), `standard,seat` or `simple1,see,base=2,draw_streak=0`. Tai presets: `simple1`,
+`simple2`, `standard`, `masters` (section 9; they also set the flower wins). Flower presets: `none`, `see`, `seat`
+(section 10: the flower mode, `flower_tai` and `flower_set`). The other parameters:
 
 | Parameter | Default | Meaning |
 |---|---:|---|

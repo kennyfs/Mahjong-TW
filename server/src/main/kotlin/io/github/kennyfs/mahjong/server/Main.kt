@@ -73,7 +73,7 @@ fun main() {
   val config = Config()
   val pool = EnginePool(config.binary, config.workers, config.queue, config.timeoutMs)
   // Asks the engine once, so a missing or broken binary stops the server here rather than in a room.
-  runBlocking { pool.call("{\"cmd\":\"rules\",\"rules\":\"simple,none\"}") }.let { require("\"spec\"" in it) { "The engine does not answer: $it" } }
+  runBlocking { pool.call("{\"cmd\":\"rules\",\"rules\":\"simple1,none\"}") }.let { require("\"spec\"" in it) { "The engine does not answer: $it" } }
   val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
   val hub = Hub(EngineClient(pool::call), scope, HubLimits(maxRooms = config.maxRooms, pace = Pace(config.claimWindowMs, config.botTurnMs)))
   log.info("Mahjong battle server on ${config.host}:${config.port}, ${config.workers} engine workers, claim window ${config.claimWindowMs} ms")

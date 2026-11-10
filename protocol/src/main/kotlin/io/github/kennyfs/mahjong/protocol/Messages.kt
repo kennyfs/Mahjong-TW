@@ -39,7 +39,7 @@ enum class Length { HAND, ROUND, GAME }
 
 /** The rules as the app's rules page has them: a tai preset, a flower preset and changed values (docs/rules.md 11). */
 @Serializable
-data class RuleChoice(val tai: String = "simple", val flowers: String = "none", val overrides: Map<String, Int> = emptyMap())
+data class RuleChoice(val tai: String = "simple1", val flowers: String = "none", val overrides: Map<String, Int> = emptyMap())
 
 @Serializable
 data class RoomSettings(

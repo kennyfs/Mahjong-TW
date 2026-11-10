@@ -6,8 +6,8 @@ import type { RulesInfo } from './types';
 
 export interface RuleChoice { tai: string; flowers: string; overrides: Record<string, number> }
 
-export const DEFAULT_RULES: RuleChoice = { tai: 'simple', flowers: 'none', overrides: {} };
-export const TAI_PRESETS = ['simple', 'standard', 'masters'];
+export const DEFAULT_RULES: RuleChoice = { tai: 'simple1', flowers: 'none', overrides: {} };
+export const TAI_PRESETS = ['simple1', 'simple2', 'standard', 'masters'];
 export const FLOWER_PRESETS = ['none', 'see', 'seat'];
 
 /** The parameters of the flowers, and of the play (not tai); every other one is a tai item. */
@@ -26,7 +26,7 @@ export function parseChoice(raw: unknown): RuleChoice {
   const c = raw as Partial<RuleChoice> | null;
   if (!c || typeof c !== 'object') return { ...DEFAULT_RULES, overrides: {} };
   return {
-    tai: TAI_PRESETS.includes(c.tai ?? '') ? c.tai! : 'simple',
+    tai: TAI_PRESETS.includes(c.tai ?? '') ? c.tai! : 'simple1',
     flowers: FLOWER_PRESETS.includes(c.flowers ?? '') ? c.flowers! : 'none',
     overrides: typeof c.overrides === 'object' && c.overrides ? { ...c.overrides } : {},
   };

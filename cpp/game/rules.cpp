@@ -84,26 +84,34 @@ void Rules::set(const string& name, double value) {
   throw StringError("Unknown rule parameter: " + name);
 }
 
-const char* const Rules::TAI_PRESETS[] = {"simple", "standard", "masters", nullptr};
+// "simple" is the old name of simple1, kept so that older records still read.
+const char* const Rules::TAI_PRESETS[] = {"simple1", "simple2", "standard", "masters", nullptr};
 const char* const Rules::FLOWER_PRESETS[] = {"none", "see", "seat", nullptr};
 
 void Rules::applyPreset(const string& name) {
-  if(name == "simple" || name == "standard" || name == "masters") {
+  if(name == "simple1" || name == "simple" || name == "simple2" || name == "standard" || name == "masters") {
     // Every tai item off, then the preset's (docs/rules.md section 9).
     dealer = 1;
     streak = 2;
     menqing = 1;
     zimo = 1;
+    menqingZimo = 1;
     duting = 1;
     qingyise = 8;
-    menqingZimo = pinghu = quanqiu = quanqiuDuting = banqiu = 0;
+    eightFlowers = sevenRobOne = 0;
+    pinghu = quanqiu = quanqiuDuting = banqiu = 0;
     roundWind = seatWind = dragon = xiaosanyuan = dasanyuan = xiaosixi = dasixi = dasixiWinds = 0;
     pengpenghu = sananke = sianke = wuanke = hunyise = ziyise = 0;
     qianggang = gangshang = haidi = hedi = tianhu = dihu = renhu = 0;
     anyWind = noHonorFlower = kongTai = ankongTai = 0;
-    if(name == "simple")
+    if(name == "simple1" || name == "simple")
       return;
-    menqingZimo = 1;
+    if(name == "simple2") {
+      // Southern Taiwan, 136 tiles: no concealed hand (provisional, docs/rules.md section 9).
+      menqing = menqingZimo = 0;
+      return;
+    }
+    eightFlowers = sevenRobOne = 8;
     pinghu = 2;
     quanqiu = 2;
     roundWind = seatWind = dragon = 1;
@@ -138,8 +146,6 @@ void Rules::applyPreset(const string& name) {
     flowers = name == "see" ? SEE_FLOWERS : SEAT_FLOWERS;
     flowerTai = 1;
     flowerSet = name == "see" ? 0 : 2;
-    eightFlowers = 8;
-    sevenRobOne = 8;
     return;
   }
   throw StringError("Unknown rules preset: " + name);

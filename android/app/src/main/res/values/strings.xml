@@ -98,10 +98,12 @@
   <string name="flowers_none_desc">136 張，沒有花牌。</string>
   <string name="flowers_see_desc">144 張，每張花 1 台。</string>
   <string name="flowers_seat_desc">144 張，自己門風的花 1 台，湊齊春夏秋冬或梅蘭菊竹一組再 2 台（花槓）。</string>
-  <string name="tai_simple">簡單</string>
+  <string name="tai_simple1">簡單1</string>
+  <string name="tai_simple2">簡單2</string>
   <string name="tai_standard">標準</string>
   <string name="tai_masters">大師</string>
-  <string name="tai_simple_desc">只算莊家、連莊拉莊、門清、自摸、獨聽與清一色。</string>
+  <string name="tai_simple1_desc">只算莊家、連莊拉莊、門清、自摸（門清自摸共 3 台）、獨聽與清一色。</string>
+  <string name="tai_simple2_desc">台灣南部常見的無花打法：只算莊家、連莊拉莊、自摸、獨聽與清一色，不算門清。</string>
   <string name="tai_standard_desc">常見的完整台數表（MJ888、維基教科書）。</string>
   <string name="tai_masters_desc">2025 麻將大師賽的台數表。</string>
   <string name="rules_base">底</string>

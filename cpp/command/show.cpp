@@ -29,7 +29,7 @@ int Commands::show(vector<string> args) {
   try {
     TCLAP::CmdLine cmd("Plays one hand and prints it.", ' ', "0");
     TCLAP::MultiArg<string> playerArg("p", "player", "Player spec for seats 0-3 (default greedy)", false, "SPEC");
-    TCLAP::ValueArg<string> rulesArg("", "rules", "Rules spec (default simple,none)", false, "simple,none", "SPEC");
+    TCLAP::ValueArg<string> rulesArg("", "rules", "Rules spec (default simple1,none)", false, "simple1,none", "SPEC");
     TCLAP::ValueArg<string> seedArg("s", "seed", "Seed (default: random)", false, "", "SEED");
     TCLAP::SwitchArg verboseArg("v", "verbose", "Print the deciding player's hand before each decision", false);
     cmd.add(playerArg);

@@ -26,7 +26,7 @@ object Limits {
 }
 
 object Validation {
-  val TAI_PRESETS = listOf("simple", "standard", "masters")
+  val TAI_PRESETS = listOf("simple1", "simple2", "standard", "masters")
   val FLOWER_PRESETS = listOf("none", "see", "seat")
   /** The bots a room may use (the network's specs join them when it exists). */
   val BOTS = listOf("greedy")

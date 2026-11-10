@@ -79,7 +79,7 @@ changes, so the engine and the network's rules input can follow.
    - the reward: the hand's result in tai, zero-sum;
    - a **population** of the newest and earlier networks and the baselines, so it does not chase itself;
    - **rules drawn per hand**, the main settings most often: flowers none, see, seat in that order of weight (about
-     45%, 35%, 20%); tai tables with few items (the `simple` preset and close variants) weighted up, `standard` and
+     45%, 35%, 20%); tai tables with few items (the `simple1` and `simple2` presets and close variants) weighted up, `standard` and
      `masters` and random values for the rest; base from 1 to 5 tai.
 3. **Evaluation** by duplicate matches against the baselines and earlier networks: result per hand with its
    standard error, win, self-draw and deal-in rates, average tai.
