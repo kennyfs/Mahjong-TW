@@ -10,7 +10,8 @@ It ships inside the app and the web page and then stays as it is. So what counts
 above strong human play at least, as near to perfect play as it gets) reached with the least time and compute;
 matching published programs or their budgets is not a goal.
 
-Sections 3 and 4 were rewritten on 2026-11-10 (the review of the first plan); section 5 lists what changed and why.
+Sections 3 and 4 were rewritten on 2026-11-10 in two reviews: of the first plan's design, then against KataGo's
+methods for faster training. Section 5 lists what each changed and why.
 
 ## 1. What makes this game different
 
@@ -103,8 +104,19 @@ the reverse of Thirteen: training steps are the scarce resource, and spare CPU t
    bad. Stage 0 gets all actions' outcomes exactly; stage 1 from a critic.
 4. **Rules enter exactly where they can.** The network predicts events (who wins, on whose tile, with how many tai);
    the base and the dealer's tai turn them into points by the rules' own arithmetic, as Thirteen's `compose_q` does.
-5. **Measure, then choose.** The points marked "measured" below are decided by small experiments on fixed data, not
+5. **Predict the parts of the result, not only the result.** A hand's result is one noisy number. It is made of
+   parts that can each be predicted: who wins on which tile, the items of the winning hand's tai, whether and when a
+   hand gets ready, where the unseen tiles are. A wrong part says where the judgment went wrong; the result alone
+   leaves the network to guess. Heads for these parts exist only in training and are cut from the shipped file (3.3).
+6. **Many hands, few decisions from each, each read once.** The decisions of one hand share its luck, so a decision
+   from another hand teaches more than one more from the same hand; and a network that reads the same results again
+   learns them by heart, the value heads first. Hands are cheap here and training steps are not (section 2), so
+   there is always fresh data to read instead.
+7. **Measure, then choose.** The points marked "measured" below are decided by small experiments on fixed data, not
    by taste; 3.5 says when to stop.
+
+Principles 1, 5 and 6 are KataGo's lessons (game-specific inputs, auxiliary targets such as ownership, playout cap
+randomization); 5.2 goes through its methods one by one.
 
 ### 3.2 The engine for learning (C++)
 
@@ -122,8 +134,9 @@ the reverse of Thirteen: training steps are the scarce resource, and spare CPU t
    - Global: every rule parameter (scaled), the dealer's tai this hand, round wind, streak, tiles left to draw.
 2. **The full state** (training only): the same, plus what the seat cannot see: each opponent's hand per kind,
    shanten, exact waits with the tai of a win on each, missed-win states, the kinds of concealed kongs; each seat's
-   next draws from the wall (if nobody calls); and, as an option, the result of the hand if everybody played `greedy`
-   from here (one playout, about a millisecond), a strong hint of where the wall leads.
+   next draws from the wall (if nobody calls); who plays each seat (the newest network, an earlier one, `greedy`);
+   and, as an option, the result of the hand if everybody played `greedy` from here (one playout, about a
+   millisecond), a strong hint of where the wall leads.
 3. **Actions**: per kind, discard and kong (concealed or added: at most one applies to a kind); and win by
    self-draw, win on a discard (or a robbed kong), pass, pung, exposed kong and chow in its three positions. 76
    outputs, masked by legality. A decision with one legal action never reaches the network.
@@ -131,14 +144,17 @@ the reverse of Thirteen: training steps are the scarce resource, and spare CPU t
    discard; seat j wins by self-draw (ten events, not exclusive when several players win on a discard), with the tai
    of each winning hand. The seat's result follows exactly: every payment is the base, plus the winner's tai, plus
    the dealer's tai when the dealer is on either side (rules 7).
-5. **Records.** A hand is its rules, setup, wall seed and decisions (the GUI record) with the probability each
-   decision had under the playing policy: about 0.5 KB. The trainer keeps hands in this form and expands batches
-   (features, legal actions, targets) through the C++ library, as Thirteen's `trainingrows` and
-   `libthirteen_data.so` do.
-6. **Branches.** From any decision of a record: play another action and finish the hand with given players, on the
+5. **Labels of the training-only heads** (3.3), all read off the hand's record: the opponents' hands, the winning
+   tile, the items of the winner's tai, each seat's shanten at every turn and at the end, the hand's length, the
+   final hands, the next discards.
+6. **Records.** A hand is its rules, setup, wall seed and decisions (the GUI record), about 0.5 KB; self-play marks
+   the decisions to train on and keeps the playing policy's probabilities there. The trainer keeps hands in this
+   form and expands batches (features, legal actions, targets, labels) through the C++ library, as Thirteen's
+   `trainingrows` and `libthirteen_data.so` do.
+7. **Branches.** From any decision of a record: play another action and finish the hand with given players, on the
    same wall and with the same random numbers for the players' choices, so that two lines differ only where the
    action mattered. Stage 0's targets, stage 1's forks and the diagnostics of 3.5 are all branches.
-7. **Players**: `net:model=FILE` (ONNX Runtime as in Thirteen; self-play evaluates many concurrent hands in one batch
+8. **Players**: `net:model=FILE` (ONNX Runtime as in Thirteen; self-play evaluates many concurrent hands in one batch
    per thread) and `mc` (flat Monte Carlo: hidden tiles filled at random, a greedy playout per action; the style of
    the Olympiad programs, as a yardstick only). The hand-written "better greedy" of the first plan is dropped: the
    stage 0 network is a better baseline for less work.
@@ -146,7 +162,10 @@ the reverse of Thirteen: training steps are the scarce resource, and spare CPU t
 ### 3.3 The networks
 
 **The actor** (the one that ships, about 1M parameters). The 38 tokens go through a small Transformer (default:
-width 128, 5 layers, attention biased by whether two kinds share a suit and by their distance in rank). Heads:
+width 128, 5 layers, attention biased by whether two kinds share a suit and by their distance in rank; layer
+normalization, so the network computes the same in training and in the app).
+
+Heads that ship:
 
 - **Policy**: one logit per legal action (discard and kong from the kind's token; the others from the token of the
   tile on offer and the seat's own token).
@@ -156,27 +175,49 @@ width 128, 5 layers, attention biased by whether two kinds share a suit and by t
 - **Per opponent**: how far from ready, and per kind the chance that the opponent wins on it now and with how many
   tai. Exact, dense labels (3 × 34 per decision) that teach the trunk to read hands, and the app's danger display.
 
+Heads for training only (principle 5). Each is a linear layer on the trunk, cut at export, so the app pays nothing
+for them. Mahjong has no board to own, but the 34 kinds play that part: most of these heads give one answer per
+kind, as KataGo's ownership head gives one per point.
+
+| Head | Predicts | Why |
+|---|---|---|
+| Where the unseen tiles are | Per kind, how many copies each opponent holds in hand | The nearest thing to ownership: every unseen tile is in some opponent's hand or in the wall. Exact labels at every decision; readiness and danger are functions of these hands. |
+| The winning tile | Per kind, the chance that the hand ends with me winning on it, and with each opponent winning on it | Summed over the kinds these are the win and deal-in events, so a surprise is charged to the kind it happened on. |
+| The items of the tai | For my win: which items score (concealed, single wait, pure suit, pungs of dragons, flowers, ...), and the tai as a distribution | The tai is the sum of its items (as KataGo predicts the score next to the winner). Matters most under `standard` and `masters`. |
+| The road to a win | Whether I am ready within my next 1, 2, 4, 8 draws; how many draws the hand still lasts; each seat's shanten when it ends | A win is "ready, and the hand lasts, and a wait comes". These settle within a few turns, with far less luck in them than the result (KataGo's short-term targets). |
+| My hand at the end | Per kind, how many copies I hold (hand and melds) when the hand ends | Which of my tiles the hand gets built on. |
+| What the others do next | Each opponent's next discard; per kind, whether the next player could chow it | KataGo's auxiliary policy target (the opponent's reply), and the tiles I would be feeding. |
+| The others' results | Who wins from whom among the other three seats; the exhaustive draw | The whole outcome of the hand, not only my share of it. |
+
+Their loss weights are set once, so that each group's gradient is some 10 to 40% of the main heads' (KataGo's rule
+of thumb; it did not tune them either).
+
 **The critic** (training only, on the GPU, so it may be larger): the same shape over the full state. Per action the
-same events, hence Q(s, a) in the true state, and the events of all four seats.
+same events, hence Q(s, a) in the true state; the events of all four seats; and those training-only heads whose
+answer is not already in its input.
 
 **Measured on stage 0's data** (the same hands and training budget for each candidate; compared by the held-out
-losses of the event, wait and readiness heads, and by CPU cost):
+losses of the heads that ship, and by CPU cost):
 
-- Transformer or 1D residual network over the kinds (0.45 against 0.78 ms).
+- Transformer or 1D residual network over the kinds (0.45 against 0.78 ms). The residual network gets KataGo's
+  global pooling layers; without them it sees only neighbouring kinds.
 - Whether tokens for the last discards in order add anything to the per-kind discard features (0.9 ms). A full
   event sequence (2.5 ms) only if that shows a large gain.
 - Width and depth within the budget, and whether 0.5M or 2M parameters (2M still fits 4 MB with FP16 weights) change
   the losses enough to matter.
+- The training-only heads: with and without them, then group by group if the gain is unclear.
 
 ### 3.4 Training
 
 **Stage 0: exact targets from the greedy player (supervised; hours).**
 
 Hands between `greedy` players (with variations for diversity: seats that call more or less, a random discard now
-and then) are branched at their decisions: every legal action is tried and the hand finished by greedy players on
-the same wall. The players are deterministic, so each action's outcome is exact; the only noise left is which hidden
-state it was. Expanding every decision of a hand costs about 0.4 s of one core, so 32 threads label some 4,000
-decisions a second with all their actions: tens of millions in a few hours.
+and then) are branched at a few of their decisions, about 5 of the 51 (kongs, wins and calls more often than their
+share): every legal action is tried and the hand finished by greedy players on the same wall. The players are
+deterministic, so each action's outcome is exact; the only noise left is which hidden state it was. A hand with
+five labelled decisions costs about 45 ms of one core, so 32 threads make some 700 hands and 3,600 labelled
+decisions a second: 40M decisions in three hours. Labelling every decision of a hand would give as many labels from
+a tenth of the hands (principle 6).
 
 - The actor's per-action event heads learn these outcomes; their average over the hidden states is what each action
   is worth if everybody plays greedy afterwards. The opponent heads learn the true hands; the policy head a softmax
@@ -185,10 +226,13 @@ decisions a second with all their actions: tens of millions in a few hours.
   deal in on average, weighs calls, kongs and declined wins by their results, and sees the rules' payments. Cloning
   greedy's own choices, as first planned, could only equal greedy.
 - A second round takes its positions from the new network's own play (targets still by greedy playouts), so that it
-  is trained on the positions it reaches.
+  is trained on the positions it reaches. Half of its labelled decisions are drawn where the first network's policy
+  and action values disagree (stage 1's weights).
 - The critic is pretrained on the same data, and the choices of 3.3 are made here.
 - It exercises the whole pipeline (features, records, the data library, ONNX export, the `net` player, matches) with
   a plain supervised loss before any reinforcement learning.
+- The data is made to be read once or twice. One hand in a hundred is held out; if the held-out losses stop falling
+  while the training losses go on, the answer is more data (hours of this machine), not more passes.
 
 Gate: the stage 0 network against `greedy` (one among three, and three against one) and against `mc`. It has to
 beat `greedy` clearly in both forms; if it does not, something in the pipeline is wrong, and it is found here, not
@@ -198,14 +242,19 @@ inside the self-play loop.
 
 Each iteration:
 
-1. **Self-play** (this machine). Hands between the newest network, sampling from its policy; in a share of them one
-   to three seats are earlier networks or `greedy`. After each hand a few **forks**: at some of its decisions (rare
-   kinds of decision, such as wins, kongs and calls, drawn more often) another action is played and the hand
-   finished again by the same players.
-2. **The critic** learns Q(s, a) from the outcomes of the actions played, main lines and forks alike. It sees the
+1. **Self-play** (this machine). Hands between the newest network, sampling from its policy; in a fifth of them one
+   to three seats are earlier networks or `greedy`. About 8 of the 50 decisions of a hand are **recorded** for
+   training, half of them drawn evenly and half in proportion to the points the policy gives up at the decision by
+   the network's own action values (max Q − Σ π Q): where the choice matters and the policy is unsure, there is
+   something to learn (KataGo's policy surprise weighting). The weight uses only what the seat sees, so it cannot
+   tilt the policy by hidden information.
+2. **Forks.** At one or two of the recorded decisions another action is played and the hand finished again by the
+   same players. The other action is drawn from the policy (70%), from the policy at temperature 2 (25%) or evenly
+   (5%), KataGo's proportions for its forks. Only the critic learns from forks.
+3. **The critic** learns Q(s, a) from the outcomes of the actions played, main lines and forks alike. It sees the
    hands and the wall, so little of an outcome is left unexplained; and a fork gives it two actions from the same
    state on the same wall: a direct measurement of what the action changed.
-3. **The policy** moves a small step along the advantages of all legal actions in the true state,
+4. **The policy** moves a small step along the advantages of all legal actions in the true state,
    A(s, a) = Q(s, a) − Σ π(b|o) Q(s, b):
 
    `gradient = Σ_a ∇π(a|o) A(s, a)  +  ρ ∇log π(a_t|o) (G − Q(s, a_t))`
@@ -214,9 +263,9 @@ Each iteration:
    after the action played (G: the actual result, or a mix with the critic's values at the seat's later decisions;
    ρ: the clipped ratio to the playing policy), so the critic's errors add noise, not bias. A KL limit to the playing
    policy bounds the step, as in PPO, and a small entropy bonus keeps the policy from closing on one action early.
-4. **The actor's other heads**: the per-action events learn the critic's (all actions) and the actual outcome (the
-   action played); the opponent heads the true hands.
-5. Export (EMA weights) and the next iteration. Self-play does not wait for training: it runs one network behind,
+5. **The actor's other heads**: the per-action events learn the critic's (all actions) and the actual outcome (the
+   action played); the opponent heads and the training-only heads their exact labels.
+6. Export (EMA weights) and the next iteration. Self-play does not wait for training: it runs one network behind,
    which the ratios ρ account for.
 
 Why this shape:
@@ -228,14 +277,26 @@ Why this shape:
   learner that samples finds out only when it happens (once in five hands for greedy).
 - Finishing the hand with the network for every action would cost about 300 evaluations per decision. The critic
   amortizes that; the forks are the playouts that keep it honest about actions the policy seldom takes.
+- Forks try what the policy avoids while the policy's own data stays its own play: exploring and teaching the
+  policy are kept apart, as KataGo prunes its forced playouts from the policy target. The critic may learn from any
+  line: it sees every hand, so what it learns does not depend on how a state was reached.
 - Small steps accumulate many noisy estimates in the policy; replacing the policy each iteration by a softmax of the
   newest Q would act on one estimate, and with four learners at once it tends to swing.
 
-Starting values, to be tuned by the diagnostics of 3.5: 200,000 hands an iteration (about 20 minutes here with two or
-three forks a hand); the trainer draws about 15 decisions per hand (decisions of one hand say much the same, and the
-GPU is the limit); the critic and the other heads train on a window of recent iterations (Thirteen's power-law
-window), the policy on the newest; advantages are divided by the typical payment under the hand's rules, so that
-rules with large tai do not dominate the steps; every sample gets a random symmetry (section 1).
+**Fresh data, read once.** This machine plays hands faster than the GPU can train on them, so in stage 1 nothing
+is read twice: an iteration's samples are trained on once, and the advantages come from the critic as it was before
+it saw them. That closes the usual way value heads go wrong late in training, learning the results in the window by
+heart; a critic that sees the wall would be the quickest to do it. (KataGo reads a sample about four times, and its
+ablation with 600 playouts on every move overfitted for lack of games.) One hand in a hundred is held out, and the
+losses of the critic and of the event heads on those hands are reported beside the training losses.
+
+Starting values, to be tuned by the diagnostics of 3.5: 300,000 hands an iteration (about 20 minutes here), with 8
+recorded decisions and one or two forks each: 2.4M samples, which the GPU should train on in the same time (actor
+and critic together at about 2,000 samples a second; to be measured, and the sizes follow). If the GPU proves faster
+than self-play can feed it, more decisions per hand are recorded first (up to about 15); a second reading, for the
+critic only, comes after that and is watched on the held-out hands. Advantages are divided by the typical payment
+under the hand's rules, so that rules with large tai do not dominate the steps; every sample gets a random symmetry
+(section 1).
 
 **Rules drawn per hand.** Simple rules most often, flowers in the order none, see, seat:
 
@@ -253,7 +314,8 @@ loose single wait. Dealer and round wind are uniform, the streak 0 to 3 (60, 25,
 
 **The loop** is Thirteen's: self-play here (32 threads), training on the home GPU or Colab, records by rsync and
 networks back (`remote_loop.py`, the restricted ssh key, `check_onnx.py`, `fp16_weights.py`). Unlike Thirteen the GPU
-works the whole time; the estimates above give some 14M hands and 200M trained decisions a day.
+works the whole time; the estimates above give some 20M hands (about 10 GB of records) and 170M trained decisions
+a day.
 
 ### 3.5 Evaluation, and when to stop
 
@@ -263,26 +325,34 @@ works the whole time; the estimates above give some 14M hands and 200M trained d
   with its standard error; win, self-draw, deal-in and call rates, average tai, how often a win is declined. Under
   `simple1,none`, `simple2,none`, `simple2,see` and `standard,seat`.
 - **Training diagnostics**: how much of the results the critic explains, by stage of the hand; on held-out forks,
-  the predicted against the realized difference between two actions; the calibration of the event heads.
+  the predicted against the realized difference between two actions; the calibration of the event heads; every loss
+  on the held-out hands beside the training loss (a growing gap is overfitting).
 - **Distance from a fixed point.** On a sample of decisions, finish the hand with the network for every action (as
   stage 0 does with greedy) and measure what the policy's choice loses against the best action. This is what a
   search on top of the network could still gain; when it is near zero the network is a best response to itself, the
   practical meaning of "self-play has nothing more to teach".
-- **Stop** when the newest network no longer gains on the one of two days before (under about 0.02 points a hand,
-  1% of a small win, in both forms of match) and the loss above has stopped falling.
+- **Stop.** When the newest network no longer gains on the one of two days before (under about 0.02 points a hand,
+  1% of a small win, in both forms of match) and the loss above has stopped falling, the learning rate is lowered to
+  a third and training goes on (KataGo dropped its rate tenfold for the last days of its run, for final strength).
+  Training ends when a lowering brings no further gain.
 - **Against people** there is no rating to compare with. The app keeps every hand; reviewing a person's decisions
   with the network's Q gives the points lost per decision (Thirteen's contest scoring), which needs far fewer hands
   than raw results; plain results in practice mode back it up.
 
 ### 3.6 Risks and what to do then
 
-- **The critic's differences between actions are not accurate enough** (the fork test): more forks per hand (CPU
-  time is spare); each action's greedy playout as a critic input; more weight on actual results in the correction.
+- **The critic's differences between actions are not accurate enough** (the fork test): more forks per hand, at
+  the price of fewer hands; each action's greedy playout as a critic input; more weight on actual results in the
+  correction.
 - **Self-play circles or forgets** (it beats its predecessor but loses ground against the fixed opponents): a larger
   share of earlier networks in the seats, smaller steps.
 - **A rule set lags behind**: shift the sampling; the simple presets come first.
 - **Throughput far from the estimates**: the iteration size follows; a 0.5M network (half the cost) for the first
   days if evaluations are the limit.
+- **The value heads or the critic overfit** (held-out losses rise while training losses fall): fewer decisions per
+  hand, no second readings, stronger weight decay; for stage 0, new data.
+- **Rare, high-paying hands are learned too slowly** (`standard`, `masters`): deals tilted toward them in a share of
+  the hands, weighted back in the losses so that the reading of opponents stays calibrated.
 - **An action the policy has almost dropped comes back too slowly** (a softmax scales each action's gradient by its
   probability): the same update without that factor (NeuRD).
 - **1M parameters prove too small** (larger candidates clearly better in 3.3's comparison): 2M with FP16 weights is
@@ -311,7 +381,9 @@ Sessions do not overlap, so they share the checkout and the machine's quota.
 7. With the final network: the app and the web page again (the network as bots and analysis, the contest's scoring,
    the bugs and requests noted in docs/app.md).
 
-## 5. What the review changed (2026-11-10)
+## 5. What the reviews changed (2026-11-10)
+
+### 5.1 The first review: the design
 
 Kept from the first plan: a network of about 1M parameters built on attention, the rules as its input, self-play on
 this machine with training on a GPU, rules drawn per hand with the simple ones most often, a critic that sees hidden
@@ -330,3 +402,30 @@ information, duplicate matches, and the expected result of a hand as the objecti
 | Rules sampling | By the old presets | By `simple1`, `simple2`, `standard`, `masters` and random values, with the app's settings varied | The presets changed; whatever the app can set should have been seen. |
 | Evaluation | Duplicate matches | Both seatings, the critic's diagnostics, the fixed-point test, the stop rule, people by review | To know when it is done, and how far from "perfect". |
 | Bottleneck | Assumed self-play, as in Thirteen | Measured: training on the GPU | Spare CPU goes to forks; the GPU runs all the time. |
+
+### 5.2 The second review: KataGo's methods
+
+Sources: Wu, *Accelerating Self-Play Learning in Go* (`reference/KataGo_paper/`) and KataGo's
+`docs/KataGoMethods.md`. A factor in brackets is the paper's ablation: how much longer training took without the
+method. KataGo learns from a search and this design has none, so some methods carry over as they are, some change
+shape, and the methods of the search itself have nothing to attach to.
+
+| KataGo | Here |
+|---|---|
+| **Playout cap randomization** (1.37×). The game's result needs many games, so most moves get a cheap search and only the quarter with a full search is recorded. | Principle 6. Stage 0 labels 5 decisions of a hand, not all 51: ten times the hands for the same labels. Stage 1 records about 8 of 50. |
+| **Window and reuse.** Samples are drawn from a growing window, each read about four times; with too few games (600 playouts on every move) the net overfitted. | Nothing is read twice in stage 1, since fresh data exceeds what the GPU trains on; stage 0's data is read once or twice. Held-out hands show the gap. No window is needed. |
+| **Auxiliary ownership and score targets** (1.65×): "whenever a desired target can be expressed as a sum, conjunction, or disjunction of separate subevents, [...] predicting those subevents is likely to help". | Principle 5 and the training-only heads of 3.3. The result was already split into events and tai; now also by kind (unseen tiles, winning tile, final hand), by item of the tai and by step toward the win. |
+| **Auxiliary policy target** (1.30×): the opponent's reply. | Training-only head: each opponent's next discard, and whether the next player could chow each kind. |
+| **Short-term value targets**: averages of the search's values over the next 6, 16 and 50 turns, with less noise than the result. | Training-only head "the road to a win" (ready within 1, 2, 4, 8 draws; the hand's remaining length). For the event heads, the critic's values of all actions already are low-noise targets. |
+| **Policy surprise weighting**: positions whose search result surprised the policy are trained on more often. | The recorded decisions are drawn half evenly, half by what the policy gives up by the network's own values. Unlike KataGo's, the weight may only use what the seat sees. |
+| **Forced playouts and policy target pruning** (1.25×): exploring moves without teaching the policy to play them. | Forks feed the critic only. |
+| **Forks**: 2.5% of positions branch to another move, drawn from the policy at temperature 1, 2 or ∞ (70, 25, 5%). | Forks at one or two decisions a hand, with the same proportions. |
+| **Game-specific input features** (1.55×). | Principle 1 (first review). |
+| **Global pooling** (1.60×). | Attention is global already; the residual candidate gets pooling layers. |
+| **One net for all rules and board sizes**, with rare extreme settings. | One network for all rules; 15% of hands with random values around a preset. |
+| **Auxiliary soft policy target**: a second policy head on a flattened target, to tell apart the moves below the best two. | No head needed: the per-action values are learned for every legal action alike. |
+| **Learning rate dropped tenfold at the end; averaged weights.** | The stop rule lowers the rate before ending; EMA weights are exported. |
+| **Gating**: a new net must win 100 of 200 games. | Not adopted. Steps are bounded by the KL limit, matches watch for a regression, and checkpoints allow going back. |
+| **Net size grown during the run.** | Not adopted: the shipped size is small and fixed. A 0.5M start remains a fallback (3.6). |
+| **Fixup, then fixed-variance initialization**: no batch normalization at inference. | Layer normalization: the same computation in training and in the app. |
+| **Methods of the search**: subtree value bias correction, variance-scaled cPUCT, uncertainty-weighted playouts, optimistic policy, shaped Dirichlet noise, root policy temperature. | Nothing to attach them to. The entropy bonus does the root temperature's work (it keeps equally good actions alive). They come back if 3.7's search is built. |
