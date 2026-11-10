@@ -2,6 +2,7 @@
 
 #include "../command/play.h"
 #include "../core/timer.h"
+#include "../learn/branch.h"
 #include "../learn/datafile.h"
 #include "../learn/features.h"
 #include "../learn/sampling.h"
@@ -139,38 +140,16 @@ int Commands::gen0(vector<string> args) {
       local.hands++;
       local.decisions += (int64_t)rec.actions.size();
 
-      // Replay it, and at each marked decision finish the hand once per legal action.
-      Learn::Replay replay(rec);
-      while(!replay.done()) {
-        const int i = replay.index();
-        if(marked[i]) {
-          const Game& base = replay.game();
-          const int s = replay.seat();
-          base.legalActions(s, legal);
-          // Decisions on a discard are simultaneous: the seats after this one keep the action they chose.
-          const int others = base.phase() == Game::SELF ? 0 : (int)base.pending().size() - 1;
-          Learn::Mark mark;
-          mark.decision = (uint16_t)i;
-          for(const Action& a : legal) {
-            Game g = base;
-            g.act(s, a);
-            for(int j = 1; j <= others; j++) {
-              int s2 = g.pending()[0];
-              g.act(s2, Learn::actionOf(g, s2, rec.actions[i + j]));
-            }
-            Play::playOut(g, reference, rand);
-            Learn::MarkEntry e;
-            e.action = (uint8_t)Learn::actionIndex(base, a);
-            e.hasOutcome = true;
-            e.outcome = Learn::Outcome::of(g.result());
-            mark.entries.push_back(e);
-          }
-          local.marks++;
-          local.labelled += (int64_t)mark.entries.size();
-          rec.marks.push_back(mark);
-        }
-        replay.step();
+      // At each marked decision the hand is finished once per legal action.
+      for(size_t i = 0; i < marked.size(); i++) {
+        if(!marked[i])
+          continue;
+        Learn::Mark mark;
+        mark.decision = (uint16_t)i;
+        rec.marks.push_back(mark);
       }
+      local.marks += (int64_t)rec.marks.size();
+      local.labelled += Learn::labelAllActions(rec, reference, rand);
       file.add(rec);
       if(file.numHands() >= handsPerFile)
         flush();

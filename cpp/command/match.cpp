@@ -56,7 +56,7 @@ int Commands::match(vector<string> args) {
     TCLAP::CmdLine cmd(
       "Plays duplicate deals: each deal (wall and setup) is played once per seating of the four players (4 rotations, "
       "or all 24 orders with --all-orders), so every player plays every seat with the same tiles.", ' ', "0");
-    TCLAP::MultiArg<string> playerArg("p", "player", "Player spec (random, greedy). Give exactly four.", true, "SPEC");
+    TCLAP::MultiArg<string> playerArg("p", "player", "Player spec (cpp/players/players.h: random, greedy, mc, net:model=FILE). Give exactly four.", true, "SPEC");
     TCLAP::ValueArg<int> dealsArg("n", "deals", "Number of deals (default 1000)", false, 1000, "N");
     TCLAP::ValueArg<string> rulesArg("", "rules", "Rules spec (docs/rules.md section 11, default simple1,none)", false,
                                      "simple1,none", "SPEC");

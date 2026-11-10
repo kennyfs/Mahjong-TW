@@ -19,6 +19,7 @@ namespace {
     vector<uint16_t> events;
     vector<int8_t> winTile, nextDiscard;
     int32_t played = -1;
+    int32_t greedy = -1;
     Learn::Row row;
 
     Sample()
@@ -52,6 +53,7 @@ namespace {
       row.future = future.data();
       row.finalHand = finalHand.data();
       row.nextDiscard = nextDiscard.data();
+      row.greedy = &greedy;
     }
     Sample(const Sample&) = delete;
 
@@ -170,6 +172,7 @@ void Tests::runLearn() {
       Learn::expand(back, (int)m, Learn::Symmetry(), a.row);
       const int me = (int)a.info[7];
       testAssert(a.legal[a.played] == 1 && a.known[a.played] == 1);
+      testAssert(a.greedy >= 0 && a.greedy < Learn::NUM_ACTIONS && a.legal[a.greedy] == 1);
       testAssert(near(a.composed(a.played), a.info[2]) && near(a.info[2], res.points(me, rec.rules.base)));
       int numLegal = 0;
       for(int i = 0; i < Learn::NUM_ACTIONS; i++) {
@@ -303,6 +306,48 @@ void Tests::runLearn() {
     testAssert(a.kind[p.claimTile * Features::KIND_OBS + Features::KO_CLAIM] == 1.0f);
     testAssert(a.kind[p.claimTile * Features::KIND_OBS + Features::KO_DRAW + 1] == 1.0f);
   }
+  // Decisions on one discard are simultaneous: what a seat observes there does not depend on the answers the seats
+  // before it have already given (batched self-play asks for all of them at once).
+  {
+    int groups = 0;
+    Rand rand("learn tests: groups");
+    unique_ptr<Player> eager = makePlayer("greedy:calls=more");
+    const int kindSize = 34 * Features::KIND_OBS, seatSize = 4 * Features::SEAT_OBS, globalSize = Features::globalObsSize();
+    vector<Action> legal;
+    for(int h = 0; h < 300; h++) {
+      Rules rules = Learn::sampleRules("mix", rand);
+      HandSetup setup = Learn::sampleSetup(rand);
+      Game game(rules);
+      game.start(setup, Game::shuffledWall(rules, rand));
+      while(game.phase() != Game::OVER) {
+        const vector<int> pending = game.pending();
+        vector<vector<float>> before;
+        vector<vector<uint8_t>> masks;
+        vector<Action> actions;
+        for(int s : pending) {
+          vector<float> obs(kindSize + seatSize + globalSize);
+          vector<uint8_t> mask(Learn::NUM_ACTIONS);
+          Features::observation(game, s, obs.data(), obs.data() + kindSize, obs.data() + kindSize + seatSize, mask.data());
+          before.push_back(obs);
+          masks.push_back(mask);
+          game.legalActions(s, legal);
+          actions.push_back(eager->decide(game, s, legal, rand));
+        }
+        groups += pending.size() > 1 ? 1 : 0;
+        for(size_t j = 0; j < pending.size(); j++) {
+          vector<float> obs(kindSize + seatSize + globalSize);
+          vector<uint8_t> mask(Learn::NUM_ACTIONS);
+          Features::observation(game, pending[j], obs.data(), obs.data() + kindSize, obs.data() + kindSize + seatSize,
+                                mask.data());
+          testAssert(obs == before[j] && mask == masks[j]);
+          testAssert(game.pending()[0] == pending[j]);
+          game.act(pending[j], actions[j]);
+        }
+      }
+    }
+    testAssert(groups > 30);
+  }
+
   cout << "learn ok (" << numDecisions << " decisions, " << numMarks << " samples, " << numDanger
        << " dangerous discards)" << endl;
 }

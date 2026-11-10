@@ -40,6 +40,7 @@ namespace Learn {
     uint8_t* dangerTai;   // [3 * 34] with this tai
     uint8_t* oppShanten;  // [3] 0 ready, 1, 2, 3 or more
     uint8_t* nextChow;    // [34] 1: the next player could chow this kind
+    int32_t* greedy;      // [1] the action the plain greedy player would play here (a reference, not a target)
     // Labels from the rest of the hand as played.
     int8_t* winTile;      // [4] the kind the seat r places after me won on; -1
     uint8_t* taiItems;    // [Tai::NUM_ITEMS] the items of my win

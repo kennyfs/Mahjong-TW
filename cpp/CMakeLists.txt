@@ -10,6 +10,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 option(USE_NATIVE "Compile with -march=native" ON)
+set(ONNXRUNTIME_ROOT "" CACHE PATH "ONNX Runtime directory (with include/ and lib/), for the net player")
 
 find_package(Threads REQUIRED)
 
@@ -42,6 +43,7 @@ set(LEARN_SOURCES
   learn/features.cpp
   learn/record.cpp
   learn/expand.cpp
+  learn/branch.cpp
 )
 
 add_executable(mahjong
@@ -50,11 +52,16 @@ add_executable(mahjong
   ${LEARN_SOURCES}
   learn/sampling.cpp
   learn/datafile.cpp
+  learn/netmodel.cpp
   dataio/npz.cpp
   players/players.cpp
+  players/factory.cpp
+  players/netplayer.cpp
+  players/mcplayer.cpp
   players/analysis.cpp
   command/play.cpp
   command/gen0.cpp
+  command/selfplay.cpp
   command/guiengine.cpp
   command/gui.cpp
   command/runtests.cpp
@@ -77,11 +84,29 @@ if(USE_NATIVE)
   target_compile_options(mahjong PRIVATE -march=native)
 endif()
 
+# Data files are written compressed when zlib is there.
+find_package(ZLIB)
+if(ZLIB_FOUND)
+  target_compile_definitions(mahjong PRIVATE USE_ZLIB)
+  target_link_libraries(mahjong PRIVATE ZLIB::ZLIB)
+endif()
+
+if(ONNXRUNTIME_ROOT)
+  target_compile_definitions(mahjong PRIVATE USE_ONNXRUNTIME)
+  target_include_directories(mahjong PRIVATE ${ONNXRUNTIME_ROOT}/include)
+  target_link_libraries(mahjong PRIVATE ${ONNXRUNTIME_ROOT}/lib/libonnxruntime.so)
+  set_target_properties(mahjong PROPERTIES BUILD_RPATH ${ONNXRUNTIME_ROOT}/lib INSTALL_RPATH ${ONNXRUNTIME_ROOT}/lib)
+  message(STATUS "Using ONNX Runtime from ${ONNXRUNTIME_ROOT}")
+else()
+  message(STATUS "No ONNX Runtime: the net player is disabled")
+endif()
+
 # The data library, loaded by python/mahjong/data.py to turn hand records into training batches.
 add_library(mahjong_data SHARED
   ${CORE_SOURCES}
   ${GAME_SOURCES}
   ${LEARN_SOURCES}
+  players/players.cpp
   learn/learn_c.cpp
 )
 target_link_libraries(mahjong_data PRIVATE Threads::Threads)

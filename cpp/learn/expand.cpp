@@ -2,6 +2,7 @@
 
 #include "../core/global.h"
 #include "../game/shape.h"
+#include "../players/players.h"
 
 #include <algorithm>
 #include <cstring>
@@ -95,6 +96,14 @@ void Learn::expand(const HandRecord& rec, int markIndex, const Symmetry& sym, co
           row.nextChow[k] = 1;
       }
     }
+  }
+
+  {
+    static thread_local unique_ptr<Player> greedy = makeBasicPlayer("greedy");
+    static thread_local Rand unused("greedy");
+    vector<Action> legal;
+    game.legalActions(me, legal);
+    *row.greedy = actionIndex(game, greedy->decide(game, me, legal, unused));
   }
 
   // ----- The rest of the hand -----

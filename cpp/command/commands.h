@@ -12,6 +12,7 @@ namespace Commands {
   int benchmark(std::vector<std::string> args);
   int gui(std::vector<std::string> args);
   int gen0(std::vector<std::string> args);
+  int selfplay(std::vector<std::string> args);
 }
 
 #endif // COMMAND_COMMANDS_H_

@@ -160,7 +160,7 @@ int Greedy::ukeire(const Counts& hand, int numSets, const Counts& visible, int s
   return total;
 }
 
-unique_ptr<Player> makePlayer(const string& spec) {
+unique_ptr<Player> makeBasicPlayer(const string& spec) {
   if(spec == "random")
     return unique_ptr<Player>(new RandomPlayer());
   if(spec == "greedy" || spec.rfind("greedy:", 0) == 0) {
@@ -182,5 +182,5 @@ unique_ptr<Player> makePlayer(const string& spec) {
     }
     return unique_ptr<Player>(new GreedyPlayer(eps, calls, spec));
   }
-  throw StringError("Unknown player: " + spec);
+  return nullptr;
 }

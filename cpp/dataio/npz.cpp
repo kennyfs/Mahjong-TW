@@ -3,6 +3,11 @@
 #include <cstdio>
 #include <fstream>
 
+#ifdef USE_ZLIB
+#include <cstring>
+#include <zlib.h>
+#endif
+
 using namespace std;
 
 uint32_t Npz::crc32(const void* data, size_t len) {
@@ -75,6 +80,32 @@ static void put32(string& s, uint32_t x) {
     s += (char)((x >> (8 * i)) & 0xFF);
 }
 
+// A raw deflate stream of the bytes (what a zip entry of method 8 holds). False without zlib.
+static bool deflateBytes(const string& in, string& out) {
+#ifdef USE_ZLIB
+  z_stream zs;
+  memset(&zs, 0, sizeof(zs));
+  if(deflateInit2(&zs, 6, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY) != Z_OK)
+    return false;
+  out.resize(deflateBound(&zs, (uLong)in.size()));
+  zs.next_in = (Bytef*)in.data();
+  zs.avail_in = (uInt)in.size();
+  zs.next_out = (Bytef*)&out[0];
+  zs.avail_out = (uInt)out.size();
+  const int code = deflate(&zs, Z_FINISH);
+  const size_t size = zs.total_out;
+  deflateEnd(&zs);
+  if(code != Z_STREAM_END)
+    return false;
+  out.resize(size);
+  return true;
+#else
+  (void)in;
+  (void)out;
+  return false;
+#endif
+}
+
 void NpzWriter::write(const string& path) const {
   string tmpPath = path + ".tmp";
   ofstream out(tmpPath, ios::binary);
@@ -86,31 +117,36 @@ void NpzWriter::write(const string& path) const {
     if(e.bytes.size() >= 0xFFFFFFFFull || offset >= 0xFFFFFFFFull)
       throw IOError("npz entry too large for a zip without zip64: " + e.name);
     uint32_t crc = Npz::crc32(e.bytes.data(), e.bytes.size());
+    // Deflated when that is smaller (and zlib was there to build with), stored otherwise.
+    string packed;
+    const bool deflated = deflateBytes(e.bytes, packed) && packed.size() < e.bytes.size();
+    const string& body = deflated ? packed : e.bytes;
+    const uint16_t method = deflated ? 8 : 0;
     string local;
     put32(local, 0x04034b50);
     put16(local, 20);  // version needed
     put16(local, 0);   // flags
-    put16(local, 0);   // method: stored
+    put16(local, method);
     put16(local, 0);   // time
     put16(local, 0x21); // date (1980-01-01)
     put32(local, crc);
-    put32(local, (uint32_t)e.bytes.size());
+    put32(local, (uint32_t)body.size());
     put32(local, (uint32_t)e.bytes.size());
     put16(local, (uint16_t)e.name.size());
     put16(local, 0);
     local += e.name;
     out.write(local.data(), local.size());
-    out.write(e.bytes.data(), e.bytes.size());
+    out.write(body.data(), body.size());
 
     put32(central, 0x02014b50);
     put16(central, 20);
     put16(central, 20);
     put16(central, 0);
-    put16(central, 0);
+    put16(central, method);
     put16(central, 0);
     put16(central, 0x21);
     put32(central, crc);
-    put32(central, (uint32_t)e.bytes.size());
+    put32(central, (uint32_t)body.size());
     put32(central, (uint32_t)e.bytes.size());
     put16(central, (uint16_t)e.name.size());
     put16(central, 0);
@@ -120,7 +156,7 @@ void NpzWriter::write(const string& path) const {
     put32(central, 0);
     put32(central, (uint32_t)offset);
     central += e.name;
-    offset += local.size() + e.bytes.size();
+    offset += local.size() + body.size();
   }
   string end;
   put32(end, 0x06054b50);

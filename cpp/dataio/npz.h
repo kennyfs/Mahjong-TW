@@ -3,7 +3,8 @@
 
 #include "../core/global.h"
 
-// Writes NumPy .npz files (an uncompressed zip of .npy arrays), readable with numpy.load. No external libraries.
+// Writes NumPy .npz files (a zip of .npy arrays), readable with numpy.load. The arrays are deflated when the build
+// found zlib, stored otherwise.
 class NpzWriter {
  public:
   void add(const std::string& name, const std::vector<int64_t>& shape, const std::vector<uint8_t>& data);

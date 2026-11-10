@@ -68,6 +68,7 @@ struct MjBatch {
   uint8_t* future;
   uint8_t* finalHand;
   int8_t* nextDiscard;
+  int32_t* greedy;
 };
 
 // Expands n samples: sample i is mark markIdx[i] of hand handIdx[i] of a data file (its hands, offsets and rules
@@ -121,6 +122,7 @@ int mj_expand(const uint8_t* hands, const int64_t* offsets, const float* rules, 
         row.future = b->future + i * Learn::FUTURE_SIZE;
         row.finalHand = b->finalHand + i * 34;
         row.nextDiscard = b->nextDiscard + i * 3;
+        row.greedy = b->greedy + i;
         Learn::expand(rec, markIdx[i], sym, row);
       }
       catch(const exception& e) {

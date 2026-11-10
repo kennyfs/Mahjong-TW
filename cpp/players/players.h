@@ -24,7 +24,17 @@ class Player {
 //            improve it (ukeire); calls a chow or pung only when it lowers shanten; declares kongs that do not
 //            raise it; never defends. Variations for training data, as greedy:eps=0.1,calls=more: eps is the chance
 //            of a random discard; calls=more also calls when that keeps the shanten, calls=none never calls.
+//   mc[:playouts=N]
+//            flat Monte Carlo, as a yardstick: deals the unseen tiles at random, finishes the hand after each action
+//            with greedy players, and plays the best mean result; N playouts a decision (default 400), spent by
+//            sequential halving.
+//   net:model=FILE[,mode=q|policy|sample][,temp=T]
+//            the network (cpp/learn/netmodel.h, needs ONNX Runtime): mode=q plays the action with the best expected
+//            result composed from its outcome events (the default), mode=policy the policy head's first choice,
+//            mode=sample draws from the policy at temperature T.
 std::unique_ptr<Player> makePlayer(const std::string& spec);
+// The players that need nothing but the engine (random, greedy); nullptr for any other spec.
+std::unique_ptr<Player> makeBasicPlayer(const std::string& spec);
 
 namespace Greedy {
   // The number of unseen tiles (by `visible`) that lower the shanten of a 3 numSets + 1 hand.
