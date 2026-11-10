@@ -88,6 +88,7 @@ def main():
         raise SystemExit(f"Put the first networks at {run}/ckpt/actor_0.pt and critic_0.pt")
     i = max(newest(run), 0) + 1
     log(run, f"waiting for iteration {i}")
+    rsync(args, os.path.join(run, "train_loop.log"), f"{args.share}/")  # the other side sees that this one is up
     wait = 20
     while True:
         data = os.path.join(run, "selfplay", f"iter_{i}")
@@ -119,6 +120,8 @@ def main():
             code = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT).returncode
         if code != 0:
             log(run, f"training {i} failed (logs/train_{i}.log); ending")
+            rsync(args, os.path.join(run, "train_loop.log"), f"{args.share}/")
+            rsync(args, os.path.join(run, "logs", f"train_{i}.log"), f"{args.share}/")
             return
         os.rename(f"{ck}/actor_{i}.pt.part", f"{ck}/actor_{i}.pt")
         os.rename(f"{ck}/critic_{i}.pt.part", f"{ck}/critic_{i}.pt")
