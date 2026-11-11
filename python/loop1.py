@@ -92,8 +92,14 @@ def selfplay(args, i, stop):
                "--opponent", "greedy"]
         if progress:
             cmd += ["--progress", progress]
-        # Earlier networks: the first one, and those of about 5 and 20 iterations before.
-        for j in sorted({0, max(0, k - 5), max(0, k - 20)}):
+        # Earlier networks: the first one, and those of about 5 and 20 iterations before (where one is not there, as
+        # at the start of a run taken over from another, the next one that is).
+        def there(j):
+            while j < k and not os.path.exists(os.path.join(models, f"actor_{j}.onnx")):
+                j += 1
+            return j
+
+        for j in sorted({there(0), there(max(0, k - 5)), there(max(0, k - 20))}):
             if j < k:
                 cmd += ["--opponent", "net:model=" + os.path.join(models, f"actor_{j}.onnx")]
         return cmd
