@@ -39,6 +39,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -56,14 +57,20 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.kennyfs.mahjong.ui.AnalyzeScreen
 import io.github.kennyfs.mahjong.ui.BattleScreen
+import io.github.kennyfs.mahjong.ui.GuideScreen
 import io.github.kennyfs.mahjong.ui.LocalTable
+import io.github.kennyfs.mahjong.ui.LocalTour
 import io.github.kennyfs.mahjong.ui.MahjongTheme
 import io.github.kennyfs.mahjong.ui.PlayScreen
 import io.github.kennyfs.mahjong.ui.RecordsScreen
 import io.github.kennyfs.mahjong.ui.ReplayScreen
 import io.github.kennyfs.mahjong.ui.RulesScreen
 import io.github.kennyfs.mahjong.ui.SettingsScreen
+import io.github.kennyfs.mahjong.ui.TOUR_STEPS
+import io.github.kennyfs.mahjong.ui.TourOverlay
+import io.github.kennyfs.mahjong.ui.WelcomeDialog
 import io.github.kennyfs.mahjong.ui.isDark
+import io.github.kennyfs.mahjong.ui.tourAnchor
 
 private class Tab(val screen: Screen, val label: Int, val icon: ImageVector, val selected: ImageVector)
 
@@ -109,7 +116,8 @@ class MainActivity : ComponentActivity() {
  * The screens with the navigation bar (a tall window) or rail (a wide one). Each screen keeps its own pages, so
  * switching screens and back returns to the page left. Back: the screen's own pages first, then to Practice, then out
  * of the app. At a battle's table the other screens are out of reach (no bar or rail) until the player leaves; nor is
- * there a bar or rail over a hand's review: its Back leads out, and the table takes the room.
+ * there a bar or rail over a hand's review: its Back leads out, and the table takes the room. Over it all: the welcome
+ * card of the first start, and the tour (ui/Tour.kt), which shows each of its steps' screens at their top.
  */
 @Composable
 private fun App(vm: AppModel) {
@@ -127,10 +135,13 @@ private fun App(vm: AppModel) {
     if (landscape) controller.hide(WindowInsetsCompat.Type.systemBars()) else controller.show(WindowInsetsCompat.Type.systemBars())
   }
   LaunchedEffect(battle.inRoom) { if (battle.inRoom) vm.tab = Screen.BATTLE }
+  val tour = vm.tour
+  LaunchedEffect(tour.step) { TOUR_STEPS.getOrNull(tour.step)?.let { vm.show(it.screen) } }
   val review = vm.pages.lastOrNull() == Page.REVIEW
   val immersive = battle.playing && vm.tab == Screen.BATTLE && vm.pages.isEmpty() || review
   BackHandler(vm.pages.isNotEmpty()) { vm.back() }
   BackHandler(vm.pages.isEmpty() && vm.tab != Screen.PLAY && !battle.inRoom && battle.room == null) { vm.tab = Screen.PLAY }
+  CompositionLocalProvider(LocalTour provides tour) {
   NavigationSuiteScaffold(
     navigationSuiteItems = {
       for (t in TABS) {
@@ -140,7 +151,7 @@ private fun App(vm: AppModel) {
           onClick = { vm.go(t.screen) },
           icon = { Icon(if (selected) t.selected else t.icon, null) },
           label = { Text(stringResource(t.label), maxLines = 1) },
-          modifier = Modifier.testTag("nav_${t.screen.name}"),
+          modifier = Modifier.testTag("nav_${t.screen.name}").tourAnchor("nav_${t.screen.name}"),
           alwaysShowLabel = true,
         )
       }
@@ -162,6 +173,11 @@ private fun App(vm: AppModel) {
       when (vm.pages.lastOrNull()) {
         Page.RULES -> RulesScreen(vm, vm::back)
         Page.REVIEW -> ReplayScreen(vm, vm::back)
+        Page.GUIDE -> GuideScreen(
+          vm, vm::back,
+          onPlay = { vm.close(Page.GUIDE); vm.show(Screen.PLAY) },
+          onTour = { vm.close(Page.GUIDE); tour.start() },
+        )
         null -> when (vm.tab) {
           Screen.PLAY -> PlayScreen(vm)
           Screen.BATTLE -> BattleScreen(vm)
@@ -171,5 +187,13 @@ private fun App(vm: AppModel) {
         }
       }
     }
+  }
+  // The first start: the welcome card, once. Not over a battle's room.
+  if (vm.welcome && !battle.inRoom) WelcomeDialog(
+    onLearn = { vm.welcomed(); vm.open(Page.GUIDE) },
+    onTour = { vm.welcomed(); tour.start() },
+    onClose = { vm.welcomed() },
+  )
+  if (tour.on && !battle.inRoom) TourOverlay(tour) { vm.open(Page.GUIDE) }
   }
 }

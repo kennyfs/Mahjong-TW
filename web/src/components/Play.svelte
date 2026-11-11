@@ -43,7 +43,7 @@
 
 <div class="play">
   {#if !ui.wide}
-  <header class="bar">
+  <header class="bar" data-tour="top">
     <div class="where">
       {#if view}<span class="title-medium nowrap">{t('round_wind', windName(view.position.setup.round))} {handLabel}</span>{/if}
     </div>
@@ -59,8 +59,10 @@
         keys={ui.desk}>
         {#snippet corner()}
           {#if ui.wide}
-            <button class="mini" onclick={() => nav.open('rules')}>{rulesChip}</button>
-            <button class="mini" onclick={() => (confirmNew = true)}>{t('practice_new')}</button>
+            <span class="corner-buttons" data-tour="top">
+              <button class="mini" onclick={() => nav.open('rules')}>{rulesChip}</button>
+              <button class="mini" onclick={() => (confirmNew = true)}>{t('practice_new')}</button>
+            </span>
           {/if}
         {/snippet}
         {#snippet aside()}
@@ -80,7 +82,7 @@
                 </div>
               {/each}
             </div>
-            <div class="p-buttons">
+            <div class="p-buttons" data-tour="top">
               <button class="chip on-felt" onclick={() => nav.open('rules')}>{rulesChip}<Icon name="dropDown" size={18} /></button>
               <button class="btn tonal" onclick={() => (confirmNew = true)}>{t('practice_new')}</button>
             </div>
@@ -153,6 +155,8 @@
   .mini { border: 1px solid var(--on-felt-dim); background: transparent; color: var(--on-felt); border-radius: 12px; padding: 1px 8px;
     font-size: 0.75rem; cursor: pointer; }
   .spacer { flex: 1; }
+  /* The corner's buttons together (the tour lights them as one), laid out as the corner lays out its own. */
+  .corner-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
   .table-wrap { flex: 1; min-height: 0; position: relative; }
   .sheet { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 12px;
     background: rgba(0, 0, 0, 0.35); }

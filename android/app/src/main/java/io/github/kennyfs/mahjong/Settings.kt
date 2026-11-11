@@ -97,6 +97,11 @@ class Settings(context: Context) {
 
   val spec: String get() = rules.spec
 
+  /** The welcome card was shown (and answered, or put away): it comes once. */
+  var welcomeSeen: Boolean
+    get() = prefs.getBoolean("welcome.seen", false)
+    set(v) = prefs.edit().putBoolean("welcome.seen", v).apply()
+
   fun persist() {
     val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, listRows, level, version = 1)
     prefs.edit().putString("settings", EngineJson.encodeToString(s)).apply()

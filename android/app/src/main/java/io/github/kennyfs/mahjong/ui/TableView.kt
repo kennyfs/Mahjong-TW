@@ -290,7 +290,7 @@ fun TableView(
               center(Modifier.weight(1f).fillMaxHeight())
               seat(Side.RIGHT, Modifier.width(s.sideW.d).fillMaxHeight())
             }
-            Row(Modifier.height(meH.d).fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
+            Row(Modifier.height(meH.d).fillMaxWidth().tourAnchor("hand").padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
               horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.Bottom) {
               Melds(pos.players[me].melds, flowersOf(pos.players[me]), s.meld, wrap = false)
               MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH)
@@ -309,7 +309,7 @@ fun TableView(
               seat(Side.RIGHT, Modifier.weight(1f).fillMaxHeight())
             }
             center(Modifier.weight(1f).fillMaxWidth())
-            Column(Modifier.height(meH.d).fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 6.dp),
+            Column(Modifier.height(meH.d).fillMaxWidth().tourAnchor("hand").padding(start = 4.dp, end = 4.dp, bottom = 6.dp),
               horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom)) {
               Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
                 Box(Modifier.align(Alignment.CenterVertically)) { badge(me, null) }

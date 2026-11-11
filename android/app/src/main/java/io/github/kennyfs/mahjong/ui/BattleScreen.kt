@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,8 +33,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -56,6 +53,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,7 +105,7 @@ private fun nearbyPermissions(): Array<String> = when {
 }
 
 /**
- * Battles (battle/Battle.kt): the entry (a name; a room on a server, or on a phone nearby), the room's lobby (its PIN,
+ * Battles (battle/Battle.kt): the entry (online or nearby; a new room or joining one), the room's lobby (its PIN,
  * the players, the host's settings), the table while a hand is played (the player's own seat and the time left to
  * decide; no hint or analysis), each hand's result with the standings, and the final standings with the player's hands
  * (their review and analysis come from the records). The web page's Battle.svelte, with phones nearby added.
@@ -138,6 +136,14 @@ fun BattleScreen(vm: AppModel) {
     confirm = stringResource(R.string.battle_leave))
 }
 
+/** The entry's steps: its first page, a new room (which kind), joining one. */
+private enum class EntryStep { HOME, CREATE, JOIN }
+
+/**
+ * The entry: first only online or nearby, and a new room or joining one; then, for a new room, the name (and the
+ * server, online) and which kind, a table or a same-tiles contest; to join, the name and the room's PIN (online: the
+ * server too; nearby: the rooms found). Back from a step: the first page.
+ */
 @Composable
 private fun EntryPage(vm: AppModel) {
   val battle = vm.battle
@@ -159,125 +165,144 @@ private fun EntryPage(vm: AppModel) {
       permissions.launch(missing.toTypedArray())
     }
   }
-  fun nearby(action: () -> Unit) = ask(nearbyPermissions().toList(), R.string.battle_permissions, action)
+  fun withNearby(action: () -> Unit) = ask(nearbyPermissions().toList(), R.string.battle_permissions, action)
   // A server on the local network (a computer at home, the emulator's host): Android 17 asks first.
-  fun online(action: () -> Unit) {
+  fun withOnline(action: () -> Unit) {
     val u = serverUrl(settings.server)
     if (Build.VERSION.SDK_INT >= 37 && u != null && isLocalNetwork(u)) {
       ask(listOf(Manifest.permission.ACCESS_LOCAL_NETWORK), R.string.battle_local_network, action)
     } else action()
   }
+  var step by rememberSaveable { mutableStateOf(EntryStep.HOME) }
+  // Nearby first until a server is set: the phones nearby need none.
+  var nearby by rememberSaveable { mutableStateOf(settings.server.isBlank()) }
   var finding by remember { mutableStateOf(false) }
+  fun home() {
+    if (finding) {
+      finding = false
+      battle.stopFinding()
+    }
+    step = EntryStep.HOME
+  }
+  BackHandler(step != EntryStep.HOME) { home() }
+  val cs = MaterialTheme.colorScheme
+  val nameField = @Composable {
+    OutlinedTextField(
+      settings.name, { settings.name = it.take(Limits.NAME_LENGTH) }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.battle_name)) },
+      placeholder = { Text(battle.playerName) }, singleLine = true,
+    )
+  }
+  val serverField = @Composable {
+    if (editServer) OutlinedTextField(
+      settings.server, { settings.server = it.trim() }, Modifier.fillMaxWidth().testTag("battle_server"), label = { Text(stringResource(R.string.battle_server)) },
+      placeholder = { Text(stringResource(R.string.battle_server_app_hint)) }, singleLine = true,
+      keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+    ) else Row(verticalAlignment = Alignment.CenterVertically) {
+      Text(stringResource(R.string.battle_server_is, settings.server), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+        color = cs.onSurfaceVariant)
+      TextButton(onClick = { editServer = true }) { Text(stringResource(R.string.change)) }
+    }
+  }
+  val pinField = @Composable { mod: Modifier ->
+    OutlinedTextField(
+      battle.pin, { battle.pin = it.filter(Char::isDigit).take(6) }, mod.testTag("battle_pin"), label = { Text(stringResource(R.string.battle_pin)) },
+      singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), textStyle = MaterialTheme.typography.headlineSmall,
+    )
+  }
   Column(Modifier.fillMaxSize()) {
-    TitleBar(stringResource(R.string.battle_title))
+    TitleBar(
+      stringResource(when (step) { EntryStep.HOME -> R.string.battle_title; EntryStep.CREATE -> R.string.battle_create; EntryStep.JOIN -> R.string.battle_join_room }),
+      if (step == EntryStep.HOME) null else ({ home() }),
+    )
     Box(Modifier.fillMaxWidth().height(4.dp)) { if (battle.busy) LinearProgressIndicator(Modifier.fillMaxWidth()) }
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-      val wide = maxWidth >= 760.dp
-      val pinField = @Composable { mod: Modifier ->
-        OutlinedTextField(
-          battle.pin, { battle.pin = it.filter(Char::isDigit).take(6) }, mod, label = { Text(stringResource(R.string.battle_pin)) }, singleLine = true,
-          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), textStyle = MaterialTheme.typography.headlineSmall,
-        )
-      }
-      val online = @Composable {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-          Heading(Icons.Filled.Public, stringResource(R.string.battle_online), stringResource(R.string.battle_online_info))
-          if (editServer) OutlinedTextField(
-            settings.server, { settings.server = it.trim() }, Modifier.fillMaxWidth().testTag("battle_server"), label = { Text(stringResource(R.string.battle_server)) },
-            placeholder = { Text(stringResource(R.string.battle_server_app_hint)) }, singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-          ) else Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.battle_server_is, settings.server), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
-              color = MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick = { editServer = true }) { Text(stringResource(R.string.change)) }
+    Column(
+      Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 16.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+      Column(Modifier.widthIn(max = 640.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        when (step) {
+          EntryStep.HOME -> {
+            ToggleGroup(
+              listOf(false to stringResource(R.string.battle_where_online), true to stringResource(R.string.battle_where_nearby)), nearby, { nearby = it },
+              Modifier.fillMaxWidth().testTag("battle_where"),
+            )
+            Text(stringResource(if (nearby) R.string.battle_nearby_info else R.string.battle_online_info), style = MaterialTheme.typography.bodyMedium,
+              color = cs.onSurfaceVariant)
+            ChoiceCard(stringResource(R.string.battle_create), stringResource(if (nearby) R.string.battle_create_nearby_info else R.string.battle_create_info),
+              !battle.busy, "battle_create") { step = EntryStep.CREATE }
+            ChoiceCard(stringResource(R.string.battle_join_room), stringResource(if (nearby) R.string.battle_join_nearby_info else R.string.battle_join_room_info),
+              !battle.busy, "battle_join", tonal = true) { step = EntryStep.JOIN }
+            Text(stringResource(R.string.battle_no_help), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
           }
-          val ready = !battle.busy && settings.server.isNotBlank()
-          ChoiceCard(stringResource(R.string.battle_new_table), stringResource(R.string.battle_table_info), ready, "battle_create_table") { online { battle.create(Mode.TABLE) } }
-          ChoiceCard(stringResource(R.string.battle_new_contest), stringResource(R.string.battle_contest_info), ready, "battle_create_contest") { online { battle.create(Mode.CONTEST) } }
-          Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              Text(stringResource(R.string.battle_join_room), style = MaterialTheme.typography.titleLarge)
-              Text(stringResource(R.string.battle_join_room_info), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          EntryStep.CREATE -> {
+            nameField()
+            if (!nearby) serverField()
+            Text(stringResource(R.string.battle_mode_title), Modifier.padding(top = 6.dp), style = MaterialTheme.typography.titleMedium)
+            if (nearby) {
+              ChoiceCard(stringResource(R.string.battle_new_table), stringResource(R.string.battle_table_info), !battle.busy, "battle_host_table") {
+                withNearby { battle.host(Mode.TABLE) }
+              }
+              ChoiceCard(stringResource(R.string.battle_new_contest), stringResource(R.string.battle_contest_info), !battle.busy, "battle_host_contest") {
+                withNearby { battle.host(Mode.CONTEST) }
+              }
+            } else {
+              val ready = !battle.busy && settings.server.isNotBlank()
+              ChoiceCard(stringResource(R.string.battle_new_table), stringResource(R.string.battle_table_info), ready, "battle_create_table") {
+                withOnline { battle.create(Mode.TABLE) }
+              }
+              ChoiceCard(stringResource(R.string.battle_new_contest), stringResource(R.string.battle_contest_info), ready, "battle_create_contest") {
+                withOnline { battle.create(Mode.CONTEST) }
+              }
+            }
+          }
+          EntryStep.JOIN -> {
+            nameField()
+            if (!nearby) {
+              serverField()
               Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 pinField(Modifier.weight(1f))
-                Button(onClick = { online { battle.join() } }, enabled = ready && battle.pin.length == 6, modifier = Modifier.heightIn(min = BIG_BUTTON)) {
+                Button(onClick = { withOnline { battle.join() } }, enabled = !battle.busy && settings.server.isNotBlank() && battle.pin.length == 6,
+                  modifier = Modifier.heightIn(min = BIG_BUTTON).testTag("battle_join_go")) {
                   Text(stringResource(R.string.battle_join))
+                }
+              }
+            } else if (!finding) {
+              Button(onClick = { withNearby { finding = true; battle.findNearby() } }, enabled = !battle.busy,
+                modifier = Modifier.fillMaxWidth().heightIn(min = BIG_BUTTON).testTag("battle_find")) {
+                Text(stringResource(R.string.battle_find))
+              }
+            } else {
+              Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                Text(stringResource(R.string.battle_finding), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = { finding = false; battle.stopFinding() }) { Text(stringResource(R.string.battle_stop_finding)) }
+              }
+              if (battle.nearbyRooms.isNotEmpty()) pinField(Modifier.fillMaxWidth())
+              for ((endpoint, name) in battle.nearbyRooms) {
+                Button(onClick = { finding = false; battle.joinNearby(endpoint) }, enabled = !battle.busy && battle.pin.length == 6,
+                  modifier = Modifier.fillMaxWidth().heightIn(min = BIG_BUTTON)) {
+                  Text(stringResource(R.string.battle_join_nearby, shownName(name)))
                 }
               }
             }
           }
         }
       }
-      val near = @Composable {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-          Heading(Icons.Filled.Bluetooth, stringResource(R.string.battle_nearby), stringResource(R.string.battle_nearby_info))
-          FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilledTonalButton(onClick = { nearby { battle.host(Mode.TABLE) } }, enabled = !battle.busy) { Text(stringResource(R.string.battle_host_table)) }
-            FilledTonalButton(onClick = { nearby { battle.host(Mode.CONTEST) } }, enabled = !battle.busy) { Text(stringResource(R.string.battle_host_contest)) }
-          }
-          if (!finding) OutlinedButton(onClick = { nearby { finding = true; battle.findNearby() } }, enabled = !battle.busy) {
-            Text(stringResource(R.string.battle_find))
-          } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-              CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-              Text(stringResource(R.string.battle_finding), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-              TextButton(onClick = { finding = false; battle.stopFinding() }) { Text(stringResource(R.string.battle_stop_finding)) }
-            }
-            if (battle.nearbyRooms.isNotEmpty()) pinField(Modifier.fillMaxWidth())
-            for ((endpoint, name) in battle.nearbyRooms) {
-              Button(onClick = { finding = false; battle.joinNearby(endpoint) }, enabled = !battle.busy && battle.pin.length == 6,
-                modifier = Modifier.fillMaxWidth().heightIn(min = BIG_BUTTON)) {
-                Text(stringResource(R.string.battle_join_nearby, shownName(name)))
-              }
-            }
-          }
-        }
-      }
-      Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 16.dp).padding(bottom = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-      ) {
-        Column(Modifier.widthIn(max = if (wide) 1100.dp else 640.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-          OutlinedTextField(
-            settings.name, { settings.name = it.take(Limits.NAME_LENGTH) }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.battle_name)) },
-            placeholder = { Text(battle.playerName) }, singleLine = true,
-          )
-          if (wide) Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            Box(Modifier.weight(1f)) { online() }
-            Box(Modifier.weight(1f)) { near() }
-          } else {
-            online()
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            near()
-          }
-          Text(stringResource(R.string.battle_no_help), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-      }
     }
   }
 }
 
+/** A large choice: a title and a line under it, the whole card the button; `tonal`: the second choice's colors. */
 @Composable
-private fun Heading(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, info: String) {
-  Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-    Icon(icon, null, Modifier.padding(top = 2.dp), tint = MaterialTheme.colorScheme.primary)
-    Column {
-      Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-      Text(info, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-  }
-}
-
-/** A large choice: a title and a line under it, the whole card the button. */
-@Composable
-private fun ChoiceCard(title: String, info: String, enabled: Boolean, tag: String, onClick: () -> Unit) {
+private fun ChoiceCard(title: String, info: String, enabled: Boolean, tag: String, tonal: Boolean = false, onClick: () -> Unit) {
   val cs = MaterialTheme.colorScheme
-  Surface(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(16.dp), color = cs.primaryContainer, contentColor = cs.onPrimaryContainer,
+  val container = if (tonal) cs.secondaryContainer else cs.primaryContainer
+  val content = if (tonal) cs.onSecondaryContainer else cs.onPrimaryContainer
+  Surface(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(16.dp), color = container, contentColor = content,
     modifier = Modifier.fillMaxWidth().testTag(tag)) {
     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
       Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineSmall, color = if (enabled) cs.onPrimaryContainer else cs.onPrimaryContainer.copy(alpha = 0.5f))
+        Text(title, style = MaterialTheme.typography.headlineSmall, color = if (enabled) content else content.copy(alpha = 0.5f))
         Text(info, style = MaterialTheme.typography.bodyMedium)
       }
       Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)

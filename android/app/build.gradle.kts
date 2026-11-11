@@ -10,7 +10,8 @@ plugins {
 val ortVersion = "1.31.1"
 // ONNX Runtime, for the network: its AAR, unpacked so the native engine can compile against its C++ headers and link
 // its libonnxruntime.so (headers/ and jni/<abi>/ inside the AAR). MAHJONG_ORT_DIR, the same layout, is a reduced build
-// instead (only the operators the network uses: Thirteen's android/build-ort.sh makes one that covers them).
+// instead (only the operators the network uses: 10 MB for arm64-v8a, the AAR's is 34 MB; build-ort.sh makes one,
+// from ort-ops.config).
 val ortAar: Configuration = configurations.create("ortAar")
 val ownOrt: String? = System.getenv("MAHJONG_ORT_DIR")?.ifEmpty { null }
 val ortDir = ownOrt?.let { layout.projectDirectory.dir(it) } ?: layout.buildDirectory.dir("onnxruntime").get()
@@ -84,8 +85,9 @@ android {
       ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
     release {
-      // arm64 and x86_64 (the emulator) until it goes to a store: MAHJONG_ABIS=arm64-v8a for a phone's only.
-      ndk { abiFilters += (System.getenv("MAHJONG_ABIS")?.split(",") ?: listOf("arm64-v8a", "x86_64")) }
+      // arm64 only, as phones are (Thirteen's too); MAHJONG_ABIS=x86_64 makes a release build the emulator runs, to try
+      // the minified app on it.
+      ndk { abiFilters += (System.getenv("MAHJONG_ABIS")?.split(",") ?: listOf("arm64-v8a")) }
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

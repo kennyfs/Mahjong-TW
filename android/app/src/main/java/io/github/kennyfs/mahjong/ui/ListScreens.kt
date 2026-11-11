@@ -398,11 +398,11 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
   }
 }
 
-private fun taiDesc(p: String) = when (p) {
+fun taiDesc(p: String) = when (p) {
   "simple2" -> R.string.tai_simple2_desc; "standard" -> R.string.tai_standard_desc; "masters" -> R.string.tai_masters_desc
   else -> R.string.tai_simple1_desc
 }
-private fun flowerDesc(p: String) = when (p) { "see" -> R.string.flowers_see_desc; "seat" -> R.string.flowers_seat_desc; else -> R.string.flowers_none_desc }
+fun flowerDesc(p: String) = when (p) { "see" -> R.string.flowers_see_desc; "seat" -> R.string.flowers_seat_desc; else -> R.string.flowers_none_desc }
 
 @Composable
 private fun paramName(p: String): String = when (p) {
@@ -456,9 +456,10 @@ private fun PresetCard(title: String, desc: String, on: Boolean, onClick: () -> 
 }
 
 /**
- * The settings: the game (the rules, practice's length, the computer players and their pace), the analysis (what a row
- * of a decision's list shows, and from which loss on a decision is a mistake), the look, and about. A wide window
- * shows the list at the left and the rules beside it. The web page's Settings.svelte.
+ * The settings: help (the rules explained, the tour), the game (the rules, practice's length, the computer players and
+ * their pace), the analysis (what a row of a decision's list shows, and from which loss on a decision is a mistake),
+ * the look, and about. A wide window shows the list at the left and the rules beside it. The web page's
+ * Settings.svelte.
  */
 @Composable
 fun SettingsScreen(vm: AppModel) {
@@ -481,6 +482,9 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
     TitleBar(stringResource(R.string.settings_title))
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
       Column(Modifier.readable().fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+        SectionHeader(stringResource(R.string.settings_help))
+        SettingRow(stringResource(R.string.guide_title), stringResource(R.string.guide_row), Modifier.testTag("settings_guide")) { vm.open(Page.GUIDE) }
+        SettingRow(stringResource(R.string.tour_title), stringResource(R.string.tour_row), Modifier.testTag("settings_tour")) { vm.tour.start() }
         SectionHeader(stringResource(R.string.settings_game))
         SettingRow(stringResource(R.string.settings_rules), rulesChip(s.rules.tai, s.rules.flowers, s.rules.overrides.isNotEmpty()),
           onClick = if (desk) null else ({ vm.open(Page.RULES) }))

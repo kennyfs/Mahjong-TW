@@ -82,7 +82,7 @@ fun PlayScreen(vm: AppModel) {
     val w = maxWidth.value
     Column(Modifier.fillMaxSize()) {
       if (!wide) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).tourAnchor("top").padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           if (view != null) Text(stringResource(R.string.round_wind, Tiles.wind(view.position.setup.round)) + " " + handLabel,
             style = MaterialTheme.typography.titleMedium, maxLines = 1)
@@ -98,7 +98,7 @@ fun PlayScreen(vm: AppModel) {
           interactive = stage == Practice.Stage.PLAYING && !practice.busy,
           onAct = { practice.act(it) }, handLabel = if (wide) handLabel else "",
           corner = if (wide) ({
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.tourAnchor("top"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
               MiniButton(chip) { vm.open(Page.RULES) }
               MiniButton(stringResource(R.string.practice_new)) { confirmNew = true }
             }

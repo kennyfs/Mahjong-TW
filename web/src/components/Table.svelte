@@ -286,12 +286,12 @@
         {#if status}<div class="status">{@render status()}</div>{/if}
         {@render myBadge()}
       </div>
-      <div class="me">
+      <div class="me" data-tour="hand">
         <Melds melds={pos.players[me].melds} flowers={flowersOf(pos.players[me])} w={s.meld} wrap={false} />
         <MyHand tiles={mine.tiles} drawn={mine.drawn} w={s.hand} {canDiscard} ondiscard={discard} bind:selected oneClick={keys} {marks} {tagH} />
       </div>
     {:else}
-      <div class="me tall">
+      <div class="me tall" data-tour="hand">
         <div class="me-top">
           {@render myBadge()}
           <Melds melds={pos.players[me].melds} flowers={flowersOf(pos.players[me])} w={s.meld} />

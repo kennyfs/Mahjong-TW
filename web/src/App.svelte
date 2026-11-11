@@ -10,6 +10,9 @@
   import { settings, TEXT_SCALE } from './lib/settings.svelte';
   import { measure, ui } from './lib/ui.svelte';
   import Dialog from './components/Dialog.svelte';
+  import Guide from './components/Guide.svelte';
+  import Tour from './components/Tour.svelte';
+  import { tour, welcomeDone, welcomeDue } from './lib/tour.svelte';
   import Icon, { type IconName } from './components/Icon.svelte';
   import Analyze from './components/Analyze.svelte';
   import Battle from './components/Battle.svelte';
@@ -78,6 +81,13 @@
     shared.reviewId = id;
     nav.open('review');
   }
+  // The welcome card of the first visit: the guide, the tour, or play. Any way out counts as seen.
+  let welcome = $state(welcomeDue());
+  function closeWelcome(then?: () => void) {
+    welcome = false;
+    welcomeDone();
+    then?.();
+  }
   // At a battle's table, the other screens are out of reach (a tap away from leaving it by mistake).
   // Nor over a hand's review: its Back leads out, and the table takes the room.
   const immersive = $derived((battle.playing && nav.screen === 'BATTLE' && nav.sub === null) || nav.sub === 'review');
@@ -87,13 +97,15 @@
 <div class="shell" class:wide={ui.wide}>
   <nav aria-label={t('app_name')} hidden={immersive}>
     {#each tabs as [s, label, icon, chosen] (s)}
-      <button class:on={nav.screen === s} aria-current={nav.screen === s ? 'page' : undefined} onclick={() => nav.go(s)}>
+      <button class:on={nav.screen === s} aria-current={nav.screen === s ? 'page' : undefined} data-tour="nav-{s}" onclick={() => nav.go(s)}>
         <span class="pill"><Icon name={nav.screen === s ? chosen : icon} /></span><span class="label">{t(label)}</span>
       </button>
     {/each}
   </nav>
   <main>
-    {#if (nav.screen === 'PLAY' || nav.screen === 'RECORDS' || nav.screen === 'BATTLE') && nav.sub === 'review'}
+    {#if nav.sub === 'guide'}
+      <Guide onback={() => nav.back()} />
+    {:else if (nav.screen === 'PLAY' || nav.screen === 'RECORDS' || nav.screen === 'BATTLE') && nav.sub === 'review'}
       <Replay id={shared.reviewId} onback={() => nav.back()} />
     {:else if nav.screen === 'PLAY' && nav.sub === 'rules'}
       <Rules onback={() => nav.back()} />
@@ -112,6 +124,19 @@
     {/if}
   </main>
 </div>
+
+{#if tour.on}<Tour onguide={() => nav.open('guide')} />{/if}
+
+{#if welcome}
+  <Dialog title={t('welcome_title')} onclose={() => closeWelcome()}>
+    <p class="body-large" style="margin:0 0 6px">{t('welcome_body')}</p>
+    <div class="welcome">
+      <button class="btn filled big" onclick={() => closeWelcome(() => nav.open('guide'))}>{t('welcome_learn')}</button>
+      <button class="btn tonal big" onclick={() => closeWelcome(() => tour.start())}>{t('welcome_tour')}</button>
+      <button class="btn text big" onclick={() => closeWelcome()}>{t('welcome_skip')}</button>
+    </div>
+  </Dialog>
+{/if}
 
 {#if shared.error || practice.error}
   <Dialog onclose={() => { shared.error = null; practice.error = null; }}>
@@ -139,4 +164,5 @@
   nav button:hover .pill { background: var(--surface-container-highest); }
   .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .todo { padding: 24px; }
+  .welcome { display: flex; flex-direction: column; gap: 8px; }
 </style>

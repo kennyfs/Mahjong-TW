@@ -9,6 +9,7 @@
   import { practice } from '../lib/practice.svelte';
   import { flowerLabel, taiLabel } from '../lib/rules';
   import { BOTS, settings, type Colors, type Dark, type Length, type Level, type ListRows, type Speed, type TextSize } from '../lib/settings.svelte';
+  import { tour } from '../lib/tour.svelte';
   import { ui } from '../lib/ui.svelte';
   import Rules from './Rules.svelte';
   import SettingRow from './SettingRow.svelte';
@@ -40,6 +41,9 @@
   <div class="page">
     <TitleBar title={t('settings_title')} />
     <div class="scroll"><div class="readable">
+      <div class="section-header">{t('settings_help')}</div>
+      <SettingRow title={t('guide_title')} value={t('guide_row')} onclick={() => nav.open('guide')} />
+      <SettingRow title={t('tour_title')} value={t('tour_row')} onclick={() => tour.start()} />
       <div class="section-header">{t('settings_game')}</div>
       <SettingRow title={t('settings_rules')} value={rulesValue} onclick={desk ? null : () => nav.open('rules')} selected={desk} />
       <div class="block">

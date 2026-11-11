@@ -45,6 +45,9 @@ add_library(mahjong_jni SHARED
 )
 target_include_directories(mahjong_jni PRIVATE ${CPP}/external/nlohmann_json ${ORT_DIR}/headers)
 target_compile_definitions(mahjong_jni PRIVATE USE_ONNXRUNTIME)
-# Optimized in debug builds too: a review evaluates every decision of a hand.
-target_compile_options(mahjong_jni PRIVATE -O2 -Wall -Wno-sign-compare)
+# Optimized in debug builds too: a review evaluates every decision of a hand. Only the JNI functions are exported
+# (JNIEXPORT), and the code nothing calls is dropped at link time: a smaller library.
+target_compile_options(mahjong_jni PRIVATE -O2 -Wall -Wno-sign-compare -fvisibility=hidden -fvisibility-inlines-hidden
+  -ffunction-sections -fdata-sections)
+target_link_options(mahjong_jni PRIVATE -Wl,--gc-sections -Wl,--exclude-libs,ALL)
 target_link_libraries(mahjong_jni PRIVATE onnxruntime log)

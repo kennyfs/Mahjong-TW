@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """The app's screenshots on an emulator, driven over adb (device-tests.sh starts the emulator and installs the APK).
 
-It plays as a person would, by taps found in the screen's accessibility tree (uiautomator dump): practice until a hand
-ends, its review by the network (a decision worth a look, a tile's figures, everyone's tiles, the list of every action,
-the step taken to the analysis screen, the result), the analysis screen with its tables, the records with their
-statistics, the rules with an explanation open, the settings, and battles (the entry, and, when BATTLE_SERVER names a
-server the emulator reaches, e.g. 10.0.2.2:8091, a table game's lobby and table). Each screen in landscape (the phone
-sideways, first) and portrait, PNGs in OUT (default
-$WORK/shots/android). ONLY=name,... takes only those shots; STEPS=step,... runs only those
-steps (practice, practice_result, analyze, records, settings, battle, battle_table), e.g. STEPS=battle_table.
+It plays as a person would, by taps found in the screen's accessibility tree (uiautomator dump): the first start's
+welcome card, practice until a hand ends, its review by the network (a decision worth a look, a tile's figures,
+everyone's tiles, the list of every action, the step taken to the analysis screen, the result), the analysis screen
+with its tables, the records with their statistics, the rules with an explanation open, the settings, the rules
+explained (with its quiz answered) and the tour, and battles (the entry's steps, and, when BATTLE_SERVER names a server
+the emulator reaches, e.g. 10.0.2.2:8091, a table game's lobby and table). Each screen in landscape (the phone
+sideways, first) and portrait, PNGs in OUT (default $WORK/shots/android). ONLY=name,... takes
+only those shots; STEPS=step,... runs only those steps (practice, practice_result, analyze, records, settings, guide,
+tour, battle, battle_table), e.g. STEPS=battle_table.
 
 Usage: python3 android/scripts/shots.py   (ANDROID_SERIAL picks the emulator, e.g. emulator-5556)
 """
@@ -225,6 +226,16 @@ def swipe_up(times=1):
     time.sleep(0.4)
 
 
+def scroll_to(rid, times=10):
+  """Scrolls down until the node with this test tag is on the screen; the node, or None."""
+  for _ in range(times):
+    n = find(ui(), rid=rid)
+    if n:
+      return n
+    swipe_up()
+  return find(ui(), rid=rid)
+
+
 def practice_result(orient):
   """A hand to its end and its result; its review: a decision worth a look, a tile's figures, everyone's tiles, the
   list of every action, the step taken to the analysis screen, and the result again."""
@@ -318,20 +329,76 @@ def settings(orient):
     shot(f'settings-analysis-{orient}')
     sh('input swipe 500 600 500 2000 200')
     time.sleep(0.5)
-    tap_text('規則')
-  tap_id('rules_advanced')
-  n = wait_for(lambda ns: find(ns, rid='rules_help_base'), 15)
+  tap_text('規則')
+  wait_for(lambda ns: find(ns, text='台數'), 10)
+  n = scroll_to('rules_advanced')
+  if not n:
+    raise RuntimeError('not found: rules_advanced')
+  tap_node(n)
+  time.sleep(0.6)
+  n = scroll_to('rules_help_base', 3)
   if n:
     tap_node(n)
     time.sleep(0.5)
   shot(f'rules-{orient}')
-  if orient == 'port':
-    back()
+  back()
+
+
+def guide(orient):
+  """The rules explained, from the settings: its first page (the rules to explain), the tiles, tai, and the quiz."""
+  go('設定')
+  tap_id('settings_guide')
+  wait_for(lambda ns: find(ns, rid='guide_next'), 10)
+  shot(f'guide-rules-{orient}')
+  for page in range(1, 7):
+    tap_id('guide_next')
+    time.sleep(0.5)
+    if page == 2:
+      shot(f'guide-tiles-{orient}')
+    elif page == 5:
+      shot(f'guide-tai-{orient}')
+  # The quiz: two of the candidates picked, one of them wrong, and the answer.
+  for x in ('guide_pick_5s', 'guide_pick_6s'):
+    n = scroll_to(x, 3)
+    if n:
+      tap_node(n)
+  shot(f'guide-quiz-{orient}')
+  n = scroll_to('guide_check', 3)
+  if n:
+    tap_node(n)
+    time.sleep(0.5)
+    shot(f'guide-answer-{orient}')
+  tap_id('guide_next')
+  time.sleep(0.5)
+  shot(f'guide-end-{orient}')
+  back()
+
+
+def tour(orient):
+  """The tour, from the settings: its first steps (the hand, the top of practice, the analysis' tab) and its end."""
+  go('設定')
+  tap_id('settings_tour')
+  wait_for(lambda ns: find(ns, rid='tour_card'), 10)
+  for i in range(7):
+    time.sleep(0.6)
+    if i in (0, 1, 2, 6):
+      shot(f'tour-{i + 1}-{orient}')
+    tap_id('tour_next')
+  time.sleep(0.6)
 
 
 def battle(orient):
+  """The entry: its first page (nearby: no server set), a new room's kinds, and joining."""
   go('對戰')
   shot(f'battle-entry-{orient}')
+  tap_id('battle_create')
+  time.sleep(0.5)
+  shot(f'battle-create-{orient}')
+  back()
+  tap_id('battle_join')
+  time.sleep(0.5)
+  shot(f'battle-join-{orient}')
+  back()
 
 
 def battle_table(orient):
@@ -339,6 +406,8 @@ def battle_table(orient):
   if not SERVER:
     return
   go('對戰')
+  tap_text('線上')
+  tap_id('battle_create')
   nodes = ui()
   if not find(nodes, rid='battle_server'):
     n = find(nodes, text='更改')
@@ -382,14 +451,19 @@ def main():
   time.sleep(2)
   for _ in range(3):
     sh(f'am start -W -n {PKG}/.MainActivity')
-    if wait_for(lambda ns: find(ns, rid='nav_PLAY') or find(ns, text='練習'), 20):
+    if wait_for(lambda ns: find(ns, rid='nav_PLAY') or find(ns, text='練習') or find(ns, rid='welcome_skip'), 20):
       break
     log('the app did not show; starting it again')
     sh(f'am force-stop {PKG}')
     time.sleep(2)
   else:
     raise RuntimeError('the app did not start')
-  steps = [practice, practice_result, analyze, records, settings, battle, battle_table]
+  # The first start's welcome card: shown once, then put away.
+  if find(ui(), rid='welcome_skip'):
+    shot('welcome')
+    tap_id('welcome_skip')
+    time.sleep(0.6)
+  steps = [practice, practice_result, analyze, records, settings, guide, tour, battle, battle_table]
   for orient in ('land', 'port'):
     rotate(orient == 'land')
     for step in steps:

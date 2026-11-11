@@ -14,12 +14,12 @@ import kotlinx.coroutines.launch
 /** The top-level screens, in the navigation bar or rail. */
 enum class Screen { PLAY, BATTLE, ANALYZE, RECORDS, SETTINGS }
 
-/** A page opened from a screen: Back returns to what was under it. */
-enum class Page { RULES, REVIEW }
+/** A page opened from a screen: Back returns to what was under it. GUIDE: the rules explained (ui/GuideScreen.kt). */
+enum class Page { RULES, REVIEW, GUIDE }
 
 /**
  * What the screens share, for as long as the app runs: the settings, the records, practice, battles, the pages opened
- * on each screen, the hand under review, the analysis screen's position, and an error to show.
+ * on each screen, the hand under review, the analysis screen's position, the tour, and an error to show.
  */
 class AppModel(private val app: Application) : AndroidViewModel(app) {
   init {
@@ -54,6 +54,29 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
   /** Another screen; the one shown again goes back to its top. */
   fun go(s: Screen) {
     if (s == tab) stacks = stacks + (s to emptyList()) else tab = s
+  }
+
+  /** A screen at its top, whatever was open on it (the tour's steps, the guide's way to practice). */
+  fun show(s: Screen) {
+    tab = s
+    stacks = stacks + (s to emptyList())
+  }
+
+  /** The page closed on the screen shown, wherever it is in its stack (the guide, left for practice or the tour). */
+  fun close(p: Page) {
+    stacks = stacks + (tab to pages.filter { it != p })
+  }
+
+  /** The tour (ui/Tour.kt): its step, and where the elements it lights are. */
+  val tour = io.github.kennyfs.mahjong.ui.TourState()
+
+  /** The welcome card of the first start (the rules explained, the tour, or play). */
+  var welcome by mutableStateOf(!settings.welcomeSeen)
+    private set
+
+  fun welcomed() {
+    welcome = false
+    settings.welcomeSeen = true
   }
 
   fun review(id: String) {
