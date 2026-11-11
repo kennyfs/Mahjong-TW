@@ -86,7 +86,7 @@ def selfplay(args, i, stop):
     cmd = [args.engine, "selfplay", "-m", os.path.join(run, "models", f"actor_{k}.onnx"), "-n", str(args.hands),
            "-t", str(args.threads), "--slots", str(args.slots), "--marks", str(args.marks), "--forks",
            str(args.forks), "--opponent-rate", str(args.opponent_rate), "-s", f"{args.seed}_{i}", "-o", tmp,
-           "--opponent", "greedy"]
+           "--opponent", "greedy", "--progress", os.path.join(run, "selfplay_progress.txt")]
     # Earlier networks: the first one, and those of about 5 and 20 iterations before.
     for j in sorted({0, max(0, k - 5), max(0, k - 20)}):
         if j < k:
@@ -109,6 +109,7 @@ def evaluate(args, k):
     new = "net:model=" + os.path.join(run, "models", f"actor_{k}.onnx")
     first = "net:model=" + os.path.join(run, "models", "actor_0.onnx")
     results = []
+    log(run, f"matches of network {k}")
     with open(done + ".part", "w") as f:
         for name, players in (("1 vs 3 greedy", [new, "greedy", "greedy", "greedy"]),
                               ("3 vs 1 greedy", [new, new, new, "greedy"]),

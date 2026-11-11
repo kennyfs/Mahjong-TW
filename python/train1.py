@@ -162,6 +162,7 @@ def main():
     ap.add_argument("--log-every", type=int, default=500)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--log-file", help="Append JSON lines here")
+    ap.add_argument("--progress", help="A file rewritten as the run goes: the steps done, the steps to do, the seconds")
     args = ap.parse_args()
 
     torch.manual_seed(args.seed)
@@ -219,6 +220,14 @@ def main():
             log.write(json.dumps(rec) + "\n")
             log.flush()
 
+    def progress(done):
+        if args.progress:
+            with open(args.progress + ".tmp", "w") as f:
+                f.write(f"{done} {steps} {int(time.time() - start)}\n")
+            os.replace(args.progress + ".tmp", args.progress)
+
+    start = time.time()
+    progress(0)
     stream = Stream(library, files, args.batch, seed=args.seed + total_steps, part="train", group=args.group)
     actor.train()
     critic.train()
@@ -228,6 +237,8 @@ def main():
         if step >= steps:
             break
         step += 1
+        if step % 20 == 0:
+            progress(step)
         b = to_torch(batch, device)
         actor_loss, critic_loss, report, _ = step_losses(actor, critic, b, args, actor_weights, critic_weights,
                                                          use_amp, device)
@@ -259,6 +270,7 @@ def main():
             record(rec)
             sums, count = {}, 0
     stream.close()
+    progress(step)
     if count:
         rec = {"step": total_steps, "samples_per_s": step * args.batch / (time.time() - start)}
         rec.update({k: v / count for k, v in sums.items()})

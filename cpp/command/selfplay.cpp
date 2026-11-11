@@ -13,6 +13,8 @@
 #include <atomic>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
+#include <chrono>
 #include <iostream>
 #include <mutex>
 #include <thread>
@@ -123,7 +125,7 @@ namespace {
 }
 
 int Commands::selfplay(vector<string> args) {
-  string modelPath, rulesSpec, seed, outDir, play;
+  string modelPath, rulesSpec, seed, outDir, play, progressPath;
   vector<string> opponentSpecs;
   int64_t numHands;
   int numThreads, numSlots, handsPerFile, marksPerHand;
@@ -147,6 +149,8 @@ int Commands::selfplay(vector<string> args) {
     TCLAP::ValueArg<string> seedArg("s", "seed", "Seed (default: random)", false, "", "SEED");
     TCLAP::ValueArg<string> outArg("o", "out", "Output directory", true, "", "DIR");
     TCLAP::ValueArg<int> perFileArg("", "hands-per-file", "Hands per file (default 10000)", false, 10000, "N");
+    TCLAP::ValueArg<string> progressArg("", "progress", "A file rewritten every few seconds with: the seed, the hands "
+                                        "finished, the hands to play, the seconds so far", false, "", "FILE");
     TCLAP::ValueArg<int> marksArg("", "marks", "Decisions marked for training per hand (default 8)", false, 8, "N");
     TCLAP::ValueArg<double> forksArg("", "forks", "Forks per hand, on average (default 1.5)", false, 1.5, "X");
     TCLAP::ValueArg<double> tempArg("", "temp", "Temperature of the policy the networks play by (default 1)", false,
@@ -165,6 +169,7 @@ int Commands::selfplay(vector<string> args) {
     cmd.add(seedArg);
     cmd.add(outArg);
     cmd.add(perFileArg);
+    cmd.add(progressArg);
     cmd.add(marksArg);
     cmd.add(forksArg);
     cmd.add(tempArg);
@@ -181,6 +186,7 @@ int Commands::selfplay(vector<string> args) {
     seed = seedArg.getValue();
     outDir = outArg.getValue();
     handsPerFile = max(1, perFileArg.getValue());
+    progressPath = progressArg.getValue();
     marksPerHand = max(0, marksArg.getValue());
     forksPerHand = max(0.0, forksArg.getValue());
     temperature = tempArg.getValue();
@@ -227,6 +233,7 @@ int Commands::selfplay(vector<string> args) {
   std::filesystem::create_directories(outDir);
 
   atomic<int64_t> nextHand(0);
+  atomic<int64_t> handsDone(0);
   Totals totals;
   mutex totalsMutex;
   ClockTimer timer;
@@ -420,6 +427,7 @@ int Commands::selfplay(vector<string> args) {
       if(greedyLabels)
         local.labelled += Learn::labelAllActions(s.rec, reference, s.rand);
       file.add(s.rec);
+      handsDone.fetch_add(1);
       if(file.numHands() >= handsPerFile)
         flush();
       startHand(s);
@@ -583,11 +591,37 @@ int Commands::selfplay(vector<string> args) {
     totals.add(local);
   };
 
+  // For whoever watches the run: the progress file is replaced whole (written aside, then renamed).
+  atomic<bool> finished(false);
+  auto writeProgress = [&]() {
+    const string tmp = progressPath + ".tmp";
+    {
+      ofstream out(tmp);
+      out << seed << " " << handsDone.load() << " " << numHands << " " << (int64_t)timer.getSeconds() << endl;
+    }
+    std::error_code ec;
+    std::filesystem::rename(tmp, progressPath, ec);
+  };
+  thread progress;
+  if(!progressPath.empty())
+    progress = thread([&]() {
+      int ticks = 0;
+      while(!finished.load()) {
+        if(ticks++ % 10 == 0)
+          writeProgress();
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      }
+      writeProgress();
+    });
+
   vector<thread> threads;
   for(int t = 0; t < numThreads; t++)
     threads.emplace_back(worker, t);
   for(thread& t : threads)
     t.join();
+  finished.store(true);
+  if(progress.joinable())
+    progress.join();
 
   const double secs = max(timer.getSeconds(), 1e-9);
   const double h = (double)max<int64_t>(1, totals.hands);

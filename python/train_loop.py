@@ -119,8 +119,9 @@ def main():
                 log(run, "STOP is set on the other side; ending")
                 return
             time.sleep(wait)
-            wait = min(120, wait + 10)
+            wait = min(40, wait + 10)
             continue
+        log(run, f"fetching iteration {i}")
         code = rsync(args, f"{args.share}/selfplay/iter_{i}/", data + ".part/")
         if code != 0:
             log(run, f"fetching iteration {i} failed (rsync code {code}); again in a minute")
@@ -134,7 +135,8 @@ def main():
                "--actor-init", f"{ck}/actor_{i - 1}.pt", "--critic-init", f"{ck}/critic_{i - 1}.pt",
                "--actor-out", f"{ck}/actor_{i}.pt.part", "--critic-out", f"{ck}/critic_{i}.pt.part",
                "--export", os.path.join(run, "models", f"actor_{i}.onnx.part"),
-               "--log-file", os.path.join(run, "train.jsonl")] + args.train_args.split() + train_options(args)
+               "--log-file", os.path.join(run, "train.jsonl"),
+               "--progress", os.path.join(run, "train_progress.txt")] + args.train_args.split() + train_options(args)
         with open(os.path.join(run, "logs", f"train_{i}.log"), "w") as f:
             code = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT).returncode
         if code != 0:

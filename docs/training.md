@@ -188,3 +188,27 @@ network: the largest difference of any output is 0), the new action starts from 
 optimizer's statistics stay. Self-play files, the data library and the `.onnx` networks of the two versions do not
 mix: a run is taken over as a whole (its newest checkpoints and the earlier networks it plays against).
 
+## Starting, stopping and watching a run
+
+Each machine has one script for its side of a run (copies of `scripts/`; the paths inside are those of the two
+machines in use):
+
+- the training machine: `$HOME/mahjong_runs/mahjong.sh start|stop|status [RUN]` (`scripts/train_side.sh`; a run
+  `RUN` is started by `$HOME/mahjong_runs/run_RUN.sh`, as in `scripts/run_s2.sh`);
+- the self-play machine: `$WORK/bin/mahjong.sh start|stop|status [RUN]`
+  (`scripts/selfplay_side.sh`, with `bin/run_selfplay_RUN.sh`).
+
+Without `RUN` they take the name in the file `current_run` next to them; `stop` without `RUN` stops every run of
+that machine. Stopping looks for processes whose command lines carry the run's own directory (the loop, the trainer
+or the engine, and what they started), so nothing else on the machine is touched. Either side can be stopped and
+started at any time: the other one waits, and a half-done iteration is done again.
+
+`status` shows the cycle (the newest network), what the side is doing now and how far it is, and the last log
+lines. The numbers come from two small files that are rewritten as the work goes: the engine's
+`selfplay --progress FILE` (the seed, hands finished, hands to play, seconds; `loop1.py` puts it at
+`RUN/selfplay_progress.txt`, where the training machine can read it too) and `train1.py --progress FILE` (steps
+done, steps to do, seconds; `train_loop.py` puts it at `RUN/train_progress.txt`).
+
+The link between the two machines is the slow part: about 0.1 to 0.2 MB/s when measured on 2026-11-12, so an
+iteration of 100,000 hands with 12 marks a hand (38 MB) takes three minutes or more to fetch.
+
