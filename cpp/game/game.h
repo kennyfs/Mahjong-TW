@@ -104,6 +104,8 @@ struct Position {
   int claimSeat = -1;
   int claimTile = -1;
   bool robKong = false;
+  // The seat is barred from winning on a discard until its next discard (missed win, docs/rules.md 5.4).
+  bool missedWin = false;
   Player players[4];
   int wallLeft = -1;  // -1: whatever the tiles leave
 };
@@ -158,6 +160,12 @@ class Game {
   // others' unknown concealed kongs) and to the wall. Unknown history counts as plain (no missed win, a draw for each
   // discard). Throws StringError on an impossible position (more than four of a kind, wrong hand size).
   void loadPosition(const Position& p, Rand& rand);
+  // The same with the public events that led to the position (those of the game it was taken from, or
+  // plainHistory), for what reads them: which kinds are safe against whom, how long ago a seat called.
+  void loadPosition(const Position& p, Rand& rand, const std::vector<Event>& history);
+  // The discards of a position as events in the order they would have come without calls, ending with the seat
+  // before `me` (or with the claimed discard): the plain history of a position entered by hand.
+  static std::vector<Event> plainHistory(const Position& p);
 
   // The tiles of each kind that `seat` can see: its own hand and melds, the others' melds (except concealed kongs)
   // and every discard not called.

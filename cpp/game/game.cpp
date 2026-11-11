@@ -656,6 +656,7 @@ Position Game::positionOf(int s) const {
   p.setup.eastSeat = eastSeat_;
   p.me = s;
   p.hand = seats_[s].hand;
+  p.missedWin = seats_[s].missedWin;
   if(phase_ == SELF && cur_ == s) {
     p.drawn = drawn_;
     p.afterCall = afterCall_;
@@ -677,6 +678,42 @@ Position Game::positionOf(int s) const {
   }
   p.wallLeft = wallLeft();
   return p;
+}
+
+vector<Event> Game::plainHistory(const Position& p) {
+  vector<Event> out;
+  if(p.me < 0 || p.me > 3 || p.claimSeat > 3)
+    return out;
+  int left[4];
+  int total = 0;
+  for(int s = 0; s < 4; s++) {
+    left[s] = (int)p.players[s].discards.size();
+    total += left[s];
+  }
+  // Backwards from the last discard: the claimed one, or that of the seat before `me`.
+  int s = p.claimSeat >= 0 ? p.claimSeat : (p.me + 3) % 4;
+  while(total > 0) {
+    if(left[s] > 0) {
+      const Discard& d = p.players[s].discards[--left[s]];
+      Event e;
+      e.type = Event::DISCARD;
+      e.seat = (int8_t)s;
+      e.tile = d.kind;
+      e.extra = d.tsumogiri ? 1 : 0;
+      out.push_back(e);
+      total--;
+    }
+    s = (s + 3) % 4;
+  }
+  reverse(out.begin(), out.end());
+  return out;
+}
+
+void Game::loadPosition(const Position& p, Rand& rand, const vector<Event>& history) {
+  loadPosition(p, rand);
+  // A position where nobody can claim has gone on to the next draw: its events are the game's own from there.
+  if(phase_ != OVER && ((p.claimSeat >= 0) == (phase_ != SELF)))
+    events_ = history;
 }
 
 void Game::loadPosition(const Position& p, Rand& rand) {
@@ -750,6 +787,7 @@ void Game::loadPosition(const Position& p, Rand& rand) {
                       Global::intToString((int)p.players[p.me].melds.size()) + " melds it needs " +
                       Global::intToString((react ? 16 : 17) - 3 * (int)p.players[p.me].melds.size()));
   seats_[p.me].hand = p.hand;
+  seats_[p.me].missedWin = p.missedWin;
 
   // Deal what `me` cannot see.
   vector<uint8_t> pool;

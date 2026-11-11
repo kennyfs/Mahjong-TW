@@ -1,5 +1,6 @@
 #include "../command/guiengine.h"
 
+#include "../command/guianalysis.h"
 #include "../core/global.h"
 #include "../game/shape.h"
 #include "../players/analysis.h"
@@ -254,6 +255,7 @@ json GuiJson::position(const Position& p) {
   j["hand"] = Tiles::toString(p.hand);
   j["drawn"] = tileJson(p.drawn);
   j["after_call"] = p.afterCall;
+  j["missed"] = p.missedWin;
   if(p.claimSeat >= 0)
     j["claim"] = json{{"seat", p.claimSeat}, {"tile", tileJson(p.claimTile)}, {"rob_kong", p.robKong}};
   else
@@ -282,6 +284,7 @@ Position GuiJson::parsePosition(const json& j) {
   if(p.drawn >= 0 && p.hand[p.drawn] == 0)
     throw StringError("The drawn tile must be in the hand");
   p.afterCall = getBool(j, "after_call");
+  p.missedWin = getBool(j, "missed");
   if(j.contains("claim") && !j["claim"].is_null()) {
     const json& c = j["claim"];
     p.claimSeat = c.at("seat").get<int>();
@@ -424,17 +427,119 @@ static json viewOf(const Game& game, int seat, int since, bool reveal) {
   return v;
 }
 
-static json analysisJson(const Game& game, int seat) {
-  json actions = json::array();
-  for(const Analysis::ActionInfo& info : Analysis::efficiency(game, seat)) {
-    json waits = json::array();
-    for(const Analysis::Wait& w : info.waits)
-      waits.push_back(json{{"tile", Tiles::name(w.tile)}, {"left", w.left}, {"ron_tai", w.ronTai},
-                           {"tsumo_tai", w.tsumoTai}});
-    actions.push_back(json{{"action", GuiJson::action(info.action, game.claimTile())}, {"shanten", info.shanten},
-                           {"ukeire", info.ukeire}, {"waits", waits}, {"win_tai", info.winTai}});
+// The network a request names ("model": a file), or none.
+static shared_ptr<const Learn::NetModel> modelOf(const json& req) {
+  string path = getString(req, "model", "");
+  if(path.empty())
+    return nullptr;
+  return Learn::NetModel::load(path);
+}
+
+static json analysisJson(const Game& game, int seat, shared_ptr<const Learn::NetModel> model) {
+  GuiAnalysis::Batch batch(model);
+  batch.add(game, seat);
+  batch.run();
+  return batch.analysis(0);
+}
+
+// The tiles of each kind `seat` has not seen.
+static Counts unseenBy(const Game& game, int seat) {
+  Counts visible = game.visibleCounts(seat);
+  Counts left{};
+  for(int k = 0; k < Tiles::NUM_KINDS; k++)
+    left[k] = (uint8_t)max(0, 4 - (int)visible[k]);
+  return left;
+}
+
+// What the seat would do after each tile it may draw next, and on each discard of the others it could claim:
+// its position with the hand as it rests between turns (without the tile just drawn), tried with every kind it has
+// not seen. {"draws": [{"tile", "left", "action", "value", "figures": FIGURES of the best action,
+// "next": the second best action or null, "next_loss"}], "claims": [{"seat", "tile", "left", "best": index,
+// "options": [FIGURES]}] (only the discards that leave a choice)}.
+static json whatIf(const Game& game, int me, shared_ptr<const Learn::NetModel> model, Rand& rand) {
+  if(!model)
+    throw StringError("whatif needs a model");
+  Position base = game.positionOf(me);
+  vector<Event> history = game.events();
+  Counts rest = base.hand;
+  if(base.claimSeat < 0) {
+    if(base.drawn < 0)
+      throw StringError("The hand has no tile drawn to take the place of");
+    rest[base.drawn]--;
   }
-  return json{{"source", "efficiency"}, {"actions", actions}};
+  Counts left = unseenBy(game, me);
+  if(base.claimSeat < 0)
+    left[base.drawn]++;
+  base.claimSeat = base.claimTile = -1;
+  base.robKong = base.afterCall = false;
+  base.drawn = -1;
+  base.hand = rest;
+
+  GuiAnalysis::Batch batch(model);
+  struct Entry {
+    int item, seat, tile;
+  };
+  vector<Entry> draws, claims;
+  for(int k = 0; k < Tiles::NUM_KINDS; k++) {
+    if(left[k] == 0)
+      continue;
+    {
+      Position p = base;
+      p.hand[k]++;
+      p.drawn = k;
+      Game g(game.rules());
+      g.loadPosition(p, rand, history);
+      draws.push_back({batch.add(g, me), me, k});
+    }
+    for(int r = 1; r <= 3; r++) {
+      const int c = (me + r) % 4;
+      Position p = base;
+      p.claimSeat = c;
+      p.claimTile = k;
+      Discard d;
+      d.kind = (uint8_t)k;
+      d.tsumogiri = d.called = false;
+      p.players[c].discards.push_back(d);
+      vector<Event> h = history;
+      Event e;
+      e.type = Event::DISCARD;
+      e.seat = (int8_t)c;
+      e.tile = (uint8_t)k;
+      e.extra = 0;
+      h.push_back(e);
+      Game g(game.rules());
+      g.loadPosition(p, rand, h);
+      vector<Action> legal;
+      if(g.phase() == Game::REACT)
+        g.legalActions(me, legal);
+      if(legal.size() >= 2)
+        claims.push_back({batch.add(g, me), c, k});
+    }
+  }
+  batch.run();
+  json jd = json::array(), jc = json::array();
+  for(const Entry& e : draws) {
+    const vector<float>& q = batch.q(e.item);
+    const int best = batch.best(e.item);
+    int next = -1;
+    for(int a = 0; a < (int)q.size(); a++)
+      if(a != best && (next < 0 || q[a] > q[next]))
+        next = a;
+    json row{{"tile", Tiles::name(e.tile)}, {"left", left[e.tile]}, {"value", q[best]},
+             {"figures", batch.figures(e.item, best)}};
+    row["action"] = row["figures"]["action"];
+    row["next"] = next >= 0 ? batch.figures(e.item, next)["action"] : json(nullptr);
+    row["next_loss"] = next >= 0 ? q[best] - q[next] : 0.0f;
+    jd.push_back(row);
+  }
+  for(const Entry& e : claims) {
+    json options = json::array();
+    for(int a = 0; a < (int)batch.legal(e.item).size(); a++)
+      options.push_back(batch.figures(e.item, a));
+    jc.push_back(json{{"seat", e.seat}, {"tile", Tiles::name(e.tile)}, {"left", left[e.tile]},
+                      {"best", batch.best(e.item)}, {"options", options}});
+  }
+  return json{{"draws", jd}, {"claims", jc}};
 }
 
 json GuiEngine::handle(const json& req) {
@@ -508,12 +613,81 @@ json GuiEngine::handle(const json& req) {
     return json{{"game", GuiJson::record(r)}};
   }
 
-  if(cmd == "analyze" && req.contains("position")) {
+  if(cmd == "model") {
+    // Whether this build runs networks, and whether the named one loads.
+    json out{{"available", Learn::NetModel::available()}};
+    if(req.contains("model") && Learn::NetModel::available()) {
+      modelOf(req);
+      out["features"] = Features::VERSION;
+    }
+    return out;
+  }
+
+  if((cmd == "analyze" || cmd == "whatif") && req.contains("position")) {
     Game game(Rules::parse(getString(req, "rules", "simple1,none")));
     Position p = GuiJson::parsePosition(req["position"]);
     unique_ptr<Rand> rand = randOf(req);
-    game.loadPosition(p, *rand);
-    return analysisJson(game, p.me);
+    game.loadPosition(p, *rand, Game::plainHistory(p));
+    if(cmd == "whatif")
+      return whatIf(game, p.me, modelOf(req), *rand);
+    return analysisJson(game, p.me, modelOf(req));
+  }
+
+  if(cmd == "review") {
+    // Every decision of a seat in a finished hand that had a choice, as the seat saw it, with what it could not see.
+    GuiJson::Record rec = GuiJson::parseRecord(req.at("game"));
+    const int seat = seatOf(req);
+    Game game(Rules::parse(rec.rules));
+    game.start(rec.setup, rec.wall);
+    GuiAnalysis::Batch batch(modelOf(req));
+    struct Decision {
+      int step, item, played;
+      json truth;
+    };
+    vector<Decision> decisions;
+    vector<Action> legal;
+    for(size_t i = 0; i < rec.actions.size(); i++) {
+      const int s = rec.actions[i].first;
+      if(s < 0 || s > 3)
+        throw StringError("Bad seat in action " + Global::intToString((int)i));
+      const Action a = normalized(game, rec.actions[i].second);
+      if(s == seat) {
+        game.legalActions(s, legal);
+        if(legal.size() >= 2) {
+          const int item = batch.add(game, s);
+          decisions.push_back({(int)i, item, batch.indexOf(item, a), GuiAnalysis::truth(game, s)});
+        }
+      }
+      game.act(s, a);
+    }
+    if(game.phase() != Game::OVER)
+      throw StringError("The hand is not over");
+    batch.run();
+    json list = json::array();
+    double loss = 0.0;
+    for(const Decision& d : decisions) {
+      json j{{"step", d.step}, {"played", d.played}, {"analysis", batch.analysis(d.item)}, {"truth", d.truth}};
+      if(batch.hasNetwork() && d.played >= 0) {
+        const vector<float>& q = batch.q(d.item);
+        const double l = q[batch.best(d.item)] - q[d.played];
+        j["loss"] = l;
+        loss += l;
+      }
+      list.push_back(j);
+    }
+    json out{{"seat", seat}, {"decisions", list}, {"result", game.result().points(seat, game.rules().base)}};
+    if(batch.hasNetwork()) {
+      // The result is the value at the first decision, less what the decisions lost, plus the rest: luck.
+      const double first = decisions.empty() ? 0.0 : (double)batch.q(decisions[0].item)[batch.best(decisions[0].item)];
+      out["first_value"] = first;
+      out["loss"] = loss;
+      out["luck"] = out["result"].get<double>() - first + loss;
+      // A typical payment under the hand's rules (python/mahjong/losses.py, payment_unit), to grade losses by.
+      float coefP[Learn::NUM_EVENTS], coefT[Learn::NUM_EVENTS];
+      Learn::eventCoefficients(game.rules(), game.setup(), seat, coefP, coefT);
+      out["unit"] = (coefP[1] + coefP[2] + coefP[3]) / 3.0 + 2.0;
+    }
+    return out;
   }
 
   // The rest take a game.
@@ -604,7 +778,12 @@ json GuiEngine::handle(const json& req) {
   }
 
   if(cmd == "analyze") {
-    return analysisJson(game, seatOf(req));
+    return analysisJson(game, seatOf(req), modelOf(req));
+  }
+
+  if(cmd == "whatif") {
+    unique_ptr<Rand> rand = randOf(req);
+    return whatIf(game, seatOf(req), modelOf(req), *rand);
   }
 
   if(cmd == "pending") {
