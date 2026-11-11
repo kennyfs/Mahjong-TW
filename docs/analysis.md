@@ -111,10 +111,11 @@ chows; an opponent's next discard and the hand's remaining length are close to u
    use is found: `ready_within` (the speed of the own hand), `opp_hand` summed per suit, `chow` as one more figure
    of a discard. Not `next_discard` or `draws_left` (see above).
 
-## 4. What is built (the web page, branch `analysis`, 2026-11-11)
+## 4. What is built (branch `analysis`, 2026-11-11)
 
-The page only, to try the candidates on; the app follows when a design is chosen. The engine's requests are in
-docs/gui-engine.md (`analyze` with a model, `review`, `whatif`); the page's logic is `web/src/lib/review.ts`.
+The web page first, then the app (version 0.1.0, a beta with the network of iteration 50). The engine's requests
+are in docs/gui-engine.md (`analyze` with a model, `review`, `whatif`, `steps`); the page's logic is
+`web/src/lib/review.ts`, the app's `Review.kt`.
 
 - **The network in the page**: `actor.onnx` ships with the engine (ONNX Runtime as WebAssembly); the practice bots
   are the network by default (`net:model=...`, the action it values most), tile efficiency by choice.
@@ -123,12 +124,19 @@ docs/gui-engine.md (`analyze` with a model, `review`, `whatif`); the page's logi
 - **The review** (`Replay.svelte`): the graph of the value over the player's decisions with the decisions worth a
   look marked, steps to the previous and next of them, the verdict on each decision (grade, loss, the best action,
   and the reason from the parts of the two values), the opponents' chance of being ready on their name plates, and
-  with "show everyone's tiles" what they really held (tiles from ready, waits).
-- **Three candidate ways to show a decision** (the settings, to compare on real screens): figures on the hand's
-  tiles (each discard's cost over it, its danger as a band along its foot, calls and wins as chips, a tap for a
-  tile's line); a list of every action with numbers; the list with bars of where each action differs from the best
-  (winning, dealing in, others' self-draws). The list is one tap away in every style, beside the table on a large
-  window.
+  with "show everyone's tiles" what they really held (tiles from ready, waits), their hands on a rack beside their
+  melds.
+- **The steps shown** are the actions that took effect and the player's own decisions: others' passes, and others'
+  claims that another seat's claim came before (a chow when someone won on the tile), are skipped (`steps`); a claim
+  of the player's own that was not made stays, with whose came first. The button to the end goes to the last move
+  (the win, with who dealt in; without a win the last discard), then to the table at the end with everyone's tiles;
+  the result's sheet opens from its own button, never by itself.
+- **A decision is shown** on the hand's tiles (each discard's cost over it, its danger as a band along its foot,
+  calls and wins as chips, a tap for a tile's line) and in a list of every action, one tap away (beside the table on
+  a large window), whose rows are numbers, bars of where the action differs from the best (winning, dealing in,
+  others' self-draws), or both (the settings). Three candidates were tried first (tiles, numbers, bars), and merged:
+  the tiles' marks and the list do not exclude each other. The list keeps its distance from its end over a step when
+  it is scrolled near it: the opponents' figures are there, to watch them change.
 - **Levels** 入門, 中級, 高手: a mistake is a loss of 1, 0.5, 0.2 points or more, scaled by `unit / 4`; losses under
   0.05 show as equal.
 - **Best actions that are not the obvious ones** are marked whatever the level, when they are worth at least a
@@ -140,8 +148,8 @@ docs/gui-engine.md (`analyze` with a model, `review`, `whatif`); the page's logi
 - **Statistics** over the reviewed hands of a records tab: points lost a hand, mistakes a hand, and the loss by kind
   of decision (tile choice, danger, calls, wins).
 
-Not done: the app; the Docker image of the site with the network; a review of another seat's decisions (they are
-analyzed one at a time when their list is opened).
+Not done: the Docker image of the site with the network (when a stable version is released); a review of another
+seat's decisions (they are analyzed one at a time when their list is opened).
 
 ## 5. Tools
 

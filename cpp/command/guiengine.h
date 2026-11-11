@@ -79,6 +79,12 @@
 //       bool (it passed a win this turn), "waits": [{"tile", "tai"}]} x3 opponents], "loss": best q - played q}],
 //       "result": the seat's points, and with a model "first_value" (the value at the first decision), "loss" (the
 //       decisions' sum), "luck" (result - first_value + loss), "unit" (a typical payment under the rules)}
+//   {"cmd": "steps", "game": RECORD}
+//       Which actions took effect, for a review to step through  -> {"taken": [bool per action: everything on a
+//       seat's own turn; of the answers to a discard or an added kong only the claim that was made (a win before a
+//       pung or a kong before a chow; a pass never)], "over": [per action: the index of the claim that took its
+//       place, or -1], "last": the action the play ended with (the first win taken; without a win the last action
+//       taken; -1 without any)}
 //   {"cmd": "whatif", "model": FILE, "seed": S?, and "game": RECORD, "seat": s  or  "rules": SPEC, "position": POSITION}
 //       The seat's hand as it rests between turns (without the tile just drawn), tried with every kind it has not
 //       seen  -> {"draws": [{"tile", "left", "value", "action": the best ACTION after drawing it, "figures": its

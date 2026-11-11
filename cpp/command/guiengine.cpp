@@ -542,6 +542,69 @@ static json whatIf(const Game& game, int me, shared_ptr<const Learn::NetModel> m
   return json{{"draws", jd}, {"claims", jc}};
 }
 
+// Which of a record's actions took effect, for a review to show: everything on a seat's own turn; of the answers to a
+// discard (or an added kong) the claim that was made, which is the win before a pung or a kong before a chow (every
+// win with multi_ron, else the first winner in turn order). A pass never does. {"taken": [bool per action],
+// "over": [per action: the index of the claim that took its place, or -1], "last": the action the hand's play ended
+// with (the first win taken; without a win the last action taken; -1 without any)}.
+static json stepsOf(const GuiJson::Record& rec) {
+  Game game(Rules::parse(rec.rules));
+  game.start(rec.setup, rec.wall);
+  const int n = (int)rec.actions.size();
+  vector<char> taken(n, 0);
+  vector<int> over(n, -1);
+  vector<int> answers;  // to the tile on the table
+  for(int i = 0; i < n; i++) {
+    const int s = rec.actions[i].first;
+    if(s < 0 || s > 3)
+      throw StringError("Bad seat in action " + Global::intToString(i));
+    const bool answer = game.phase() == Game::REACT || game.phase() == Game::ROB_KONG;
+    const size_t before = game.events().size();
+    game.act(s, normalized(game, rec.actions[i].second));
+    if(!answer) {
+      taken[i] = 1;
+      continue;
+    }
+    answers.push_back(i);
+    const vector<Event>& events = game.events();
+    if(events.size() == before)
+      continue;  // others have yet to answer
+    int first = -1;
+    for(size_t e = before; e < events.size(); e++) {
+      const Event::Type type = events[e].type;
+      if(type != Event::RON && type != Event::CHI && type != Event::PON && type != Event::MINKAN)
+        continue;
+      for(int a : answers)
+        if(rec.actions[a].first == events[e].seat && rec.actions[a].second.type != Action::PASS) {
+          taken[a] = 1;
+          if(first < 0)
+            first = a;
+        }
+    }
+    for(int a : answers)
+      if(!taken[a] && rec.actions[a].second.type != Action::PASS)
+        over[a] = first;
+    answers.clear();
+  }
+  int last = -1;
+  for(int i = 0; i < n; i++) {
+    if(!taken[i])
+      continue;
+    const Action::Type type = rec.actions[i].second.type;
+    if(type == Action::RON || type == Action::TSUMO) {
+      last = i;
+      break;
+    }
+    last = i;
+  }
+  json jt = json::array(), jo = json::array();
+  for(int i = 0; i < n; i++) {
+    jt.push_back(taken[i] != 0);
+    jo.push_back(over[i]);
+  }
+  return json{{"taken", jt}, {"over", jo}, {"last", last}};
+}
+
 json GuiEngine::handle(const json& req) {
   string cmd = req.at("cmd").get<string>();
 
@@ -632,6 +695,9 @@ json GuiEngine::handle(const json& req) {
       return whatIf(game, p.me, modelOf(req), *rand);
     return analysisJson(game, p.me, modelOf(req));
   }
+
+  if(cmd == "steps")
+    return stepsOf(GuiJson::parseRecord(req.at("game")));
 
   if(cmd == "review") {
     // Every decision of a seat in a finished hand that had a choice, as the seat saw it, with what it could not see.

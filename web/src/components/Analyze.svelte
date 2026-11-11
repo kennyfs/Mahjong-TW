@@ -99,7 +99,7 @@
     }, 120);
     return () => clearTimeout(timer);
   });
-  const marks = $derived(result ? tileMarks(result, -1, undefined, true) : null);
+  const marks = $derived(result ? tileMarks(result, -1, undefined) : null);
 
   function pick(tile: T) {
     if (ed.section.kind === 'melds') {
@@ -147,7 +147,7 @@
   </div>
   {#if result}
     <div class="results" class:stale={running}>
-      <DecisionPanel analysis={result} mode={settings.reviewStyle === 'bars' ? 'bars' : 'list'} w={sw} {names} />
+      <DecisionPanel analysis={result} mode={settings.listRows} w={sw} {names} />
       {#if result.source === 'network'}
         <div class="whatif">
           {#if !showTables}

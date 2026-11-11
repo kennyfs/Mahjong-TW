@@ -16,10 +16,12 @@ export const PACE: Record<Speed, number> = { slow: 1100, normal: 650, fast: 250 
 export const NET_BOT = 'net:model=/models/actor.onnx';
 export const BOTS = [{ spec: NET_BOT, label: 'bot_net' }, { spec: 'greedy', label: 'bot_greedy' }];
 
-/** How a reviewed decision is shown, candidates to choose among: the figures on the hand's tiles, a list of numbers,
- *  or bars of what each action's value is made of. */
-export type ReviewStyle = 'tiles' | 'list' | 'bars';
-export const REVIEW_STYLES: ReviewStyle[] = ['tiles', 'list', 'bars'];
+/** What a row of a decision's list shows for an action: its figures as numbers, bars of where its value differs from
+ *  the best action's, or both. (The hand's tiles always carry each discard's cost and danger.) Until it is chosen:
+ *  both where there is room for it (a computer's window), the bars on a phone. */
+export type ListRows = 'numbers' | 'bars' | 'both';
+export const LIST_ROWS: ListRows[] = ['numbers', 'bars', 'both'];
+const defaultRows = (): ListRows => (typeof window !== 'undefined' && window.innerWidth >= 900 ? 'both' : 'bars');
 /** Which losses the review counts as mistakes and stops at: a beginner's only the large ones, an expert's the small
  *  ones too (lib/review.ts). */
 export type Level = 'beginner' | 'mid' | 'expert';
@@ -35,13 +37,13 @@ interface Stored {
   text: TextSize;
   name: string;
   server: string;
-  reviewStyle: ReviewStyle;
+  listRows?: ListRows;
   level: Level;
 }
 
 const DEFAULTS: Stored = {
   rules: DEFAULT_RULES, length: 'game', bot: NET_BOT, speed: 'normal', colors: 'TABLE', dark: 'SYSTEM', text: 'NORMAL',
-  name: '', server: '', reviewStyle: 'tiles', level: 'mid',
+  name: '', server: '', level: 'mid',
 };
 
 class Settings {
@@ -54,7 +56,7 @@ class Settings {
   text = $state<TextSize>('NORMAL');
   name = $state('');
   server = $state('');
-  reviewStyle = $state<ReviewStyle>('tiles');
+  listRows = $state<ListRows>('bars');
   level = $state<Level>('mid');
 
   constructor() {
@@ -68,7 +70,7 @@ class Settings {
     this.text = (['SMALL', 'NORMAL', 'LARGE'] as TextSize[]).includes(s.text) ? s.text : 'NORMAL';
     this.name = typeof s.name === 'string' ? s.name : '';
     this.server = typeof s.server === 'string' ? s.server : '';
-    this.reviewStyle = REVIEW_STYLES.includes(s.reviewStyle) ? s.reviewStyle : 'tiles';
+    this.listRows = s.listRows && LIST_ROWS.includes(s.listRows) ? s.listRows : defaultRows();
     this.level = LEVELS.includes(s.level) ? s.level : 'mid';
   }
 
@@ -77,7 +79,7 @@ class Settings {
   persist() {
     save(KEYS.settings, {
       rules: this.rules, length: this.length, bot: this.bot, speed: this.speed, colors: this.colors, dark: this.dark,
-      text: this.text, name: this.name, server: this.server, reviewStyle: this.reviewStyle, level: this.level,
+      text: this.text, name: this.name, server: this.server, listRows: this.listRows, level: this.level,
     } satisfies Stored);
   }
 }

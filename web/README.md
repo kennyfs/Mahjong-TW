@@ -48,8 +48,9 @@ npm run build 2>&1 | tee $WORK/logs/web-build.log
 
 The network: the page fetches `actor.onnx` when a request first names it (a network bot, a review, the analysis
 screen), writes it into the engine's file system (`MODEL` in `src/lib/engine.ts`) and keeps it in Cache Storage; a
-review of a hand takes about 0.1 s after that. `scripts/shots-review.py` plays a hand and takes the review's and the
-analysis screen's screenshots in each candidate style. `server/Dockerfile` does not build the engine with the network
+review of a hand takes about 0.1 s after that. `scripts/shots-review.py` plays a hand and takes the review's (its
+decisions, the list with its rows each way, the last move, the end and the result), the analysis screen's, the
+settings' and the rules' screenshots. `server/Dockerfile` does not build the engine with the network
 yet (its `web-engine` stage needs ONNX Runtime for WebAssembly and a model stage, as Thirteen's has).
 
 `server/Dockerfile`'s `site` target builds the same in Docker (the engine with the `emscripten/emsdk:6.0.13` image)

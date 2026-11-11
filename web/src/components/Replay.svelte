@@ -1,18 +1,24 @@
 <!--
   A finished hand's review: the table as the player saw it (or everyone's tiles), step by step through the record's
-  decisions (others' passes skipped), with the network's analysis of each of the player's decisions and the result at
-  the end. Only after the hand: never while it is played.
+  actions, with the network's analysis of each of the player's decisions and the result at the end. Only after the
+  hand: never while it is played.
+
+  The steps shown are the actions that took effect and the player's own decisions: others' passes are skipped, and so
+  are others' claims that another seat's claim came before (a chow when someone else won on the tile); the engine
+  says which ({"cmd":"steps"}). The button to the end goes to the last of them (the win, with who dealt in; without a
+  win the last discard), then to the table at the end; the result's sheet opens from its own button, never by itself.
 
   The review (docs/analysis.md): the hand in short (the expected result at the first decision, what the decisions
   lost, the rest as luck), a graph of the expected result to jump from, steps between the decisions worth a look (the
   mistakes of the settings' level, and the best actions that are not the obvious ones), and at a decision what each
-  action costs against the best. How a decision is shown is one of three candidates (the settings): figures on the
-  hand's tiles (what each discard costs, its danger as a band along its foot, a tap for a tile's line), or a list of
-  every action with numbers, or with bars. The list is one tap away in every style (beside the table on a large
-  window); a step can be taken to the analysis screen to try changes.
+  action costs against the best: on the hand's tiles (what each discard costs, its danger as a band along its foot, a
+  tap for a tile's line), and in a list of every action one tap away (beside the table on a large window), its rows
+  numbers, bars or both (the settings). The list keeps its place from its end over a step when it is scrolled near it
+  (the opponents' figures are there, to watch them change). A step can be taken to the analysis screen to try changes.
 -->
 <script lang="ts">
   import { actionText, fullAction, isTaken } from '../lib/actions';
+  import { shared } from '../lib/app.svelte';
   import * as engine from '../lib/engine';
   import { t } from '../lib/i18n.svelte';
   import { nav } from '../lib/nav.svelte';
@@ -23,7 +29,7 @@
   import { flowersOf, meldTiles } from '../lib/seats';
   import { settings } from '../lib/settings.svelte';
   import { parseTiles, sortTiles, tileName, windName, without, type Tile as T } from '../lib/tiles';
-  import { recordAction, type Analysis, type Review, type Truth, type View } from '../lib/types';
+  import { recordAction, type Analysis, type Review, type Steps, type Truth, type View } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
   import DecisionPanel from './DecisionPanel.svelte';
   import HandResult from './HandResult.svelte';
@@ -39,19 +45,19 @@
    *  actions under them when the window is large. */
   const side = $derived(ui.wide);
   const inlinePanel = $derived(ui.wide && ui.w >= 1180 && ui.h >= 600);
-  const style = $derived(settings.reviewStyle);
-  /** A phone: the list in place of the table (its own choice in the styles that are a list). */
-  let panelOpen = $state(settings.reviewStyle !== 'tiles');
+  /** A phone: the list in place of the table. */
+  let panelOpen = $state(false);
 
   const rec = $derived(id ? records.get(id) : undefined);
   const n = $derived(rec?.game.actions.length ?? 0);
   let step = $state(0);
   let showAll = $state(false);
-  let showResult = $state(true);
+  let showResult = $state(false);
   let view = $state<View | null>(null);
   let final = $state<View | null>(null);
   let rev = $state<Review | null>(null);
   let revError = $state<string | null>(null);
+  let steps = $state<Steps | null>(null);
   let loaded = '';
 
   // A new hand starts at its deal; its review comes when the network has gone through it.
@@ -60,9 +66,13 @@
       loaded = rec.id;
       const r = rec;
       step = 0;
+      showResult = false;
       rev = null;
       revError = null;
-      void engine.view(r.game, r.me, 0, true).then((v) => (final = v));
+      steps = null;
+      final = null;
+      void engine.view(r.game, r.me, 0, true).then((v) => { if (loaded === r.id) final = v; });
+      void engine.steps(r.game).then((s) => { if (loaded === r.id) steps = s; }, () => {});
       reviewOf(r).then(
         (x) => {
           if (loaded !== r.id) return;
@@ -81,16 +91,56 @@
   });
 
   const names = $derived(rec?.names.map((x, i) => (i === rec.me ? t('you') : x)) ?? []);
+  /** A step is shown when its action took effect or is the player's own (until the engine has said which took effect:
+   *  when it is not another seat's pass). */
   const isStop = (k: number) => {
     const a = rec!.game.actions[k];
-    return a[1] !== 'pass' || a[0] === rec!.me;
+    return a[0] === rec!.me || (steps ? steps.taken[k] : a[1] !== 'pass');
   };
   const isMine = (k: number) => rec!.game.actions[k][0] === rec!.me;
-  function go(k: number) { step = Math.max(0, Math.min(n, k)); if (step === n) showResult = true; }
+  /** The steps shown, to number them. */
+  const stopList = $derived.by(() => {
+    const out: number[] = [];
+    if (rec) for (let k = 0; k < n; k++) if (isStop(k)) out.push(k);
+    return out;
+  });
+  const stepNumber = $derived(stopList.filter((k) => k <= step).length);
+  /** The step the play ended with: the win (the first, when a discard made several winners); without a win the last
+   *  action that took effect. */
+  const last = $derived(steps && steps.last >= 0 ? steps.last : (stopList[stopList.length - 1] ?? 0));
+  function go(k: number) { step = Math.max(0, Math.min(n, k)); showResult = false; }
   function next() { let k = step + 1; while (k < n && !isStop(k)) k++; go(k); }
   function prev() { let k = step - 1; while (k > 0 && !isStop(k)) k--; go(k); }
   function nextMine() { let k = step + 1; while (k < n && !isMine(k)) k++; go(k); }
   function prevMine() { let k = step - 1; while (k > 0 && !isMine(k)) k--; go(k); }
+  // A step asked for from outside (the page's tests; a link to a step, one day).
+  $effect(() => {
+    const k = shared.reviewStep;
+    if (k === null || !rec) return;
+    shared.reviewStep = null;
+    go(k);
+  });
+  /** To the last step; from there to the table at the end. */
+  function toEnd() { go(step < last ? last : n); }
+  function openResult() { step = n; showResult = true; }
+  /** Whose tile a claim at step k answers: the discard (or added kong) before it. */
+  function claimedFrom(k: number): number {
+    for (let i = k - 1; i >= 0; i--) {
+      const a = rec!.game.actions[i];
+      if (a[1] === 'discard' || a[1] === 'kakan') return a[0] as number;
+    }
+    return -1;
+  }
+  /** How the hand ended, in a few words. */
+  const outcome = $derived.by(() => {
+    const r = final?.result;
+    if (!r) return '';
+    if (r.exhausted) return t('result_exhausted');
+    const who = r.winners.map((w) => names[w.seat]).join('、');
+    if (r.flower_win) return t('result_flower_win', who);
+    if (r.self_draw) return t('result_tsumo', who);
+    return t('result_ron', who) + (r.loser >= 0 ? '・' + t('result_ron_from', names[r.loser]) : '');
+  });
 
   // The review: its decisions by step, and the ones to stop at.
   const unit = $derived(rev?.unit);
@@ -108,6 +158,20 @@
     if (!rec || step >= n) return null;
     const { seat, action } = recordAction(rec.game.actions[step]);
     return { seat, action: fullAction(action) };
+  });
+  /** What the step's line adds to the action: who dealt in to a win; for a claim that was not made, whose came first. */
+  const decidingNote = $derived.by(() => {
+    if (!rec || !deciding) return '';
+    const over = steps?.over[step] ?? -1;
+    if (over >= 0) {
+      const o = recordAction(rec.game.actions[over]);
+      return t('replay_overridden', names[o.seat], t('act_' + o.action.type));
+    }
+    if (deciding.action.type === 'ron') {
+      const from = claimedFrom(step);
+      return from >= 0 ? t('result_ron_from', names[from]) : '';
+    }
+    return '';
   });
 
   // Another seat's decision (or one of the player's without a choice): analyzed when its list is shown.
@@ -130,7 +194,7 @@
 
   // On the table: the tiles' marks, the name plates' notes, the options that are not discards, the tile tapped.
   const NO_MARKS = new Map<T, TileMark>();
-  const marks = $derived(!hasNet ? null : mine ? tileMarks(mine.analysis, mine.played, unit, style === 'tiles') : NO_MARKS);
+  const marks = $derived(!hasNet ? null : mine ? tileMarks(mine.analysis, mine.played, unit) : NO_MARKS);
   const notes = $derived.by(() => {
     if (!rec || !mine?.analysis.opponents) return null;
     const out: ({ text: string; level: number } | null)[] = [null, null, null, null];
@@ -174,6 +238,35 @@
   });
   const hw = $derived(ui.wide ? Math.min(44, ((ui.w - 208) * 0.46 - 24) / 9.3) : Math.min(44, (Math.min(ui.w, 720) - 28) / 9.3));
 
+  // The list over a step: scrolled near its end (where the opponents' figures are, to watch them change from step to
+  // step) it keeps its distance from the end; else it starts from its top.
+  const NEAR_END = 360;
+  let listEl = $state<HTMLElement | null>(null);
+  let listScrollEl = $state<HTMLElement | null>(null);
+  let inlineEl = $state<HTMLElement | null>(null);
+  const scroller = $derived(inlinePanel ? inlineEl : ui.wide ? listScrollEl : listEl);
+  /** The distance kept from the list's end, or null; scrolls right after a change are the page's own, not the hand's. */
+  let fromEnd: number | null = null;
+  let quietUntil = 0;
+  let placed = '';
+  function onListScroll(e: Event) {
+    if (performance.now() < quietUntil) return;
+    const el = e.currentTarget as HTMLElement;
+    const d = el.scrollHeight - el.scrollTop - el.clientHeight;
+    fromEnd = el.scrollTop > 0 && d <= NEAR_END ? d : null;
+  }
+  $effect(() => {
+    // The step's list, and on a phone the seat's hand over it, are there (both come from the engine).
+    const el = scroller, k = stepKey, ready = !deciding || (!!focus && (!listView || !!seatHand));
+    void showAll;
+    if (!el) { fromEnd = null; return; }
+    quietUntil = performance.now() + 300;
+    if (!ready) return;  // placed when the step's list is there
+    if (fromEnd !== null) el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight - fromEnd);
+    else if (placed !== k) el.scrollTop = 0;
+    placed = k;
+  });
+
   function toAnalysis() {
     if (!rec || !deciding) return;
     const seat = deciding.seat;
@@ -189,6 +282,8 @@
     else if (e.key === 'ArrowUp') prevMine();
     else if (e.key === ']' && nextKeyStep >= 0) go(nextKeyStep);
     else if (e.key === '[' && prevKeyStep >= 0) go(prevKeyStep);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') toEnd();
     else return;
     e.preventDefault();
   }
@@ -237,9 +332,14 @@
 {#snippet info()}
   <div class="info body-medium">
     <div class="where">
-      <span class="label-large">{step >= n ? t('replay_end') : t('replay_step', step + 1, n)}</span>
+      <span class="label-large">{step >= n ? t('replay_over') : t('replay_step', stepNumber, stopList.length)}</span>
       {#if deciding && rec}
-        <span class="decide">{deciding.seat === rec.me ? t('replay_you_chose', actionText(deciding.action)) : t('replay_seat_chose', names[deciding.seat], actionText(deciding.action))}</span>
+        <span class="decide">{deciding.seat === rec.me ? t('replay_you_chose', actionText(deciding.action)) : t('replay_seat_chose', names[deciding.seat], actionText(deciding.action))}{decidingNote ? `（${decidingNote}）` : ''}</span>
+      {:else if step >= n && outcome}
+        <span class="decide">{outcome}</span>
+      {/if}
+      {#if step >= last && n > 0 && !(step >= n && showResult)}
+        <button class="btn tonal to-result" onclick={openResult}>{t('replay_result')}</button>
       {/if}
     </div>
     {#if mine && key && mine.analysis.best !== undefined && mine.played >= 0}
@@ -271,14 +371,14 @@
     <button class="btn icon tonal key" aria-label={t('review_next_key')} title={t('review_next_key')} disabled={nextKeyStep < 0} onclick={() => go(nextKeyStep)}>
       <b>!</b><Icon name="next" size={18} />
     </button>
-    <button class="btn icon tonal" aria-label={t('replay_end')} disabled={step >= n} onclick={() => go(n)}><Icon name="skipNext" /></button>
+    <button class="btn icon tonal" aria-label={t('replay_last')} title={t('replay_last')} disabled={step >= n} onclick={toEnd}><Icon name="skipNext" /></button>
   </div>
 {/snippet}
 
 <!-- A decision's list, with the way to the analysis screen. -->
 {#snippet panel()}
   {#if focus}
-    <DecisionPanel analysis={focus.analysis} played={focus.played} {unit} mode={style === 'bars' ? 'bars' : 'list'} w={inlinePanel ? 34 : Math.max(30, hw * 0.8)}
+    <DecisionPanel analysis={focus.analysis} played={focus.played} {unit} mode={settings.listRows} w={inlinePanel ? 34 : Math.max(30, hw * 0.8)}
       names={names} truth={focus.truth} showTruth={showAll} picked={pickedIndex} brief={focus.seat === rec?.me && !!mine} />
     <div class="panel-foot">
       <button class="btn tonal" onclick={toAnalysis}><Icon name="assessment" size={20} />{t('review_to_analysis')}</button>
@@ -295,7 +395,7 @@
       {#each options as o (o.i)}
         <span class="opt" class:best={o.i === mine.analysis.best} class:played={o.i === mine.played}>
           {actionText(o.f.action)}
-          <b class="g{o.i === mine.analysis.best ? 0 : gradeOf(o.cost, unit)}">{o.i === mine.analysis.best ? t('grade_best') : style !== 'tiles' ? '' : o.cost < EQUAL ? '≈' : tagCost(o.cost)}</b>
+          <b class="g{o.i === mine.analysis.best ? 0 : gradeOf(o.cost, unit)}">{o.i === mine.analysis.best ? t('grade_best') : o.cost < EQUAL ? '≈' : tagCost(o.cost)}</b>
         </span>
       {/each}
     </div>
@@ -318,12 +418,13 @@
     <p class="body-large dim pad">{t('replay_nothing')}</p>
   {:else}
     {#if listView}
-      <div class="list-view" class:halves={ui.wide}>
+      <div class="list-view" class:halves={ui.wide} bind:this={listEl} onscroll={onListScroll}>
         <div class="seat-hand">
+          {#if side}<button class="btn icon text list-back" aria-label={t('back')} onclick={onback}><Icon name="back" /></button>{/if}
           {#if seatHand && deciding}
             <div class="body-medium dim">{seatHand.head}・{t('analysis_turn_of', names[deciding.seat])}</div>
             <MyHand tiles={seatHand.tiles} drawn={seatHand.drawn} w={hw} perRow={8} bind:selected tagH={17}
-              marks={focus ? tileMarks(focus.analysis, focus.played, unit, style === 'tiles') : NO_MARKS} />
+              marks={focus ? tileMarks(focus.analysis, focus.played, unit) : NO_MARKS} />
             {#if seatHand.claim?.tile}
               <div class="claimed body-medium"><span>{names[seatHand.claim.seat]} {t('act_discard')}</span><Tile tile={seatHand.claim.tile} w={hw} mark /></div>
             {/if}
@@ -335,13 +436,15 @@
             {/if}
           {/if}
         </div>
-        <div class="list-scroll">{@render panel()}</div>
+        <div class="list-scroll" bind:this={listScrollEl} onscroll={onListScroll}>{@render panel()}</div>
       </div>
     {:else}
       <div class="table-wrap">
+        <!-- A wide window has no title bar: the way back lies over the table's corner, which the table keeps clear. -->
+        {#if side}<button class="btn icon back-float" aria-label={t('back')} onclick={onback}><Icon name="back" /></button>{/if}
         {#if view}
           <Table {view} me={rec.me} {names} revealed={showAll || step === n ? (view.hands ?? null) : null} interactive={false}
-            maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)}>
+            maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} clearCorner={side ? 52 : 0}>
             {#snippet overlay()}
               {#if step === n && final?.result && showResult}
                 <div class="sheet">
@@ -361,18 +464,14 @@
     <div class="controls" class:with-panel={inlinePanel}>
       {#if side}
         <div class="side-top">
-          <button class="btn icon text" aria-label={t('back')} onclick={onback}><Icon name="back" /></button>
           <span class="spacer"></span>
           {@render topButtons()}
         </div>
       {/if}
       {@render summary()}
       {@render info()}
-      <div class="nav-row">
-        {@render buttons()}
-        {#if step >= n && !showResult}<button class="btn tonal" onclick={() => (showResult = true)}>{t('replay_result')}</button>{/if}
-      </div>
-      {#if inlinePanel}<div class="inline-panel">{@render panel()}</div>{/if}
+      <div class="nav-row">{@render buttons()}</div>
+      {#if inlinePanel}<div class="inline-panel" bind:this={inlineEl} onscroll={onListScroll}>{@render panel()}</div>{/if}
     </div>
   {/if}
 </div>
@@ -383,6 +482,10 @@
   .pad { padding: 24px; }
   .btn.icon.on { background: var(--secondary-container); color: var(--on-secondary-container); }
   .table-wrap { flex: 1; min-height: 0; min-width: 0; position: relative; }
+  .back-float { position: absolute; left: 6px; top: 6px; z-index: 6; width: 42px; min-height: 42px; border-radius: 21px;
+    background: rgba(0, 0, 0, 0.3); color: var(--on-felt); }
+  .back-float:hover { background: rgba(0, 0, 0, 0.45); }
+  .list-back { align-self: flex-start; margin: -4px 0 -4px -6px; }
   .controls { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 6px 10px 8px; background: var(--surface-container); min-height: 0; }
   .side .controls { width: 208px; padding: 4px 8px 6px; overflow: auto; }
   .side .controls.with-panel { width: 420px; padding: 4px 12px 12px; }
@@ -397,6 +500,7 @@
   .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 40px; justify-content: center; }
   .where { display: flex; flex-wrap: wrap; gap: 0 12px; align-items: baseline; }
   .decide { color: var(--on-surface-variant); }
+  .to-result { margin-left: auto; align-self: center; min-height: 36px; padding: 0 16px; }
   .verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
   .grade { padding: 0 8px; border-radius: 8px; font-weight: 700; font-size: 0.8125rem; background: var(--found); color: #fff; }
   .grade.g1:not(.fine) { background: var(--danger-1); color: var(--on-danger); }

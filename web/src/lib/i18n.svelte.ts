@@ -23,6 +23,9 @@ export function t(name: string, ...args: (string | number)[]): string {
   });
 }
 
+/** Whether there is a string `name`. */
+export const has = (name: string) => typeof table()[name] === 'string';
+
 /** A string array. */
 export function ta(name: string): string[] {
   const s = table()[name];

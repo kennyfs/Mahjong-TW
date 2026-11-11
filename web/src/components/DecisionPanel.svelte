@@ -1,8 +1,9 @@
 <!--
   A decision's analysis by the network: every legal action from the best down, with what it costs against the best,
-  and what the network thinks of the three opponents. Two ways to show an action (candidates, chosen in the settings):
-  `list`, its figures as numbers; `bars`, where it differs from the best (what it wins, what it pays for dealing in,
-  what it pays to others' self-draws). Without a network (it failed to load) the list is tile efficiency's.
+  and what the network thinks of the three opponents. What a row shows for an action (the settings): `numbers`, its
+  figures; `bars`, where it differs from the best (what it wins, what it pays for dealing in, what it pays to others'
+  self-draws) with the few figures that matter most; `both`. Without a network (it failed to load) the list is tile
+  efficiency's.
 
   `played`: the index of the action taken (a review), or -1; `picked`: the one whose tile is chosen in the hand.
   `truth`: what the opponents really held, shown on request. `brief`: without the verdict on the action taken and the
@@ -18,9 +19,9 @@
   import AnalysisList from './AnalysisList.svelte';
   import Tile from './Tile.svelte';
 
-  let { analysis, played = -1, unit = undefined, mode = 'list', w = 32, names = null, truth = null, showTruth = false, picked = -1,
+  let { analysis, played = -1, unit = undefined, mode = 'numbers', w = 32, names = null, truth = null, showTruth = false, picked = -1,
     brief = false }: {
-    analysis: Analysis; played?: number; unit?: number; mode?: 'list' | 'bars'; w?: number; names?: string[] | null;
+    analysis: Analysis; played?: number; unit?: number; mode?: 'numbers' | 'bars' | 'both'; w?: number; names?: string[] | null;
     truth?: Truth[] | null; showTruth?: boolean; picked?: number; brief?: boolean;
   } = $props();
 
@@ -77,7 +78,7 @@
     {#if notable && !brief}
       <div class="notable"><span class="star">★</span>{notableText(analysis, notable)}</div>
     {/if}
-    {#if mode === 'bars'}
+    {#if mode !== 'numbers'}
       <div class="legend body-small">
         <span>{t('bars_legend')}</span>
         <span class="key"><i class="win"></i>{t('bars_win')}</span>
@@ -100,11 +101,13 @@
           {#if i === best}<span class="cost"><span class="lbl">{t('fig_value')}</span> {pts(f.q ?? 0)}</span>
           {:else}<span class="cost g{g}">{cost < EQUAL ? '≈' : pts(-cost)}</span>{/if}
         </div>
-        {#if mode === 'bars'}
+        {#if mode !== 'numbers'}
           <div class="bar" aria-hidden="true">
             <span class="zero" style="left: {ZERO}%"></span>
             {#each segments(diffs[k]) as sg}<span class="seg {sg.cls}" style="left: {sg.left}%; width: {sg.width}%"></span>{/each}
           </div>
+        {/if}
+        {#if mode === 'bars'}
           <div class="figs body-small">
             <span>{t('fig_win')} {pct(f.win ?? 0)}</span><span>{t('fig_deal_in')} {pct(f.deal_in ?? 0)}</span>
             {#if f.danger !== undefined && f.danger >= 0.01}<span>{t('fig_danger')} {pct(f.danger)}</span>{/if}

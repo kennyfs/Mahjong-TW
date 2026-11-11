@@ -1,6 +1,8 @@
 """Screenshots of the review and the analysis screens with the network, in headless Firefox (playwright): the sizes of
 shots.py. A hand is dealt from a fixed seed and played to its end (the player's turns by the greedy bot, so that there
-are mistakes to show), then reviewed in each of the candidate styles, and a step is taken to the analysis screen.
+are mistakes to show), then reviewed: the decisions worth a look, a tile's line, everyone's tiles, the list with its
+rows each way, the last move, the table at the end and the result; a step is taken to the analysis screen; then the
+records, the settings and the rules with a parameter's explanation open.
 
   python scripts/shots-review.py URL OUT_DIR [ONLY] [RULES] [SEED]   e.g. http://127.0.0.1:5273/ $WORK/shots phone,phone-land
 """
@@ -39,19 +41,18 @@ PLAY = """async ([seed, tai, flowers]) => {
   return null;
 }"""
 
-# How many times "the next decision of mine" from the start reaches the first decision with an option that is not a
-# discard (null: none).
+# The step of the first decision with an option that is not a discard (null: none).
 OPTION = """async (id) => {
   const { records, engine } = window.mahjong;
   const rec = records.get(id);
   const r = await engine.review(rec.game, rec.me);
   const d = r.decisions.find((x) => x.analysis.actions.some((f) => f.action.type !== 'discard'));
-  if (!d) return null;
-  return rec.game.actions.slice(1, d.step + 1).filter((a) => a[0] === rec.me).length;
+  return d ? d.step : null;
 }"""
 
 REVIEW = """(id) => { const { shared, nav } = window.mahjong; shared.reviewId = id; nav.open('review'); }"""
-STYLE = """(s) => { window.mahjong.settings.reviewStyle = s; }"""
+STEP = """(k) => { window.mahjong.shared.reviewStep = k; }"""
+ROWS = """(s) => { window.mahjong.settings.listRows = s; }"""
 
 
 if __name__ == '__main__':
@@ -88,56 +89,73 @@ if __name__ == '__main__':
             page.wait_for_selector('.graph svg', timeout=30000)
             shot(page, f'{name}-1-review-start')
             nxt = page.get_by_label('下一個該看的決定').first
-            for style in ('tiles', 'list', 'bars'):
-                page.evaluate(STYLE, style)
-                # A phone shows the list in place of the table in the styles that are lists.
-                panel = page.get_by_label('每個選擇')
-                if panel.count() and (panel.first.get_attribute('aria-pressed') == 'true') != (style != 'tiles'):
+            panel = page.get_by_label('每個選擇')
+
+            def show_list(on):
+                # A phone shows the list in place of the table; a large window has it beside the table always.
+                if panel.count() and (panel.first.get_attribute('aria-pressed') == 'true') != on:
                     panel.first.click()
-                if style == 'tiles':
-                    if nxt.is_enabled():
-                        nxt.click()
-                    shot(page, f'{name}-2-{style}-key1')
-                    # A tile's line: the drawn tile, or the last of the hand.
-                    slots = page.locator('.me .slot')
-                    if slots.count():
-                        slots.nth(slots.count() - 1).click()
-                        shot(page, f'{name}-2-{style}-picked')
-                    eye = page.get_by_label('顯示所有人的牌').first
-                    eye.click()
-                    shot(page, f'{name}-2-{style}-truth')
-                    eye.click()
-                    if nxt.is_enabled():
-                        nxt.click()
-                        shot(page, f'{name}-2-{style}-key2')
-                else:
-                    shot(page, f'{name}-3-{style}')
+
+            if nxt.is_enabled():
+                nxt.click()
+            shot(page, f'{name}-2-key1')
+            # A tile's line: the drawn tile, or the last of the hand.
+            slots = page.locator('.me .slot')
+            if slots.count():
+                slots.nth(slots.count() - 1).click()
+                shot(page, f'{name}-2-picked')
+            eye = page.get_by_label('顯示所有人的牌').first
+            eye.click()
+            shot(page, f'{name}-2-truth')
+            eye.click()
+            if nxt.is_enabled():
+                nxt.click()
+                shot(page, f'{name}-2-key2')
+            # The list of the decision's actions, its rows each way.
+            show_list(True)
+            for rows in ('numbers', 'bars', 'both'):
+                page.evaluate(ROWS, rows)
+                shot(page, f'{name}-3-list-{rows}')
+            show_list(False)
             # A decision with options that are not discards (a call, a win), if the hand has one.
-            presses = page.evaluate(OPTION, rec)
-            if presses is not None:
-                page.evaluate(STYLE, 'tiles')
-                panel = page.get_by_label('每個選擇')
-                if panel.count() and panel.first.get_attribute('aria-pressed') == 'true':
-                    panel.first.click()
-                page.get_by_label('開局').first.click()
-                for _ in range(presses):
-                    page.keyboard.press('ArrowDown')
-                shot(page, f'{name}-2-tiles-option')
-                if panel.count():
-                    panel.first.click()
+            step = page.evaluate(OPTION, rec)
+            if step is not None:
+                page.evaluate(STEP, step)
+                shot(page, f'{name}-2-option')
+            # The end: the last move, the table at the end with everyone's tiles, the result.
+            end = page.get_by_label('最後一手').first
+            end.click()
+            shot(page, f'{name}-4-last')
+            end.click()
+            page.wait_for_timeout(1800)
+            shot(page, f'{name}-4-end')
+            page.get_by_text('看結果').first.click()
+            shot(page, f'{name}-4-result')
+            page.get_by_text('各家手牌').first.click()
             # The step in the analysis screen, with the tables.
+            page.get_by_label('上一個決定').first.click()
+            show_list(True)
             page.get_by_text('帶到分析頁').first.click()
             page.wait_for_selector('.results', timeout=30000)
-            shot(page, f'{name}-4-analysis')
+            shot(page, f'{name}-5-analysis')
             page.get_by_text('算出摸牌表與鳴牌表').first.click()
             page.wait_for_selector('.tables', timeout=30000)
             page.locator('.tables').scroll_into_view_if_needed()
-            shot(page, f'{name}-4-analysis-tables')
+            shot(page, f'{name}-5-analysis-tables')
             page.evaluate("() => window.mahjong.nav.go('RECORDS')")
-            shot(page, f'{name}-5-records')
+            shot(page, f'{name}-6-records')
             page.evaluate("() => window.mahjong.nav.go('SETTINGS')")
             page.get_by_text('失誤門檻').first.scroll_into_view_if_needed()
-            shot(page, f'{name}-6-settings')
+            shot(page, f'{name}-7-settings')
+            # The rules: every parameter, one's explanation open.
+            if not page.get_by_text('所有參數').count():
+                page.evaluate("() => window.mahjong.nav.open('rules')")
+            page.get_by_text('所有參數').first.click()
+            info = page.get_by_label('說明：一炮多響').first
+            info.scroll_into_view_if_needed()
+            info.click()
+            page.get_by_label('說明：獨聽從寬').first.click()
+            shot(page, f'{name}-8-rules')
             (out / f'{name}-console.txt').write_text('\n'.join(logs))
             if logs:
                 print('\n'.join(logs[-12:]), flush=True)

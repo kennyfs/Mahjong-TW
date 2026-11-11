@@ -49,6 +49,7 @@ const reqs = [
   { cmd: 'pending', game: mid },
   { cmd: 'view', game: mid, seat: 1, since: 0, reveal: false },
   { cmd: 'view', game: played, seat: 0, since: 0, reveal: true },
+  { cmd: 'steps', game: played },
   { cmd: 'analyze', game: mid, seat: mid.actions.length ? mid.actions[mid.actions.length - 1][0] : 0 },
   { cmd: 'analyze', rules: 'simple1,none', position, seed: 'p' },
   { cmd: 'next', game: played, start_dealer: 0, seed: 'n' },

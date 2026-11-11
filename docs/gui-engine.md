@@ -129,6 +129,20 @@ danger of each of the 34 kinds). Two more requests use the network (cpp/command/
 A position has no history of its own: its discards are taken as made in turn order, so the features that depend on
 the order of play (which tiles passed since a seat's last call or discard) are close, not exact. A game's are exact.
 
+A review steps through a record's actions, and a record keeps every decision, the ones that came to nothing too: on
+a discard each seat that could claim it answers, and only the claim of the highest priority is made (a win before a
+pung or a kong before a chow). `steps` says which actions took effect, so a screen need not know the priorities:
+
+```
+>> {"cmd":"steps","game":GAME}
+<< {"taken":[true,true,false,true,...],"over":[-1,-1,3,-1,...],"last":63}
+```
+
+`taken`: everything on a seat's own turn, and of the answers to a discard (or an added kong) the claim that was made;
+a pass never. `over`: for a claim that was not made, the index of the one that took its place (a chow under a pung,
+either under a win, a second winner's win without `multi_ron`). `last`: the action the play ended with (the first
+win; without one the last action taken). The review shows the actions taken and the player's own decisions.
+
 The analysis screen (a position set up by hand) sends a POSITION instead of a game:
 
 ```

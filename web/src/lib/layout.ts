@@ -44,6 +44,40 @@ export function fitMelds(counts: number[], flowers: number, width: number, lines
   return min;
 }
 
+// Another player's tiles when their hand is shown (a finished hand, a review showing everyone's): the melds and
+// flowers as always, then the concealed tiles on a rack (a lighter strip behind them, RACK_PAD px around), so that
+// the hand is told from the melds at a glance.
+export const RACK_PAD = 3;
+/** The gap between the melds and the rack: under them, and beside them in one line. */
+export const RACK_GAP = 5;
+export const RACK_GAP_ROW = 10;
+
+/** Lines that `n` tiles of `w` px take in `width` px. */
+export const runLines = (n: number, width: number, w: number) => (n > 0 ? Math.ceil(n / Math.max(1, Math.floor(width / w))) : 0);
+
+/** The height of a seat's shown tiles in a column `width` px wide: its melds and flowers in lines, the rack under them. */
+export function shownHeight(counts: number[], flowers: number, concealed: number, width: number, w: number): number {
+  const a = meldLines(counts, flowers, width, w);
+  const b = runLines(concealed, width - 2 * RACK_PAD, w);
+  return a * H(w) + Math.max(0, a - 1) * meldGaps(w).row + (a && b ? RACK_GAP : 0) + (b ? b * H(w) + 2 * RACK_PAD : 0);
+}
+
+/** The largest tile width from `max` down to `min` at which a seat's shown tiles fit in `width` x `height` px. */
+export function fitShown(counts: number[], flowers: number, concealed: number, width: number, height: number, max: number, min = 16): number {
+  for (let w = max; w > min; w -= 0.5) if (shownHeight(counts, flowers, concealed, width, w) <= height) return w;
+  return min;
+}
+
+/** The same in one line (the player opposite on a wide table): melds, flowers and the rack side by side in `width` px. */
+export function fitShownRow(counts: number[], flowers: number, concealed: number, width: number, max: number, min = 14): number {
+  const items = counts.length + flowers;
+  for (let w = max; w > min; w -= 0.5) {
+    const melds = counts.reduce((a, c) => a + c * w, 0) + flowers * w * FLOWER_SCALE + Math.max(0, items - 1) * meldGaps(w).col;
+    if (melds + (items && concealed ? RACK_GAP_ROW : 0) + (concealed ? concealed * w + 2 * RACK_PAD : 0) <= width) return w;
+  }
+  return min;
+}
+
 export interface TableSizes {
   wide: boolean;
   /** The player's own concealed tiles. */
@@ -82,8 +116,15 @@ const RIVER = 20;
 /** The rivers' tiles on a tall table: no smaller than this while the hand can give room. */
 const MIN_RIVER = 26;
 
-/** Sizes for a table of w x h px; `maxHand` caps the hand's tiles (a computer's big window). */
-export function tableSizes(w: number, h: number, maxHand = 64): TableSizes {
+/** The rivers' tiles on a tall table whose others' strip has grown to show everyone's tiles: no smaller than this. */
+export const SHOWN_RIVER = 20;
+
+/** The height left for the others' strip on a tall table of height `h` when the rivers' tiles are `river` px wide. */
+export const tallTopRoom = (s: TableSizes, h: number, river: number) => h - s.meH - 4 - ((2 * s.acrossRows + 1.3) * H(river) + 14);
+
+/** Sizes for a table of w x h px; `maxHand` caps the hand's tiles (a computer's big window). `top`: a tall table's
+ *  others' strip is this high when that is more than it would be (everyone's tiles shown): the rivers give the room. */
+export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSizes {
   const wide = w >= h * 1.1;
   // A table no wider than this for its height: the side players stay near the middle on a large window.
   if (wide) w = Math.min(w, h * 2.3);
@@ -136,12 +177,12 @@ export function tableSizes(w: number, h: number, maxHand = 64): TableSizes {
   // whole width; the player's name plate, melds and flowers in a line over the hand, which wraps after HAND_ROW
   // tiles (the drawn one apart at the end of the last row).
   // The rivers stay 26 px or more: on a short table the hand gets smaller (not below 30) to leave them the room.
-  const tall = (hand: number) => {
+  const tall = (hand: number, more = 0) => {
     const meld = Math.min(hand * 0.72, 40);
     const opp = Math.max(22, Math.min(hand * 0.6, 32));
     const meldLine = Math.max(30, H(meld));
     const meH = meldLine + 4 + H(hand) * (2 + ROW_GAP + LIFT) + 6;
-    const topH = 28 + OPP_LINES * (H(opp) + meldGaps(opp).row) + 4;
+    const topH = Math.max(more, 28 + OPP_LINES * (H(opp) + meldGaps(opp).row) + 4);
     const centerH = h - meH - topH - 4;
     // The rivers: 3 columns at the sides, 6 across in 3 rows; as wide as the table allows, unless its height says less.
     let river = Math.min(hand * 0.9, (w - 24) / (acrossCols + 2 * sideCols));
@@ -153,6 +194,8 @@ export function tableSizes(w: number, h: number, maxHand = 64): TableSizes {
   const acrossRows = 3;
   let fit = tall(Math.max(30, Math.min(maxHand, (w - 10) / (HAND_ROW + DRAWN_GAP + 1))));
   while (fit.river < MIN_RIVER && fit.hand > 30) fit = tall(Math.max(30, fit.hand - 1));
+  // A higher strip takes its room from the rivers alone: the hand stays as it was.
+  if (top > fit.topH) fit = tall(fit.hand, top);
   const { hand, meld, opp, meH, topH, centerH, river } = fit;
   const sideRows = Math.max(4, Math.floor((centerH - 4) / H(river)));
   const boxH = Math.max(H(river) * 1.3, Math.min(H(river) * 2, centerH - 2 * acrossRows * H(river) - 14));

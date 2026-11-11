@@ -199,8 +199,8 @@ export async function keepSummary(rec: HandRecord): Promise<void> {
 /** What a tile of the hand shows at a decision: a tag over it, its tone, whether it is the tile played, its danger. */
 export interface TileMark { tag: string; tone: 'best' | 'plain' | 'g1' | 'g2' | 'g3'; played: boolean; danger: 0 | 1 | 2 | 3 }
 
-/** The marks of a decision's discards by tile. `figures`: every tile's cost and danger; else only the best and the played. */
-export function tileMarks(a: Analysis, played: number, unit: number | undefined, figures: boolean): Map<Tile, TileMark> {
+/** The marks of a decision's discards by tile: what each costs against the best, and its danger. */
+export function tileMarks(a: Analysis, played: number, unit: number | undefined): Map<Tile, TileMark> {
   const out = new Map<Tile, TileMark>();
   if (a.best === undefined) return out;
   a.actions.forEach((f, i) => {
@@ -208,12 +208,10 @@ export function tileMarks(a: Analysis, played: number, unit: number | undefined,
     const c = cost(a, i);
     const mine = i === played;
     const best = i === a.best;
-    if (!figures && !mine && !best) return;
     const g = gradeOf(c, unit);
-    const tag = best ? t('grade_best') : figures ? (c < EQUAL ? '≈' : tagCost(c)) : t('review_you');
     out.set(f.action.tile, {
-      tag, tone: best ? 'best' : mine && g ? (`g${g}` as TileMark['tone']) : 'plain', played: mine,
-      danger: figures ? dangerLevel(f.danger) : 0,
+      tag: best ? t('grade_best') : c < EQUAL ? '≈' : tagCost(c), tone: best ? 'best' : mine && g ? (`g${g}` as TileMark['tone']) : 'plain',
+      played: mine, danger: dangerLevel(f.danger),
     });
   });
   return out;

@@ -1,11 +1,12 @@
 <!--
   The rules: a tai preset and a flower preset, chosen apart (簡單/標準/大師; 無花/見花見台/正花, in that order), the
-  base (底), and every parameter in a list, the changed ones marked. The parameters' names and values come from the
-  engine ({"cmd":"rules"}), never from a table here. Practice deals a new game under new rules when the page is left.
+  base (底), and every parameter in a list, the changed ones marked, each with what it means behind an i button (the
+  strings' help_<parameter>). The parameters' names and values come from the engine ({"cmd":"rules"}), never from a
+  table here. Practice deals a new game under new rules when the page is left.
 -->
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { t } from '../lib/i18n.svelte';
+  import { has, t } from '../lib/i18n.svelte';
   import { practice } from '../lib/practice.svelte';
   import {
     FLAG_PARAMS, FLOWER_PARAMS, FLOWER_PRESETS, flowerLabel, info, PLAY_PARAMS, ruleSpec, TAI_PRESETS, taiLabel, withValue,
@@ -59,6 +60,8 @@
     ];
   });
   const label = (p: string) => names.get(p) ?? t('param_' + p);
+  /** The parameters whose explanation is open. */
+  let helped = $state<Record<string, boolean>>({});
   const changed = (p: string) => !!presets && !!full && presets.values[p] !== full.values[p];
   const MIN: Record<string, number> = { base: 1 };
   const MAX: Record<string, number> = { flowers: 2, keep: 64 };
@@ -116,8 +119,15 @@
           {@const v = full.values[p]}
           <div class="row param" class:changed={changed(p)}>
             <span class="text">
-              <span class="body-large">{label(p)}</span>
+              <span class="name">
+                <span class="body-large">{label(p)}</span>
+                {#if has('help_' + p)}
+                  <button class="btn icon text info" class:on={helped[p]} aria-label={`${t('rules_help')}：${label(p)}`} aria-expanded={!!helped[p]}
+                    onclick={() => (helped[p] = !helped[p])}><Icon name="info" size={20} /></button>
+                {/if}
+              </span>
               {#if changed(p)}<span class="mark label-small">{t('rules_changed')}</span>{/if}
+              {#if helped[p]}<span class="help body-medium">{t('help_' + p)}</span>{/if}
             </span>
             {#if FLAG_PARAMS.includes(p)}
               <button class="flag" role="switch" aria-checked={v === 1} aria-label={label(p)} onclick={() => set(p, v === 1 ? 0 : 1)}>
@@ -150,6 +160,10 @@
   .text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .row { display: flex; align-items: center; gap: 12px; padding: 8px 16px; min-height: 56px; }
   .param.changed .body-large { font-weight: 700; }
+  .name { display: flex; align-items: center; gap: 2px; min-width: 0; }
+  .info { flex: none; width: 36px; min-height: 36px; border-radius: 18px; color: var(--on-surface-variant); }
+  .info.on { color: var(--primary); }
+  .help { color: var(--on-surface-variant); line-height: 1.5; padding: 2px 0 4px; }
   .mark { align-self: flex-start; padding: 1px 8px; border-radius: 8px; background: var(--tertiary-container); color: var(--on-tertiary-container); }
   .stepper { display: inline-flex; align-items: center; gap: 6px; flex: none; }
   .value { min-width: 2.2em; text-align: center; font-size: 1.125rem; font-weight: 700; }

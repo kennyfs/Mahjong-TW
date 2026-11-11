@@ -100,6 +100,11 @@ export interface ReviewDecision { step: number; played: number; analysis: Analys
 export interface Review {
   seat: number; decisions: ReviewDecision[]; result: number; first_value?: number; loss?: number; luck?: number; unit?: number;
 }
+/** A record's actions as a review steps through them. `taken`: the action took effect (everything on a seat's own
+ *  turn; of the answers to a discard only the claim that was made; a pass never). `over`: for a claim that was not
+ *  made, the index of the one that took its place (-1 otherwise). `last`: the action the play ended with (the first
+ *  win; without one the last action taken; -1 without any). */
+export interface Steps { taken: boolean[]; over: number[]; last: number }
 /** After a draw of `tile` (`left` copies unseen): the best action, its figures and value, the second best and how much
  *  worse it is. */
 export interface WhatIfDraw { tile: Tile; left: number; value: number; figures: Figures; action: Action; next: Action | null; next_loss: number }

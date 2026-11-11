@@ -4,7 +4,10 @@
   (lib/layout.ts). Calls, wins and flowers show in large words over the player who made them, briefly; new discards,
   melds and the drawn tile come in moving.
 
-  `revealed`: every seat's concealed tiles, to show (a finished hand, a replay showing all).
+  `revealed`: every seat's concealed tiles, to show (a finished hand, a replay showing all). The others' then lie on
+  a rack (a lighter strip) after their melds, their tiles as large as their room allows: the player opposite in one
+  line along the top of a wide table; on a tall one the others' strip grows for them (the rivers give the room).
+  `clearCorner`: px kept free at the top-left corner, where a button of the screen lies over the table.
   `keys`: a computer's: a click discards, and the keyboard plays (← → choose a tile, Enter discards it, Esc lets go;
   H wins, G kongs, P pungs, C chows, 1 2 3 a chow's way, Space passes).
   `aside`: a panel at the right (`asideW` px wide), shown when the window has room for it beside the table (a computer's).
@@ -14,7 +17,7 @@
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte';
   import { t } from '../lib/i18n.svelte';
-  import { fitMelds, OPP_LINES, tableSizes } from '../lib/layout';
+  import { fitMelds, fitShown, fitShownRow, OPP_LINES, runLines, SHOWN_RIVER, shownHeight, tableSizes, tallTopRoom, type TableSizes } from '../lib/layout';
   import { concealedCount, meldTiles, seatAt, sideOf, flowersOf, type Side } from '../lib/seats';
   import type { TileMark } from '../lib/review';
   import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
@@ -29,34 +32,66 @@
   let {
     view, me, names, scores = null, revealed = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
-    marks = null, notes = null, strip, onpick,
+    marks = null, notes = null, strip, onpick, clearCorner = 0,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
     onact?: (a: Action) => void; handLabel?: string; maxHand?: number; keys?: boolean; away?: boolean[];
     status?: Snippet; overlay?: Snippet; corner?: Snippet; aside?: Snippet; selected?: number | null; asideW?: number;
     marks?: Map<T, TileMark> | null; notes?: ({ text: string; level: number } | null)[] | null; strip?: Snippet;
-    onpick?: (tile: T | null) => void;
+    onpick?: (tile: T | null) => void; clearCorner?: number;
   } = $props();
+
+  const others: Side[] = ['right', 'top', 'left'];
+  const pos = $derived(view.position);
+  const setup = $derived(pos.setup);
+  /** What another seat shows: its melds' tile counts, its flowers, and its concealed tiles when they are shown. */
+  function shownOf(seat: number) {
+    const p = pos.players[seat];
+    return { counts: p.melds.map((m) => meldTiles(m).length), flowers: flowersOf(p).length, concealed: revealed ? parseTiles(revealed[seat]).length : 0 };
+  }
+  /** The others' name plates as they are laid out (a long note takes a second line). */
+  let plate = $state<Record<Side, { w: number; h: number }>>({ bottom: { w: 0, h: 0 }, right: { w: 0, h: 0 }, top: { w: 0, h: 0 }, left: { w: 0, h: 0 } });
+  const plateH = (side: Side) => plate[side].h || 28;
 
   /** The room kept over each row of the hand for the tiles' tags, when there may be some. */
   const TAG_H = 17;
   const tagH = $derived(marks ? TAG_H : 0);
   let W = $state(0);
   let H = $state(0);
+  /** A tall table's others' strip with everyone's tiles shown: as high as the three need at the largest tiles (20 px
+   *  and up) that leave the rivers tiles of SHOWN_RIVER px. */
+  function shownTop(s0: TableSizes, h: number): number {
+    const room = tallTopRoom(s0, h, SHOWN_RIVER);
+    let need = 0;
+    for (const side of others) {
+      const o = shownOf(seatAt(side, me));
+      const mine = room - plateH(side) - 12;
+      const w = fitShown(o.counts, o.flowers, o.concealed, s0.sideW - 8, mine, s0.opp, 20);
+      need = Math.max(need, plateH(side) + 12 + shownHeight(o.counts, o.flowers, o.concealed, s0.sideW - 8, w));
+    }
+    return Math.min(room, need);
+  }
   // The tags' room comes off the table's height: what the hand's own lift does not already leave them.
   function sizes(w: number, h: number) {
-    const s0 = tableSizes(w, h, maxHand);
-    if (!tagH) return { s: s0, extra: 0 };
-    const extra = (s0.wide ? 1 : 2) * Math.max(0, tagH - s0.hand * TILE_RATIO * 0.2);
-    return { s: extra > 0 ? tableSizes(w, h - extra, maxHand) : s0, extra };
+    let s0 = tableSizes(w, h, maxHand);
+    let extra = 0;
+    if (tagH) {
+      extra = (s0.wide ? 1 : 2) * Math.max(0, tagH - s0.hand * TILE_RATIO * 0.2);
+      if (extra > 0) s0 = tableSizes(w, h - extra, maxHand);
+    }
+    if (revealed && !s0.wide) {
+      const top = shownTop(s0, h - extra);
+      if (top > s0.topH) s0 = tableSizes(w, h - extra, maxHand, top);
+    }
+    return { s: s0, extra };
   }
   const full = $derived(sizes(W, H));
   const withAside = $derived(!!aside && full.s.wide && W - full.s.tableW >= asideW + 24);
   const fit = $derived(withAside ? sizes(W - asideW - 16, H) : full);
   const s = $derived(fit.s);
   const meH = $derived(s.meH + fit.extra);
-  const pos = $derived(view.position);
-  const setup = $derived(pos.setup);
+  /** What of `clearCorner` reaches into the table (the felt beside a narrower table holds the rest). */
+  const clear = $derived(Math.max(0, clearCorner - Math.max(0, (W - s.tableW - (withAside ? asideW + 16 : 0)) / 2)));
 
   // The player's tiles: the drawn one apart.
   const mine = $derived.by(() => {
@@ -163,13 +198,28 @@
     });
   });
 
-  const others: Side[] = ['right', 'top', 'left'];
-  // Tall: each of the others' melds and flowers in OPP_LINES lines of their column, their tiles smaller when needed.
-  function oppW(seat: number): number {
-    if (s.wide) return s.opp;
-    const p = pos.players[seat];
-    return fitMelds(p.melds.map((m) => meldTiles(m).length), flowersOf(p).length, s.sideW - 8, OPP_LINES, s.opp);
+  // The others' tiles. Tall: each one's melds and flowers in OPP_LINES lines of their column, smaller when needed.
+  // With everyone's tiles shown: as large as fits each one's room with the concealed tiles too: the player opposite in
+  // one line along a wide table's top (the corner kept clear and the name plate off its width), the others in their
+  // columns under their name plates.
+  function oppW(side: Side, seat: number): number {
+    const o = shownOf(seat);
+    if (!s.wide) {
+      if (!revealed) return fitMelds(o.counts, o.flowers, s.sideW - 8, OPP_LINES, s.opp);
+      return fitShown(o.counts, o.flowers, o.concealed, s.sideW - 8, s.topH - plateH(side) - 12, s.opp);
+    }
+    // Wide: the concealed tiles' backs, when they are not shown, take their room first.
+    const backs = revealed ? 0 : concealedCount(view, seat);
+    if (side === 'top') {
+      const room = s.tableW - 12 - clear - (plate.top.w || 150) - 14 - (backs ? backs * s.back + 10 : 0);
+      return fitShownRow(o.counts, o.flowers, o.concealed, room, revealed ? s.opp - 1.5 : s.opp);
+    }
+    const width = s.sideW - 12;
+    const backsH = backs ? runLines(backs, width, s.back) * s.back * TILE_RATIO + 4 : 0;
+    return fitShown(o.counts, o.flowers, o.concealed, width, H - s.topH - meH - cornerH - plateH(side) - 12 - backsH, s.opp);
   }
+  /** The player's own name plate lies over the foot of the left column of a wide table: both columns end above it. */
+  const cornerH = $derived(s.wide ? s.font * 1.7 + 14 : 0);
   const winds = $derived(view.seat_winds);
   const turnSeat = $derived(view.phase === 'over' ? -1 : view.current);
   const rivers: { side: Side; area: string }[] = [
@@ -179,23 +229,26 @@
 
 <svelte:window onkeydown={onkey} />
 <div class="felt-bg" bind:clientWidth={W} bind:clientHeight={H}>
-<div class="table" class:wide={s.wide} style="max-width: {s.tableW}px; font-size: {s.font}px;
-  --side-w: {s.sideW}px; --top-h: {s.topH}px; --me-h: {meH}px">
+<div class="table" class:wide={s.wide} class:shown={!!revealed} style="max-width: {s.tableW}px; font-size: {s.font}px;
+  --side-w: {s.sideW}px; --top-h: {s.topH}px; --me-h: {meH}px; --clear: {clear}px; --corner-h: {cornerH}px">
   {#if W > 0}
-    <!-- The others: the player opposite on top, the next at the right, the previous at the left (on a tall table, the
-         three along the top, each over their river). -->
+    <!-- The others: the player opposite along the top, the next at the right, the previous at the left (on a tall
+         table, the three along the top, each over their river). -->
     {#each others as side (side)}
       {@const seat = seatAt(side, me)}
       {@const p = pos.players[seat]}
       {@const hidden = concealedCount(view, seat)}
+      {@const ow = oppW(side, seat)}
       <div class="seat {side}">
-        <SeatBadge wind={winds[seat]} name={names[seat]} score={scores ? scores[seat] : null} dealer={setup.dealer === seat}
-          streak={setup.streak} turn={turnSeat === seat} count={s.back === 0 && !revealed ? hidden : null} compact={!s.wide}
-          away={away[seat]} note={notes?.[seat] ?? null} />
+        <div class="plate" bind:clientWidth={plate[side].w} bind:clientHeight={plate[side].h}>
+          <SeatBadge wind={winds[seat]} name={names[seat]} score={scores ? scores[seat] : null} dealer={setup.dealer === seat}
+            streak={setup.streak} turn={turnSeat === seat} count={s.back === 0 && !revealed ? hidden : null} compact={!s.wide}
+            away={away[seat]} note={notes?.[seat] ?? null} />
+        </div>
         <div class="seat-tiles">
-          <Melds melds={p.melds} flowers={flowersOf(p)} w={oppW(seat)} />
+          <Melds melds={p.melds} flowers={flowersOf(p)} w={ow} wrap={!(s.wide && side === 'top')} />
           {#if revealed}
-            <div class="concealed">{#each sortTiles(parseTiles(revealed[seat])) as x}<Tile tile={x} w={s.opp} />{/each}</div>
+            <div class="concealed rack">{#each sortTiles(parseTiles(revealed[seat])) as x}<Tile tile={x} w={ow} />{/each}</div>
           {:else if s.back > 0}
             <div class="concealed backs">{#each { length: hidden } as _}<Tile w={s.back} />{/each}</div>
           {/if}
@@ -266,15 +319,19 @@
   .felt-bg { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--felt); color: var(--on-felt);
     display: flex; justify-content: center; gap: 16px; }
   .aside { flex: none; height: 100%; overflow: auto; }
+  /* Wide: the player opposite along the whole top (the screen's corner button, if any, before them), the other two
+     beside the rivers. */
   .table { position: relative; width: 100%; height: 100%; overflow: hidden; color: var(--on-felt);
     display: grid; grid-template-columns: var(--side-w) 1fr var(--side-w); grid-template-rows: var(--top-h) 1fr var(--me-h);
-    grid-template-areas: "left top right" "left center right" "me me me"; user-select: none; -webkit-user-select: none; }
+    grid-template-areas: "top top top" "left center right" "me me me"; user-select: none; -webkit-user-select: none; }
   .table:not(.wide) { grid-template-columns: 1fr 1fr 1fr; grid-template-areas: "left top right" "center center center" "me me me"; }
   .seat { display: flex; flex-direction: column; gap: 4px; padding: 4px 6px; min-width: 0; min-height: 0; overflow: hidden; }
+  .plate { flex: none; max-width: 100%; min-width: 0; display: flex; }
   .seat.top { grid-area: top; flex-direction: row; align-items: center; justify-content: center; gap: 10px; }
-  .seat.top > :global(.badge-row) { flex: none; }
+  .table.wide .seat.top { padding-left: calc(6px + var(--clear)); }
   .seat.left { grid-area: left; align-items: flex-start; justify-content: center; }
   .seat.right { grid-area: right; align-items: flex-end; justify-content: center; }
+  .table.wide .seat.left, .table.wide .seat.right { padding-bottom: calc(4px + var(--corner-h)); }
   .seat.right .seat-tiles { align-items: flex-end; }
   .seat.right :global(.melds) { justify-content: flex-end; }
   .seat-tiles { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -282,12 +339,14 @@
   .concealed { display: flex; flex-wrap: wrap; gap: 0; }
   .concealed.backs { flex-wrap: nowrap; }
   .seat:not(.top) .concealed.backs { flex-wrap: wrap; max-width: 100%; }
+  /* A hand shown: on a rack, to tell it from the melds. */
+  .concealed.rack { padding: 3px; border-radius: 6px; background: rgba(255, 255, 255, 0.17); max-width: 100%; }
+  .table.wide .seat.top .concealed.rack { flex-wrap: nowrap; max-width: none; }
   /* Tall: the three along the top, as columns. */
   .table:not(.wide) .seat { justify-content: flex-start; padding: 4px 4px 0; }
   .table:not(.wide) .seat.top { flex-direction: column; align-items: center; gap: 4px; }
   .table:not(.wide) .seat.top .seat-tiles { flex-direction: column; align-items: center; }
   .table:not(.wide) .seat.top :global(.melds) { justify-content: center; }
-  .table:not(.wide) .seat > :global(.badge-row) { flex: none; }
 
   .center { grid-area: center; display: flex; align-items: center; justify-content: center; min-height: 0; min-width: 0; }
   .rivers { display: grid; gap: 4px 6px;

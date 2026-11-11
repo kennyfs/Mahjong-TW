@@ -6,7 +6,7 @@
 // "net:model=MODEL".
 import files from 'virtual:engine-files';
 import { keepOnly, storedBytes } from './stored';
-import type { Action, Analysis, GameRecord, Pending, Position, Review, RulesInfo, Setup, View, WhatIf } from './types';
+import type { Action, Analysis, GameRecord, Pending, Position, Review, RulesInfo, Setup, Steps, View, WhatIf } from './types';
 
 export class EngineError extends Error {}
 
@@ -119,6 +119,11 @@ export async function analyzePosition(rules: string, position: Position, seed?: 
 /** Every decision of `seat` in a finished hand, with the network's figures and what the seat could not see. */
 export async function review(game: GameRecord, seat: number): Promise<Review> {
   return request({ cmd: 'review', game, seat, model: MODEL });
+}
+
+/** Which of a hand's actions took effect (a claim that another seat's claim came before did not), for a review. */
+export async function steps(game: GameRecord): Promise<Steps> {
+  return request({ cmd: 'steps', game });
 }
 
 /** What `seat` would do after each tile it may draw, and on each discard of the others it could claim. */
