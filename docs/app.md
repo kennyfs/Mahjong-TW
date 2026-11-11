@@ -73,7 +73,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
-  - `apk/mahjong-0.3.1.apk` (`master` after the merge of `analysis`, 2026-11-12; `bin/android-main.sh release`): the
+  - `apk/mahjong-0.3.1.apk` (`master` after the merge of `analysis`, 2026-11-12; `bin/android-analysis.sh release`, which builds this checkout now): the
     engine of features version 2 with the network of iteration 50 taken over to it
     (`models/actor_50_v2.fp16.onnx`, `python/upgrade_features.py`). Built and type-checked (the page too), not
     walked through on the emulator: a declaration has not been seen on a screen yet.
