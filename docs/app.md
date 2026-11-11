@@ -70,9 +70,33 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   only the tile drawn; 天聽 or 地聽 is called out over the player and stays on the name plate; the two items have
   their help texts in the rules. The position editor does not set a declared hand.
 
+- **0.3.2** (2026-11-12, the user's requests that night; app and page alike):
+  - The words over a player (吃, 碰, 槓, 天聽, 胡, 自摸, 放槍, 流局) stay two seconds, and a tap anywhere (a key on a
+    computer) lets them go at once; a practice game's computer players wait for them (`web/src/lib/callouts.ts`,
+    `Callouts.kt`: the table says when words went up, the practice loop waits for them after its usual pace). A
+    flower's words stay brief and nothing waits for them. One at a time over a player; another hand's words go.
+  - They are set in colored blocks, a character each, about twice a tile of the hand (two characters: smaller
+    blocks), laid down askew: a call's gold, a win's vermilion and larger, the one who dealt in dark; under a win's
+    and under 放槍 the player's name (beside them on a wide table). Tried and dropped that night: a seal's plate with
+    a burst behind a win's (two shapes), a badge with a burst's edge, and tiles of the table's own (they read as
+    tiles in play). On a tall table the others' words stand under their strip (the tiles just called stay in
+    sight) and the player's own over their name plate's row (not over their river, where the tile dealt in is).
+  - A declared ready hand: on the player's turn the tiles that may not be discarded are darker (after declaring,
+    all but those that keep the hand ready; later all but the one drawn).
+  - The result: under each player's points, what they are made of (`底 2＋1 台`: the bases, and the tai with the
+    dealer's where they count; the result's `base_delta` and `tai_delta`).
+  - A review's list: a row that loses a grade's worth against the best is tinted in the grade's color (yellow,
+    orange, red), the one taken more strongly (it was filled as the best is).
+  - The engine: a declared hand with no legal discard by the rule (it cannot happen in play) may discard anything
+    rather than have no action.
+
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.3.2.apk` (2026-11-12): 0.3.2 above. Built and type-checked; the page went through
+    `scratch/ui/callout_check.py` (the words' two seconds, the computer players' wait, the tap that lets them go) and
+    the screenshot scripts at phone, phone sideways and laptop sizes (`shots/web-032*/`); the app was not walked
+    through on the emulator.
   - `apk/mahjong-0.3.1.apk` (`master` after the merge of `analysis`, 2026-11-12; `bin/android-analysis.sh release`, which builds this checkout now): the
     engine of features version 2 with the network of iteration 50 taken over to it
     (`models/actor_50_v2.fp16.onnx`, `python/upgrade_features.py`). Built and type-checked (the page too), not

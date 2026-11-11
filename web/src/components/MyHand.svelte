@@ -8,7 +8,9 @@
   `oneClick` (a computer's mouse): a tile rises under the pointer and one click discards it.
   `marks` (a review): by tile, a tag over it (what it costs against the best), whether it was the one played, and its
   danger as a band along its foot; `tagH` px are kept over each row for the tags.
-  `turn`: the player's turn to discard: a frame of the turn's color pulses around the tiles. `apart`: the tile set
+  `turn`: the player's turn to discard: a frame of the turn's color pulses around the tiles, and a tile that may not
+  be discarded then (after declaring a ready hand: all but those that keep it ready, later all but the one drawn) is
+  darker. `apart`: the tile set
   apart (`drawn`) was not drawn (the dealer's first discard, after a call): it slides aside instead of coming down.
 
   A tile's touch target is its own place, whether the tile is lifted or not, and while it is lifted the room over it
@@ -94,7 +96,7 @@
     <div class="row" style="height: {h}px">
       {#each row as i (i + '/' + all[i] + (drawn && i === tiles.length ? (apart ? '/a' : '/d') : ''))}
         {@const isDrawn = !!drawn && i === tiles.length}
-        <button class="slot" class:up={selected === i} class:hover={oneClick && canDiscard(all[i])}
+        <button class="slot" class:up={selected === i} class:hover={oneClick && canDiscard(all[i])} class:held={turn && !canDiscard(all[i])}
           style="margin-left: {isDrawn && row.length > 1 ? w * DRAWN_GAP : 0}px"
           onpointerdown={(e) => down(e, i)} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}
           in:fly={isDrawn && apart ? { x: -w * DRAWN_GAP, duration: 220 } : { y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0 }}
@@ -129,6 +131,8 @@
     -webkit-tap-highlight-color: transparent; touch-action: none; position: relative; }
   .slot.up::before, .slot.hover:hover::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--lift); }
   .lifted { display: block; position: relative; transition: transform 0.08s; }
+  /* On the player's turn, a tile that may not be discarded (a declared ready hand keeps its tiles): darker. */
+  .slot.held .lifted { filter: brightness(0.58) saturate(0.8); }
   .tag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 1px; padding: 0 3px; border-radius: 5px;
     display: flex; align-items: center; font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none;
     background: rgba(0, 0, 0, 0.42); color: #fff; font-variant-numeric: tabular-nums; }

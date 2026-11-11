@@ -40,6 +40,7 @@ import io.github.kennyfs.mahjong.meldTiles
 import io.github.kennyfs.mahjong.mistakesOf
 import io.github.kennyfs.mahjong.mistakesText
 import io.github.kennyfs.mahjong.pts
+import kotlin.math.abs
 
 /**
  * A finished hand: who won and how, the winner's hand (the winning tile apart), its tai items by name, the payments,
@@ -108,6 +109,15 @@ fun HandResultCard(
           ) {
             Text(names[seat], maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
             Text(signed(pts), color = pointsColor(pts), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            // How the points come about, "底 2＋1 台" for −3: the bases, and the tai (with the dealer's where they count).
+            if (r.baseDelta.getOrElse(seat) { 0 } != 0) {
+              val tai = r.taiDelta.getOrElse(seat) { 0 }
+              val base = abs(pts - tai)
+              Text(
+                stringResource(R.string.result_parts, if (base % 1.0 == 0.0) base.toInt().toString() else "%.1f".format(base), abs(tai).toString()),
+                style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, maxLines = 1,
+              )
+            }
           }
         }
       }

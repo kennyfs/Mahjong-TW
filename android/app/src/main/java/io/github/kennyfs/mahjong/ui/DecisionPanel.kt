@@ -195,11 +195,14 @@ fun DecisionPanel(
       val cost = costOf(analysis, i)
       val g = gradeOf(cost, unit)
       val isBest = i == best
-      val strong = isBest || i == played
+      val strong = isBest || (i == played && g == 0)
       val shape = RoundedCornerShape(12.dp)
       val soft = if (strong) cs.onSecondaryContainer.copy(alpha = 0.75f) else dim
+      // What the action loses against the best, by its grade: a tint of yellow (questionable), orange (a mistake) or
+      // red (a blunder), stronger on the one taken (which is not filled as the best is then).
+      val tint = if (g > 0 && !isBest) lerp(cs.surfaceContainer, Marks.danger(g), if (i == played) listOf(0.45f, 0.42f, 0.34f)[g - 1] else listOf(0.18f, 0.18f, 0.15f)[g - 1]) else null
       Surface(
-        shape = shape, color = if (strong) cs.secondaryContainer else cs.surfaceContainer,
+        shape = shape, color = tint ?: if (strong) cs.secondaryContainer else cs.surfaceContainer,
         contentColor = if (strong) cs.onSecondaryContainer else cs.onSurface,
         modifier = Modifier.fillMaxWidth().let { if (i == picked) it.border(2.dp, LocalTable.current.highlight, shape) else it },
       ) {
@@ -212,7 +215,8 @@ fun DecisionPanel(
             if (i == played) Badge(who.ifEmpty { stringResource(R.string.review_you) }, cs.primary, cs.onPrimary)
             Spacer(Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-              if (!isBest && cost >= EQUAL) Text("(${pts(-cost)})", style = small, fontWeight = FontWeight.Bold, color = costColor(g))
+              if (!isBest && cost >= EQUAL) Text("(${pts(-cost)})", style = small, fontWeight = FontWeight.Bold,
+                color = if (tint != null) lerp(cs.onSurface, Marks.danger3, 0.45f) else costColor(g))
               Text(pts(f.q ?: 0.0), fontWeight = FontWeight.Bold)
             }
           }

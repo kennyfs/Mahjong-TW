@@ -1,6 +1,6 @@
 <!--
-  A finished hand: who won and how, the winner's hand (the winning tile apart), its tai items by name, the payments,
-  and the next dealer. `final` is the hand's view with everything shown (reveal). `rev`: the network's review of the
+  A finished hand: who won and how, the winner's hand (the winning tile apart), its tai items by name, the payments
+  (under each, how it comes about: the bases and the tai, the dealer's among them), and the next dealer. `final` is the hand's view with everything shown (reveal). `rev`: the network's review of the
   player's decisions, in a line (the expected result at the first decision, what the decisions lost, the rest as luck).
 -->
 <script lang="ts">
@@ -37,6 +37,14 @@
   // Payments involving the dealer carry the dealer's tai.
   const dealer = $derived(final.position.setup.dealer);
   const dealerShown = $derived(r.dealer_tai > 0 && !r.exhausted && (r.winners.some((x) => x.seat === dealer) || r.points[dealer] < 0));
+  /** How a seat's points come about, "底 2＋1 台" for −3: the bases, and the tai (with the dealer's where they count). */
+  function parts(seat: number): string {
+    const bases = r.base_delta?.[seat] ?? 0;
+    if (!bases) return '';
+    const tai = r.tai_delta?.[seat] ?? 0;
+    const base = Math.abs(r.points[seat] - tai);
+    return t('result_parts', Number.isInteger(base) ? base.toFixed(0) : base.toFixed(1), String(Math.abs(tai)));
+  }
 </script>
 
 <div class="result" class:compact>
@@ -70,6 +78,7 @@
       <div class="pay" class:me={seat === me}>
         <span class="ellipsis">{names[seat]}</span>
         <span class="pts" class:good={r.points[seat] > 0} class:bad={r.points[seat] < 0}>{signed(r.points[seat])}</span>
+        {#if parts(seat)}<span class="parts">{parts(seat)}</span>{/if}
       </div>
     {/each}
   </div>
@@ -105,6 +114,7 @@
   .pay { display: flex; flex-direction: column; align-items: center; padding: 4px; border-radius: 10px; background: var(--surface-container); }
   .pay.me { outline: 2px solid var(--primary); }
   .pts { font-weight: 700; font-size: 1.125rem; }
+  .parts { font-size: 0.75rem; line-height: 1.2; color: var(--on-surface-variant); white-space: nowrap; }
   .rev { display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 6px 10px; border-radius: 10px; background: var(--surface-container);
     font-variant-numeric: tabular-nums; }
   .count { font-weight: 700; color: var(--good); }

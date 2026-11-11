@@ -102,7 +102,8 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
     view = Engine.view(g, ME)
   }
 
-  /** The bots decide, a decision point at a time, until the player must decide or the hand is over. */
+  /** The bots decide, a decision point at a time, until the player must decide or the hand is over. Each bot's turn
+   *  waits the pace of the settings, and the words of a call (CalloutClock), so it can be followed. */
   private fun run() {
     if (running) return
     running = true
@@ -120,6 +121,8 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
           busy = true
           // A bot's own turn takes the pace; deciding on a discard (nobody else may) takes a short beat.
           delay(if (p.phase == "self") settings.speed.ms else minOf(250L, settings.speed.ms / 2))
+          // A call's words (碰, 槓, 天聽) stay their time before the game goes on; a touch anywhere lets them go.
+          CalloutClock.done()
           if (e != epoch || game == null) break
           val seed = "${meta?.id}/${meta?.hands}/${g.actions.size}"
           game = Engine.advance(g, bots, seed, 1)

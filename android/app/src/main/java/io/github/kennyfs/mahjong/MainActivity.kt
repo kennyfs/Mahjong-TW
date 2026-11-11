@@ -3,6 +3,7 @@ package io.github.kennyfs.mahjong
 import android.app.Activity
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
+import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
@@ -99,6 +100,12 @@ private val TABS = listOf(
 )
 
 class MainActivity : ComponentActivity() {
+  /** A touch anywhere lets the words over the players go (CalloutClock); it still does what it was for. */
+  override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+    if (ev.actionMasked == MotionEvent.ACTION_DOWN) CalloutClock.skip()
+    return super.dispatchTouchEvent(ev)
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()

@@ -3,8 +3,10 @@
   river in the middle. A wide table has the round, the wall and the dealer's streak in its top-left corner and the
   screen's `corner` (its buttons) in its top-right one, nothing between the rivers; a tall one has them in a box
   between the rivers (its screen's buttons are in its own bar). Its sizes come from its own room (lib/layout.ts).
-  Calls, wins and flowers show in large words over the player who made them, briefly (and 放槍 over the one who dealt
-  in); new discards, melds and the drawn tile come in moving.
+  Calls, wins and flowers show in large words over the player who made them (and 放槍 over the one who dealt in), a
+  colored block a character, about twice a tile of the hand (under a win's and under 放槍, the player's name): a
+  call's and a win's for two seconds (lib/callouts.ts; a practice game's computer players wait for them), a flower's
+  briefly; a tap anywhere, or a key, lets them go at once. New discards, melds and the drawn tile come in moving.
 
   The player's turn to discard: the hand in a pulsing frame of the turn's color, and with no tile drawn (the dealer's
   first discard, after a call) its last tile set apart as a drawn one is. A discard the player may claim stands out
@@ -23,6 +25,8 @@
 -->
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte';
+  import { fade } from 'svelte/transition';
+  import { CALL_MS, FLOWER_MS, calloutShown, calloutsSkipped } from '../lib/callouts';
   import { t } from '../lib/i18n.svelte';
   import {
     DRAWN_GAP, fitMelds, fitShown, fitShownRow, OPP_LINES, runLines, SHOWN_RIVER, shownHeight, tableSizes, tallTopRoom, type TableSizes,
@@ -187,7 +191,9 @@
   });
 
   // Words over a player for a call, a win, a flower: from the events that came since the last view.
-  let callouts = $state<{ id: number; side: Side; text: string; big: boolean }[]>([]);
+  /** `kind`: the plate under the words: a call's (and a declaration's), a win's, the one who dealt in, a flower's, a draw's. */
+  type CalloutKind = 'call' | 'win' | 'dealin' | 'flower' | 'drawn';
+  let callouts = $state<{ id: number; side: Side; text: string; big: boolean; kind: CalloutKind; who: string }[]>([]);
   let seen = -1;
   let nextId = 0;
   const WORDS: Partial<Record<GameEvent['type'], string>> = {
@@ -198,9 +204,10 @@
     const evs = view.events;
     const count = view.event_count;
     untrack(() => {
-      // The first view shows what is there, without words for what came before it.
+      // The first view shows what is there, without words for what came before it; another hand's words go.
       if (seen < 0 || count < seen) {
         seen = count;
+        if (callouts.length) callouts = [];
         return;
       }
       const fresh = evs.slice(evs.length - (count - seen));
@@ -209,10 +216,14 @@
       if (fresh.length > 8) return;
       let flowersShown = new Set<number>();
       let dealtIn = false;
-      const say = (side: Side, text: string, big: boolean) => {
+      // One at a time over a player: later words take the place of earlier ones. What is not a flower is waited for.
+      // `who`: the player's name over the words (a win's, the one who dealt in), so that the words say whose they are
+      // wherever they stand.
+      const say = (side: Side, text: string, kind: CalloutKind, ms: number, who = '') => {
         const id = nextId++;
-        callouts = [...callouts, { id, side, text, big }];
-        setTimeout(() => { callouts = callouts.filter((c) => c.id !== id); }, big ? 2000 : 900);
+        callouts = [...callouts.filter((c) => c.side !== side), { id, side, text, big: kind === 'win', kind, who }];
+        setTimeout(() => { callouts = callouts.filter((c) => c.id !== id); }, ms);
+        if (ms >= CALL_MS) calloutShown(ms);
       };
       for (const e of fresh) {
         const word = e.type === 'declare' ? `call_${e.declared ?? 'tianting'}` : WORDS[e.type];
@@ -222,16 +233,35 @@
           if (flowersShown.has(e.seat)) continue;
           flowersShown.add(e.seat);
         }
-        const big = e.type === 'tsumo' || e.type === 'ron' || e.type === 'flower_win';
-        say(e.type === 'exhausted' ? 'top' : sideOf(e.seat, me), t(word), big);
+        const kind: CalloutKind = e.type === 'tsumo' || e.type === 'ron' || e.type === 'flower_win' ? 'win'
+          : e.type === 'flower' ? 'flower' : e.type === 'exhausted' ? 'drawn' : 'call';
+        say(e.type === 'exhausted' ? 'top' : sideOf(e.seat, me), t(word), kind, e.type === 'flower' ? FLOWER_MS : CALL_MS,
+          kind === 'win' ? names[e.seat] : '');
         // Who dealt in: the discard (or the added kong's tile) the win was on. Once, however many won on it.
         if (e.type === 'ron' && !dealtIn) {
           dealtIn = true;
           const from = view.result?.loser ?? [...evs].reverse().find((x) => x.type === 'discard' || x.type === 'kakan')?.seat ?? -1;
-          if (from >= 0 && from !== e.seat) say(sideOf(from, me), t('call_deal_in'), false);
+          if (from >= 0 && from !== e.seat) say(sideOf(from, me), t('call_deal_in'), 'dealin', CALL_MS, names[from]);
         }
       }
     });
+  });
+
+  /** Words that are set in blocks, a character each: Chinese characters and kana (others stay one plain plate). */
+  const TILE_WORD = /^[\u3040-\u30ff\u3400-\u9fff]{1,4}$/;
+  /** A tap anywhere, or a key: the words go at once (and whoever waits for them goes on). The tap still does what it
+   *  was for. */
+  function skipCallouts() {
+    if (callouts.length) callouts = [];
+    calloutsSkipped();
+  }
+  $effect(() => {
+    window.addEventListener('pointerdown', skipCallouts, true);
+    window.addEventListener('keydown', skipCallouts, true);
+    return () => {
+      window.removeEventListener('pointerdown', skipCallouts, true);
+      window.removeEventListener('keydown', skipCallouts, true);
+    };
   });
 
   // The others' tiles. Tall: each one's melds and flowers in OPP_LINES lines of their column, smaller when needed.
@@ -281,7 +311,7 @@
 <div class="felt-bg" bind:clientWidth={W} bind:clientHeight={H}>
 <div class="table" class:wide={s.wide} class:shown={!!revealed} style="max-width: {s.tableW}px; font-size: {s.font}px;
   --side-w: {s.sideW}px; --top-h: {s.topH}px; --me-h: {meH}px; --pad-l: {padL}px; --pad-r: {padR}px; --below-l: {belowL}px;
-  --below-r: {belowR}px; --corner-h: {cornerH}px; --corner-r: {cornerR}px">
+  --below-r: {belowR}px; --corner-h: {cornerH}px; --corner-r: {cornerR}px; --hand-w: {s.hand}px">
   {#if W > 0}
     {#if s.wide}
       <!-- The corners: the round, the wall and the streak; the screen's buttons. -->
@@ -374,7 +404,9 @@
     {/if}
     {#if strip}<div class="strip" style="bottom: {meH + 4}px">{@render strip()}</div>{/if}
     {#each callouts as c (c.id)}
-      <div class="callout {c.side}" class:big={c.big}>{c.text}</div>
+      <div class="callout {c.side} {c.kind}" class:big={c.big} class:two={[...c.text].length > 1} out:fade={{ duration: 160 }}>{#if c.kind === 'flower' || !TILE_WORD.test(c.text)}<span class="plain">{c.text}</span>
+        {:else}<span class="word">{#each [...c.text] as ch}<span class="ch">{ch}</span>{/each}</span>{/if}
+        {#if c.who}<span class="who">{c.who}</span>{/if}</div>
     {/each}
   {/if}
 </div>
@@ -455,15 +487,41 @@
   .strip > :global(*) { pointer-events: auto; }
   .status { pointer-events: none; }
   .status.tall { position: absolute; left: 8px; z-index: 2; }
-  .callout { position: absolute; z-index: 4; pointer-events: none; font-weight: 900; font-size: 2.2rem; color: #fff;
-    text-shadow: 0 0 6px #000, 0 2px 0 #b71c1c, 0 0 14px rgba(255, 193, 7, 0.8); animation: pop 0.9s ease-out both; white-space: nowrap; }
-  .callout.big { font-size: 3.4rem; animation-duration: 1.6s; }
+  /* The words over a player: a block a character, about twice a tile of the hand, laid down askew, in a color no tile
+     has: a call's gold, a win's vermilion (and larger), the one who dealt in dark. Under a win's and under 放槍, whose
+     they are. A flower's are small and plain. */
+  .callout { position: absolute; z-index: 4; pointer-events: none; white-space: nowrap; display: flex; flex-direction: column;
+    align-items: center; gap: 0.12em; font-size: clamp(2.6rem, calc(var(--hand-w) * 1.4), 4.6rem); animation: pop 0.32s ease-out both;
+    --face: #f6b93b; --ink: #3b2200; --back: #b9780f; --line: rgba(59, 34, 0, 0.38); }
+  .callout.big { font-size: clamp(3rem, calc(var(--hand-w) * 1.6), 5.4rem); }
+  /* Two characters: smaller blocks, so that the words take about the room of one large one and a half. */
+  .callout.two { font-size: clamp(1.9rem, calc(var(--hand-w) * 1), 3.4rem); }
+  .callout.big.two { font-size: clamp(2.2rem, calc(var(--hand-w) * 1.15), 3.9rem); }
+  .callout.win { --face: #d5382d; --ink: #fff6dc; --back: #8c1c15; --line: rgba(255, 214, 120, 0.9); }
+  .callout.dealin { --face: #2e383e; --ink: #ffb3a7; --back: #12171a; --line: rgba(255, 179, 167, 0.4); }
+  .callout.drawn { --face: #5b7684; --ink: #fff; --back: #384b55; --line: rgba(255, 255, 255, 0.4); }
+  /* A wide table is low: the name beside the words, not under them. */
+  .table.wide .callout { flex-direction: row; gap: 0.2em; }
+  .word { display: flex; gap: 0.07em; rotate: -5deg; filter: drop-shadow(0 0.08em 0.1em rgba(0, 0, 0, 0.5)); }
+  .ch { width: 1.36em; height: 1.6em; display: grid; place-items: center; line-height: 1; color: var(--ink); font-weight: 900;
+    font-family: 'Noto Serif CJK TC', 'Noto Serif TC', 'Source Han Serif TC', 'Songti TC', 'PMingLiU', serif;
+    background: var(--face); border-radius: 0.2em; margin-bottom: 0.13em; box-shadow: 0 0.13em 0 var(--back);
+    outline: 0.03em solid var(--line); outline-offset: -0.11em; }
+  .plain, .who { padding: 0.28em 0.8em 0.32em; border-radius: 999px; background: rgba(12, 38, 30, 0.86); color: #fff; font-weight: 700;
+    line-height: 1.1; }
+  .plain { font-size: clamp(1.1rem, calc(var(--hand-w) * 0.42), 1.7rem); }
+  .who { font-size: clamp(0.85rem, 0.22em, 1.1rem); }
   .callout.bottom { left: 50%; bottom: calc(var(--me-h) + 10px); transform: translateX(-50%); }
   .callout.top { left: 50%; top: calc(var(--top-h) + 6px); transform: translateX(-50%); }
   .callout.left { left: calc(var(--side-w) * 0.5); top: 42%; }
   .callout.right { right: calc(var(--side-w) * 0.5); top: 42%; }
-  .table:not(.wide) .callout.left { left: 4%; top: calc(var(--top-h) * 0.5); }
-  .table:not(.wide) .callout.right { right: 4%; top: calc(var(--top-h) * 0.5); }
-  .table:not(.wide) .callout.top { top: calc(var(--top-h) * 0.5); }
-  @keyframes pop { 0% { opacity: 0; scale: 0.5; } 15% { opacity: 1; scale: 1.15; } 30% { scale: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+  /* Tall: under the others' strip, each under their own column, so that the tiles just called stay in sight. */
+  .table:not(.wide) .callout.left { left: 4%; top: calc(var(--top-h) + 2px); }
+  .table:not(.wide) .callout.right { right: 4%; top: calc(var(--top-h) + 2px); }
+  .table:not(.wide) .callout.top { top: calc(var(--top-h) + 2px); }
+  /* The player's own: over their name plate's row, not over their river (the tile dealt in is there). */
+  .table:not(.wide) .callout.bottom { bottom: calc(var(--me-h) - 3rem); }
+  /* The words come in at once and stay; they go when their time is up or at a tap (the fade of the markup). */
+  @keyframes pop { 0% { opacity: 0; scale: 0.5; } 50% { opacity: 1; scale: 1.15; } 100% { opacity: 1; scale: 1; } }
+  @media (prefers-reduced-motion: reduce) { .callout { animation: none; } }
 </style>

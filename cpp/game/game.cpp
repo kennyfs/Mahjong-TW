@@ -329,13 +329,24 @@ void Game::legalActions(int s, vector<Action>& out) const {
           out.push_back(Action(Action::DISCARD, k));
         c[k]++;
       }
+      // (Only a position entered by hand can have no such discard: any tile then.)
+      if(out.empty())
+        for(int k = 0; k < Tiles::NUM_KINDS; k++)
+          if(c[k] > 0)
+            out.push_back(Action(Action::DISCARD, k));
       return;
     }
     if(winTai(s) >= 0)
       out.push_back(Action(Action::TSUMO));
     if(st.declared) {
-      // A locked hand: win, or discard the tile drawn.
-      out.push_back(Action(Action::DISCARD, drawn_));
+      // A locked hand: win, or discard the tile drawn (any tile when a position entered by hand does not say which
+      // one it was).
+      if(drawn_ >= 0 && st.hand[drawn_] > 0)
+        out.push_back(Action(Action::DISCARD, drawn_));
+      else
+        for(int k = 0; k < Tiles::NUM_KINDS; k++)
+          if(st.hand[k] > 0)
+            out.push_back(Action(Action::DISCARD, k));
       return;
     }
     if(declareType(s) != 0)

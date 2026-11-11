@@ -7,7 +7,8 @@
 
   `played`: the index of the action taken (a review), or -1: its row comes first, the others from the best down. The
   best and the one taken are both set off (a filled row, a tag each: 最佳, and `who` took it: 你 or the seat's name);
-  one row with both tags when they are the same. A row's figure at the right is always its expected result, with what
+  one row with both tags when they are the same. A row that loses a grade's worth against the best is tinted in the
+  grade's color (yellow, orange, red), the one taken more strongly. A row's figure at the right is always its expected result, with what
   it loses against the best before it (smaller, in brackets) when that is more than a tie.
   `picked`: the one whose tile is chosen in the hand.
   `truth`: what the opponents really held, shown on request. `brief`: without the verdict on the action taken and the
@@ -101,7 +102,8 @@
     </div>
     {#each rows as { f, i, cost }, k (i)}
       {@const g = gradeOf(cost, unit)}
-      <div class="row" class:strong={i === best || i === played} class:picked={i === picked}>
+      <div class="row" class:g1={g === 1} class:g2={g === 2} class:g3={g === 3} class:strong={i === best || (i === played && g === 0)}
+        class:played={i === played} class:picked={i === picked}>
         <div class="act">
           {#if actionTiles(f.action).length}
             <span class="tiles">{#each actionTiles(f.action) as x}<Tile tile={x} w={w * 0.82} />{/each}</span>
@@ -194,6 +196,15 @@
   .tsumo { background: var(--danger-2); }
   .row { display: flex; flex-direction: column; gap: 4px; padding: 7px 12px; border-radius: 12px; background: var(--surface-container); }
   .row.strong { background: var(--secondary-container); color: var(--on-secondary-container); }
+  /* What an action loses against the best, by its grade: yellow (questionable), orange (a mistake), red (a blunder);
+     stronger on the one taken, which is not filled as the best is then. */
+  .row.g1 { background: color-mix(in srgb, var(--danger-1) 18%, var(--surface-container)); }
+  .row.g2 { background: color-mix(in srgb, var(--danger-2) 18%, var(--surface-container)); }
+  .row.g3 { background: color-mix(in srgb, var(--danger-3) 15%, var(--surface-container)); }
+  .row.played.g1 { background: color-mix(in srgb, var(--danger-1) 45%, var(--surface-container)); }
+  .row.played.g2 { background: color-mix(in srgb, var(--danger-2) 42%, var(--surface-container)); }
+  .row.played.g3 { background: color-mix(in srgb, var(--danger-3) 34%, var(--surface-container)); }
+  .row.g1 .less, .row.g2 .less, .row.g3 .less { color: color-mix(in srgb, var(--danger-3) 45%, var(--on-surface)); font-weight: 700; }
   .row.picked { box-shadow: inset 0 0 0 2px var(--highlight); }
   .act { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .tiles { display: inline-flex; gap: 1px; }

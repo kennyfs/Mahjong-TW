@@ -5,6 +5,7 @@ import * as engine from './engine';
 import { t } from './i18n.svelte';
 import { handRecord, newId, records } from './records.svelte';
 import { keepSummary } from './review';
+import { calloutsDone } from './callouts';
 import { PACE, settings, type Length } from './settings.svelte';
 import { KEYS, load, save } from './store';
 import type { Action, GameRecord, View } from './types';
@@ -105,7 +106,7 @@ class Practice {
 
   /**
    * The bots decide, a decision point at a time, until the player must decide or the hand is over. Each bot's turn
-   * waits the pace of the settings, so it can be followed.
+   * waits the pace of the settings, and the words of a call (lib/callouts.ts), so it can be followed.
    */
   private async run() {
     if (this.running) return;
@@ -122,6 +123,8 @@ class Practice {
         this.busy = true;
         // A bot's own turn takes the pace; deciding on a discard (nobody else may) takes a short beat.
         await sleep(p.phase === 'self' ? PACE[settings.speed] : Math.min(250, PACE[settings.speed] / 2));
+        // A call's words (碰, 槓, 天聽) stay their time before the game goes on; a tap anywhere lets them go.
+        await calloutsDone();
         if (epoch !== this.epoch || !this.game) break;
         const seed = `${this.meta?.id}/${this.meta?.hands}/${this.game.actions.length}`;
         this.game = await engine.advance(this.game, this.bots, seed, 1);

@@ -2,7 +2,7 @@
 shots.py. A hand is dealt from a fixed seed and played to its end (the player's turns by the greedy bot, so that there
 are mistakes to show), then reviewed: the decisions worth a look, a tile's line, everyone's tiles, the list with its
 rows each way, the last move, the table at the end and the result; a step is taken to the analysis screen; then the
-records, the settings and the rules with a parameter's explanation open.
+records, the settings and the rules: their presets, every parameter, a parameter's explanation (a dialog).
 
   python scripts/shots-review.py URL OUT_DIR [ONLY] [RULES] [SEED]   e.g. http://127.0.0.1:5273/ $WORK/shots phone,phone-land
 """
@@ -151,11 +151,13 @@ if __name__ == '__main__':
             if not page.get_by_text('所有參數').count():
                 page.evaluate("() => window.mahjong.nav.open('rules')")
             page.get_by_text('所有參數').first.click()
+            shot(page, f'{name}-8-rules')
             info = page.get_by_label('說明：一炮多響').first
             info.scroll_into_view_if_needed()
+            shot(page, f'{name}-8-rules-all')
             info.click()
-            page.get_by_label('說明：獨聽從寬').first.click()
-            shot(page, f'{name}-8-rules')
+            shot(page, f'{name}-8-rules-help')
+            page.keyboard.press('Escape')
             (out / f'{name}-console.txt').write_text('\n'.join(logs))
             if logs:
                 print('\n'.join(logs[-12:]), flush=True)

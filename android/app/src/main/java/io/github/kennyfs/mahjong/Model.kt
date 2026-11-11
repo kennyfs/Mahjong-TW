@@ -82,6 +82,9 @@ data class HandResult(
   @SerialName("flower_win") val flowerWin: Boolean = false,
   @SerialName("dealer_tai") val dealerTai: Int = 0,
   val points: List<Double> = listOf(0.0, 0.0, 0.0, 0.0),
+  /** By seat, what the points are made of: bases won or paid, and tai (the dealer's among them where they count). */
+  @SerialName("base_delta") val baseDelta: List<Int> = emptyList(),
+  @SerialName("tai_delta") val taiDelta: List<Int> = emptyList(),
   @SerialName("next_dealer") val nextDealer: Int = 0,
   @SerialName("next_streak") val nextStreak: Int = 0,
 )

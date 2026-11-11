@@ -69,6 +69,7 @@
   <string name="result_dealer_tai">莊家 %1$d 台</string>
   <string name="result_dealer_streak_tai">莊家・連 %2$d 拉 %2$d．%1$d 台</string>
   <string name="result_base">底 %1$s 台</string>
+  <string name="result_parts">底 %1$s＋%2$s 台</string>
   <string name="result_next_dealer">下一局 %1$s 做莊</string>
   <string name="result_next_streak">下一局 %1$s 做莊，連 %2$d</string>
   <string name="result_hands">各家手牌</string>
