@@ -209,7 +209,8 @@ class Battle {
     return {
       mode, length: LENGTH_OF[settings.length], hands: HAND_CHOICES.includes(c.hands ?? 0) ? c.hands! : 4,
       rules: $state.snapshot(settings.rules), timeLimit: TIME_LIMITS.includes(c.timeLimit ?? 0) ? c.timeLimit! : 15,
-      bot: settings.bot,
+      // A room's bots are the server's (protocol Validation.BOTS): tile efficiency, until it has the network.
+      bot: 'greedy',
     };
   }
 

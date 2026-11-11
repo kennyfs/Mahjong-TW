@@ -1,11 +1,12 @@
 <!--
-  Battles online (lib/battle.svelte.ts): the entry (a name, the server, a new table or same-tiles contest, a room's
+  Battles online (lib/battle.svelte.ts): the entry (first only a new room or joining one; then, for a new room, the
+  name, the server and which kind: a table or a same-tiles contest; to join, the name, the server and the room's
   PIN), the room's lobby (its PIN and link, the players, the host's settings), the table while a hand is played (the
   player's own seat, the time left to decide; no hint or analysis), each hand's result with the standings, and the
   final standings with the player's hands (their review and analysis come from the records).
 -->
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import {
     battle, HAND_CHOICES, LENGTHS, NAME_LENGTH, nameOf, rankOf, standings, TIME_LIMITS, type HandOutcome, type Length,
     type PlayerView, type RoomSettings,
@@ -16,7 +17,7 @@
   import { FLOWER_PRESETS, flowerLabel, TAI_PRESETS, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import { windName } from '../lib/tiles';
-  import { localTime, signed, ui } from '../lib/ui.svelte';
+  import { END_PAUSE, localTime, signed, ui } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
@@ -27,6 +28,8 @@
   let { onreview }: { onreview: (id: string) => void } = $props();
 
   let editServer = $state(false);
+  /** The entry's step: its first page, a new room (which kind), or joining one (the PIN). Back goes to the first. */
+  let step = $state<'home' | 'create' | 'join'>('home');
   let confirmLeave = $state(false);
   let copied = $state(false);
   let hideResult = $state(false);
@@ -43,15 +46,37 @@
   });
   // A new hand: its table, not the last one's result.
   $effect(() => { if (!handOver) hideResult = false; });
+  /** A hand's end: the table as it ended (every hand shown, the words of the win) for a moment before the result; a
+   *  tap goes on at once. Not for a result come back to. */
+  let held = $state(false);
+  let inPlay = false;
+  $effect(() => {
+    if (!handOver) {
+      inPlay = true;
+      held = false;
+      return;
+    }
+    if (!inPlay) return;
+    inPlay = false;
+    held = true;
+    const id = setTimeout(() => (held = false), END_PAUSE);
+    return () => clearTimeout(id);
+  });
 
   // A shared link (#/battle/123456): its PIN, ready to join.
   onMount(() => {
     const sub = nav.sub;
     if (sub && /^\d{6}$/.test(sub)) {
       battle.pin = sub;
+      step = 'join';
       nav.replace('BATTLE');
     }
   });
+  // Back (the browser's, a phone's gesture) from a step of the entry: its first page.
+  $effect(() => { nav.guard(page === 'entry' && step !== 'home' ? () => (step = 'home') : null); });
+  onDestroy(() => nav.guard(null));
+  // Out of a room: the entry's first page again.
+  $effect(() => { if (page !== 'entry') step = 'home'; });
 
   // The clock: the time left to decide, and the countdown to the next hand.
   let now = $state(Date.now());
@@ -131,50 +156,62 @@
   {/if}
 {/snippet}
 
+{#snippet nameAndServer()}
+  <label class="field">
+    <span class="body-small dim">{t('battle_name')}</span>
+    <input class="body-large" maxlength={NAME_LENGTH} placeholder={battle.defaultName} bind:value={battle.name} />
+  </label>
+  {#if editServer}
+    <label class="field">
+      <span class="body-small dim">{t('battle_server')}</span>
+      <input class="body-large" placeholder={t('battle_server_hint')} bind:value={battle.server} onblur={() => (battle.server = battle.server.trim())} />
+    </label>
+  {:else}
+    <div class="server">
+      <span class="body-medium dim grow">{t('battle_server_is', battle.server.trim() || t('battle_server_here'))}</span>
+      <button class="btn text" onclick={() => (editServer = true)}>{t('change')}</button>
+    </div>
+  {/if}
+{/snippet}
+
 {#if page === 'entry'}
   <div class="page">
-    <TitleBar title={t('battle_title')} />
+    {#if step === 'home'}
+      <TitleBar title={t('battle_title')} />
+    {:else}
+      <TitleBar title={t(step === 'create' ? 'battle_create' : 'battle_join_room')} onback={() => (step = 'home')} />
+    {/if}
     <div class="progress">{#if battle.busy}<span class="bar"></span>{/if}</div>
     <div class="scroll">
-      <div class="entry" class:wide={ui.w >= 760}>
-        <div class="col">
-          <label class="field">
-            <span class="body-small dim">{t('battle_name')}</span>
-            <input class="body-large" maxlength={NAME_LENGTH} placeholder={battle.defaultName} bind:value={battle.name} />
-          </label>
-          {#if editServer}
-            <label class="field">
-              <span class="body-small dim">{t('battle_server')}</span>
-              <input class="body-large" placeholder={t('battle_server_hint')} bind:value={battle.server} onblur={() => (battle.server = battle.server.trim())} />
-            </label>
-          {:else}
-            <div class="server">
-              <span class="body-medium dim grow">{t('battle_server_is', battle.server.trim() || t('battle_server_here'))}</span>
-              <button class="btn text" onclick={() => (editServer = true)}>{t('change')}</button>
-            </div>
-          {/if}
+      <div class="entry">
+        {#if step === 'home'}
+          <button class="tile fill" onclick={() => (step = 'create')}>
+            <span class="headline-small">{t('battle_create')}</span><span class="body-medium info">{t('battle_create_info')}</span>
+          </button>
+          <button class="tile tonal" onclick={() => (step = 'join')}>
+            <span class="headline-small">{t('battle_join_room')}</span><span class="body-medium info">{t('battle_join_room_info')}</span>
+          </button>
           <p class="body-medium dim note">{t('battle_no_help')}</p>
-        </div>
-        <div class="col">
+        {:else if step === 'create'}
+          {@render nameAndServer()}
+          <div class="title-medium mode-title">{t('battle_mode_title')}</div>
           <button class="tile fill" disabled={battle.busy} onclick={() => battle.create('TABLE')}>
             <span class="headline-small">{t('battle_new_table')}</span><span class="body-medium info">{t('battle_table_info')}</span>
           </button>
           <button class="tile fill" disabled={battle.busy} onclick={() => battle.create('CONTEST')}>
             <span class="headline-small">{t('battle_new_contest')}</span><span class="body-medium info">{t('battle_contest_info')}</span>
           </button>
-          <div class="tile join">
-            <span class="headline-small">{t('battle_join_room')}</span>
-            <span class="body-medium dim">{t('battle_join_room_info')}</span>
-            <form class="pin-row" onsubmit={(e) => { e.preventDefault(); battle.join(); }}>
-              <label class="field pin">
-                <span class="body-small dim">{t('battle_pin')}</span>
-                <input class="headline-small" inputmode="numeric" autocomplete="off" maxlength={6} value={battle.pin}
-                  oninput={(e) => (battle.pin = e.currentTarget.value.replace(/\D/g, '').slice(0, 6))} />
-              </label>
-              <button class="btn filled big" type="submit" disabled={battle.busy || battle.pin.length !== 6}>{t('battle_join')}</button>
-            </form>
-          </div>
-        </div>
+        {:else}
+          {@render nameAndServer()}
+          <form class="pin-row" onsubmit={(e) => { e.preventDefault(); battle.join(); }}>
+            <label class="field pin">
+              <span class="body-small dim">{t('battle_pin')}</span>
+              <input class="headline-small" inputmode="numeric" autocomplete="off" maxlength={6} value={battle.pin}
+                oninput={(e) => (battle.pin = e.currentTarget.value.replace(/\D/g, '').slice(0, 6))} />
+            </label>
+            <button class="btn filled big" type="submit" disabled={battle.busy || battle.pin.length !== 6}>{t('battle_join')}</button>
+          </form>
+        {/if}
       </div>
     </div>
   </div>
@@ -297,7 +334,9 @@
             </div>
           {/snippet}
           {#snippet overlay()}
-            {#if handOver && !hideResult}
+            {#if handOver && held}
+              <button class="skip" aria-label={t('replay_result')} onclick={() => (held = false)}></button>
+            {:else if handOver && !hideResult}
               <!-- A short window (a phone held sideways): the standings beside the result, which keeps its buttons in view. -->
               {@const side = short && room.phase === 'REVIEW' && people.length > 1}
               <div class="sheet">
@@ -390,9 +429,8 @@
 
   /* The entry */
   .entry { display: flex; flex-direction: column; gap: 14px; padding: 4px 16px 16px; max-width: 640px; margin: 0 auto; }
-  .entry.wide { flex-direction: row; gap: 20px; max-width: 1100px; }
-  .entry.wide .col:first-child { flex: 0.95; }
-  .entry.wide .col:last-child { flex: 1.25; }
+  .mode-title { margin-top: 6px; }
+  .tonal { background: var(--secondary-container); color: var(--on-secondary-container); }
   .col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .field { display: flex; flex-direction: column; gap: 2px; padding: 6px 14px 8px; border: 1px solid var(--outline); border-radius: 6px; }
   .field:focus-within { border: 2px solid var(--primary); padding: 5px 13px 7px; }
@@ -407,7 +445,6 @@
   /* The minimal colors' felt is the page: a container, so that it still looks like a button. */
   :global(:root.minimal) .fill { background: var(--secondary-container); color: var(--on-secondary-container); }
   .tile .info { opacity: 0.88; }
-  .join { border: 2px solid var(--outline-variant); gap: 8px; }
   .pin-row { display: flex; align-items: center; gap: 10px; }
   .pin { flex: 1; max-width: 220px; }
   .pin input { letter-spacing: 6px; }
@@ -450,6 +487,7 @@
   .mini-standings { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 20px; background: var(--surface-container-high);
     color: var(--on-surface); }
   .peek { position: absolute; right: 12px; top: 12px; z-index: 5; }
+  .skip { position: absolute; inset: 0; z-index: 5; border: none; background: transparent; cursor: pointer; }
   .reconnect { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px;
     padding: 8px 14px; border-radius: 18px; background: var(--surface-container-highest); color: var(--on-surface); }
   .panel { display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 16px 0; color: var(--on-felt); }

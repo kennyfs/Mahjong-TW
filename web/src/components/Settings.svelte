@@ -1,5 +1,6 @@
 <!--
-  The settings: the game (the rules, practice's length, the computer players and their pace), the look, and about.
+  The settings: the game (the rules, practice's length, the computer players and their pace), the analysis (what a
+  row of a decision's list shows, and from which loss on a decision is a mistake), the look, and about.
   A computer shows the list at the left and the rules beside it.
 -->
 <script lang="ts">
@@ -7,7 +8,8 @@
   import { nav } from '../lib/nav.svelte';
   import { practice } from '../lib/practice.svelte';
   import { flowerLabel, taiLabel } from '../lib/rules';
-  import { BOTS, settings, type Colors, type Dark, type Length, type Speed, type TextSize } from '../lib/settings.svelte';
+  import { BOTS, settings, type Colors, type Dark, type Length, type Level, type ListRows, type Speed, type TextSize } from '../lib/settings.svelte';
+  import { tour } from '../lib/tour.svelte';
   import { ui } from '../lib/ui.svelte';
   import Rules from './Rules.svelte';
   import SettingRow from './SettingRow.svelte';
@@ -19,10 +21,16 @@
   const colors: [Colors, string][] = [['TABLE', t('colors_table')], ['MINIMAL', t('colors_minimal')]];
   const darks: [Dark, string][] = [['SYSTEM', t('dark_system')], ['LIGHT', t('dark_light')], ['DARK', t('dark_dark')]];
   const texts: [TextSize, string][] = [['SMALL', t('text_small')], ['NORMAL', t('text_normal')], ['LARGE', t('text_large')]];
+  const bots: [string, string][] = BOTS.map((b) => [b.spec, t(b.label)]);
+  const rows: [ListRows, string][] = [['numbers', t('list_rows_numbers')], ['bars', t('list_rows_bars')], ['both', t('list_rows_both')]];
+  const levels: [Level, string][] = [['beginner', t('level_beginner')], ['mid', t('level_mid')], ['expert', t('level_expert')]];
   const rulesValue = $derived(t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerLabel(settings.rules.flowers))) +
     (Object.keys(settings.rules.overrides).length ? '・' + t('rules_custom') : ''));
 
   function setLength(v: Length) { settings.length = v; settings.persist(); void practice.settingsChanged(); }
+  function setBot(v: string) { settings.bot = v; settings.persist(); void practice.settingsChanged(); }
+  function setRows(v: ListRows) { settings.listRows = v; settings.persist(); }
+  function setLevel(v: Level) { settings.level = v; settings.persist(); }
   function setSpeed(v: Speed) { settings.speed = v; settings.persist(); }
   function setColors(v: Colors) { settings.colors = v; settings.persist(); }
   function setDark(v: Dark) { settings.dark = v; settings.persist(); }
@@ -33,16 +41,34 @@
   <div class="page">
     <TitleBar title={t('settings_title')} />
     <div class="scroll"><div class="readable">
+      <div class="section-header">{t('settings_help')}</div>
+      <SettingRow title={t('guide_title')} value={t('guide_row')} onclick={() => nav.open('guide')} />
+      <SettingRow title={t('tour_title')} value={t('tour_row')} onclick={() => tour.start()} />
       <div class="section-header">{t('settings_game')}</div>
       <SettingRow title={t('settings_rules')} value={rulesValue} onclick={desk ? null : () => nav.open('rules')} selected={desk} />
       <div class="block">
         <div class="body-large">{t('settings_length')}</div>
         <Toggle options={lengths} selected={settings.length} onselect={setLength} />
       </div>
-      <SettingRow title={t('settings_bot')} value={t(BOTS.find((b) => b.spec === settings.bot)?.label ?? 'bot_greedy')} />
+      <div class="block">
+        <div class="body-large">{t('settings_bot')}</div>
+        <Toggle options={bots} selected={settings.bot} onselect={setBot} />
+      </div>
       <div class="block">
         <div class="body-large">{t('settings_speed')}</div>
         <Toggle options={speeds} selected={settings.speed} onselect={setSpeed} />
+      </div>
+
+      <div class="section-header">{t('settings_analysis')}</div>
+      <div class="block">
+        <div class="body-large">{t('settings_list_rows')}</div>
+        <Toggle options={rows} selected={settings.listRows} onselect={setRows} />
+        <div class="body-small dim">{t('list_rows_hint')}</div>
+      </div>
+      <div class="block">
+        <div class="body-large">{t('settings_level')}</div>
+        <Toggle options={levels} selected={settings.level} onselect={setLevel} />
+        <div class="body-small dim">{t('level_hint')}</div>
       </div>
 
       <div class="section-header">{t('settings_look')}</div>
@@ -60,7 +86,7 @@
       </div>
 
       <div class="section-header">{t('settings_about')}</div>
-      <p class="about body-medium">{t('about_text')}</p>
+      <p class="about body-medium">{t('about_text_net')}</p>
     </div></div>
   </div>
 {/snippet}

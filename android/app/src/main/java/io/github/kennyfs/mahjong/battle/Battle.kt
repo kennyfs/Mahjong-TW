@@ -171,7 +171,8 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
     val prefs = context.getSharedPreferences("battle", Context.MODE_PRIVATE)
     return RoomSettings(
       mode, RoomLength.valueOf(settings.length.name), prefs.getInt("hands", 4), RoomRules(settings.rules.tai, settings.rules.flowers, settings.rules.overrides),
-      prefs.getInt("time", 15), settings.bot,
+      // A room's bots are the room's (protocol Validation.BOTS): tile efficiency, until the rooms have the network.
+      prefs.getInt("time", 15), "greedy",
     )
   }
 

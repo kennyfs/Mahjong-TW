@@ -13,7 +13,7 @@
   import { settings } from '../lib/settings.svelte';
   import { windName } from '../lib/tiles';
   import type { Action } from '../lib/types';
-  import { signed, ui } from '../lib/ui.svelte';
+  import { END_PAUSE, signed, ui } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
@@ -35,6 +35,22 @@
   const rulesChip = $derived(t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerLabel(settings.rules.flowers))));
   const lastFav = $derived(practice.lastRecord ? !!records.get(practice.lastRecord)?.fav : false);
   $effect(() => { if (stage === 'playing') hideResult = false; });
+  /** A hand's end: the table as it ended (every hand shown, the words of the win, 放槍 over who dealt in) for a moment
+   *  before the result; a tap goes on at once. Not for a result come back to. */
+  let held = $state(false);
+  let inPlay = false;
+  $effect(() => {
+    if (stage === 'playing') {
+      inPlay = true;
+      held = false;
+      return;
+    }
+    if (stage !== 'result' || !inPlay) return;
+    inPlay = false;
+    held = true;
+    const id = setTimeout(() => (held = false), END_PAUSE);
+    return () => clearTimeout(id);
+  });
 
   function act(a: Action) { void practice.act(a); }
   const totals = $derived(meta?.totals ?? [0, 0, 0, 0]);
@@ -43,7 +59,7 @@
 
 <div class="play">
   {#if !ui.wide}
-  <header class="bar">
+  <header class="bar" data-tour="top">
     <div class="where">
       {#if view}<span class="title-medium nowrap">{t('round_wind', windName(view.position.setup.round))} {handLabel}</span>{/if}
     </div>
@@ -59,8 +75,10 @@
         keys={ui.desk}>
         {#snippet corner()}
           {#if ui.wide}
-            <button class="mini" onclick={() => nav.open('rules')}>{rulesChip}</button>
-            <button class="mini" onclick={() => (confirmNew = true)}>{t('practice_new')}</button>
+            <span class="corner-buttons" data-tour="top">
+              <button class="mini" onclick={() => nav.open('rules')}>{rulesChip}</button>
+              <button class="mini" onclick={() => (confirmNew = true)}>{t('practice_new')}</button>
+            </span>
           {/if}
         {/snippet}
         {#snippet aside()}
@@ -80,7 +98,7 @@
                 </div>
               {/each}
             </div>
-            <div class="p-buttons">
+            <div class="p-buttons" data-tour="top">
               <button class="chip on-felt" onclick={() => nav.open('rules')}>{rulesChip}<Icon name="dropDown" size={18} /></button>
               <button class="btn tonal" onclick={() => (confirmNew = true)}>{t('practice_new')}</button>
             </div>
@@ -94,9 +112,11 @@
           </div>
         {/snippet}
         {#snippet overlay()}
-          {#if stage === 'result' && final?.result && !hideResult}
+          {#if stage === 'result' && held}
+            <button class="skip" aria-label={t('replay_result')} onclick={() => (held = false)}></button>
+          {:else if stage === 'result' && final?.result && !hideResult}
             <div class="sheet">
-              <HandResult {final} {names} me={ME} w={ui.wide ? Math.min(40, Math.max(26, ui.w / 27)) : Math.min(36, Math.max(26, ui.w / 13))}>
+              <HandResult {final} {names} me={ME} rev={practice.lastRecord ? records.get(practice.lastRecord)?.rev ?? null : null} w={ui.wide ? Math.min(40, Math.max(26, ui.w / 27)) : Math.min(36, Math.max(26, ui.w / 13))}>
                 {#snippet actions()}
                   <button class="btn icon" aria-label={t('favorite')} onclick={() => practice.lastRecord && records.setFav(practice.lastRecord, !lastFav)}>
                     <Icon name={lastFav ? 'star' : 'starBorder'} />
@@ -153,6 +173,9 @@
   .mini { border: 1px solid var(--on-felt-dim); background: transparent; color: var(--on-felt); border-radius: 12px; padding: 1px 8px;
     font-size: 0.75rem; cursor: pointer; }
   .spacer { flex: 1; }
+  /* The corner's buttons together (the tour lights them as one), one over the other in the table's top-right corner. */
+  .corner-buttons { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .skip { position: absolute; inset: 0; z-index: 5; border: none; background: transparent; cursor: pointer; }
   .table-wrap { flex: 1; min-height: 0; position: relative; }
   .sheet { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 12px;
     background: rgba(0, 0, 0, 0.35); }

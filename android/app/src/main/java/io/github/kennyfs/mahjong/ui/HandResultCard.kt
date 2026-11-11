@@ -24,25 +24,38 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.kennyfs.mahjong.Level
 import io.github.kennyfs.mahjong.R
+import io.github.kennyfs.mahjong.ReviewSummary
 import io.github.kennyfs.mahjong.Tiles
 import io.github.kennyfs.mahjong.View
 import io.github.kennyfs.mahjong.flowersOf
 import io.github.kennyfs.mahjong.meldTiles
+import io.github.kennyfs.mahjong.mistakesOf
+import io.github.kennyfs.mahjong.mistakesText
+import io.github.kennyfs.mahjong.pts
 
 /**
  * A finished hand: who won and how, the winner's hand (the winning tile apart), its tai items by name, the payments,
- * and the next dealer. `final` is the hand's view with everything shown (reveal). The web page's HandResult.svelte.
+ * and the next dealer. `final` is the hand's view with everything shown (reveal). `rev`: the network's review of the
+ * player's decisions in short, when there is one (the expected result at the start, what the decisions lost, the luck,
+ * and the mistakes at the settings' `level`). The web page's HandResult.svelte.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun HandResultCard(final: View, names: List<String>, me: Int, w: Float, modifier: Modifier = Modifier, actions: @Composable RowScope.() -> Unit = {}) {
+fun HandResultCard(
+  final: View, names: List<String>, me: Int, w: Float, modifier: Modifier = Modifier, rev: ReviewSummary? = null, level: Level = Level.mid,
+  actions: @Composable RowScope.() -> Unit = {},
+) {
   val r = final.result ?: return
   val cs = MaterialTheme.colorScheme
+  val res = LocalResources.current
   val title = when {
     r.exhausted || r.winners.isEmpty() -> stringResource(R.string.result_exhausted)
     r.flowerWin -> stringResource(R.string.result_flower_win, names[r.winners[0].seat])
@@ -96,6 +109,18 @@ fun HandResultCard(final: View, names: List<String>, me: Int, w: Float, modifier
             Text(names[seat], maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
             Text(signed(pts), color = pointsColor(pts), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
           }
+        }
+      }
+      if (rev != null) {
+        val mistakes = mistakesOf(rev, level)
+        FlowRow(
+          Modifier.fillMaxWidth().background(cs.surfaceContainer, RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 6.dp)
+            .testTag("result_review_line"),
+          horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+          Text(stringResource(R.string.review_line, pts(rev.first), pts(-rev.loss), pts(rev.luck)), style = MaterialTheme.typography.bodyMedium)
+          Text(mistakesText(res, level, mistakes), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
+            color = if (mistakes > 0) LocalOutcome.current.bad else LocalOutcome.current.good)
         }
       }
       Text(

@@ -6,6 +6,23 @@ import type { GameRecord, Result } from './types';
 
 export type RecordKind = 'practice' | 'table' | 'contest';
 
+/** A hand's review by the network, in short (lib/review.ts), kept with the record for the lists and the statistics. */
+export interface ReviewSummary {
+  /** The network that reviewed it (engine.MODEL_ID): another one reviews it again. */
+  m: string;
+  /** The expected result at the first decision, the points lost by decisions, and the rest of the result: luck. */
+  first: number;
+  loss: number;
+  luck: number;
+  /** A typical payment under the hand's rules, which the grades are scaled by. */
+  unit: number;
+  /** Decisions that had a choice; how many were questionable, mistakes, blunders. */
+  n: number;
+  grades: number[];
+  /** The points lost by kind of decision (review.ts KINDS_OF_LOSS: tile, danger, call, win). */
+  kinds: number[];
+}
+
 export interface HandRecord {
   id: string;
   /** When the hand ended (ISO 8601). */
@@ -28,6 +45,7 @@ export interface HandRecord {
   group?: string;
   index?: number;
   fav?: boolean;
+  rev?: ReviewSummary;
 }
 
 export interface BattleGroup {
@@ -72,6 +90,11 @@ class Records {
 
   setFav(id: string, fav: boolean) {
     this.hands = this.hands.map((h) => (h.id === id ? { ...h, fav } : h));
+    this.persist();
+  }
+
+  setReview(id: string, rev: ReviewSummary) {
+    this.hands = this.hands.map((h) => (h.id === id ? { ...h, rev } : h));
     this.persist();
   }
 

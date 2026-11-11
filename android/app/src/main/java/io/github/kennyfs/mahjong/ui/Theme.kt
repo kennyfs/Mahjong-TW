@@ -83,6 +83,19 @@ private fun tableFor(style: ColorStyle, scheme: ColorScheme, dark: Boolean): Tab
   }
 }
 
+/** An analysis' levels: danger and grades (1 mild, 3 severe), and a good find. The web page's --danger-n and --found. */
+object Marks {
+  val danger1 = Color(0xFFF2C94C)
+  val danger2 = Color(0xFFF2884A)
+  val danger3 = Color(0xFFE5484D)
+  val found = Color(0xFF2F9E6B)
+  private val onMild = Color(0xFF2B1700)
+
+  fun danger(level: Int) = when (level) { 1 -> danger1; 2 -> danger2; else -> danger3 }
+  /** Words on a level's color. */
+  fun on(level: Int) = if (level >= 3) Color.White else onMild
+}
+
 val LocalTable = staticCompositionLocalOf { tableFor(ColorStyle.TABLE, BrandLight, false) }
 val LocalOutcome = staticCompositionLocalOf { Outcome(Color(0xFF2E7D32), Color(0xFFC62828)) }
 

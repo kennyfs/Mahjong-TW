@@ -108,23 +108,26 @@ def main():
 
         a = person('phone')
         b = person('fhd')
-        # The entry, and a table with two people.
+        # The entry (first only a new room or joining one), a new room's kinds, and a table with two people.
         a.goto(base + '#/battle')
         a.wait_for_selector('.entry', timeout=20000)
-        a.fill('.field input', '阿明')
         shot(a, 'battle-entry-phone')
         b.goto(base + '#/battle')
         b.wait_for_selector('.entry', timeout=20000)
         shot(b, 'battle-entry-fhd')
-        a.click('button.tile >> nth=0')
+        a.click('button.tile >> nth=0')  # 建立房間
+        a.fill('.field input', '阿明')
+        shot(a, 'battle-create-phone')
+        a.click('button.tile >> nth=0')  # 開一桌
         a.wait_for_selector('.pin-big', timeout=20000)
         pin = state(a)['pin']
         print('room', pin, flush=True)
-        # The other joins by the room's link.
+        # The other joins by the room's link (the entry's joining step, the PIN filled in).
         b.goto(base + f'#/battle/{pin}')
         b.reload()
-        b.wait_for_selector('.entry', timeout=20000)
+        b.wait_for_selector('form.pin-row', timeout=20000)
         b.fill('.field input', '小華')
+        shot(b, 'battle-join-fhd')
         b.click('form.pin-row button[type=submit]')
         b.wait_for_selector('.lobby', timeout=20000)
         # The host plays one hand.
@@ -169,15 +172,19 @@ def main():
         b.wait_for_selector('.entry', timeout=20000)
 
         # A contest of two hands; the computer's player reloads in the middle of the first.
-        a.click('button.tile >> nth=1')
+        a.click('button.tile >> nth=0')  # 建立房間
+        a.click('button.tile >> nth=1')  # 同牌賽
         a.wait_for_selector('.pin-big', timeout=20000)
         pin = state(a)['pin']
+        b.click('button.tile >> nth=1')  # 加入房間
         b.fill('form.pin-row input', pin)
         b.click('form.pin-row button[type=submit]')
         b.wait_for_selector('.lobby', timeout=20000)
         a.click('.setting [role=radio] >> text="2"')
         a.wait_for_timeout(400)
         shot(a, 'contest-lobby-phone-land', 'phone-land')
+        # Upright again: sideways, the lobby's start is in its title bar instead.
+        a.set_viewport_size({'width': SIZES['phone'][0], 'height': SIZES['phone'][1]})
         a.click('button.start')
         a.wait_for_selector('.table', timeout=20000)
         b.wait_for_selector('.table', timeout=20000)

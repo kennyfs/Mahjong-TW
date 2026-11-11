@@ -1,9 +1,37 @@
+import java.security.MessageDigest
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   id("com.android.application")
   id("org.jetbrains.kotlin.plugin.compose")
   id("org.jetbrains.kotlin.plugin.serialization")
+}
+
+val ortVersion = "1.31.1"
+// ONNX Runtime, for the network: its AAR, unpacked so the native engine can compile against its C++ headers and link
+// its libonnxruntime.so (headers/ and jni/<abi>/ inside the AAR). MAHJONG_ORT_DIR, the same layout, is a reduced build
+// instead (only the operators the network uses: 10 MB for arm64-v8a, the AAR's is 34 MB; build-ort.sh makes one,
+// from ort-ops.config).
+val ortAar: Configuration = configurations.create("ortAar")
+val ownOrt: String? = System.getenv("MAHJONG_ORT_DIR")?.ifEmpty { null }
+val ortDir = ownOrt?.let { layout.projectDirectory.dir(it) } ?: layout.buildDirectory.dir("onnxruntime").get()
+val extractOrt = tasks.register<Copy>("extractOrt") {
+  enabled = ownOrt == null
+  from({ zipTree(ortAar.singleFile) })
+  into(ortDir)
+}
+
+// The network the app ships (an actor's .onnx, not in the repository): MAHJONG_MODEL, or the one the web page was
+// built with. It goes into the assets as actor.onnx; its id (the start of its SHA-256) tells the app which network
+// reviewed a record, and names the copy the engine loads.
+val modelFile = file(System.getenv("MAHJONG_MODEL")?.ifEmpty { null } ?: "../../web/engine-files/actor.onnx")
+val modelAssets = layout.buildDirectory.dir("model-assets")
+val modelId: String = if (!modelFile.exists()) "none" else
+  MessageDigest.getInstance("SHA-256").digest(modelFile.readBytes()).take(4).joinToString("") { b -> "%02x".format(b) }
+val copyModel = tasks.register<Copy>("copyModel") {
+  from(modelFile)
+  into(modelAssets)
+  rename { "actor.onnx" }
 }
 
 fun git(vararg args: String): String? =
@@ -30,11 +58,12 @@ android {
         tag.removePrefix("v") + if (since == "0") "" else "+beta.$since"
       } ?: "0.0.${git("rev-list", "--count", "HEAD") ?: "0"}"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    buildConfigField("String", "MODEL_ID", "\"$modelId\"")
     externalNativeBuild {
       cmake {
-        // 16 KB pages, which Google Play requires; the C++ library linked in (no other native library needs it yet:
-        // with ONNX Runtime, Thirteen's way, it would be shared).
-        arguments += listOf("-DANDROID_STL=c++_static", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
+        // 16 KB pages, which Google Play requires. The C++ library linked in: libonnxruntime.so has its own, and
+        // only its C API crosses between the two.
+        arguments += listOf("-DORT_DIR=${ortDir.asFile.absolutePath}", "-DANDROID_STL=c++_static", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
       }
     }
   }
@@ -56,8 +85,9 @@ android {
       ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
     release {
-      // arm64 and x86_64 (the emulator) until it goes to a store: MAHJONG_ABIS=arm64-v8a for a phone's only.
-      ndk { abiFilters += (System.getenv("MAHJONG_ABIS")?.split(",") ?: listOf("arm64-v8a", "x86_64")) }
+      // arm64 only, as phones are (Thirteen's too); MAHJONG_ABIS=x86_64 makes a release build the emulator runs, to try
+      // the minified app on it.
+      ndk { abiFilters += (System.getenv("MAHJONG_ABIS")?.split(",") ?: listOf("arm64-v8a")) }
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -78,11 +108,22 @@ android {
   }
   buildFeatures {
     compose = true
+    buildConfig = true
   }
   androidResources {
     // The app's own languages (Taiwan's Traditional Chinese now, English later): the libraries bring strings in
     // dozens more, which only make the APK larger.
     localeFilters += listOf("zh-rTW", "en")
+  }
+  // The network, copied by copyModel.
+  sourceSets["main"].assets.directories += modelAssets.get().asFile.absolutePath
+  // The reduced library goes in as it is; the AAR's comes with the AAR.
+  if (ownOrt != null) sourceSets["main"].jniLibs.directories += ortDir.dir("jni").asFile.absolutePath
+  packaging {
+    // The AAR and the imported library in CMake both bring it.
+    jniLibs.pickFirsts += "**/libonnxruntime.so"
+    // The Java API's JNI library: unused (the engine calls the C API), and not aligned to 16 KB pages.
+    jniLibs.excludes += "**/libonnxruntime4j_jni.so"
   }
 }
 
@@ -90,7 +131,17 @@ kotlin {
   compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
+tasks.named("preBuild") {
+  dependsOn(extractOrt, copyModel)
+  doFirst {
+    if (!modelFile.exists()) throw GradleException("The network is missing: set MAHJONG_MODEL to an actor's .onnx (android/README.md); looked for $modelFile")
+  }
+}
+
 dependencies {
+  add(ortAar.name, "com.microsoft.onnxruntime:onnxruntime-android:$ortVersion@aar")
+  if (ownOrt == null) implementation("com.microsoft.onnxruntime:onnxruntime-android:$ortVersion")
+
   val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
   implementation(composeBom)
   implementation("androidx.compose.material3:material3")

@@ -2,23 +2,32 @@ package io.github.kennyfs.mahjong.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -32,61 +41,108 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
-import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
+import io.github.kennyfs.mahjong.Practice
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.kennyfs.mahjong.Action
 import io.github.kennyfs.mahjong.Analysis
-import io.github.kennyfs.mahjong.AnalysisTarget
 import io.github.kennyfs.mahjong.AppModel
+import io.github.kennyfs.mahjong.EQUAL
 import io.github.kennyfs.mahjong.Engine
+import io.github.kennyfs.mahjong.EngineException
 import io.github.kennyfs.mahjong.R
+import io.github.kennyfs.mahjong.Review
+import io.github.kennyfs.mahjong.Screen
+import io.github.kennyfs.mahjong.Steps
+import io.github.kennyfs.mahjong.TileMark
 import io.github.kennyfs.mahjong.Tiles
+import io.github.kennyfs.mahjong.Truth
 import io.github.kennyfs.mahjong.View
-import io.github.kennyfs.mahjong.actionTiles
+import io.github.kennyfs.mahjong.actionText
+import io.github.kennyfs.mahjong.costOf
+import io.github.kennyfs.mahjong.efficiencyText
+import io.github.kennyfs.mahjong.figureItems
 import io.github.kennyfs.mahjong.flowersOf
 import io.github.kennyfs.mahjong.fullAction
+import io.github.kennyfs.mahjong.gradeOf
+import io.github.kennyfs.mahjong.isKey
 import io.github.kennyfs.mahjong.isTaken
+import io.github.kennyfs.mahjong.keysOf
 import io.github.kennyfs.mahjong.meldTiles
+import io.github.kennyfs.mahjong.mistakesText
+import io.github.kennyfs.mahjong.notableText
+import io.github.kennyfs.mahjong.pct
+import io.github.kennyfs.mahjong.pts
+import io.github.kennyfs.mahjong.readyLevel
+import io.github.kennyfs.mahjong.reasonOf
 import io.github.kennyfs.mahjong.recordAction
+import io.github.kennyfs.mahjong.reviewOf
+import io.github.kennyfs.mahjong.summarize
+import io.github.kennyfs.mahjong.tagCost
+import io.github.kennyfs.mahjong.tileMarks
+import io.github.kennyfs.mahjong.tilesShort
+import kotlinx.coroutines.launch
 
 /** An action in words: "打出 五萬", "吃 三四五萬". */
 @Composable
-fun actionText(a: Action): String {
-  val word = stringResource(actionLabel(a.type))
-  val ts = actionTiles(a)
-  return if (ts.isEmpty()) word else "$word ${ts.joinToString("") { Tiles.name(it) }}"
-}
+fun actionText(a: Action): String = actionText(LocalResources.current, a)
+
+/** The decision a review shows: whose it is, its analysis, the action taken (its index), what the others really held. */
+private class Focus(val seat: Int, val analysis: Analysis, val played: Int, val truth: List<Truth>?)
+
+/** How near its end a decision's list must be scrolled to keep its distance from the end over a step. */
+private val NEAR_END = 360.dp
 
 /**
  * A finished hand's review: the table as the player saw it (or everyone's tiles), step by step through the record's
- * decisions (others' passes skipped), each decision open to analysis, and the result at the end. The web page's
- * Replay.svelte.
+ * actions, with the network's analysis of each of the player's decisions and the result at the end. Only after the
+ * hand: never while it is played. The web page's Replay.svelte.
+ *
+ * The steps shown are the actions that took effect and the player's own decisions: others' passes are skipped, and so
+ * are others' claims that another seat's claim came before (a chow when someone else won on the tile); the engine says
+ * which ({"cmd":"steps"}). The button to the end goes to the last of them (the win, with who dealt in; without a win
+ * the last discard), then to the table at the end; the result's sheet opens from its own button, never by itself.
+ *
+ * The review (docs/analysis.md): the hand in short (the expected result at the first decision, what the decisions
+ * lost, the rest as luck), a graph of the expected result to jump from, steps between the decisions worth a look (the
+ * mistakes of the settings' level, and the best actions that are not the obvious ones), and at a decision what each
+ * action costs against the best: on the hand's tiles (what each discard costs, its danger as a band along its foot, a
+ * tap for a tile's line), and in a list of every action one tap away (beside the table on a large window), its rows
+ * numbers, bars or both (the settings). The list keeps its place from its end over a step when it is scrolled near it
+ * (the opponents' figures are there, to watch them change). A step can be taken to the analysis screen to try changes.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
   val rec = vm.reviewId?.let { vm.records.get(it) }
@@ -97,315 +153,549 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     }
     return
   }
+  val res = LocalResources.current
+  val scope = rememberCoroutineScope()
+  val cs = MaterialTheme.colorScheme
+  val settings = vm.settings
+  val level = settings.level
   val n = rec.game.actions.size
-  var step by remember(rec.id) { mutableStateOf(vm.reviewStep.coerceIn(0, n)) }
+  var step by remember(rec.id) { mutableIntStateOf(vm.reviewStep.coerceIn(0, n)) }
   LaunchedEffect(step) { vm.reviewStep = step }
   var showAll by remember { mutableStateOf(false) }
-  var showResult by remember { mutableStateOf(true) }
+  var showResult by remember(rec.id) { mutableStateOf(false) }
+  /** A phone: the list in place of the table. */
+  var panelOpen by remember { mutableStateOf(false) }
   var view by remember(rec.id) { mutableStateOf<View?>(null) }
   var final by remember(rec.id) { mutableStateOf<View?>(null) }
-  LaunchedEffect(rec.id) { final = runCatching { Engine.view(rec.game, rec.me, 0, reveal = true) }.getOrNull() }
+  var rev by remember(rec.id) { mutableStateOf<Review?>(null) }
+  var revError by remember(rec.id) { mutableStateOf<String?>(null) }
+  var steps by remember(rec.id) { mutableStateOf<Steps?>(null) }
+  // The hand's end, which of its actions took effect, and its review when the network has gone through it.
+  LaunchedEffect(rec.id) {
+    launch { final = try { Engine.view(rec.game, rec.me, 0, reveal = true) } catch (e: EngineException) { null } }
+    launch { steps = try { Engine.steps(rec.game) } catch (e: EngineException) { null } }
+    try {
+      val x = reviewOf(rec)
+      rev = x
+      if (x.firstValue != null && vm.records.get(rec.id)?.rev?.m != Engine.MODEL_ID) vm.records.setReview(rec.id, summarize(x))
+    } catch (e: EngineException) {
+      revError = e.message ?: ""
+    }
+  }
   LaunchedEffect(rec.id, step, showAll) {
-    view = runCatching { Engine.view(rec.game.cut(step), rec.me, 0, reveal = showAll || step == n) }.getOrNull()
-  }
-  val you = stringResource(R.string.you)
-  val names = rec.names.mapIndexed { i, x -> if (i == rec.me) you else x }
-  fun isStop(k: Int): Boolean {
-    val (seat, a) = recordAction(rec.game.actions[k])
-    return a.type != "pass" || seat == rec.me
-  }
-  fun mine(k: Int) = recordAction(rec.game.actions[k]).first == rec.me
-  fun next() { var k = step + 1; while (k < n && !isStop(k)) k++; step = minOf(k, n); showResult = true }
-  fun prev() { var k = step - 1; while (k > 0 && !isStop(k)) k--; step = maxOf(0, k) }
-  fun nextMine() { var k = step + 1; while (k < n && !mine(k)) k++; step = minOf(k, n); showResult = true }
-  fun prevMine() { var k = step - 1; while (k > 0 && !mine(k)) k--; step = maxOf(0, k) }
-  val deciding = if (step < n) recordAction(rec.game.actions[step]).let { (s, a) -> s to fullAction(a) } else null
-  fun analyze() {
-    val d = deciding ?: return
-    vm.analyze(AnalysisTarget(rec.game.cut(step), d.first, d.second, names))
+    try {
+      view = Engine.view(rec.game.cut(step), rec.me, 0, reveal = showAll || step == n)
+    } catch (e: EngineException) {
+      vm.error = e.message
+    }
   }
 
+  val you = stringResource(R.string.you)
+  val names = rec.names.mapIndexed { i, x -> if (i == rec.me) you else x }
+  val actions = remember(rec.id) { rec.game.actions.map(::recordAction) }
+  /** A step is shown when its action took effect or is the player's own (until the engine has said which took effect:
+   *  when it is not another seat's pass). */
+  val taken = steps?.taken
+  fun isStop(k: Int) = actions[k].first == rec.me || (taken?.getOrNull(k) ?: (actions[k].second.type != "pass"))
+  fun isMine(k: Int) = actions[k].first == rec.me
+  val stopList = (0 until n).filter(::isStop)
+  val stepNumber = stopList.count { it <= step }
+  /** The step the play ended with: the win (the first, when a discard made several winners); without a win the last
+   *  action that took effect. */
+  val last = steps?.last?.takeIf { it >= 0 } ?: (stopList.lastOrNull() ?: 0)
+  fun go(k: Int) {
+    step = k.coerceIn(0, n)
+    showResult = false
+  }
+  fun next() { var k = step + 1; while (k < n && !isStop(k)) k++; go(k) }
+  fun prev() { var k = step - 1; while (k > 0 && !isStop(k)) k--; go(k) }
+  fun nextMine() { var k = step + 1; while (k < n && !isMine(k)) k++; go(k) }
+  fun prevMine() { var k = step - 1; while (k > 0 && !isMine(k)) k--; go(k) }
+  /** To the last step; from there to the table at the end. */
+  fun toEnd() = go(if (step < last) last else n)
+  fun openResult() {
+    step = n
+    showResult = true
+  }
+  /** Whose tile a claim at step k answers: the discard (or added kong) before it. */
+  fun claimedFrom(k: Int): Int {
+    for (i in k - 1 downTo 0) if (actions[i].second.type == "discard" || actions[i].second.type == "kakan") return actions[i].first
+    return -1
+  }
+  /** How the hand ended, in a few words. */
+  val outcome = final?.result?.let { r ->
+    if (r.exhausted || r.winners.isEmpty()) res.getString(R.string.result_exhausted)
+    else {
+      val who = r.winners.joinToString("、") { names[it.seat] }
+      when {
+        r.flowerWin -> res.getString(R.string.result_flower_win, who)
+        r.selfDraw -> res.getString(R.string.result_tsumo, who)
+        else -> res.getString(R.string.result_ron, who) + if (r.loser >= 0) "・" + res.getString(R.string.result_ron_from, names[r.loser]) else ""
+      }
+    }
+  } ?: ""
+
+  // The review: its decisions by step, and the ones to stop at.
+  val r = rev
+  val unit = r?.unit
+  val hasNet = r?.firstValue != null
+  val keys = remember(r) { if (r != null && r.firstValue != null) keysOf(r) else emptyList() }
+  val stops = keys.filter { isKey(it, level) }
+  val points = remember(r) { if (r != null && r.firstValue != null) r.decisions.map { it.step to (it.analysis.value ?: 0.0) } else emptyList() }
+  val mistakes = keys.count { it.grade >= level.grade }
+  val nextKeyStep = stops.firstOrNull { it.step > step }?.step ?: -1
+  val prevKeyStep = stops.lastOrNull { it.step < step }?.step ?: -1
+  val mine = r?.decisions?.firstOrNull { it.step == step }
+  val key = keys.firstOrNull { it.step == step }
+  val deciding = if (step < n) actions[step].let { (s, a) -> s to fullAction(a) } else null
+  /** What the step's line adds to the action: who dealt in to a win; for a claim that was not made, whose came first. */
+  val decidingNote = if (deciding == null) "" else {
+    val over = steps?.over?.getOrNull(step) ?: -1
+    when {
+      over >= 0 -> res.getString(R.string.replay_overridden, names[actions[over].first], res.getString(actionLabel(actions[over].second.type)))
+      deciding.second.type == "ron" -> claimedFrom(step).let { if (it >= 0) res.getString(R.string.result_ron_from, names[it]) else "" }
+      else -> ""
+    }
+  }
+  val stepKey = "${rec.id}/$step"
+
   BoxWithConstraints(Modifier.fillMaxSize()) {
-    val side = maxWidth > maxHeight && maxHeight < 560.dp
-    val wide = maxWidth > maxHeight
+    /** A wide window: the controls in a column at the right, the table the full height; with the list of a decision's
+     *  actions under them when the window is large. */
+    val side = maxWidth > maxHeight
+    val inlinePanel = side && maxWidth >= 1180.dp && maxHeight >= 600.dp
     val w = maxWidth.value
-    val fav = rec.fav
+    val hw = if (side) minOf(44f, ((w - 208) * 0.46f - 24) / 9.3f) else minOf(44f, (minOf(w, 720f) - 28) / 9.3f)
+
+    // Another seat's decision (or one of the player's without a choice): analyzed when its list is shown.
+    val listShown = inlinePanel || panelOpen
+    var other by remember { mutableStateOf<Pair<String, Analysis>?>(null) }
+    LaunchedEffect(stepKey, listShown, mine == null) {
+      if (deciding == null || mine != null || !listShown || other?.first == stepKey) return@LaunchedEffect
+      try {
+        other = stepKey to Engine.analyzeGame(rec.game.cut(step), deciding.first)
+      } catch (e: EngineException) {
+        // The list stays empty: the table still shows the step.
+      }
+    }
+    val focus: Focus? = when {
+      deciding == null -> null
+      mine != null -> Focus(rec.me, mine.analysis, mine.played, mine.truth)
+      else -> other?.takeIf { it.first == stepKey }?.second?.let { a -> Focus(deciding.first, a, a.actions.indexOfFirst { isTaken(it.action, deciding.second) }, null) }
+    }
+
+    // On the table: the tiles' marks, the name plates' notes, the options that are not discards, the tile tapped.
+    val marks: Map<String, TileMark>? = if (!hasNet) null else if (mine != null) tileMarks(res, mine.analysis, mine.played, unit) else emptyMap()
+    val notes: List<SeatNote?>? = mine?.analysis?.opponents?.let { opponents ->
+      val out = arrayOfNulls<SeatNote>(4)
+      for (o in opponents) {
+        val tr = if (showAll) mine.truth.firstOrNull { it.seat == o.seat } else null
+        val ready = o.ready.getOrElse(0) { 0.0 }
+        out[o.seat] = when {
+          tr != null && tr.missed -> SeatNote(res.getString(R.string.opp_missed), 0)
+          tr != null && tr.shanten == 0 -> SeatNote(res.getString(R.string.opp_ready, tilesShort(tr.waits.map { it.tile })), 3)
+          tr != null -> SeatNote(res.getString(R.string.analysis_shanten, tr.shanten), 0)
+          ready >= 0.1 -> SeatNote(res.getString(R.string.opp_ready, pct(ready)), readyLevel(ready))
+          else -> null
+        }
+      }
+      out.toList()
+    }
+    val options = if (mine != null && mine.analysis.best != null) mine.analysis.actions.indices.filter { mine.analysis.actions[it].action.type != "discard" }
+    else emptyList()
+    var picked by remember(stepKey) { mutableStateOf<String?>(null) }
+    val pickedTile = picked
+    val pickedIndex = if (focus != null && pickedTile != null) focus.analysis.actions.indexOfFirst { it.action.type == "discard" && it.action.tile == pickedTile } else -1
+    val oppNames = focus?.let { f -> (1..3).map { names[(f.seat + it) % 4] } } ?: emptyList()
+
+    // The list in place of the table (a phone): the deciding seat's own tiles over it.
+    val listView = panelOpen && !inlinePanel && deciding != null
+    var seatViewOf by remember { mutableStateOf<Pair<String, View>?>(null) }
+    LaunchedEffect(stepKey, listView) {
+      if (deciding == null || !listView || seatViewOf?.first == stepKey) return@LaunchedEffect
+      try {
+        seatViewOf = stepKey to Engine.view(rec.game.cut(step), deciding.first)
+      } catch (e: EngineException) {
+        // The list is shown without the seat's hand.
+      }
+    }
+    val seatView = seatViewOf?.takeIf { it.first == stepKey }?.second
+
+    // The list over a step: scrolled near its end (where the opponents' figures are, to watch them change from step
+    // to step) it keeps its distance from the end; else it starts from its top.
+    val listScroll = rememberScrollState()
+    val nearEnd = with(LocalDensity.current) { NEAR_END.roundToPx() }
+    /** The distance kept from the list's end, or null; what was placed, and until when scrolls are the page's own. */
+    val keep = remember { object { var fromEnd: Int? = null; var placed = ""; var quietUntil = 0L } }
+    LaunchedEffect(listScroll) {
+      snapshotFlow { listScroll.isScrollInProgress }.collect { moving ->
+        if (moving || System.currentTimeMillis() < keep.quietUntil || listScroll.maxValue == Int.MAX_VALUE) return@collect
+        val d = listScroll.maxValue - listScroll.value
+        keep.fromEnd = if (listScroll.value > 0 && d <= nearEnd) d else null
+      }
+    }
+    // The step's list, and on a phone the seat's hand over it, are there (both come from the engine).
+    val listReady = deciding == null || (focus != null && (!listView || seatView != null))
+    LaunchedEffect(stepKey, listReady, showAll, listShown) {
+      if (!listShown) {
+        keep.fromEnd = null
+        return@LaunchedEffect
+      }
+      keep.quietUntil = System.currentTimeMillis() + 300
+      if (!listReady) return@LaunchedEffect
+      withFrameNanos { }
+      val d = keep.fromEnd
+      if (d != null) listScroll.scrollTo((listScroll.maxValue - d).coerceAtLeast(0)) else if (keep.placed != stepKey) listScroll.scrollTo(0)
+      keep.placed = stepKey
+      keep.quietUntil = System.currentTimeMillis() + 300
+    }
+
+    fun toAnalysis() {
+      val d = deciding ?: return
+      scope.launch {
+        try {
+          val cut = rec.game.cut(step)
+          vm.editor.load(Engine.view(cut, d.first).position, rec.game.rules, cut)
+          vm.go(Screen.ANALYZE)
+        } catch (e: EngineException) {
+          vm.error = e.message
+        }
+      }
+    }
+
+    val toggleColors = IconButtonDefaults.iconToggleButtonColors(checkedContainerColor = cs.secondaryContainer, checkedContentColor = cs.onSecondaryContainer)
+    val topButtons = @Composable {
+      IconButton(onClick = { vm.records.setFav(rec.id, !rec.fav) }) {
+        Icon(if (rec.fav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite))
+      }
+      IconToggleButton(checked = showAll, onCheckedChange = { showAll = it }, modifier = Modifier.testTag("replay_all"), colors = toggleColors) {
+        Icon(Icons.Filled.Visibility, stringResource(R.string.replay_show_all))
+      }
+      if (!inlinePanel) IconToggleButton(checked = panelOpen, onCheckedChange = { panelOpen = it }, modifier = Modifier.testTag("replay_panel"),
+        colors = toggleColors) {
+        Icon(Icons.Filled.Assessment, stringResource(R.string.review_panel))
+      }
+    }
+
+    // The hand in short, and the graph.
+    val summary = @Composable {
+      val small = MaterialTheme.typography.bodySmall
+      val outcomeColors = LocalOutcome.current
+      if (r != null && hasNet) {
+        val item = @Composable { label: Int, value: String, bad: Boolean ->
+          Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(label), style = small, color = cs.onSurfaceVariant, maxLines = 1)
+            Text(value, style = small, maxLines = 1, fontWeight = if (bad) FontWeight.Bold else null, color = if (bad) outcomeColors.bad else Color.Unspecified)
+          }
+        }
+        val first = @Composable { item(R.string.review_first, pts(r.firstValue), false) }
+        val lost = @Composable { item(R.string.review_decisions, pts(-(r.loss ?: 0.0)), (r.loss ?: 0.0) >= EQUAL) }
+        val luck = @Composable { item(R.string.review_luck, pts(r.luck ?: 0.0), false) }
+        val count = @Composable {
+          Text(mistakesText(res, level, mistakes), style = small, fontWeight = FontWeight.Bold, maxLines = 1,
+            color = if (mistakes > 0) outcomeColors.bad else outcomeColors.good, modifier = Modifier.testTag("replay_mistakes"))
+        }
+        val graph = @Composable { mod: Modifier -> ValueGraph(points, stops, step, n, if (side) 44.dp else 38.dp, mod) { go(it) } }
+        if (inlinePanel) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) { first(); lost(); luck(); count() }
+          graph(Modifier)
+        } else {
+          val grid = @Composable {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+              Column { first(); luck() }
+              Column { lost(); count() }
+            }
+          }
+          if (side) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { grid(); graph(Modifier) }
+          else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) { grid(); graph(Modifier.weight(1f)) }
+        }
+      } else if (revError != null) Text(stringResource(R.string.review_failed, revError ?: ""), style = small, color = outcomeColors.bad)
+      else Text(stringResource(R.string.review_loading), style = small, color = cs.onSurfaceVariant)
+    }
+
+    // The step, the choice made there, and what the review says of it.
+    // Under the table the words keep the room of three lines, so that the table (and the step buttons under them)
+    // stays where it is from step to step.
+    val info = @Composable {
+      Column(Modifier.fillMaxWidth().heightIn(min = if (side) 40.dp else 70.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+            Text(if (step >= n) stringResource(R.string.replay_over) else stringResource(R.string.replay_step, stepNumber, stopList.size),
+              style = MaterialTheme.typography.labelLarge, modifier = Modifier.testTag("replay_where"))
+            // The player's expected result at this step, as the review knows it: at a decision its best action's,
+            // after it the action played's (until the next decision), before the first the first decision's; at the
+            // end the result.
+            if (r != null && hasNet) {
+              val before = r.decisions.lastOrNull { it.step < step }
+              val value = when {
+                step >= n -> r.result
+                mine != null -> mine.analysis.value ?: 0.0
+                before == null -> r.firstValue ?: 0.0
+                else -> before.analysis.actions.getOrNull(before.played)?.q ?: before.analysis.value ?: 0.0
+              }
+              Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("replay_now")) {
+                Text(stringResource(if (step >= n) R.string.review_result else R.string.review_now), style = MaterialTheme.typography.bodyMedium,
+                  color = cs.onSurfaceVariant)
+                Text(pts(value), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+              }
+            }
+            if (deciding != null) Text(
+              (if (deciding.first == rec.me) stringResource(R.string.replay_you_chose, actionText(res, deciding.second))
+              else stringResource(R.string.replay_seat_chose, names[deciding.first], actionText(res, deciding.second))) +
+                if (decidingNote.isNotEmpty()) "（$decidingNote）" else "",
+              style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.testTag("replay_choice"),
+            ) else if (step >= n && outcome.isNotEmpty()) Text(outcome, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+              modifier = Modifier.testTag("replay_choice"))
+          }
+          if (step >= last && n > 0 && !(step >= n && showResult)) FilledTonalButton(
+            onClick = ::openResult, modifier = Modifier.testTag("replay_result").heightIn(min = 36.dp), contentPadding = PaddingValues(horizontal = 16.dp),
+          ) { Text(stringResource(R.string.replay_result)) }
+        }
+        val best = mine?.analysis?.best
+        if (mine != null && key != null && best != null && mine.played >= 0) {
+          FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp),
+            itemVerticalAlignment = Alignment.CenterVertically) {
+            GradeBadge(if (mine.played == best || key.loss < EQUAL) 0 else key.grade, verdictWord(mine.played == best, key.loss, key.grade),
+              Modifier.testTag("replay_grade"))
+            if (key.loss >= EQUAL) {
+              Text(stringResource(R.string.review_loss, pts(key.loss, false)), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+              Text(stringResource(R.string.review_best_was, actionText(res, mine.analysis.actions[best].action)), style = MaterialTheme.typography.bodyMedium)
+            }
+          }
+          val reason = if (key.loss >= EQUAL) reasonOf(res, mine.analysis, mine.played) else ""
+          if (reason.isNotEmpty()) Text(reason, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+          key.notable?.let { notable ->
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("replay_notable")) {
+              Text("★", color = Marks.found, style = MaterialTheme.typography.bodySmall)
+              Text((if (key.found) stringResource(R.string.note_found) + "：" else "") + notableText(res, mine.analysis, notable),
+                style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+            }
+          }
+        }
+      }
+    }
+
+    // The steps: the start, the decisions worth a look, the player's decisions, one step, the last move.
+    val navButton = @Composable { tag: String, label: Int, enabled: Boolean, filled: Boolean, onClick: () -> Unit, content: @Composable () -> Unit ->
+      val mod = Modifier.size(42.dp).testTag(tag)
+      val name = stringResource(label)
+      Box(Modifier.clip(CircleShape)) {
+        if (filled) FilledIconButton(onClick = onClick, enabled = enabled, modifier = mod) { content() }
+        else FilledTonalIconButton(onClick = onClick, enabled = enabled, modifier = mod) { content() }
+      }
+      // The name is the icon's description.
+      name.length
+    }
+    val keyMark = @Composable { Text("!", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium) }
+    val navButtons: List<@Composable () -> Unit> = listOf(
+      { navButton("replay_start", R.string.replay_start, step > 0, false, { go(0) }) { Icon(Icons.Filled.SkipPrevious, stringResource(R.string.replay_start)) } },
+      { navButton("replay_prev_key", R.string.review_prev_key, prevKeyStep >= 0, false, { go(prevKeyStep) }) {
+        Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.AutoMirrored.Filled.NavigateBefore, stringResource(R.string.review_prev_key), Modifier.size(18.dp)); keyMark() }
+      } },
+      { navButton("replay_prev_mine", R.string.replay_prev_decision, step > 0, false, { prevMine() }) { Icon(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.replay_prev_decision)) } },
+      { navButton("replay_prev", R.string.replay_prev, step > 0, false, { prev() }) { Icon(Icons.AutoMirrored.Filled.NavigateBefore, stringResource(R.string.replay_prev)) } },
+      { navButton("replay_next", R.string.replay_next, step < n, true, { next() }) { Icon(Icons.AutoMirrored.Filled.NavigateNext, stringResource(R.string.replay_next)) } },
+      { navButton("replay_next_mine", R.string.replay_next_decision, step < n, false, { nextMine() }) { Icon(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.replay_next_decision)) } },
+      { navButton("replay_next_key", R.string.review_next_key, nextKeyStep >= 0, false, { go(nextKeyStep) }) {
+        Row(verticalAlignment = Alignment.CenterVertically) { keyMark(); Icon(Icons.AutoMirrored.Filled.NavigateNext, stringResource(R.string.review_next_key), Modifier.size(18.dp)) }
+      } },
+      { navButton("replay_last", R.string.replay_last, step < n, false, { toEnd() }) { Icon(Icons.Filled.SkipNext, stringResource(R.string.replay_last)) } },
+    )
+    // One row, back at the left and on at the right; in the narrow column beside the table two such rows at its foot,
+    // the big jumps (the start, the player's decisions, the last move) over the small ones (the decisions worth a
+    // look, one step: the step on, the one most pressed, lowest).
+    val buttons = @Composable {
+      if (side && !inlinePanel) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (row in listOf(listOf(0, 2, 5, 7), listOf(1, 3, 4, 6))) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+          for (b in row) navButtons[b]()
+        }
+      } else Row(Modifier.widthIn(max = 480.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        for (b in navButtons) b()
+      }
+    }
+
+    // A decision's list, with the way to the analysis screen.
+    val panel = @Composable {
+      if (focus != null) {
+        DecisionPanel(focus.analysis, played = focus.played, unit = unit, mode = settings.listRows, w = if (inlinePanel) 34f else maxOf(30f, hw * 0.8f),
+          names = names, truth = focus.truth, showTruth = showAll, picked = pickedIndex, brief = focus.seat == rec.me && mine != null,
+          who = if (focus.seat == rec.me) "" else names[focus.seat])
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.End) {
+          FilledTonalButton(onClick = ::toAnalysis, modifier = Modifier.testTag("replay_to_analysis")) {
+            Icon(Icons.Filled.Assessment, null, Modifier.size(20.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.review_to_analysis))
+          }
+        }
+      } else if (deciding != null) Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+    }
+
+    // Over the hand on the table: the options that are not discards, and the figures of the tile tapped.
+    val highlight = LocalTable.current.highlight
+    val strip: (@Composable () -> Unit)? = if (mine != null && (options.isNotEmpty() || pickedIndex >= 0)) ({
+      val a = mine.analysis
+      if (options.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (i in options) {
+          val cost = costOf(a, i)
+          val isBest = i == a.best
+          val shape = RoundedCornerShape(14.dp)
+          Row(
+            Modifier.background(if (isBest) Marks.found else Color.Black.copy(alpha = 0.55f), shape)
+              .border(2.dp, if (i == mine.played) highlight else Color.Transparent, shape).padding(horizontal = 12.dp, vertical = 3.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Text(actionText(res, a.actions[i].action), color = Color.White, fontWeight = FontWeight.Medium)
+            Text(
+              if (isBest) stringResource(R.string.grade_best) else if (cost < EQUAL) "≈" else tagCost(cost), fontWeight = FontWeight.Bold,
+              color = if (isBest) Color.White else when (gradeOf(cost, unit)) { 1 -> Marks.danger1; 2 -> Marks.danger2; 3 -> Color(0xFFFF8F8F); else -> Color.White },
+            )
+          }
+        }
+      }
+      if (pickedIndex >= 0 && pickedTile != null) {
+        val f = a.actions[pickedIndex]
+        val small = MaterialTheme.typography.bodySmall
+        val soft = Color.White.copy(alpha = 0.72f)
+        FlowRow(
+          Modifier.testTag("replay_detail").background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 5.dp),
+          horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(1.dp),
+        ) {
+          Text("${stringResource(R.string.act_discard)} ${Tiles.name(pickedTile)}", style = small, color = Color.White, fontWeight = FontWeight.Bold)
+          for ((label, value) in figureItems(res, f, costOf(a, pickedIndex), oppNames)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, style = small, color = soft)
+            Text(value, style = small, color = Color.White)
+          }
+          Text(efficiencyText(res, f), style = small, color = soft)
+        }
+      }
+    }) else null
+
     val table = @Composable { mod: Modifier ->
       Box(mod) {
         val v = view
         if (v == null) Loading()
         else TableView(
           v, rec.me, names, revealed = if (showAll || step == n) v.hands else null, interactive = false, maxHand = 56f,
+          marks = marks, notes = notes, strip = strip, onPick = { picked = it },
           overlay = {
             val f = final
             if (step == n && f?.result != null && showResult) Sheet {
-              HandResultCard(f, names, rec.me, resultTileW(wide, w)) {
+              HandResultCard(f, names, rec.me, resultTileW(side, w), rev = rec.rev, level = level) {
                 TextButton(onClick = { showResult = false }) { Text(stringResource(R.string.result_hands)) }
-                FilledTonalButton(onClick = { step = 0 }) { Text(stringResource(R.string.replay_start)) }
+                if (stops.isNotEmpty()) FilledTonalButton(onClick = { go(stops.first().step) }) { Text(stringResource(R.string.review_next_key)) }
+                // After the result: the next hand. Practice's, when this is the hand just played (the review
+                // closes); else the game's next in the records.
+                val practice = vm.practice
+                val practiceNext = practice.stage == Practice.Stage.RESULT && practice.lastRecord == rec.id
+                val nextRecord = rec.group?.let { g -> vm.records.ofGroup(g).firstOrNull { (it.index ?: 0) == (rec.index ?: 0) + 1 } }
+                if (practiceNext || nextRecord != null) Button(
+                  onClick = {
+                    if (practiceNext) {
+                      practice.nextHand()
+                      onBack()
+                    } else if (nextRecord != null) {
+                      vm.reviewId = nextRecord.id
+                      vm.reviewStep = 0
+                    }
+                  },
+                  modifier = Modifier.testTag("replay_next_hand"),
+                ) { Text(stringResource(if (practiceNext && practice.meta?.over == true) R.string.see_totals else R.string.next_hand)) }
               }
             }
           },
         )
       }
     }
-    val info = @Composable {
-      Text(if (step >= n) stringResource(R.string.replay_end) else stringResource(R.string.replay_step, step + 1, n),
-        style = MaterialTheme.typography.labelLarge)
-      if (deciding != null) Text(
-        if (deciding.first == rec.me) stringResource(R.string.replay_you_chose, actionText(deciding.second))
-        else stringResource(R.string.replay_seat_chose, names[deciding.first], actionText(deciding.second)),
-        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (side) 3 else 1,
-        overflow = TextOverflow.Ellipsis,
-      )
-    }
-    val buttons = listOf(
-      Triple(Icons.Filled.SkipPrevious, R.string.replay_start) { step = 0 },
-      Triple(Icons.AutoMirrored.Filled.Undo, R.string.replay_prev_decision) { prevMine() },
-      Triple(Icons.AutoMirrored.Filled.NavigateBefore, R.string.replay_prev) { prev() },
-      Triple(Icons.AutoMirrored.Filled.NavigateNext, R.string.replay_next) { next() },
-      Triple(Icons.AutoMirrored.Filled.Redo, R.string.replay_next_decision) { nextMine() },
-      Triple(Icons.Filled.SkipNext, R.string.replay_end) { step = n; showResult = true },
-    )
-    val step0 = step
-    @Composable
-    fun stepButton(i: Int) {
-      val (icon, label, go) = buttons[i]
-      val enabled = if (i < 3) step0 > 0 else step0 < n
-      val tag = Modifier.testTag("replay_step_$i")
-      if (i == 3) FilledIconButton(onClick = go, enabled = enabled, modifier = tag.size(48.dp)) { Icon(icon, stringResource(label)) }
-      else FilledTonalIconButton(onClick = go, enabled = enabled, modifier = tag.size(44.dp)) { Icon(icon, stringResource(label)) }
-    }
-    val analyzeButton = @Composable {
-      if (deciding != null) Button(onClick = ::analyze, Modifier.testTag("replay_analyze")) {
-        Icon(Icons.Filled.Assessment, null, Modifier.size(20.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(stringResource(R.string.analyze_title))
-      } else if (step >= n && !showResult) FilledTonalButton(onClick = { showResult = true }) { Text(stringResource(R.string.replay_result)) }
-    }
-    val favButton = @Composable {
-      IconButton(onClick = { vm.records.setFav(rec.id, !fav) }) {
-        Icon(if (fav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite))
-      }
-    }
-    val allButton = @Composable {
-      IconToggleButton(checked = showAll, onCheckedChange = { showAll = it }) {
-        Icon(Icons.Filled.Visibility, stringResource(R.string.replay_show_all))
-      }
-    }
-    if (side) {
-      Row(Modifier.fillMaxSize()) {
-        table(Modifier.weight(1f).fillMaxHeight())
-        Column(
-          Modifier.width(184.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surfaceContainer).verticalScroll(rememberScrollState())
-            .padding(6.dp),
-          verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
-            if (vm.records.get(rec.id) != null) favButton()
-            allButton()
-          }
-          info()
-          for (r in 0..1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            for (i in r * 3 until r * 3 + 3) stepButton(i)
-          }
-          Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { analyzeButton() }
-        }
-      }
-    } else {
-      Column(Modifier.fillMaxSize()) {
-        TitleBar(stringResource(R.string.replay_title), onBack) {
-          if (vm.records.get(rec.id) != null) favButton()
-          allButton()
-        }
-        table(Modifier.weight(1f).fillMaxWidth())
-        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = 10.dp, vertical = 6.dp),
-          verticalArrangement = Arrangement.spacedBy(4.dp)) {
-          // The step and the choice made, with the analysis button at their end; under them the steps, spread over the
-          // width (all seven in one row squeezed the button's label into a column).
-          Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) { info() }
-            analyzeButton()
-          }
-          Row(Modifier.widthIn(max = 480.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            for (i in buttons.indices) stepButton(i)
-          }
-        }
-      }
-    }
-  }
-}
 
-/**
- * One decision's analysis, from a finished hand (its review): the engine's figures for each legal action of the
- * deciding seat, the one taken marked, with the table as that seat saw it. A large window shows both side by side; a
- * phone shows the seat's hand over the list, and the whole table at a tap. Only after the hand: never while it is
- * played. The web page's DecisionAnalysis.svelte.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun DecisionAnalysisScreen(vm: AppModel, onBack: () -> Unit) {
-  val target = vm.analysis ?: return onBack()
-  var view by remember(target) { mutableStateOf<View?>(null) }
-  var analysis by remember(target) { mutableStateOf<Analysis?>(null) }
-  var error by remember(target) { mutableStateOf<String?>(null) }
-  var showTable by remember { mutableStateOf(false) }
-  LaunchedEffect(target) {
-    try {
-      view = Engine.view(target.game, target.seat)
-      analysis = Engine.analyzeGame(target.game, target.seat)
-    } catch (e: Exception) {
-      error = e.message ?: ""
-    }
-  }
-  val names = target.names
-  val seat = target.seat
-  BoxWithConstraints(Modifier.fillMaxSize()) {
-    val sideBySide = maxWidth > maxHeight && maxWidth >= 1000.dp
-    val sideways = maxWidth > maxHeight
-    val hw = minOf(44f, (minOf(maxWidth.value, 720f) - 32) / 9.4f)
-    val half = minOf(44f, (maxWidth.value / 2 - 24) / 9.4f)
-    Column(Modifier.fillMaxSize()) {
-      TitleBar(stringResource(R.string.analysis_title_decision, names[seat]), onBack) {
-        if (!sideBySide) Chip(
-          stringResource(if (showTable) R.string.analysis_results else R.string.records_table), onClick = { showTable = !showTable }, on = showTable,
-          leading = { Icon(if (showTable) Icons.Filled.Assessment else Icons.Filled.Style, null, Modifier.size(18.dp)) },
+    // The deciding seat's own tiles, over the list (a phone).
+    val seatHand = @Composable {
+      val sv = seatView
+      if (sv != null && deciding != null) {
+        val pos = sv.position
+        val all = Tiles.parse(pos.hand)
+        val drawn = if (sv.phase == "self") pos.drawn else null
+        val tiles = Tiles.sort(if (drawn != null) Tiles.without(all, listOf(drawn)) else all)
+        val p = pos.players[deciding.first]
+        Text(
+          stringResource(R.string.round_wind, Tiles.wind(pos.setup.round)) + "・" + stringResource(R.string.wall_left, pos.wallLeft) + "・" +
+            (if (deciding.first == rec.me) stringResource(R.string.analysis_your_turn) else stringResource(R.string.analysis_turn_of, names[deciding.first])),
+          style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
         )
-      }
-      error?.let { Text(stringResource(R.string.analysis_error, it), Modifier.padding(16.dp, 8.dp), color = MaterialTheme.colorScheme.error) }
-      val v = view
-      when {
-        sideBySide -> Row(Modifier.weight(1f)) {
-          Box(Modifier.weight(1f).fillMaxHeight()) { if (v != null) TableView(v, seat, names, interactive = false, maxHand = 52f) }
-          Column(Modifier.width(460.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-            SectionHeader(stringResource(R.string.analysis_results))
-            analysis?.let { AnalysisList(it, target.chosen, 34f, Modifier.padding(horizontal = 12.dp)) } ?: if (error == null) Loading(Modifier.padding(32.dp)) else Unit
-          }
+        var selected by remember(stepKey) { mutableStateOf<Int?>(null) }
+        MyHand(tiles, drawn, hw, HAND_ROW, emptySet(), {}, selected, { i -> selected = i; picked = i?.let { tiles.getOrNull(it) ?: drawn } },
+          marks = focus?.let { tileMarks(res, it.analysis, it.played, unit) } ?: emptyMap(), tagH = 17f)
+        val claim = pos.claim
+        if (claim?.tile != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          Text("${names[claim.seat]} ${stringResource(R.string.act_discard)}", style = MaterialTheme.typography.bodyMedium)
+          TileView(claim.tile, hw.dp, mark = true)
         }
-        showTable -> Box(Modifier.weight(1f).fillMaxWidth()) { if (v != null) TableView(v, seat, names, interactive = false) }
-        // A phone sideways: the seat's tiles at the left, the choices at the right, each scrolling on its own.
-        sideways -> Row(Modifier.weight(1f).fillMaxWidth()) {
-          Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
-            if (v != null) DecisionSummary(v, seat, names, half)
-          }
-          Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end = 8.dp, bottom = 16.dp)) {
-            val a = analysis
-            if (a != null) AnalysisList(a, target.chosen, maxOf(28f, half * 0.8f))
-            else if (error == null) Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { androidx.compose.material3.CircularProgressIndicator() }
-          }
-        }
-        else -> Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
-          horizontalAlignment = Alignment.CenterHorizontally) {
-          Column(Modifier.readable().fillMaxWidth()) {
-            if (v != null) DecisionSummary(v, seat, names, hw)
-            SectionHeader(stringResource(R.string.analysis_results))
-            val a = analysis
-            if (a != null) AnalysisList(a, target.chosen, maxOf(30f, hw * 0.8f), Modifier.padding(horizontal = 12.dp))
-            else if (error == null) Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { androidx.compose.material3.CircularProgressIndicator() }
-          }
+        val flowers = flowersOf(p)
+        if (p.melds.isNotEmpty() || flowers.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp),
+          verticalArrangement = Arrangement.spacedBy(6.dp), itemVerticalAlignment = Alignment.Bottom) {
+          for (m in p.melds) Row { for (t in meldTiles(m)) TileView(t, (hw * 0.75f).dp) }
+          for (f in flowers) TileView(f, (hw * 0.6f).dp)
         }
       }
     }
-  }
-}
 
-/** The deciding seat's situation: the round and wall, its tiles (the drawn one apart, or the discard decided on), its melds. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun DecisionSummary(v: View, seat: Int, names: List<String>, hw: Float) {
-  val pos = v.position
-  val all = Tiles.parse(pos.hand)
-  val drawn = if (v.phase == "self") pos.drawn else null
-  val tiles = Tiles.sort(if (drawn != null) Tiles.without(all, listOf(drawn)) else all)
-  val p = pos.players[seat]
-  val head = stringResource(R.string.round_wind, Tiles.wind(pos.setup.round)) + "・" + stringResource(R.string.wall_left, pos.wallLeft)
-  val claim = pos.claim
-  val situation = when {
-    claim?.tile != null -> "$head・${names[claim.seat]} ${stringResource(R.string.act_discard)} ${Tiles.name(claim.tile)}"
-    drawn != null -> "$head・${stringResource(R.string.analysis_drawn)} ${Tiles.name(drawn)}"
-    else -> head
-  }
-  Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    Text(situation, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    FlowRow(verticalArrangement = Arrangement.spacedBy(6.dp), itemVerticalAlignment = Alignment.Bottom) {
-      for (t in tiles) TileView(t, hw.dp)
-      if (drawn != null) Box(Modifier.padding(start = 10.dp)) { TileView(drawn, hw.dp, glow = true) }
-      if (claim?.tile != null) Box(Modifier.padding(start = 10.dp)) { TileView(claim.tile, hw.dp, mark = true) }
-    }
-    val flowers = flowersOf(p)
-    if (p.melds.isNotEmpty() || flowers.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp),
-      verticalArrangement = Arrangement.spacedBy(6.dp), itemVerticalAlignment = Alignment.Bottom) {
-      for (m in p.melds) Row { for (t in meldTiles(m)) TileView(t, (hw * 0.75f).dp) }
-      for (f in flowers) TileView(f, (hw * 0.6f).dp)
-    }
-  }
-}
-
-/**
- * An analysis: each legal action with the engine's figures (tile efficiency now: shanten, the tiles that help, and
- * when ready the waits with copies left and their tai), the best ones and the one chosen marked. Fields a network adds
- * later are shown when present (docs/app.md). The web page's AnalysisList.svelte.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun AnalysisList(analysis: Analysis, chosen: Action?, w: Float, modifier: Modifier = Modifier) {
-  val cs = MaterialTheme.colorScheme
-  val best = analysis.best()
-  val order = analysis.actions.indices.sortedWith(compareBy({ analysis.actions[it].rank.first }, { analysis.actions[it].rank.second }, { it }))
-  Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    for (i in order) {
-      val f = analysis.actions[i]
-      val isBest = i in best
-      val isChosen = chosen != null && isTaken(f.action, chosen)
-      Surface(
-        shape = RoundedCornerShape(12.dp), color = if (isBest) cs.secondaryContainer else cs.surfaceContainer,
-        contentColor = if (isBest) cs.onSecondaryContainer else cs.onSurface,
-        modifier = Modifier.fillMaxWidth().let { if (isChosen) it.border(2.dp, cs.primary, RoundedCornerShape(12.dp)) else it },
+    // Sideways the screen reaches the window's sides (MainActivity): the felt and the controls' column lie under a
+    // camera's cutout, what is on them keeps clear of it.
+    val startInset = WindowInsets.safeDrawing.only(WindowInsetsSides.Start)
+    val endInset = WindowInsets.safeDrawing.only(WindowInsetsSides.End)
+    if (side) Row(Modifier.fillMaxSize()) {
+      if (listView) Row(Modifier.weight(1f).fillMaxHeight().windowInsetsPadding(startInset).padding(start = 12.dp, end = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(0.46f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          seatHand()
+        }
+        Column(Modifier.weight(0.54f).fillMaxHeight().verticalScroll(listScroll).padding(top = 8.dp, bottom = 16.dp)) { panel() }
+      } else table(Modifier.weight(1f).fillMaxHeight().background(LocalTable.current.felt).windowInsetsPadding(startInset))
+      Column(
+        Modifier.fillMaxHeight().background(cs.surfaceContainer).windowInsetsPadding(endInset).width(if (inlinePanel) 420.dp else 208.dp)
+          .padding(horizontal = if (inlinePanel) 12.dp else 8.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
       ) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(actionText(f.action), style = MaterialTheme.typography.labelLarge)
-            val ts = actionTiles(f.action)
-            if (ts.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) { for (t in ts) TileView(t, (w * 0.8f).dp) }
+        // No title bar beside the table: the way back at the column's top-left, clear of the table.
+        val top = @Composable {
+          Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack, modifier = Modifier.testTag("replay_back")) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
             Spacer(Modifier.weight(1f))
-            if (isBest) Badge(stringResource(R.string.analysis_best), cs.primary, cs.onPrimary)
-            if (isChosen) Badge(stringResource(R.string.analysis_chosen), cs.tertiaryContainer, cs.onTertiaryContainer)
-          }
-          FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            val body = MaterialTheme.typography.bodyMedium
-            when {
-              f.shanten < 0 -> Text(stringResource(R.string.analysis_win) + if (f.winTai >= 0) "・" + stringResource(R.string.analysis_win_tai, f.winTai) else "",
-                style = body, color = LocalOutcome.current.bad, fontWeight = FontWeight.Bold)
-              f.shanten == 0 -> {
-                Text(stringResource(R.string.analysis_ready), style = body, fontWeight = FontWeight.Bold)
-                Text(stringResource(R.string.analysis_ukeire, f.ukeire), style = body)
-              }
-              else -> {
-                Text(stringResource(R.string.analysis_shanten, f.shanten), style = body)
-                Text(stringResource(R.string.analysis_ukeire, f.ukeire), style = body)
-              }
-            }
-            for ((k, x) in f.extra) Text("$k ${"%.3f".format(x)}", style = body)
-          }
-          if (f.waits.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
-            itemVerticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.analysis_waits), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-            for (wt in f.waits) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-              TileView(wt.tile, (w * 0.75f).dp)
-              Column {
-                Text(stringResource(R.string.analysis_wait_left, wt.left), style = MaterialTheme.typography.bodySmall)
-                Text(stringResource(R.string.analysis_wait_tai, wt.ronTai, wt.tsumoTai), style = MaterialTheme.typography.bodySmall)
-              }
-            }
+            topButtons()
           }
         }
+        // The step buttons stay in their place whatever the words' height from step to step (a button stays under
+        // the finger): the narrow column has them at its foot; with the list in the column they come before the words.
+        if (inlinePanel) {
+          top()
+          summary()
+          buttons()
+          info()
+          Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(listScroll).padding(top = 4.dp, bottom = 12.dp)) { panel() }
+        } else {
+          Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            top()
+            summary()
+            info()
+          }
+          buttons()
+        }
+      }
+    } else Column(Modifier.fillMaxSize()) {
+      TitleBar(stringResource(R.string.replay_title), onBack) { topButtons() }
+      if (listView) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        Column(Modifier.widthIn(max = 760.dp).fillMaxSize().verticalScroll(listScroll).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 16.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          seatHand()
+          panel()
+        }
+      } else table(Modifier.weight(1f).fillMaxWidth())
+      Column(Modifier.fillMaxWidth().background(cs.surfaceContainer).padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        summary()
+        info()
+        buttons()
       }
     }
-    if (analysis.actions.isEmpty()) Text(stringResource(R.string.analysis_no_actions), style = MaterialTheme.typography.bodyLarge, color = cs.onSurfaceVariant)
-    Text(stringResource(R.string.analysis_source_efficiency), Modifier.padding(top = 8.dp, start = 4.dp), style = MaterialTheme.typography.bodySmall,
-      color = cs.onSurfaceVariant)
   }
 }
-

@@ -1,14 +1,18 @@
 package io.github.kennyfs.mahjong.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,8 +24,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,30 +48,49 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.kennyfs.mahjong.AppModel
 import io.github.kennyfs.mahjong.BOTS
 import io.github.kennyfs.mahjong.BattleGroup
 import io.github.kennyfs.mahjong.ColorStyle
+import io.github.kennyfs.mahjong.BuildConfig
 import io.github.kennyfs.mahjong.DarkMode
+import io.github.kennyfs.mahjong.Engine
+import io.github.kennyfs.mahjong.EngineException
 import io.github.kennyfs.mahjong.HandRecord
 import io.github.kennyfs.mahjong.Length
+import io.github.kennyfs.mahjong.Level
+import io.github.kennyfs.mahjong.ListRows
+import io.github.kennyfs.mahjong.LossKind
 import io.github.kennyfs.mahjong.Page
 import io.github.kennyfs.mahjong.R
+import io.github.kennyfs.mahjong.RULE_HELP
 import io.github.kennyfs.mahjong.RecordKind
 import io.github.kennyfs.mahjong.RuleChoice
 import io.github.kennyfs.mahjong.Rules
 import io.github.kennyfs.mahjong.RulesInfo
 import io.github.kennyfs.mahjong.Speed
 import io.github.kennyfs.mahjong.TextSize
+import io.github.kennyfs.mahjong.levelWord
+import io.github.kennyfs.mahjong.mistakesOf
+import io.github.kennyfs.mahjong.pts
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private val TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
@@ -85,11 +110,13 @@ fun rulesOf(spec: String): String {
 /**
  * The records: every finished hand, newest first, in three tabs (practice, table battles, same-tiles contests); a line's
  * tap opens the hand's review. Favorites stay when the rest are cleared. Battles are listed as groups of their hands.
- * The web page's Records.svelte.
+ * Over the list, what the network's reviews of these hands add up to: the points lost a hand, the mistakes a hand at
+ * the settings' level, and which kind of decision lost them. The web page's Records.svelte.
  */
 @Composable
 fun RecordsScreen(vm: AppModel) {
   val records = vm.records
+  val level = vm.settings.level
   var tab by remember { mutableStateOf(RecordKind.practice) }
   var favOnly by remember { mutableStateOf(false) }
   var confirmClear by remember { mutableStateOf(false) }
@@ -97,6 +124,9 @@ fun RecordsScreen(vm: AppModel) {
   val hands = records.hands.filter { it.kind == tab && (!favOnly || it.fav) }.asReversed()
   val battles = records.battles.filter { b -> b.kind == tab && (!favOnly || b.fav || records.ofGroup(b.id).any { it.fav }) }.asReversed()
   val all = records.hands.filter { it.kind == tab }
+  // The reviews of this tab's hands, added up; the hands not reviewed by this network can be, one after another.
+  val reviewed = all.filter { it.rev?.m == Engine.MODEL_ID }
+  val pending = all.filter { it.rev?.m != Engine.MODEL_ID }
   val stats = stringResource(
     R.string.records_stats, all.size, all.count { it.me in it.winners }, all.count { it.loser == it.me }, signed(all.sumOf { it.points[it.me] }),
   )
@@ -119,6 +149,9 @@ fun RecordsScreen(vm: AppModel) {
                 leading = { Icon(if (favOnly) Icons.Filled.Star else Icons.Filled.StarBorder, null, Modifier.size(18.dp)) })
             }
           }
+        }
+        if (reviewed.isNotEmpty() || pending.isNotEmpty()) item {
+          ReviewStats(reviewed, pending.size, level, vm.reviewing, onRun = { vm.reviewAll(pending.asReversed()) }, onStop = vm::stopReviews)
         }
         if (tab == RecordKind.practice) {
           items(hands, key = { it.id }) { h -> HandLine(h, onOpen = { vm.review(h.id) }) { records.setFav(h.id, !h.fav) } }
@@ -143,6 +176,66 @@ fun RecordsScreen(vm: AppModel) {
     confirm = stringResource(R.string.delete))
 }
 
+/**
+ * What the reviews of a tab's hands add up to: how many are reviewed (and a button to review the rest), the points
+ * lost a hand, the mistakes a hand at the settings' level, and the loss by kind of decision.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ReviewStats(reviewed: List<HandRecord>, pending: Int, level: Level, progress: Pair<Int, Int>?, onRun: () -> Unit, onStop: () -> Unit) {
+  val cs = MaterialTheme.colorScheme
+  val res = LocalResources.current
+  val dim = cs.onSurfaceVariant
+  val k = reviewed.size
+  Column(
+    Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp).background(cs.surfaceContainer, RoundedCornerShape(14.dp))
+      .padding(horizontal = 12.dp, vertical = 8.dp).testTag("records_stats"),
+    verticalArrangement = Arrangement.spacedBy(4.dp),
+  ) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+      Text(stringResource(R.string.stats_title), style = MaterialTheme.typography.labelLarge)
+      Text(stringResource(R.string.stats_reviewed, k), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = dim)
+      if (progress != null) TextButton(onClick = onStop, modifier = Modifier.testTag("stats_stop")) {
+        Text(stringResource(R.string.stats_running, progress.first, progress.second))
+      } else if (pending > 0) TextButton(onClick = onRun, modifier = Modifier.testTag("stats_run")) { Text(stringResource(R.string.stats_run, pending)) }
+    }
+    if (k > 0) {
+      val loss = reviewed.sumOf { it.rev?.loss ?: 0.0 }
+      val mistakes = reviewed.sumOf { h -> h.rev?.let { mistakesOf(it, level) } ?: 0 }.toDouble() / k
+      FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // One text, so the note wraps as the words of a line do and is not squeezed beside the loss.
+        val lossText = stringResource(R.string.stats_loss, pts(loss / k, false))
+        val note = stringResource(R.string.stats_net_note)
+        Text(
+          buildAnnotatedString {
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(lossText) }
+            withStyle(SpanStyle(color = dim)) { append(note) }
+          },
+          style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+          stringResource(R.string.stats_per_hand, stringResource(R.string.review_mistakes, levelWord(res, level), "%.2f".format(Locale.ROOT, mistakes))),
+          style = MaterialTheme.typography.bodyMedium,
+        )
+      }
+      FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.stats_kinds), style = MaterialTheme.typography.bodySmall, color = dim)
+        for (kind in LossKind.entries) {
+          val x = reviewed.sumOf { it.rev?.kinds?.getOrNull(kind.ordinal) ?: 0.0 }
+          val share = if (loss > 0) (x / loss).toFloat().coerceIn(0f, 1f) else 0f
+          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.width(48.dp).height(8.dp).clip(RoundedCornerShape(4.dp)).background(cs.surfaceContainerHighest)) {
+              Box(Modifier.fillMaxHeight().fillMaxWidth(share).background(cs.primary))
+            }
+            Text(stringResource(kind.label) + " " + pts(x / k, false), style = MaterialTheme.typography.bodySmall)
+          }
+        }
+      }
+    }
+  }
+}
+
 @Composable
 private fun Empty() {
   Text(stringResource(R.string.records_empty), Modifier.fillMaxWidth().padding(32.dp), style = MaterialTheme.typography.bodyLarge,
@@ -165,8 +258,11 @@ private fun HandLine(h: HandRecord, onOpen: () -> Unit, onFav: () -> Unit) {
       Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
         Text(summary, style = MaterialTheme.typography.bodyLarge,
           color = if (h.me in h.winners) outcome.good else if (h.loser == h.me) outcome.bad else MaterialTheme.colorScheme.onSurface)
-        Text(localTime(h.time) + "・" + rulesOf(h.game.rules) + (h.index?.let { "・" + stringResource(R.string.record_hand_of, it) } ?: ""),
-          style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+          localTime(h.time) + "・" + rulesOf(h.game.rules) + (h.index?.let { "・" + stringResource(R.string.record_hand_of, it) } ?: "") +
+            (h.rev?.let { "・" + stringResource(R.string.record_loss, pts(it.loss, false)) } ?: ""),
+          style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
       }
       Text(signed(me), color = pointsColor(me), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
       IconButton(onClick = onFav) { Icon(if (h.fav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite)) }
@@ -199,8 +295,10 @@ private fun BattleLine(b: BattleGroup, open: Boolean, onOpen: () -> Unit, onFav:
 
 /**
  * The rules: a tai preset and a flower preset, chosen apart (簡單/標準/大師; 無花/見花見台/正花), the base (底), and
- * every parameter in a list, the changed ones marked. Names and values come from the engine ({"cmd":"rules"}).
- * Practice deals a new game under new rules when the page is left. The web page's Rules.svelte.
+ * every parameter in a list, the changed ones marked, each with what it means behind an i button (RULE_HELP, in a
+ * dialog). No button changes the page's height: the mark and the reset are always in their place, shown or not. Names
+ * and values come from the engine ({"cmd":"rules"}). Practice deals a new game under new rules when the page is left.
+ * The web page's Rules.svelte.
  */
 @Composable
 fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
@@ -209,17 +307,31 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
   var full by remember { mutableStateOf<RulesInfo?>(null) }
   var presets by remember { mutableStateOf<RulesInfo?>(null) }
   var advanced by remember { mutableStateOf(false) }
+  /** The parameter whose explanation is open (in a dialog, so that the page keeps its height). */
+  var helped by remember { mutableStateOf<String?>(null) }
   val c = settings.rules
   LaunchedEffect(c) {
-    full = runCatching { Rules.info(c.spec) }.getOrNull()
-    presets = runCatching { Rules.info("${c.tai},${c.flowers}") }.getOrNull()
+    try {
+      full = Rules.info(c.spec)
+      presets = Rules.info("${c.tai},${c.flowers}")
+    } catch (e: EngineException) {
+      vm.error = e.message
+    }
   }
   DisposableEffect(Unit) { onDispose { vm.practice.settingsChanged() } }
   fun choose(x: RuleChoice) {
     settings.rules = x
     settings.persist()
   }
-  fun set(param: String, value: Int) = scope.launch { choose(Rules.withValue(settings.rules, param, value)) }
+  fun set(param: String, value: Int) {
+    scope.launch {
+      try {
+        choose(Rules.withValue(settings.rules, param, value))
+      } catch (e: EngineException) {
+        vm.error = e.message
+      }
+    }
+  }
   val f = full
   Column(Modifier.fillMaxSize()) {
     TitleBar(stringResource(R.string.rules_title), onBack)
@@ -244,7 +356,8 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
         Text(stringResource(R.string.rules_note), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant)
         HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-        Row(Modifier.fillMaxWidth().clickable { advanced = !advanced }.padding(16.dp, 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().clickable { advanced = !advanced }.testTag("rules_advanced").padding(16.dp, 14.dp),
+          verticalAlignment = Alignment.CenterVertically) {
           Column(Modifier.weight(1f)) {
             Text(stringResource(R.string.rules_advanced), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.rules_advanced_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -252,8 +365,8 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
           Icon(Icons.Filled.ArrowDropDown, null, Modifier.rotate(if (advanced) 180f else 0f))
         }
         if (advanced && f != null) {
-          if (c.overrides.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { choose(c.copy(overrides = emptyMap())) }) { Text(stringResource(R.string.rules_reset)) }
+          Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = { choose(c.copy(overrides = emptyMap())) }, enabled = c.overrides.isNotEmpty()) { Text(stringResource(R.string.rules_reset)) }
           }
           val names = f.items.associate { it.param to it.name }
           for ((title, params) in ruleGroups(f)) {
@@ -261,11 +374,21 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
             for (p in params) {
               val v = f.values[p] ?: 0
               val changed = presets != null && presets?.values?.get(p) != v
-              Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+              val label = names[p] ?: paramName(p)
+              val help = RULE_HELP[p]
+              Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f)) {
-                  Text(names[p] ?: paramName(p), style = MaterialTheme.typography.bodyLarge, fontWeight = if (changed) FontWeight.Bold else null)
-                  if (changed) Badge(stringResource(R.string.rules_changed), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
+                    if (help != null) IconButton(onClick = { helped = p }, modifier = Modifier.testTag("rules_help_$p")) {
+                      Icon(Icons.Outlined.Info, stringResource(R.string.rules_help) + "：" + label, Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                  }
+                  // Always in its place, seen or not: a change moves nothing on the page.
+                  Badge(stringResource(R.string.rules_changed), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer,
+                    Modifier.alpha(if (changed) 1f else 0f).clearAndSetSemantics { })
                 }
                 if (p in Rules.FLAG_PARAMS) Switch(checked = v == 1, onCheckedChange = { set(p, if (it) 1 else 0) })
                 else Stepper(v, { set(p, it) }, min = if (p == "base") 1 else 0, max = when (p) { "flowers" -> 2; "keep" -> 64; else -> 99 })
@@ -276,13 +399,24 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
       }
     }
   }
+  val open = helped
+  val openHelp = open?.let { RULE_HELP[it] }
+  if (open != null && openHelp != null) {
+    val label = f?.items?.firstOrNull { it.param == open }?.name ?: paramName(open)
+    AlertDialog(
+      onDismissRequest = { helped = null },
+      confirmButton = { TextButton(onClick = { helped = null }) { Text(stringResource(R.string.close)) } },
+      title = { Text(label) },
+      text = { Text(stringResource(openHelp), style = MaterialTheme.typography.bodyLarge) },
+    )
+  }
 }
 
-private fun taiDesc(p: String) = when (p) {
+fun taiDesc(p: String) = when (p) {
   "simple2" -> R.string.tai_simple2_desc; "standard" -> R.string.tai_standard_desc; "masters" -> R.string.tai_masters_desc
   else -> R.string.tai_simple1_desc
 }
-private fun flowerDesc(p: String) = when (p) { "see" -> R.string.flowers_see_desc; "seat" -> R.string.flowers_seat_desc; else -> R.string.flowers_none_desc }
+fun flowerDesc(p: String) = when (p) { "see" -> R.string.flowers_see_desc; "seat" -> R.string.flowers_seat_desc; else -> R.string.flowers_none_desc }
 
 @Composable
 private fun paramName(p: String): String = when (p) {
@@ -336,8 +470,10 @@ private fun PresetCard(title: String, desc: String, on: Boolean, onClick: () -> 
 }
 
 /**
- * The settings: the game (the rules, practice's length, the computer players and their pace), the look, and about. A
- * wide window shows the list at the left and the rules beside it. The web page's Settings.svelte.
+ * The settings: help (the rules explained, the tour), the game (the rules, practice's length, the computer players and
+ * their pace), the analysis (what a row of a decision's list shows, and from which loss on a decision is a mistake),
+ * the look, and about. A wide window shows the list at the left and the rules beside it. The web page's
+ * Settings.svelte.
  */
 @Composable
 fun SettingsScreen(vm: AppModel) {
@@ -360,6 +496,9 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
     TitleBar(stringResource(R.string.settings_title))
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
       Column(Modifier.readable().fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+        SectionHeader(stringResource(R.string.settings_help))
+        SettingRow(stringResource(R.string.guide_title), stringResource(R.string.guide_row), Modifier.testTag("settings_guide")) { vm.open(Page.GUIDE) }
+        SettingRow(stringResource(R.string.tour_title), stringResource(R.string.tour_row), Modifier.testTag("settings_tour")) { vm.tour.start() }
         SectionHeader(stringResource(R.string.settings_game))
         SettingRow(stringResource(R.string.settings_rules), rulesChip(s.rules.tai, s.rules.flowers, s.rules.overrides.isNotEmpty()),
           onClick = if (desk) null else ({ vm.open(Page.RULES) }))
@@ -370,13 +509,33 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
             s.length, { s.length = it; save(); vm.practice.settingsChanged() }, Modifier.fillMaxWidth(),
           )
         }
-        SettingRow(stringResource(R.string.settings_bot), stringResource(BOTS.firstOrNull { it.first == s.bot }?.second ?: R.string.bot_greedy))
+        Block(stringResource(R.string.settings_bot)) {
+          ToggleGroup(BOTS.map { it.first to stringResource(it.second) }, s.bot, { s.bot = it; save(); vm.practice.settingsChanged() },
+            Modifier.fillMaxWidth().testTag("settings_bot"))
+        }
         Block(stringResource(R.string.settings_speed)) {
           ToggleGroup(
             listOf(Speed.SLOW to stringResource(R.string.speed_slow), Speed.NORMAL to stringResource(R.string.speed_normal),
               Speed.FAST to stringResource(R.string.speed_fast)),
             s.speed, { s.speed = it; save() }, Modifier.fillMaxWidth(),
           )
+        }
+        SectionHeader(stringResource(R.string.settings_analysis))
+        Block(stringResource(R.string.settings_list_rows)) {
+          ToggleGroup(
+            listOf(ListRows.numbers to stringResource(R.string.list_rows_numbers), ListRows.bars to stringResource(R.string.list_rows_bars),
+              ListRows.both to stringResource(R.string.list_rows_both)),
+            s.listRows, { s.listRows = it; save() }, Modifier.fillMaxWidth().testTag("settings_list_rows"),
+          )
+          Text(stringResource(R.string.list_rows_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Block(stringResource(R.string.settings_level)) {
+          ToggleGroup(
+            listOf(Level.beginner to stringResource(R.string.level_beginner), Level.mid to stringResource(R.string.level_mid),
+              Level.expert to stringResource(R.string.level_expert)),
+            s.level, { s.level = it; save() }, Modifier.fillMaxWidth().testTag("settings_level"),
+          )
+          Text(stringResource(R.string.level_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         SectionHeader(stringResource(R.string.settings_look))
         Block(stringResource(R.string.settings_text)) {
@@ -400,7 +559,10 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
           )
         }
         SectionHeader(stringResource(R.string.settings_about))
-        Text(stringResource(R.string.about_text), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.about_text_net), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME, Engine.MODEL_ID),
+          Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp).testTag("about_version"), style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant)
       }
     }
   }

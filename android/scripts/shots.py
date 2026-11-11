@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """The app's screenshots on an emulator, driven over adb (device-tests.sh starts the emulator and installs the APK).
 
-It plays as a person would, by taps found in the screen's accessibility tree (uiautomator dump): practice until a hand
-ends, its review and a decision's analysis, the analysis screen, the records, the rules, the settings, and battles (the
-entry, and, when BATTLE_SERVER names a server the emulator reaches, e.g. 10.0.2.2:8091, a table game's lobby and
-table). Each screen in landscape (the phone sideways, first) and portrait, PNGs in OUT (default
-$WORK/shots/android). ONLY=name,... takes only those shots; STEPS=step,... runs only those
-steps (practice, practice_result, analyze, records, settings, battle, battle_table), e.g. STEPS=battle_table.
+It plays as a person would, by taps found in the screen's accessibility tree (uiautomator dump): the first start's
+welcome card, practice until a hand ends, its review by the network (a decision worth a look, a tile's figures,
+everyone's tiles, the list of every action, the step taken to the analysis screen, the result), the analysis screen
+with its tables, the records with their statistics, the rules with an explanation open, the settings, the rules
+explained (with its quiz answered) and the tour, and battles (the entry's steps, and, when BATTLE_SERVER names a server
+the emulator reaches, e.g. 10.0.2.2:8091, a table game's lobby and table). Each screen in landscape (the phone
+sideways, first) and portrait, PNGs in OUT (default $WORK/shots/android). ONLY=name,... takes
+only those shots; STEPS=step,... runs only those steps (practice, practice_result, analyze, records, settings, guide,
+tour, battle, battle_table), e.g. STEPS=battle_table.
 
 Usage: python3 android/scripts/shots.py   (ANDROID_SERIAL picks the emulator, e.g. emulator-5556)
 """
@@ -149,6 +152,10 @@ def rotate(landscape):
   raise RuntimeError(f'the display did not turn to {want}')
 
 
+def rotation_name():
+  return 'land' if rotation() in (1, 3) else 'port'
+
+
 def screen_size():
   m = re.search(r'(\d+)x(\d+)', sh('wm size'))
   w, h = int(m.group(1)), int(m.group(2))
@@ -176,6 +183,11 @@ def play_hand(limit=500):
     nodes = ui()
     if find(nodes, rid='result_next'):
       return True
+    # The pause at the end of the hand (the table as it ended) before the result.
+    if find(nodes, rid='result_skip'):
+      shot(f'play-end-{rotation_name()}')
+      wait_for(lambda ns: find(ns, rid='result_next'), 10)
+      continue
     win = find(nodes, rid='claim_tsumo') or find(nodes, rid='claim_ron')
     if win:
       tap_node(win)
@@ -213,63 +225,202 @@ def practice(orient):
   shot(f'play-{orient}')
 
 
+def swipe_up(times=1):
+  """Scrolls what is in the middle of the screen towards its end."""
+  w, h = screen_size()
+  if rotation() in (1, 3):
+    w, h = h, w
+  for _ in range(times):
+    sh(f'input swipe {w // 3} {int(h * 0.72)} {w // 3} {int(h * 0.22)} 250')
+    time.sleep(0.4)
+
+
+def scroll_to(rid, times=10):
+  """Scrolls down until the node with this test tag is on the screen; the node, or None."""
+  for _ in range(times):
+    n = find(ui(), rid=rid)
+    if n:
+      return n
+    swipe_up()
+  return find(ui(), rid=rid)
+
+
 def practice_result(orient):
-  """A hand to its end, its result; its review, and a decision's analysis."""
+  """A hand to its end and its result; its review: a decision worth a look, a tile's figures, everyone's tiles, the
+  list of every action, the step taken to the analysis screen, and the result again."""
   go('練習')
   log('playing a hand...')
   if not play_hand():
     log('the hand did not end')
     return
-  time.sleep(1.5)
+  # The network's review of the hand comes in a moment after the result.
+  wait_for(lambda ns: find(ns, rid='result_review_line'), 30)
   shot(f'play-result-{orient}')
   tap_id('result_review')
-  wait_for(lambda ns: find(ns, rid='replay_step_4'), 15)
-  # A few of the player's decisions in, where one is to be made (not the end).
-  for _ in range(3):
-    n = find(ui(), rid='replay_step_4')
-    if not n or not n.enabled:
-      break
-    tap_node(n)
-    time.sleep(0.5)
-  if not find(ui(), rid='replay_analyze'):
-    tap_id('replay_step_1')
+  wait_for(lambda ns: find(ns, rid='replay_mistakes'), 40)
+  # A decision worth a look (a mistake, or a good move that is not the obvious one); else one of the player's own.
+  n = find(ui(), rid='replay_next_key')
+  tap_node(n if n and n.enabled else find(ui(), rid='replay_next_mine'))
+  time.sleep(1.0)
   shot(f'replay-{orient}')
-  tap_id('replay_analyze')
-  wait_for(lambda ns: find(ns, text='最佳'), 20)
-  shot(f'analysis-{orient}')
-  back()
-  back()
+  mine = hand_tiles(ui())
+  if mine:
+    tap_node(mine[min(3, len(mine) - 1)])
+    time.sleep(0.6)
+    shot(f'replay-tile-{orient}')
+  tap_id('replay_all')
+  time.sleep(1.0)
+  shot(f'replay-all-{orient}')
+  tap_id('replay_all')
+  # The list of every action: its own view where there is no room for it beside the table.
+  if find(ui(), rid='replay_panel'):
+    tap_id('replay_panel')
+    wait_for(lambda ns: find(ns, text='最佳'), 20)
+    shot(f'replay-list-{orient}')
+  # What the list's figures mean: a dialog.
+  n = find(ui(), rid='list_help')
+  if n:
+    tap_node(n)
+    time.sleep(0.6)
+    shot(f'replay-list-help-{orient}')
+    back()
+  n = None
+  for _ in range(8):
+    n = find(ui(), rid='replay_to_analysis')
+    if n:
+      break
+    swipe_up()
+  if n:
+    shot(f'replay-list-end-{orient}')
+    tap_node(n)
+    wait_for(lambda ns: find(ns, rid='analyze_results'), 30)
+    shot(f'analyze-from-review-{orient}')
+    go('練習')
+  if find(ui(), rid='replay_panel'):
+    n = find(ui(), rid='replay_to_analysis') or find(ui(), text='最佳')
+    if n:
+      tap_id('replay_panel')
+  tap_id('replay_last')
+  tap_id('replay_result')
+  shot(f'replay-result-{orient}')
+  # 下一局: the practice's next hand, from the review's end.
+  if find(ui(), rid='replay_next_hand'):
+    tap_id('replay_next_hand')
+    wait_for(lambda ns: find(ns, rid='hand_drawn') or (hand_tiles(ns) or None), 40)
+    shot(f'replay-next-hand-{orient}')
+  else:
+    back()
 
 
 def analyze(orient):
   go('分析')
   tap_id('analyze_random')
-  shot(f'analyze-edit-{orient}')
-  tap_id('analyze_run')
-  wait_for(lambda ns: find(ns, text='最佳'), 20)
+  wait_for(lambda ns: find(ns, rid='analyze_results'), 30)
   shot(f'analyze-{orient}')
   if orient == 'port':
-    back()
+    # The palette away, to read the figures.
+    n = find(ui(), rid='analyze_palette_toggle')
+    if n:
+      tap_node(n)
+      time.sleep(0.6)
+      shot(f'analyze-figures-{orient}')
+  n = None
+  for _ in range(10):
+    n = find(ui(), rid='analyze_whatif')
+    if n:
+      break
+    swipe_up()
+  if n:
+    tap_node(n)
+    wait_for(lambda ns: find(ns, text='摸牌表'), 60)
+    swipe_up()
+    shot(f'analyze-tables-{orient}')
 
 
 def records(orient):
   go('紀錄')
+  wait_for(lambda ns: find(ns, rid='records_stats'), 10)
   shot(f'records-{orient}')
 
 
 def settings(orient):
   go('設定')
   shot(f'settings-{orient}')
-  w, h = screen_size()
   if orient == 'port':
-    tap_text('規則')
-    shot(f'rules-{orient}')
-    back()
+    swipe_up(2)
+    shot(f'settings-analysis-{orient}')
+    sh('input swipe 500 600 500 2000 200')
+    time.sleep(0.5)
+  tap_text('規則')
+  wait_for(lambda ns: find(ns, text='台數'), 10)
+  n = scroll_to('rules_advanced')
+  if not n:
+    raise RuntimeError('not found: rules_advanced')
+  tap_node(n)
+  time.sleep(0.6)
+  n = scroll_to('rules_help_base', 3)
+  if n:
+    tap_node(n)
+    time.sleep(0.5)
+  shot(f'rules-{orient}')
+  back()
+
+
+def guide(orient):
+  """The rules explained, from the settings: its first page (the rules to explain), the tiles, tai, and the quiz."""
+  go('設定')
+  tap_id('settings_guide')
+  wait_for(lambda ns: find(ns, rid='guide_next'), 10)
+  shot(f'guide-rules-{orient}')
+  for page in range(1, 7):
+    tap_id('guide_next')
+    time.sleep(0.5)
+    if page == 2:
+      shot(f'guide-tiles-{orient}')
+    elif page == 5:
+      shot(f'guide-tai-{orient}')
+  # The quiz: two of the candidates picked, one of them wrong, and the answer.
+  for x in ('guide_pick_5s', 'guide_pick_6s'):
+    n = scroll_to(x, 3)
+    if n:
+      tap_node(n)
+  shot(f'guide-quiz-{orient}')
+  n = scroll_to('guide_check', 3)
+  if n:
+    tap_node(n)
+    time.sleep(0.5)
+    shot(f'guide-answer-{orient}')
+  tap_id('guide_next')
+  time.sleep(0.5)
+  shot(f'guide-end-{orient}')
+  back()
+
+
+def tour(orient):
+  """The tour, from the settings: its first steps (the hand, the top of practice, the analysis' tab) and its end."""
+  go('設定')
+  tap_id('settings_tour')
+  wait_for(lambda ns: find(ns, rid='tour_card'), 10)
+  for i in range(7):
+    time.sleep(0.6)
+    if i in (0, 1, 2, 6):
+      shot(f'tour-{i + 1}-{orient}')
+    tap_id('tour_next')
+  time.sleep(0.6)
 
 
 def battle(orient):
+  """The entry: its first page (nearby: no server set), a new room's kinds, and joining."""
   go('對戰')
   shot(f'battle-entry-{orient}')
+  tap_id('battle_create')
+  time.sleep(0.5)
+  shot(f'battle-create-{orient}')
+  back()
+  tap_id('battle_join')
+  time.sleep(0.5)
+  shot(f'battle-join-{orient}')
+  back()
 
 
 def battle_table(orient):
@@ -277,6 +428,8 @@ def battle_table(orient):
   if not SERVER:
     return
   go('對戰')
+  tap_text('線上')
+  tap_id('battle_create')
   nodes = ui()
   if not find(nodes, rid='battle_server'):
     n = find(nodes, text='更改')
@@ -320,14 +473,19 @@ def main():
   time.sleep(2)
   for _ in range(3):
     sh(f'am start -W -n {PKG}/.MainActivity')
-    if wait_for(lambda ns: find(ns, rid='nav_PLAY') or find(ns, text='練習'), 20):
+    if wait_for(lambda ns: find(ns, rid='nav_PLAY') or find(ns, text='練習') or find(ns, rid='welcome_skip'), 20):
       break
     log('the app did not show; starting it again')
     sh(f'am force-stop {PKG}')
     time.sleep(2)
   else:
     raise RuntimeError('the app did not start')
-  steps = [practice, practice_result, analyze, records, settings, battle, battle_table]
+  # The first start's welcome card: shown once, then put away.
+  if find(ui(), rid='welcome_skip'):
+    shot('welcome')
+    tap_id('welcome_skip')
+    time.sleep(0.6)
+  steps = [practice, practice_result, analyze, records, settings, guide, tour, battle, battle_table]
   for orient in ('land', 'port'):
     rotate(orient == 'land')
     for step in steps:

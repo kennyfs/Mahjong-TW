@@ -1,12 +1,16 @@
 <!--
   The records: every finished hand, newest first, in three tabs (practice, table battles, same-tiles contests); a
   line's tap opens the hand's review (replay, and each decision's analysis). Favorites stay when the rest are cleared.
-  Battles are listed as groups of their hands.
+  Battles are listed as groups of their hands. Over the list, what the network's reviews of these hands add up to:
+  the points lost a hand, the mistakes a hand at the settings' level, and which kind of decision lost them.
 -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
   import { records, type BattleGroup, type HandRecord, type RecordKind } from '../lib/records.svelte';
+  import * as engine from '../lib/engine';
+  import { keepSummary, KINDS_OF_LOSS, levelWord, mistakesOf, pts } from '../lib/review';
   import { flowerLabel, parseChoice, taiLabel } from '../lib/rules';
+  import { settings } from '../lib/settings.svelte';
   import { localTime, signed } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
   import Icon from './Icon.svelte';
@@ -29,6 +33,31 @@
     return t('records_stats', list.length, wins, dealtIn, signed(total));
   });
 
+  // The reviews of this tab's hands, added up; the hands not reviewed by this network can be, one after another.
+  const reviewed = $derived(records.hands.filter((h) => h.kind === tab && h.rev?.m === engine.MODEL_ID));
+  const pending = $derived(records.hands.filter((h) => h.kind === tab && h.rev?.m !== engine.MODEL_ID));
+  const review = $derived.by(() => {
+    const k = reviewed.length;
+    if (!k) return null;
+    const loss = reviewed.reduce((a, h) => a + h.rev!.loss, 0);
+    const kinds = KINDS_OF_LOSS.map((_, i) => reviewed.reduce((a, h) => a + (h.rev!.kinds[i] ?? 0), 0));
+    return {
+      hands: k, loss: loss / k, mistakes: reviewed.reduce((a, h) => a + mistakesOf(h.rev!, settings.level), 0) / k,
+      kinds: kinds.map((x, i) => ({ name: t('stats_kind_' + KINDS_OF_LOSS[i]), share: loss > 0 ? x / loss : 0, each: x / k })),
+    };
+  });
+  let progress = $state<{ done: number; of: number } | null>(null);
+  async function reviewAll() {
+    const list = pending.slice().reverse();
+    progress = { done: 0, of: list.length };
+    for (const h of list) {
+      if (!progress) break;
+      await keepSummary(h);
+      progress = { done: progress.done + 1, of: list.length };
+    }
+    progress = null;
+  }
+
   function summary(h: HandRecord): string {
     if (h.exhausted || !h.winners.length) return t('record_draw');
     if (h.winners.includes(h.me)) return h.selfDraw ? t('record_tsumo_you', h.tai) : t('record_win_you', h.tai);
@@ -49,7 +78,7 @@
     <button class="main" onclick={() => onreview(h.id)}>
       <span class="what">
         <span class="body-large" class:good={h.winners.includes(h.me)} class:bad={h.loser === h.me}>{summary(h)}</span>
-        <span class="body-small dim">{localTime(h.time)}・{rulesOf(h.game.rules)}{h.index ? '・' + t('record_hand_of', h.index) : ''}</span>
+        <span class="body-small dim">{localTime(h.time)}・{rulesOf(h.game.rules)}{h.index ? '・' + t('record_hand_of', h.index) : ''}{h.rev ? '・' + t('record_loss', pts(h.rev.loss, false)) : ''}</span>
       </span>
       <span class="pts" class:good={me > 0} class:bad={me < 0}>{signed(me)}</span>
     </button>
@@ -94,6 +123,31 @@
         </button>
       </div>
     </div>
+    {#if review || pending.length}
+      <div class="stats">
+        <div class="stats-head">
+          <span class="label-large">{t('stats_title')}</span>
+          <span class="body-small dim">{t('stats_reviewed', review?.hands ?? 0)}</span>
+          {#if progress}
+            <button class="btn text" onclick={() => (progress = null)}>{t('stats_running', progress.done, progress.of)}</button>
+          {:else if pending.length}
+            <button class="btn text" onclick={reviewAll}>{t('stats_run', pending.length)}</button>
+          {/if}
+        </div>
+        {#if review}
+          <div class="stats-line body-medium">
+            <span><b>{t('stats_loss', pts(review.loss, false))}</b> <span class="dim">{t('stats_net_note')}</span></span>
+            <span>{t('stats_per_hand', t('review_mistakes', levelWord(settings.level), review.mistakes.toFixed(2)))}</span>
+          </div>
+          <div class="kinds body-small">
+            <span class="dim">{t('stats_kinds')}</span>
+            {#each review.kinds as k (k.name)}
+              <span class="kind"><span class="kind-bar"><i style="width: {Math.round(k.share * 100)}%"></i></span>{k.name} {pts(k.each, false)}</span>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {/if}
     {#if tab === 'practice'}
       {#each hands as h (h.id)}{@render line(h)}{:else}<p class="empty body-large dim">{t('records_empty')}</p>{/each}
     {:else}
@@ -127,4 +181,12 @@
   .pts { font-weight: 700; font-size: 1.125rem; flex: none; }
   .hands { padding-left: 16px; background: var(--surface-container-low, var(--surface)); }
   .empty { padding: 32px 16px; text-align: center; }
+  .stats { margin: 0 12px 8px; padding: 8px 12px; border-radius: 14px; background: var(--surface-container); display: flex; flex-direction: column; gap: 4px; }
+  .stats-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 40px; }
+  .stats-head .btn { margin-left: auto; }
+  .stats-line { display: flex; flex-wrap: wrap; gap: 2px 16px; font-variant-numeric: tabular-nums; }
+  .kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-variant-numeric: tabular-nums; }
+  .kind { display: inline-flex; align-items: center; gap: 6px; }
+  .kind-bar { width: 48px; height: 8px; border-radius: 4px; background: var(--surface-container-highest); overflow: hidden; display: inline-block; }
+  .kind-bar i { display: block; height: 100%; background: var(--primary); }
 </style>

@@ -1,5 +1,6 @@
 <!-- A player's melds, each a group of tiles, and their flowers after them (each on its own, so that a line breaks
-     between them). The gaps are MELD_GAPS' (lib/layout.ts counts lines with them). -->
+     between them). The gaps are MELD_GAPS' (lib/layout.ts counts lines with them). A chow's taken tile lies in the
+     middle (lib/seats.ts), tinted. -->
 <script lang="ts">
   import type { Meld } from '../lib/types';
   import { meldTiles } from '../lib/seats';
@@ -13,7 +14,7 @@
 <div class="melds" class:wrap style="gap: {g.row}px {g.col}px">
   {#each melds as m, i (i + m.type)}
     <div class="meld" in:scale={{ start: 1.4, duration: 260 }}>
-      {#each meldTiles(m) as t}<Tile tile={t} {w} />{/each}
+      {#each meldTiles(m) as t, k}<Tile tile={t} {w} mark={m.type === 'chi' && !!m.called && k === 1} />{/each}
     </div>
   {/each}
   {#each flowers as f (f)}<span class="flower" in:scale={{ start: 1.4, duration: 260 }}><Tile tile={f} w={w * FLOWER_SCALE} /></span>{/each}

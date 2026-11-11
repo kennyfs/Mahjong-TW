@@ -4,6 +4,7 @@
 import * as engine from './engine';
 import { t } from './i18n.svelte';
 import { handRecord, newId, records } from './records.svelte';
+import { keepSummary } from './review';
 import { PACE, settings, type Length } from './settings.svelte';
 import { KEYS, load, save } from './store';
 import type { Action, GameRecord, View } from './types';
@@ -49,7 +50,7 @@ class Practice {
   private epoch = 0;
 
   get bots(): (string | null)[] {
-    const b = this.meta?.bot ?? 'greedy';
+    const b = this.meta?.bot ?? settings.bot;
     return [null, b, b, b];
   }
 
@@ -158,6 +159,11 @@ class Practice {
     const meta = this.meta;
     const key = `${this.game.wall.slice(0, 24)}/${this.game.actions.length}`;
     if (meta.recorded === key) {
+      // After a reload: the hand's record (this game's, by its number) for the review and favorite on the result, and
+      // the summary if the reload cut it short.
+      const rec = records.ofGroup(meta.id).find((r) => r.index === meta.hands);
+      this.lastRecord = rec ? rec.id : null;
+      if (rec) void keepSummary(rec);
       this.stage = 'result';
       return;
     }
@@ -167,6 +173,7 @@ class Practice {
     const rec = handRecord('practice', this.game, result, ME, this.names(), this.bots, meta.id, meta.hands);
     records.add(rec);
     this.lastRecord = rec.id;
+    void keepSummary(rec);
     // Is the game over? One hand: yes. A round: when the next hand would be in the next round wind. A full game:
     // when the engine says so (after the north round).
     if (meta.length === 'hand') meta.over = true;

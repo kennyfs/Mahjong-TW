@@ -8,21 +8,24 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.kennyfs.mahjong.battle.Battle
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 /** The top-level screens, in the navigation bar or rail. */
 enum class Screen { PLAY, BATTLE, ANALYZE, RECORDS, SETTINGS }
 
-/** A page opened from a screen: Back returns to what was under it. */
-enum class Page { RULES, REVIEW, ANALYSIS }
-
-/** A decision of a recorded hand to analyze: the record cut there, and the seat deciding; the action it took. */
-data class AnalysisTarget(val game: GameRecord, val seat: Int, val chosen: Action?, val names: List<String>)
+/** A page opened from a screen: Back returns to what was under it. GUIDE: the rules explained (ui/GuideScreen.kt). */
+enum class Page { RULES, REVIEW, GUIDE }
 
 /**
  * What the screens share, for as long as the app runs: the settings, the records, practice, battles, the pages opened
- * on each screen, the hand under review and the decision under analysis, and an error to show.
+ * on each screen, the hand under review, the analysis screen's position, the tour, and an error to show.
  */
 class AppModel(private val app: Application) : AndroidViewModel(app) {
+  init {
+    Engine.setup(app)
+  }
+
   val settings = Settings(app)
   val records = Records(app)
   var error by mutableStateOf<String?>(null)
@@ -37,9 +40,8 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
   val pages: List<Page> get() = stacks.getValue(tab)
 
   var reviewId by mutableStateOf<String?>(null)
-  /** The review's step, kept while a decision's analysis is open over it. */
+  /** The review's step, kept while another screen is shown over it (a step taken to the analysis screen). */
   var reviewStep by mutableIntStateOf(0)
-  var analysis by mutableStateOf<AnalysisTarget?>(null)
 
   fun open(p: Page) {
     if (pages.lastOrNull() != p) stacks = stacks + (tab to pages + p)
@@ -54,14 +56,57 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
     if (s == tab) stacks = stacks + (s to emptyList()) else tab = s
   }
 
+  /** A screen at its top, whatever was open on it (the tour's steps, the guide's way to practice). */
+  fun show(s: Screen) {
+    tab = s
+    stacks = stacks + (s to emptyList())
+  }
+
+  /** The page closed on the screen shown, wherever it is in its stack (the guide, left for practice or the tour). */
+  fun close(p: Page) {
+    stacks = stacks + (tab to pages.filter { it != p })
+  }
+
+  /** The tour (ui/Tour.kt): its step, and where the elements it lights are. */
+  val tour = io.github.kennyfs.mahjong.ui.TourState()
+
+  /** The welcome card of the first start (the rules explained, the tour, or play). */
+  var welcome by mutableStateOf(!settings.welcomeSeen)
+    private set
+
+  fun welcomed() {
+    welcome = false
+    settings.welcomeSeen = true
+  }
+
   fun review(id: String) {
     reviewId = id
     reviewStep = 0
     open(Page.REVIEW)
   }
 
-  fun analyze(t: AnalysisTarget) {
-    analysis = t
-    open(Page.ANALYSIS)
+  /** The records being reviewed one after another for the statistics: how many are done, and of how many. */
+  var reviewing by mutableStateOf<Pair<Int, Int>?>(null)
+    private set
+  private var reviews: Job? = null
+
+  /** Reviews these records in turn, keeping each one's summary (Review.kt keepSummary), until done or stopped. */
+  fun reviewAll(list: List<HandRecord>) {
+    if (reviews?.isActive == true || list.isEmpty()) return
+    reviewing = 0 to list.size
+    reviews = viewModelScope.launch {
+      try {
+        for ((i, h) in list.withIndex()) {
+          keepSummary(records, h)
+          reviewing = i + 1 to list.size
+        }
+      } finally {
+        reviewing = null
+      }
+    }
+  }
+
+  fun stopReviews() {
+    reviews?.cancel()
   }
 }

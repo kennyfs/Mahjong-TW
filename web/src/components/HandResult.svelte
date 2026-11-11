@@ -1,18 +1,23 @@
 <!--
   A finished hand: who won and how, the winner's hand (the winning tile apart), its tai items by name, the payments,
-  and the next dealer. `final` is the hand's view with everything shown (reveal).
+  and the next dealer. `final` is the hand's view with everything shown (reveal). `rev`: the network's review of the
+  player's decisions, in a line (the expected result at the first decision, what the decisions lost, the rest as luck).
 -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { t } from '../lib/i18n.svelte';
+  import type { ReviewSummary } from '../lib/records.svelte';
+  import { levelWord, mistakesOf, pts } from '../lib/review';
   import { meldTiles, flowersOf } from '../lib/seats';
+  import { settings } from '../lib/settings.svelte';
   import { parseTiles, sortTiles, without } from '../lib/tiles';
   import type { View } from '../lib/types';
   import { signed } from '../lib/ui.svelte';
   import Tile from './Tile.svelte';
-  let { final, names, me, w = 30, actions, compact = false }: {
-    final: View; names: string[]; me: number; w?: number; actions?: Snippet; compact?: boolean;
+  let { final, names, me, w = 30, actions, compact = false, rev = null }: {
+    final: View; names: string[]; me: number; w?: number; actions?: Snippet; compact?: boolean; rev?: ReviewSummary | null;
   } = $props();
+  const mistakes = $derived(rev ? mistakesOf(rev, settings.level) : 0);
 
   const r = $derived(final.result!);
   const title = $derived.by(() => {
@@ -71,6 +76,12 @@
   <div class="next body-medium dim">
     {r.next_streak > 0 ? t('result_next_streak', names[r.next_dealer], r.next_streak) : t('result_next_dealer', names[r.next_dealer])}
   </div>
+  {#if rev}
+    <div class="rev body-medium">
+      <span>{t('review_line', pts(rev.first), pts(-rev.loss), pts(rev.luck))}</span>
+      <span class="count" class:some={mistakes > 0}>{mistakes ? t('review_mistakes', levelWord(settings.level), mistakes) : t('review_count_none', levelWord(settings.level))}</span>
+    </div>
+  {/if}
   {#if actions}<div class="actions">{@render actions()}</div>{/if}
 </div>
 
@@ -94,5 +105,9 @@
   .pay { display: flex; flex-direction: column; align-items: center; padding: 4px; border-radius: 10px; background: var(--surface-container); }
   .pay.me { outline: 2px solid var(--primary); }
   .pts { font-weight: 700; font-size: 1.125rem; }
+  .rev { display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 6px 10px; border-radius: 10px; background: var(--surface-container);
+    font-variant-numeric: tabular-nums; }
+  .count { font-weight: 700; color: var(--good); }
+  .count.some { color: var(--bad); }
   .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 </style>

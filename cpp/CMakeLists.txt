@@ -62,7 +62,9 @@ add_executable(mahjong
   command/play.cpp
   command/gen0.cpp
   command/selfplay.cpp
+  command/review.cpp
   command/guiengine.cpp
+  command/guianalysis.cpp
   command/gui.cpp
   command/runtests.cpp
   command/match.cpp

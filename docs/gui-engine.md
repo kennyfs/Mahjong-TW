@@ -110,9 +110,51 @@ and kan is filled in by the engine. `rob_kong` is the same for a 加槓 that som
 
 One entry per legal action of the seat, from what that seat sees: shanten after it (−1 a win), ukeire (unseen tiles
 that lower the shanten), and when it leaves the hand ready, the waits with copies left and the tai by discard and by
-self-draw. After a pung or chow the figures are those after its best discard. This is tile efficiency only; when the
-network exists, `source` becomes `network` and each action gets its probability and expected score as well (the
-fields will be added, none removed), so a screen should show what is present.
+self-draw. After a pung or chow the figures are those after its best discard. This is tile efficiency only.
+
+With `"model": FILE` (a network's `.onnx`, in a build with ONNX Runtime; `{"cmd":"model"}` says whether this one is),
+`source` is `network` and each action also has the network's figures: `q` (the expected result of the hand in
+points), `policy`, the chances `win`, `tsumo`, `deal_in`, `others_tsumo`, the `tai` of a win, `parts` (what winning,
+dealing in and others' self-draws add to `q`), and for a discard its `danger` now, per opponent too. The answer then
+also has `best`, `value`, and `opponents` (per opponent: the chances of being ready or 1, 2, 3+ tiles away, and the
+danger of each of the 34 kinds). Two more requests use the network (cpp/command/guiengine.h has their forms):
+
+- `review`: a finished hand for one seat: every decision that had a choice with its analysis, the action taken,
+  what it lost against the best, and what the three opponents really held then (tiles from ready, waits); the hand's
+  first value, the sum of the losses, and the rest of the result as luck.
+- `whatif`: for a game's seat or a position, the hand as it rests between turns tried with each kind it may draw
+  (the best action and the value then) and with each discard of the others that leaves a choice (the options'
+  figures): some 140 evaluations in one batch, 0.4 s as WebAssembly.
+
+A position has no history of its own: its discards are taken as made in turn order, and its melds have no calls
+behind them. What the network reads of the order of play (how long ago a seat called, which tiles passed since a
+seat's last discard) is then not what the game's was, and with calls on the table the figures differ from the game's
+by up to several tenths of a point (measured on a hand: 0.1 to 0.15 from the history alone, 0.6 with the claimed
+discards left out of the rivers as the analysis screen's editor does). A game's are exact. So a game takes another
+hand for the seat:
+
+```
+>> {"cmd":"analyze","game":GAME,"seat":1,"hand":"123456789m234s55m7z","drawn":"5m","model":FILE}
+```
+
+is the seat's position in the game with that hand in place of its own (`drawn`: the tile drawn of it, on the seat's
+own turn); the table and its history stay the game's, and with the seat's own hand the answer is the game's own.
+`whatif` takes the same. The analysis screen asks this way for a step taken from a review, for as long as only the
+hand's own tiles have been changed there.
+
+A review steps through a record's actions, and a record keeps every decision, the ones that came to nothing too: on
+a discard each seat that could claim it answers, and only the claim of the highest priority is made (a win before a
+pung or a kong before a chow). `steps` says which actions took effect, so a screen need not know the priorities:
+
+```
+>> {"cmd":"steps","game":GAME}
+<< {"taken":[true,true,false,true,...],"over":[-1,-1,3,-1,...],"last":63}
+```
+
+`taken`: everything on a seat's own turn, and of the answers to a discard (or an added kong) the claim that was made;
+a pass never. `over`: for a claim that was not made, the index of the one that took its place (a chow under a pung,
+either under a win, a second winner's win without `multi_ron`). `last`: the action the play ended with (the first
+win; without one the last action taken). The review shows the actions taken and the player's own decisions.
 
 The analysis screen (a position set up by hand) sends a POSITION instead of a game:
 

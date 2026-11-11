@@ -1,8 +1,11 @@
 // The analysis screen's position, set up by hand: the player's hand (and the tile just drawn, or another player's
 // discard to decide on), every seat's melds, flowers and discards, the dealer, the round wind and the wall. It is
 // turned into the engine's POSITION (docs/gui-engine.md), which checks it. A port of the app's PositionEditor.kt.
-import { FLOWERS, KINDS, sortTiles, tilesString, type Tile } from './tiles';
-import type { Meld, Position } from './types';
+// A step of a hand's review can be taken here (load), to try changes on it: while only the hand's own tiles are
+// changed, the figures are asked of that hand's game (source), whose history the network reads; a position of its
+// own has only the plain history of its discards.
+import { FLOWERS, KINDS, parseTiles, sortTiles, tilesString, type Tile } from './tiles';
+import type { GameRecord, Meld, Position } from './types';
 
 export type Mode = 'self' | 'claim';
 export type Section =
@@ -36,6 +39,30 @@ class Editor {
   round = $state(0);
   wallLeft = $state(40);
   section = $state<Section>({ kind: 'hand' });
+  /** From a hand's review: its rules (null: the settings'), and what the editor does not show of its position. */
+  rules = $state<string | null>(null);
+  private east = -1;
+  private streak = 0;
+  private afterCall = false;
+  private missed = false;
+  private from = $state<{ game: GameRecord; seat: number; table: string } | null>(null);
+
+  /** What the editor holds of the table: everything but the hand's own tiles. */
+  private table(): string {
+    const claim = this.mode === 'claim';
+    return JSON.stringify([this.mode, claim ? this.claimSeat : -1, claim ? this.claimTile : null, this.melds, this.flowers, this.discards,
+      this.dealer, this.round, this.wallLeft, this.rules]);
+  }
+
+  /**
+   * The step of a hand the position was taken from (the hand's record cut there, and the seat deciding), for as long
+   * as nothing but the hand's own tiles differs from it: the figures are then asked of that game with this hand
+   * (engine.analyzeGame), and read the game's history as the hand's review does. Null: a position of its own.
+   */
+  get source(): { game: GameRecord; seat: number } | null {
+    const f = this.from;
+    return f && f.table === this.table() ? { game: f.game, seat: f.seat } : null;
+  }
 
   /** How many concealed tiles the hand needs, the drawn tile apart: 16 less 3 a meld. */
   get handSize(): number { return 16 - 3 * this.melds[0].length; }
@@ -103,6 +130,55 @@ class Editor {
     this.flowers = [[], [], [], []];
     this.discards = [[], [], [], []];
     this.section = { kind: 'hand' };
+    this.rules = null;
+    this.east = -1;
+    this.streak = 0;
+    this.afterCall = this.missed = false;
+    this.from = null;
+  }
+
+  /**
+   * A position of a hand as its seat `me` saw it (a view's), under the hand's rules: the seats turned so that `me`
+   * is the player. The tiles taken by melds leave the rivers (the melds show them); a discard being decided on is
+   * the tile to claim. `game`: the hand's record up to this position (see source).
+   */
+  load(p: Position, rules: string, game?: GameRecord) {
+    this.clear();
+    const rel = (s: number) => (s - p.me + 4) % 4;
+    const seat = (r: number) => (r + p.me) % 4;
+    this.rules = rules;
+    const claim = p.claim && p.claim.tile ? p.claim : null;
+    this.mode = claim ? 'claim' : 'self';
+    this.melds = [0, 1, 2, 3].map((r) => p.players[seat(r)].melds.map((m) => ({ type: m.type, tile: m.tile, ...(m.called ? { called: m.called } : {}) })));
+    this.flowers = [0, 1, 2, 3].map((r) => parseTiles(p.players[seat(r)].flowers));
+    this.discards = [0, 1, 2, 3].map((r) => {
+      const list = p.players[seat(r)].discards;
+      const kept = claim && seat(r) === claim.seat ? list.slice(0, -1) : list;
+      return kept.filter((d) => !d.called).map((d) => d.tile);
+    });
+    let hand = sortTiles(parseTiles(p.hand));
+    if (claim) {
+      this.claimSeat = rel(claim.seat) || 3;
+      this.claimTile = claim.tile;
+    } else {
+      // The tile drawn; after a call there is none, and the last tile stands for it.
+      const drawn = p.drawn ?? hand[hand.length - 1] ?? null;
+      this.afterCall = p.after_call;
+      if (drawn) {
+        hand = [...hand];
+        hand.splice(hand.lastIndexOf(drawn), 1);
+      }
+      this.drawn = drawn;
+    }
+    this.hand = hand;
+    this.dealer = rel(p.setup.dealer);
+    this.east = p.setup.east >= 0 ? rel(p.setup.east) : -1;
+    this.round = p.setup.round;
+    this.streak = p.setup.streak;
+    this.wallLeft = p.wall_left;
+    this.missed = !!p.missed;
+    this.section = { kind: claim ? 'claim' : 'drawn' };
+    this.from = game ? { game, seat: p.me, table: this.table() } : null;
   }
 
   /** A random hand of 16 and a drawn tile, nothing else seen. */
@@ -125,20 +201,25 @@ class Editor {
   }
 
   position(): Position {
-    const hand = this.mode === 'self' && this.drawn ? [...this.hand, this.drawn] : this.hand;
+    const self = this.mode === 'self';
+    const hand = self && this.drawn ? [...this.hand, this.drawn] : this.hand;
+    const afterCall = self && this.afterCall;
+    // The discard being decided on is the last of its seat's river.
+    const river = (s: number) => (!self && this.claimTile && s === this.claimSeat ? [...this.discards[s], this.claimTile] : this.discards[s]);
     return {
-      setup: { dealer: this.dealer, east: -1, round: this.round, streak: 0 },
+      setup: { dealer: this.dealer, east: this.east, round: this.round, streak: this.streak },
       me: 0,
       hand: tilesString(hand),
-      drawn: this.mode === 'self' ? this.drawn : null,
-      after_call: false,
-      claim: this.mode === 'claim' ? { seat: this.claimSeat, tile: this.claimTile, rob_kong: false } : null,
+      drawn: self && !afterCall ? this.drawn : null,
+      after_call: afterCall,
+      claim: self ? null : { seat: this.claimSeat, tile: this.claimTile, rob_kong: false },
       players: [0, 1, 2, 3].map((s) => ({
         melds: this.melds[s].map((m) => ({ ...m, ...(s === 0 ? {} : { from: -1 }) })),
         flowers: tilesString(this.flowers[s]),
-        discards: this.discards[s].map((tile) => ({ tile, drawn: false, called: false })),
+        discards: river(s).map((tile) => ({ tile, drawn: false, called: false })),
       })),
       wall_left: this.wallLeft,
+      missed: this.missed,
     };
   }
 }

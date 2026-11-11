@@ -53,8 +53,9 @@ fun rulesChip(tai: String, flowers: String, custom: Boolean = false): String =
 
 /**
  * Practice: the table against three bots; a bar over it (a phone upright) with the hand, the rules and a new game; the
- * hand's result over the table when it ends, and the game's totals when the game does. No hint or analysis while the
- * hand is in play: the review (and each decision's analysis) is a button on the result. The web page's Play.svelte.
+ * hand's result over the table when it ends (with the network's review of it in a line, once it is there), and the
+ * game's totals when the game does. No hint or analysis while the hand is in play: the review (and each decision's
+ * analysis) is a button on the result. The web page's Play.svelte.
  */
 @Composable
 fun PlayScreen(vm: AppModel) {
@@ -69,18 +70,21 @@ fun PlayScreen(vm: AppModel) {
   val final = practice.final
   val stage = practice.stage
   LaunchedEffect(stage) { if (stage == Practice.Stage.PLAYING) hideResult = false }
+  // A hand's end: the table as it ended for a moment before the result; a tap goes on at once.
+  val (held, letGo) = endPause(stage != Practice.Stage.PLAYING)
   val handLabel = meta?.let { stringResource(R.string.hand_n, it.hands + if (stage == Practice.Stage.PLAYING) 1 else 0) } ?: ""
   val chip = rulesChip(settings.rules.tai, settings.rules.flowers, settings.rules.overrides.isNotEmpty())
   val totals = meta?.totals ?: listOf(0.0, 0.0, 0.0, 0.0)
   val shown = if (stage != Practice.Stage.PLAYING && final != null) final else view
-  val lastFav = practice.lastRecord?.let { vm.records.get(it)?.fav } ?: false
+  val last = practice.lastRecord?.let { vm.records.get(it) }
+  val lastFav = last?.fav ?: false
 
   BoxWithConstraints(Modifier.fillMaxSize()) {
     val wide = maxWidth > maxHeight
     val w = maxWidth.value
     Column(Modifier.fillMaxSize()) {
       if (!wide) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).tourAnchor("top").padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           if (view != null) Text(stringResource(R.string.round_wind, Tiles.wind(view.position.setup.round)) + " " + handLabel,
             style = MaterialTheme.typography.titleMedium, maxLines = 1)
@@ -95,16 +99,18 @@ fun PlayScreen(vm: AppModel) {
           revealed = if (stage != Practice.Stage.PLAYING) final?.hands else null,
           interactive = stage == Practice.Stage.PLAYING && !practice.busy,
           onAct = { practice.act(it) }, handLabel = if (wide) handLabel else "",
+          // The table's top-right corner: the buttons one over the other (the tour lights them as one).
           corner = if (wide) ({
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.tourAnchor("top"), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
               MiniButton(chip) { vm.open(Page.RULES) }
               MiniButton(stringResource(R.string.practice_new)) { confirmNew = true }
             }
           }) else null,
           overlay = {
             when {
+              stage == Practice.Stage.RESULT && held -> SkipPause(letGo)
               stage == Practice.Stage.RESULT && final?.result != null && !hideResult -> Sheet {
-                HandResultCard(final, names, Practice.ME, resultTileW(wide, w)) {
+                HandResultCard(final, names, Practice.ME, resultTileW(wide, w), rev = last?.rev, level = settings.level) {
                   IconButton(onClick = { practice.lastRecord?.let { vm.records.setFav(it, !lastFav) } }) {
                     Icon(if (lastFav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite))
                   }

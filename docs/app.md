@@ -12,18 +12,52 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 
 | Screen | What |
 |---|---|
-| 練習 Practice | Against three bots (the engine's `greedy`, tile efficiency), for one hand, a round or a game; the result of each hand (winner, hand, tai items, payments, next dealer) with its review; the game's totals. No hint or analysis during play. |
-| 對戰 Battles | A table game (1 to 4 people, bots in the empty seats) or a same-tiles contest, on a battle server; the app also with phones nearby. Lobby with a 6-digit PIN, the host's settings, the table with a clock per decision, each hand's result with the standings, the final standings and the player's hands. docs/battle.md. |
-| 分析 Analysis | A position set up by hand, then the engine's figures for each legal action. A finished hand's decisions are analyzed from its review (records). |
-| 紀錄 Records | Practice hands, table battles and contests (battles as groups of hands); favorites; statistics; each hand opens its review: step by step, everyone's tiles at a tap, each decision's analysis with the action taken marked. |
-| 設定 Settings | Rules (tai preset, flower preset, base, every parameter), practice's length, the bots' pace, text size, colors (table green or minimal), dark mode, about. |
+| 練習 Practice | Against three bots (the network by default, or the engine's `greedy`, tile efficiency), for one hand, a round or a game; the result of each hand (winner, hand, tai items, payments, next dealer, the network's summary of the player's play) with its review; the game's totals. No hint or analysis during play. |
+| 對戰 Battles | A table game (1 to 4 people, bots in the empty seats) or a same-tiles contest, on a battle server; the app also with phones nearby. The entry asks first only a new room or joining one (the app: online or nearby too); a new room then offers its kinds, joining asks the PIN. Lobby with a 6-digit PIN, the host's settings, the table with a clock per decision, each hand's result with the standings, the final standings and the player's hands. docs/battle.md. |
+| 分析 Analysis | A position set up by hand, or a step of a review taken there, with the network's figures for each legal action as it changes, and the tables of draws and of claims (docs/analysis.md section 4). |
+| 紀錄 Records | Practice hands, table battles and contests (battles as groups of hands); favorites; statistics of the network's reviews; each hand opens its review: the graph of the value, the decisions worth a look, each decision's verdict and figures, everyone's tiles at a tap. |
+| 設定 Settings | Help (the rules explained, the tour), rules (tai preset, flower preset, base, every parameter with its explanation), practice's length, the bots and their pace, how a decision's list shows and the level of mistakes, text size, colors (table green or minimal), dark mode, about (the version and the network's id). |
+
+- **Help** (0.2.0, as Thirteen's but not a copy): 規則說明, the rules explained in eight pages (`Guide.svelte`,
+  `ui/GuideScreen.kt`): the rules to explain chosen first (the settings' at the start), then the goal with a winning
+  hand, the tiles (and the flowers), a turn and the calls, waits, tai and payments, a quiz (which tiles a ready hand
+  waits for; the answers are the engine's), and the way out: practice, under the rules explained when they differ
+  from the settings', or the tour. Where the flowers and the tai come up the same choice is there again (換換看), so a
+  change shows at once in the words and the tiles; every value (base, dealer, each tai) is the engine's. 導覽, the
+  tour, lights the hand, the top of practice and each tab in turn with a few words (`Tour.svelte`, `ui/Tour.kt`). The
+  first start shows a welcome card once: the rules explained, the tour, or play.
+- **0.3.0** (the user's requests after 0.2.0, 2026-11-11; app and page alike):
+  - The table: the round, the wall and the dealer's streak sit in the top-left corner and the screen's buttons
+    (rules, new game; a battle's rules and leave) in the top-right; the box in the middle is gone on a wide table
+    (a slim one stays upright), so the rivers are larger: a phone sideways about 31 → 35 px a tile, upright 32 → 35.
+    A river holds 16 tiles at full size across and 15 at the sides (2 rows of 8; 3 columns), a longer one shrinks.
+  - The turn: when the player must discard without a drawn tile (the dealer's first, after a claim) the last tile
+    stands apart like a drawn one and the hand has a pulsing yellow frame (also with a drawn tile).
+  - A claim: the discard to claim is enlarged and pulsing in its river, and lit in the claim buttons (tiles 0.8 of the
+    hand's). A chow shows the claimed tile in the middle.
+  - Sideways, the player's flowers sit above the name plate, and the player's melds shrink when the row is short of
+    room, never the hand (a real phone's screenshot of 0.2.0 showed the drawn tile squeezed small).
+  - The end of a hand: the table stays 2.2 s (everyone's tiles, 胡／自摸, 放槍 over the discarder; also at a draw)
+    before the result; a tap skips. Records are written at once.
+  - The review: the expected value at every step (目前期望: at the player's decision its value; after it, the action
+    taken's; before the first, the starting value; at the end the result); at an opponent's step the list names the
+    opponent; the action taken is first, it and the best are filled, both tags when they are the same; each row's
+    figure is the action's expected value, with the loss against the best before it in small type when it counts; an
+    i button explains the figures. Its end offers 下一局 (practice: the next hand; records: the next of the group).
+    The back button is in the side column's top left (it covered the left player's name on a computer); the app's
+    side column sideways has two rows of buttons at its foot: the big jumps above, the steps below.
+  - The rules page never changes its height (the changed mark keeps its room; reset is greyed); each parameter's i
+    opens a dialog.
+  - No money in any wording (points, 分); separators (．) between figures (連 2 拉 2．3 台).
+  - The app's practice tab has the page's tile icon.
 
 - **The table** is laid out from the room it has (`web/src/lib/layout.ts`, ported as `android/.../ui/TableLayout.kt`,
   the same arithmetic): wide (a phone sideways, a tablet, a computer) or tall (a phone upright). Landscape is the
   main layout; portrait works; a computer gets a side panel with the scores and keyboard play (web).
 - **The engine** is `cpp/` behind `GuiEngine` (docs/gui-engine.md), stateless (a hand is its record, replayed per
-  request): JNI in the app, WebAssembly in a worker on the page, `mahjong gui` processes on the server. No ONNX
-  Runtime yet; Thirteen's structure for it is kept (see "Later").
+  request): JNI in the app, WebAssembly in a worker on the page, `mahjong gui` processes on the server. The network
+  (an actor's `.onnx`, iteration 50 of stage 1 in 0.1.0) runs in ONNX Runtime, linked into the JNI library in the
+  app and built into the WebAssembly on the page; the server has none yet (its bots are `greedy`).
 - **Shared between the two**: the strings (`android/app/src/main/res/values/strings.xml`, which the page reads through
   `web/scripts/strings.mjs`), the tile art (`art/make_tiles.py` writes `TileArt.kt` and `tile-art.ts`), the table's
   layout arithmetic, the records' JSON form, the battle protocol (Kotlin in `protocol/`, a TypeScript port in
@@ -32,6 +66,17 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.3.0.apk` (branch `analysis`, 2026-11-12): the requests after 0.2.0 (above); arm64-v8a, 15 MB.
+    The debug build went through `shots.py` sideways and upright (`shots/android-030/`), the page through
+    `scratch/ui-analysis/web_review_check.py` at five sizes (`shots/web-030-review/`).
+  - `apk/mahjong-0.2.0.apk` (branch `analysis`, 2026-11-11): the rules explained, the tour and the welcome card, the
+    battle entry in steps; arm64-v8a only, 14.7 MB (below). The same debug key, so it installs over 0.1.0 keeping the
+    records. Its x86_64 twin ran on the emulator; the debug build went through `shots.py` (`shots/android-020/`).
+    The page's battle test (`web/scripts/shots-battle.py`: two browsers, a table game and a contest, on a local
+    server) passed through the new entry (`shots/web-020-battle/`).
+  - `apk/mahjong-0.1.0.apk` (branch `analysis`, 2026-11-11): the first beta with the network, its review and its
+    analysis; release build, signed with the same debug key, so it installs over 0.0.15 keeping the records. Run on
+    the emulator through practice, the review, the analysis, the records, the settings and the rules.
   - `apk/mahjong-0.0.15.apk`: the release APK (minified with R8), signed with the debug key (no release key exists
     yet: android/README.md, "Signing"); it was installed on the emulator and played through practice, a review, the
     analysis and a table game on the local server.
@@ -112,12 +157,15 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 
 ## Missing or rough (the next steps, roughly in order)
 
-**Bugs the user found on the prototype (2026-11-10, APK 0.0.15 or the last commit of `ui`), not yet looked at**
-(the plan puts app work after training; there are likely more):
+**Bugs the user found on the prototype (2026-11-10, APK 0.0.15), fixed in 0.1.0:**
 
-- Android: tapping the base's + or − button (底) crashes the app.
-- 所有參數 (every parameter) on the rules page never expands.
-- Sometimes a tile cannot be discarded.
+- Android: tapping the base's + or − button (底) crashed the app, and 所有參數 (every parameter) never expanded. One
+  cause: the engine writes the rules' values as numbers with a fraction (`2.0`), which the app's `RulesInfo` read as
+  integers; the decoding failed, a `runCatching` hid it (no parameters to show), and the base's buttons threw it
+  uncaught. The values are read as numbers now, every decoding failure is the engine's error, and the rules page
+  shows it.
+- Sometimes a tile could not be discarded: the lifted tile's touch area rose with it, leaving the lower part of its
+  place dead to the second tap. The touch area now covers both the tile's place and the lifted tile (app and page).
 
 
 1. **Test on real devices**: the release APK on a phone (sideways and upright), rooms nearby on two or three phones,
@@ -125,9 +173,10 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 2. **Hosting** the battle server (the user decides where); then the app's default server and a mention on the Battle
    screen.
 3. **Nearby**: no backup host (the room dies with the host's phone); no reconnect for a guest who drops.
-4. **A tutorial** or first-run help (Thirteen has one): none yet.
-5. **The analysis** is tile efficiency only: no defense (danger of a discard), no tai-aware expected value. The network
-   (docs/plan.md) is meant to replace it; its figures plug in as described under "Later".
+4. **Size**: compressing the native libraries in the APK would make the download about 8 MB (from 14.7), but the
+   installed app larger (Android keeps an extracted copy beside the APK); declined by the user (2026-11-11): they
+   stay uncompressed, as Thirteen's. Below.
+5. **The analysis** has the network since 0.1.0 (docs/analysis.md); a better network replaces the file.
 6. **English (US)** strings (`values-en/strings.xml`; the page would need its language picked from the browser).
 7. **Records export and import** (Thirteen's app has export and share): `records_export` is in the strings, unused.
 8. **Polish**: animations of tiles moving (only the callouts animate now), sound and haptics, predictive back, a
@@ -140,14 +189,30 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
    resuming, leaving and the claim window's timing.
 10. **Docker** was built with the legacy builder only (this host has no BuildKit).
 
-## Later: the network
+## The APK's size (0.2.0)
 
-- The engine gets the network's figures into `analyze` (more number fields per action, e.g. a win rate and an
-  expected score), which the app and the page show as they come, and a bot spec (`net:...`) that the settings'
-  bot list (`BOTS` in `Settings.kt`, `web/src/lib/settings.svelte.ts`) and the server's `Validation.BOTS` then name.
-- The app links ONNX Runtime as Thirteen's does (`android/app/src/main/cpp/CMakeLists.txt`, `build-ort.sh` and
-  `ort-ops.config` there); the page loads the network with the engine (Thirteen's `virtual:engine-files` and
-  `stored.ts`, already here for the WebAssembly); the server's image adds the network file.
+0.1.0's APK was 30.4 MB; 0.2.0's is 14.7 MB, by Thirteen's ways and one more (the user's request: smaller, and only
+arm64-v8a for the phone):
+
+| Part (bytes in the APK) | 0.1.0 | 0.2.0 | How |
+|---|---|---|---|
+| ONNX Runtime (`libonnxruntime.so`, stored) | 10.6 M arm64 + 11.0 M x86_64 | 9.95 M arm64 | arm64-v8a only (`abiFilters`; `MAHJONG_ABIS=x86_64` for the emulator); the app's own reduced build (`android/build-ort.sh`, `ort-ops.config`: this network's operators only, where Thirteen's covered Thirteen's too); the AAR's would be 34 M |
+| The engine (`libmahjong_jni.so`, stored) | 1.41 M + 1.42 M | 0.66 M | one ABI; only the JNI functions exported, unused code dropped at link time (`-fvisibility=hidden`, `--gc-sections`) |
+| The network (`actor.onnx`, deflated) | 3.93 M | 1.98 M | weights stored as float16 (`python/fp16_weights.py`), computed in float32 |
+| The code (`classes.dex`, deflated) | 1.91 M | 1.93 M | R8 as before |
+
+Float16 weights, measured (`$WORK/scratch/ui-analysis/fp16_check.py`, not in the
+repository: 60 hands of 簡單1・無花 played by `greedy`, every seat reviewed by
+both networks, 2970 decisions, 27832 actions): every figure within 0.001 of float32's (q: mean difference 0.0002, at
+most 0.0009; win, deal-in, policy, danger: at most 0.0008); the best action the same in 2938 of 2970 decisions (the
+other 32 were near ties); a review's total loss at most 0.0007 apart. The web page ships the same file (2.2 MB instead
+of 4.3). Its id differs from float32's, so records reviewed by 0.1.0 are reviewed again when opened.
+
+## Later: the network on the server
+
+The app and the page have the network (0.1.0). The server's bots are still `greedy`: its image would add the network
+file and a build of `mahjong` with ONNX Runtime, and `Validation.BOTS` would name `net:...` (when a stable version is
+released).
 
 ## Commands
 

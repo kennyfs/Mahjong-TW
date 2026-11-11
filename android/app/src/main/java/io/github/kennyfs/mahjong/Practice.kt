@@ -56,7 +56,8 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
   private var running = false
   private var epoch = 0
 
-  val bots: List<String?> get() = (meta?.bot ?: "greedy").let { listOf(null, it, it, it) }
+  /** Per seat: the bot (Settings' BOTS), or null for the player. */
+  val bots: List<String?> get() = (meta?.bot ?: settings.bot).let { listOf(null, it, it, it) }
 
   /** The game in play from the last visit, or a new one. */
   fun resume() = scope.launch {
@@ -158,6 +159,11 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
     if (stage != Stage.PLAYING) return
     val key = "${g.wall.take(24)}/${g.actions.size}"
     if (m.recorded == key) {
+      // After a restart: the hand's record (this game's, by its number) for the review and favorite on the result, and
+      // the summary if the restart cut it short.
+      val rec = records.ofGroup(m.id).firstOrNull { it.index == m.hands }
+      lastRecord = rec?.id
+      if (rec != null) scope.launch { keepSummary(records, rec) }
       stage = Stage.RESULT
       return
     }
@@ -165,6 +171,8 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
     val rec = Records.handRecord(RecordKind.practice, g, result, ME, names(), bots, m.id, hands)
     records.add(rec)
     lastRecord = rec.id
+    // The network's review of the hand, in short, for the result's sheet and the records.
+    scope.launch { keepSummary(records, rec) }
     meta = m.copy(recorded = key, hands = hands, totals = m.totals.mapIndexed { i, t -> t + result.points[i] },
       over = m.length == Length.HAND)
     stage = Stage.RESULT

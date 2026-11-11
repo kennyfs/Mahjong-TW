@@ -16,6 +16,21 @@ import java.time.Instant
 
 enum class RecordKind { practice, table, contest }
 
+/** A hand's review by the network, in short (Review.kt), kept with the record for the lists and the statistics. */
+@Serializable
+data class ReviewSummary(
+  /** The network that reviewed it (Engine.MODEL_ID): another one reviews it again. */
+  val m: String,
+  /** The expected result at the first decision, the points lost by decisions, and the rest of the result: luck. */
+  val first: Double, val loss: Double, val luck: Double,
+  /** A typical payment under the hand's rules, which the grades are scaled by. */
+  val unit: Double,
+  /** Decisions that had a choice; how many were questionable, mistakes, blunders. */
+  val n: Int, val grades: List<Int> = listOf(0, 0, 0),
+  /** The points lost by kind of decision (LossKind: tile, danger, call, win). */
+  val kinds: List<Double> = listOf(0.0, 0.0, 0.0, 0.0),
+)
+
 @Serializable
 data class HandRecord(
   val id: String,
@@ -39,6 +54,7 @@ data class HandRecord(
   val group: String? = null,
   val index: Int? = null,
   val fav: Boolean = false,
+  val rev: ReviewSummary? = null,
 )
 
 @Serializable
@@ -88,6 +104,11 @@ class Records(context: Context) {
 
   fun setFav(id: String, fav: Boolean) {
     hands = hands.map { if (it.id == id) it.copy(fav = fav) else it }
+    persist()
+  }
+
+  fun setReview(id: String, rev: ReviewSummary) {
+    hands = hands.map { if (it.id == id) it.copy(rev = rev) else it }
     persist()
   }
 

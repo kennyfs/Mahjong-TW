@@ -52,14 +52,29 @@ enum class ColorStyle { TABLE, MINIMAL }
 enum class DarkMode { SYSTEM, LIGHT, DARK }
 enum class TextSize(val scale: Float) { SMALL(0.88f), NORMAL(1f), LARGE(1.15f) }
 
-/** The bots: one now (tile efficiency); a network later, as a spec "net:..." (docs/app.md). */
-val BOTS = listOf("greedy" to R.string.bot_greedy)
+/** The bots: the network (the built-in one, playing the action it values most) and tile efficiency. */
+val BOTS = listOf(Engine.NET_BOT to R.string.bot_net, "greedy" to R.string.bot_greedy)
+
+/**
+ * What a row of a decision's list shows for an action: its figures as numbers, bars of where its value differs from
+ * the best action's, or both. (The hand's tiles always carry each discard's cost and danger.) Until it is chosen: both
+ * where there is room for it (a tablet), the bars on a phone.
+ */
+enum class ListRows { numbers, bars, both }
+
+/**
+ * Which losses the review counts as mistakes and stops at: a beginner's only the large ones, an expert's the small
+ * ones too (Review.kt). `grade`: the least grade that counts.
+ */
+enum class Level(val grade: Int) { beginner(3), mid(2), expert(1) }
 
 @Serializable
 private data class StoredSettings(
-  val rules: RuleChoice = RuleChoice(), val length: Length = Length.GAME, val bot: String = "greedy", val speed: Speed = Speed.NORMAL,
+  val rules: RuleChoice = RuleChoice(), val length: Length = Length.GAME, val bot: String = Engine.NET_BOT, val speed: Speed = Speed.NORMAL,
   val colors: ColorStyle = ColorStyle.TABLE, val dark: DarkMode = DarkMode.SYSTEM, val text: TextSize = TextSize.NORMAL,
-  val name: String = "", val server: String = "",
+  val name: String = "", val server: String = "", val listRows: ListRows? = null, val level: Level = Level.mid,
+  /** 1: saved by a version with the network (before it, the bot could only be tile efficiency). */
+  val version: Int = 0,
 )
 
 /** The settings, kept in the app's preferences. The web page's lib/settings.svelte.ts. */
@@ -70,18 +85,25 @@ class Settings(context: Context) {
 
   var rules by mutableStateOf(stored.rules)
   var length by mutableStateOf(stored.length)
-  var bot by mutableStateOf(if (BOTS.any { it.first == stored.bot }) stored.bot else "greedy")
+  var bot by mutableStateOf(if (stored.version >= 1 && BOTS.any { it.first == stored.bot }) stored.bot else Engine.NET_BOT)
   var speed by mutableStateOf(stored.speed)
   var colors by mutableStateOf(stored.colors)
   var dark by mutableStateOf(stored.dark)
   var text by mutableStateOf(stored.text)
   var name by mutableStateOf(stored.name)
   var server by mutableStateOf(stored.server)
+  var listRows by mutableStateOf(stored.listRows ?: if (context.resources.configuration.smallestScreenWidthDp >= 600) ListRows.both else ListRows.bars)
+  var level by mutableStateOf(stored.level)
 
   val spec: String get() = rules.spec
 
+  /** The welcome card was shown (and answered, or put away): it comes once. */
+  var welcomeSeen: Boolean
+    get() = prefs.getBoolean("welcome.seen", false)
+    set(v) = prefs.edit().putBoolean("welcome.seen", v).apply()
+
   fun persist() {
-    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server)
+    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, listRows, level, version = 1)
     prefs.edit().putString("settings", EngineJson.encodeToString(s)).apply()
   }
 }

@@ -474,6 +474,13 @@ static void testGuiEngine() {
       for(size_t i = 0; i < f1.size(); i++)
         testAssert(f1[i].shanten == f2[i].shanten && f1[i].ukeire == f2[i].ukeire &&
                    f1[i].waits.size() == f2[i].waits.size() && f1[i].winTai == f2[i].winTai);
+      // The game analyzed with a hand in place of the seat's: with the seat's own, the game's own figures.
+      if(step % 8 == 0) {
+        json own{{"cmd", "analyze"}, {"game", g}, {"seat", person}, {"hand", v["position"]["hand"]}, {"seed", "hand"}};
+        if(!v["position"]["drawn"].is_null())
+          own["drawn"] = v["position"]["drawn"];
+        testAssert(engine.handle(own) == engine.handle(json{{"cmd", "analyze"}, {"game", g}, {"seat", person}}));
+      }
       // The person plays like greedy.
       json act = engine.handle(json{{"cmd", "bot"}, {"game", g}, {"seat", person}, {"player", "greedy"}})["action"];
       g = engine.handle(json{{"cmd", "act"}, {"game", g}, {"seat", person}, {"action", act}})["game"];
@@ -484,6 +491,58 @@ static void testGuiEngine() {
     for(const json& p : v["result"]["points"])
       sum += p.get<double>();
     testAssert(sum == 0);
+    // Which actions took effect: every one on a seat's own turn, no pass, and of the claims on a discard the one
+    // made; a claim that was not made names the one that was. The wins taken are the winners', the calls taken the
+    // melds on the table.
+    {
+      json st = engine.handle(json{{"cmd", "steps"}, {"game", g}});
+      const json& acts = g["actions"];
+      testAssert(st["taken"].size() == acts.size() && st["over"].size() == acts.size());
+      vector<int> winners;
+      int calls = 0, lastTaken = -1, firstWin = -1;
+      for(size_t k = 0; k < acts.size(); k++) {
+        const string type = acts[k][1].get<string>();
+        const bool taken = st["taken"][k].get<bool>();
+        const int over = st["over"][k].get<int>();
+        if(type == "pass")
+          testAssert(!taken && over == -1);
+        if(type == "discard" || type == "tsumo" || type == "ankan" || type == "kakan")
+          testAssert(taken);
+        if(over >= 0) {
+          const string by = acts[over][1].get<string>();
+          testAssert(!taken && st["taken"][over].get<bool>() && (by == "ron" || by == "pon" || by == "kan"));
+          testAssert(type == "chi" || by == "ron");
+        }
+        else if(type != "pass")
+          testAssert(taken);
+        if(!taken)
+          continue;
+        lastTaken = (int)k;
+        if(type == "ron" || type == "tsumo") {
+          winners.push_back(acts[k][0].get<int>());
+          if(firstWin < 0)
+            firstWin = (int)k;
+        }
+        if(type == "chi" || type == "pon" || type == "kan")
+          calls++;
+      }
+      const json& res = v["result"];
+      testAssert(st["last"] == (firstWin >= 0 ? firstWin : lastTaken));
+      if(!res["flower_win"].get<bool>()) {
+        vector<int> seats;
+        for(const json& w : res["winners"])
+          seats.push_back(w["seat"].get<int>());
+        sort(seats.begin(), seats.end());
+        sort(winners.begin(), winners.end());
+        testAssert(seats == winners);
+      }
+      int melds = 0;
+      for(const json& p : v["position"]["players"])
+        for(const json& m : p["melds"])
+          if(m["type"] != "ankan")
+            melds++;
+      testAssert(calls == melds);
+    }
     // The record survives a round trip through text.
     GuiJson::Record rec = GuiJson::parseRecord(json::parse(g.dump()));
     testAssert(GuiJson::record(rec) == g);

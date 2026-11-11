@@ -5,21 +5,33 @@ may follow, no others). The engine is the repository's C++ (`cpp/`, through `cpp
 UI is Jetpack Compose with Material 3, the same screens and look as the web page (`web/`), and the battle rooms are
 the `protocol/` module shared with the server. Status and the decisions behind it: [docs/app.md](../docs/app.md).
 
-- **練習 (practice)**: the player against three bots, for one hand, one round (一圈) or a full game (一將). A tap
-  lifts a tile and a second tap discards it, or a tile dragged up is discarded; claims (吃 each way with its tiles,
-  碰, 槓, 胡, 過) are buttons over the hand. An upright phone wraps the hand after 8 tiles, so the tiles stay large.
-  No hint or analysis while a hand is played: the result offers its review.
+- **練習 (practice)**: the player against three bots (the network, or tile efficiency), for one hand, one round (一圈)
+  or a full game (一將). A tap lifts a tile and a second tap discards it, or a tile dragged up is discarded; claims
+  (吃 each way with its tiles, 碰, 槓, 胡, 過) are buttons over the hand. An upright phone wraps the hand after 8
+  tiles, so the tiles stay large. No hint or analysis while a hand is played: the result shows the network's summary
+  of the hand (first value, decisions, luck, mistakes) and offers its review.
 - **對戰 (battles)**: a table game or a same-tiles contest on a battle server (docs/battle.md), or with phones nearby
-  (Nearby Connections, no network needed; the host's phone runs the room).
+  (Nearby Connections, no network needed; the host's phone runs the room). The entry asks first only 線上 or 附近
+  (online or nearby) and 建立房間 or 加入房間 (a new room or joining one); a new room then offers its kinds.
 - **分析 (analysis)**: a position set up by hand (the hand, the tile drawn or another player's discard, every seat's
-  melds, flowers and discards, the dealer, the round wind, the wall), then the engine's figures for each legal
-  action: tile efficiency for now (shanten, tiles that help, waits with copies left and their tai); a network's
-  figures join them later.
+  melds, flowers and discards, the dealer, the round wind, the wall), or a step of a review taken there; the
+  network's figures for each legal action follow every change (expected result, chances of winning and dealing in,
+  danger, with tile efficiency beside them), each tile's cost over the hand, and on request the tables of draws and
+  of claims (docs/analysis.md).
 - **紀錄 (records)**: every finished hand (practice, table battles, contests; battles as groups of their hands), each
-  opening its review: step by step through the decisions, each decision open to its analysis.
-- **設定 (settings)**: the rules (a tai preset 簡單/標準/大師 and a flower preset 無花/見花見台/正花, chosen apart,
-  the base, and any value changed: names and values from the engine), practice's length, the bots' pace, the text
-  size, the colors, dark mode.
+  opening its review: the graph of the value over the player's decisions, steps to the decisions worth a look, each
+  decision's verdict and every action's figures; a tab's statistics (points lost and mistakes a hand, by kind).
+- **設定 (settings)**: help (規則說明, the rules explained, and 導覽, the tour), the rules (a tai preset
+  簡單/標準/大師 and a flower preset 無花/見花見台/正花, chosen apart, the base, and any value changed, each with its
+  explanation: names and values from the engine), practice's length, the bots, their pace, how the list of actions
+  shows (numbers, bars or both), the level of mistakes (入門, 中級, 高手), the text size, the colors, dark mode; the
+  version and the network's id.
+- **規則說明 (the rules explained)**: eight pages for someone new to Taiwanese mahjong: the rules to explain first
+  (the settings' at the start), then the goal, the tiles and flowers, a turn and the calls, waits, tai and payments,
+  a quiz on waits, and on to practice (under the rules explained, if they differ) or the tour. Where the flowers and
+  the tai come up, the same choice is there again, so a change shows at once; every value comes from the engine.
+- **導覽 (the tour)** lights the hand, the top of practice and each tab in turn, with a few words on each; the first
+  start offers it, the rules explained, or play (the welcome card, once).
 
 ## Code
 
@@ -29,6 +41,8 @@ the `protocol/` module shared with the server. Status and the decisions behind i
 | `Engine.kt`, `Model.kt` | The engine's requests (docs/gui-engine.md) on a thread of their own, and its JSON as Kotlin types. |
 | `Tiles.kt` | Tile names, parsing, sorting, seats as the player sees them. |
 | `Settings.kt`, `Records.kt` | The settings (SharedPreferences) and the records (a JSON file in the app's files). |
+| `Review.kt` | A review's grading (levels, the obvious move, the reason of a loss), tile marks, a hand's summary (the web page's `lib/review.ts`). |
+| `RuleHelp.kt` | Each rule parameter's explanation (a fixed map: resource shrinking drops strings looked up by name). |
 | `Practice.kt` | Practice: the app is the authority (holds the record, plays the bots one decision point at a time). |
 | `PositionEditor.kt` | The analysis screen's position. |
 | `AppModel.kt`, `MainActivity.kt` | What the screens share; the screens with the navigation bar or rail and Back. |
@@ -36,7 +50,10 @@ the `protocol/` module shared with the server. Status and the decisions behind i
 | `ui/TableLayout.kt`, `ui/TableView.kt` | The table: sizes from the room it has (the web page's `lib/layout.ts`, the same arithmetic), the seats, rivers, melds, the hand, the claim buttons, the callouts. |
 | `ui/TileView.kt`, `ui/TileArt.kt` | A tile drawn from paths (`TileArt.kt` is generated by `art/make_tiles.py`, as the web page's `tile-art.ts`). |
 | `ui/*Screen*.kt`, `ui/HandResultCard.kt`, `ui/Components.kt`, `ui/Theme.kt` | The screens, a hand's result, shared pieces, the colors (Thirteen's). |
+| `ui/ReviewScreens.kt`, `ui/DecisionPanel.kt`, `ui/ValueGraph.kt`, `ui/WhatIfTables.kt`, `ui/AnalyzeScreen.kt` | The review, the list of a decision's actions, the graph of the value, the tables of draws and claims, the analysis screen. |
+| `ui/GuideScreen.kt`, `ui/Tour.kt` | The rules explained; the tour (the elements it lights mark themselves with `tourAnchor`) and the welcome card. The web page's `Guide.svelte`, `Tour.svelte`. |
 | `scripts/shots.py` | Drives the app over adb for the screenshots (`device-tests.sh`). |
+| `build-ort.sh`, `ort-ops.config` | A reduced ONNX Runtime: only the network's operators (below). |
 
 ## Building
 
@@ -51,12 +68,36 @@ cd android
 cp $HOME/Thirteen/android/local.env .   # if missing: ANDROID_HOME, ANDROID_AVD_HOME, GRADLE_USER_HOME, GRADLE
 echo "sdk.dir=$HOME/android-sdk" > local.properties
 set -a; . ./local.env; set +a
+# The network with float16 weights (once per network; the app and the web page ship this one). A Python with numpy
+# and onnx: here $WORK/venv.
+PY=$WORK/venv/bin/python
+$PY ../python/fp16_weights.py $HOME/mahjong_remote/share/s1/models/actor_50.onnx \
+  $WORK/models/actor_50.fp16.onnx
+# A reduced ONNX Runtime (once per ONNX Runtime version or new operator; about 4 minutes an ABI with 32 cores).
+ORT_PYTHON=$PY MAHJONG_ORT_DIR=$WORK/ort ORT_WORK=$WORK/ort-build ./build-ort.sh
+export MAHJONG_ORT_DIR=$WORK/ort MAHJONG_MODEL=$WORK/models/actor_50.fp16.onnx
 # A debug APK (arm64-v8a and x86_64): app/build/outputs/apk/debug/app-debug.apk. --offline: every dependency is in
 # the Gradle cache (no network needed).
 $GRADLE --offline --no-daemon assembleDebug 2>&1 | tee $WORK/logs/android-build.log
-# The release APK, minified, to $MAHJONG_APK_DIR (default build/apk) as mahjong-<version>.apk; BUNDLE=1 adds the .aab.
-GRADLE_FLAGS=--offline MAHJONG_APK_DIR=$WORK/apk ./build-apk.sh
+# The release APK, minified, arm64-v8a only, to $MAHJONG_APK_DIR (default build/apk) as mahjong-<version>.apk;
+# BUNDLE=1 adds the .aab. MAHJONG_ABIS=x86_64 makes one the emulator runs (to try the minified app there).
+GRADLE_FLAGS=--offline MAHJONG_APK_DIR=$WORK/apk MAHJONG_VERSION=0.2.0 ./build-apk.sh
 ```
+
+The network is an actor's `.onnx` (not in the repository): `MAHJONG_MODEL`, or else the web page's
+`web/engine-files/actor.onnx`; it goes into the assets, and the start of its SHA-256 is the network's id (shown in the
+settings, and kept with each record's summary: another network reviews the records again). `python/fp16_weights.py`
+stores its weights as float16 (half the file; it computes in float32 as before: docs/app.md has what that changes).
+ONNX Runtime comes from its AAR, or `MAHJONG_ORT_DIR` names a reduced build of it: `build-ort.sh` builds the release's
+ONNX Runtime version with only the operators in `ort-ops.config` (the network's and the fused ones ONNX Runtime makes
+of them), no telemetry and no classic ML operators, 10 MB for arm64-v8a where the AAR's library is 34 MB. A network
+with an operator not listed fails to load: add it to `ort-ops.config` and build again. `MAHJONG_VERSION` sets the
+version name (`MAHJONG_VERSION=0.2.0 ./build-apk.sh`).
+
+The release is arm64-v8a only (as phones are; Thirteen's too), its native libraries stored uncompressed (Android maps
+them from the APK; compressed, the download would be about 8 MB but the installed app larger, an extracted copy
+beside it); the JNI library exports only its JNI functions and drops unused code at link time. 0.2.0's APK is 14.7 MB
+(0.1.0's, both ABIs and float32 weights: 30.4 MB): docs/app.md has the parts.
 
 The offline cache lacks `androidx.navigationevent` 1.0.0, which `activity-compose` asks for: `app/build.gradle.kts`
 names 1.1.1 (the version Thirteen's navigation3 brought into the cache). With a network both resolve.
@@ -84,15 +125,21 @@ source $HOME/env.sh; export TMPDIR=$WORK/tmp
 GRADLE_FLAGS=--offline BATTLE_SERVER=10.0.2.2:8091 OUT=$WORK/shots/android ./device-tests.sh
 ```
 
-`shots.py` plays a hand of practice to its end through taps (passing on claims, winning when it can, discarding the
-tile drawn), then opens the review, a decision's analysis, the analysis screen, the records, the settings and the
-rules, and the battle screen, each sideways and upright; with `BATTLE_SERVER` (a battle server on this machine,
+`shots.py` shoots the first start's welcome card and puts it away, plays a hand of practice to its end through taps
+(passing on claims, winning when it can, discarding the tile drawn), shoots the table in the pause at its end
+(`play-end-*`), then its result with the network's
+summary, the review (a decision worth a look, everyone's tiles, the list of actions and its i dialog, the last move,
+the result and 下一局),
+the analysis screen with a random hand, the records with their statistics, the settings, the rules with a parameter's
+explanation, the rules explained (its first page, the tiles, tai, the quiz answered, its end), the tour's first steps
+and its end, and the battle entry's steps, each sideways and upright; with `BATTLE_SERVER` (a battle server on this machine,
 docs/battle.md; `10.0.2.2` is the emulator's name for this machine) it also creates a table game there, starts it
 and shoots the table. It finds controls by their Compose test tags (`testTagsAsResourceId` in `MainActivity`), and
 turns the display with `wm user-rotation lock` while the app is in front (with the launcher in front, the lock is
 undone). On Android 17 it allows the local network access the app asks for before connecting to the server on the
 emulator's host (10.0.2.2). `ONLY=battle-table-land,...` keeps only those shots; `STEPS=battle_table,...` runs only
-those steps (`practice`, `practice_result`, `analyze`, `records`, `settings`, `battle`, `battle_table`), e.g. with an
+those steps (`practice`, `practice_result`, `analyze`, `records`, `settings`, `guide`, `tour`, `battle`,
+`battle_table`), e.g. with an
 emulator already running (KEEP=1 leaves it so) and `ANDROID_SERIAL=emulator-5556`:
 
 ```bash
@@ -101,9 +148,10 @@ STEPS=battle_table BATTLE_SERVER=10.0.2.2:8091 OUT=$WORK/tmp/shots/check python3
 
 The emulator has no Nearby Connections: rooms nearby need two real phones.
 
-## Later
+## Versions
 
-- **A network** (the plan's): the engine gains its figures in `analyze` (shown when present, `Model.kt`'s `extra`)
-  and a bot spec; ONNX Runtime then joins the JNI library as in Thirteen (`android/app/src/main/cpp/CMakeLists.txt`,
-  `build-ort.sh`, `ort-ops.config` there), and a bot choice in the settings (`BOTS` in `Settings.kt`).
-- The rest of the list is in [docs/app.md](../docs/app.md).
+0.x.x are betas (0.1.0: the network of iteration 50 of stage 1, its review and analysis; 0.2.0: the rules explained,
+the tour and the welcome card, the battle entry in steps, a release half the size; 0.3.0: larger rivers with the
+round and buttons in the corners, the turn and the claimable tile made plain, a pause at the end of a hand, the
+review's value at every step and its list reworked, 下一局); 1.0.0 will be the first stable
+version. What is missing is listed in [docs/app.md](../docs/app.md).
