@@ -83,22 +83,59 @@ def selfplay(args, i, stop):
     k = newest_model(run)
     tmp = out + ".part"
     subprocess.run(["rm", "-rf", tmp])
-    cmd = [args.engine, "selfplay", "-m", os.path.join(run, "models", f"actor_{k}.onnx"), "-n", str(args.hands),
-           "-t", str(args.threads), "--slots", str(args.slots), "--marks", str(args.marks), "--forks",
-           str(args.forks), "--opponent-rate", str(args.opponent_rate), "-s", f"{args.seed}_{i}", "-o", tmp,
-           "--opponent", "greedy", "--progress", os.path.join(run, "selfplay_progress.txt")]
-    # Earlier networks: the first one, and those of about 5 and 20 iterations before.
-    for j in sorted({0, max(0, k - 5), max(0, k - 20)}):
-        if j < k:
-            cmd += ["--opponent", "net:model=" + os.path.join(run, "models", f"actor_{j}.onnx")]
-    log(run, f"self-play {i} with network {k}")
+    models = os.path.join(run, "models")
+
+    def command(hands, seed, directory, progress):
+        cmd = [args.engine, "selfplay", "-m", os.path.join(models, f"actor_{k}.onnx"), "-n", str(hands),
+               "-t", str(args.threads), "--slots", str(args.slots), "--marks", str(args.marks), "--forks",
+               str(args.forks), "--opponent-rate", str(args.opponent_rate), "-s", seed, "-o", directory,
+               "--opponent", "greedy"]
+        if progress:
+            cmd += ["--progress", progress]
+        # Earlier networks: the first one, and those of about 5 and 20 iterations before.
+        for j in sorted({0, max(0, k - 5), max(0, k - 20)}):
+            if j < k:
+                cmd += ["--opponent", "net:model=" + os.path.join(models, f"actor_{j}.onnx")]
+        return cmd
+
+    # A helper machine (the same paths, the same engine there) plays half of the hands: the run's networks are
+    # copied to it, it plays into a directory of its own, and its files are fetched. Without it (unreachable, or its
+    # half fails) the iteration is what was played here.
+    hands, helper, helper_dir = args.hands, None, out + ".helper"
+    if args.helper:
+        ssh = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=20", args.helper]
+        ready = subprocess.run(ssh + [f"mkdir -p {shlex.quote(models)} && rm -rf {shlex.quote(helper_dir)}"]).returncode == 0
+        ready = ready and subprocess.run(["rsync", "-a", models + "/", f"{args.helper}:{models}/"]).returncode == 0
+        if ready:
+            share = args.hands // 2
+            line = " ".join(shlex.quote(x) for x in command(share, f"{args.seed}_{i}h", helper_dir, None))
+            helper = subprocess.Popen(ssh + [line], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            hands = args.hands - share
+        else:
+            log(run, f"the helper {args.helper} cannot be reached: self-play {i} is played here alone")
+    log(run, f"self-play {i} with network {k}" + (f" (half of it on {args.helper})" if helper else ""))
     with open(os.path.join(run, "logs", f"selfplay_{i}.log"), "w") as f:
-        code = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT).returncode
+        code = subprocess.run(command(hands, f"{args.seed}_{i}", tmp, os.path.join(run, "selfplay_progress.txt")),
+                              stdout=f, stderr=subprocess.STDOUT).returncode
     if code != 0:
+        if helper:
+            helper.kill()
         raise RuntimeError(f"self-play {i} failed: see logs/selfplay_{i}.log")
-    os.rename(tmp, out)
     with open(os.path.join(run, "logs", f"selfplay_{i}.log")) as f:
-        log(run, f"self-play {i} done: " + f.read().strip().replace("\n", " | "))
+        text = f.read().strip().replace("\n", " | ")
+    if helper:
+        theirs = helper.communicate()[0]
+        got = helper.returncode == 0 and subprocess.run(
+            ["rsync", "-a", f"{args.helper}:{helper_dir}/", tmp + "/"]).returncode == 0
+        subprocess.run(ssh + [f"rm -rf {shlex.quote(helper_dir)}"])
+        with open(os.path.join(run, "logs", f"selfplay_{i}.log"), "a") as f:
+            f.write(f"\n== {args.helper}\n{theirs}")
+        if got:
+            text += f" || {args.helper}: " + theirs.strip().replace("\n", " | ")
+        else:
+            log(run, f"the half of self-play {i} on {args.helper} is missing: the iteration has {hands} hands")
+    os.rename(tmp, out)
+    log(run, f"self-play {i} done: " + text)
 
 
 def evaluate(args, k):
@@ -236,6 +273,8 @@ def main():
     ap.add_argument("--marks", type=int, default=8)
     ap.add_argument("--forks", type=float, default=1.5)
     ap.add_argument("--opponent-rate", type=float, default=0.2)
+    ap.add_argument("--helper", help="A second machine (ssh HOST, with this run's paths and the engine at the same "
+                                     "place) that plays half of every iteration's hands")
     ap.add_argument("--ahead", type=int, default=2, help="Iterations self-play may be ahead of the newest network")
     ap.add_argument("--bwlimit", type=int, default=0, help="Limit of the copies to the remote machine, KiB/s")
     ap.add_argument("--train-args", default="", help="More arguments for train1.py")

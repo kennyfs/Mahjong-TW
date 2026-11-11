@@ -212,3 +212,12 @@ done, steps to do, seconds; `train_loop.py` puts it at `RUN/train_progress.txt`)
 The link between the two machines is the slow part: about 0.1 to 0.2 MB/s when measured on 2026-11-12, so an
 iteration of 100,000 hands with 12 marks a hand (38 MB) takes three minutes or more to fetch.
 
+### Two machines of self-play for one run
+
+`loop1.py --helper HOST` has a second machine play half of every iteration's hands at the same time: the run's
+networks are copied to it (it has the same paths and the engine at the same place), it plays into a directory of its
+own, and the loop fetches its files into the iteration before the iteration appears. An iteration whose helper
+cannot be reached, or whose half fails, has the hands played on the first machine only. `mahjong.sh stop` on the
+first machine stops the helper's engine too. The run `s2` (2026-11-12) plays on one workstation with another as its helper, 32
+threads each: 100,000 hands in about four minutes.
+

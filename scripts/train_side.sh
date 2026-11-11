@@ -9,7 +9,6 @@
 # its directory $HOME/mahjong_runs/RUN. Stopping finds processes by this directory's full path in their command lines
 # (the loop, its trainer, and what they started), so no other Python or training job on this machine is touched.
 D=$HOME/mahjong_runs
-REMOTE=selfplay
 KEY=$HOME/.ssh/mahjong_sync
 cmd=$1
 run=${2:-$(cat $D/current_run 2>/dev/null)}
@@ -60,6 +59,9 @@ age() {
 
 status_run() {
   local r=$1 R=$D/$1 pids newest last line
+  # The run's self-play machine, as its script names it (--share HOST:RUN).
+  local REMOTE=$(sed -n 's/.*--share \([A-Za-z0-9_.-]*\):.*/\1/p' $D/run_$1.sh 2>/dev/null | head -n 1)
+  REMOTE=${REMOTE:-selfplay}
   pids=$(pids_of $r | tr '\n' ' ')
   if [ -n "$pids" ]; then echo "run $r: RUNNING (pid $pids)"; else echo "run $r: NOT RUNNING"; fi
   newest=$(ls $R/models 2>/dev/null | sed -n 's/^actor_\([0-9]*\)\.onnx$/\1/p' | sort -n | tail -n 1)

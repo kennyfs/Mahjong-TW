@@ -44,6 +44,12 @@ stop_run() {
   if [ -z "$(pids_of $1)" ]; then echo "$1: stopped ($n processes)"; else echo "$1: still running: $(pids_of $1 | tr '\n' ' ')"; return 1; fi
 }
 
+# The helper machine of a run (--helper HOST in its script), when this is not that machine.
+helper_of() {
+  local h=$(sed -n 's/.*--helper \([A-Za-z0-9_.-]*\).*/\1/p' $BIN/run_selfplay_$1.sh 2>/dev/null | head -n 1)
+  [ -n "$h" ] && [ "${h%%.*}" != "$(hostname -s)" ] && echo "$h"
+}
+
 age() {
   local t now s
   t=$(date -d "$(date +%Y)-${1:0:5} ${1:6:8}" +%s 2>/dev/null) || return
@@ -52,7 +58,7 @@ age() {
 }
 
 status_run() {
-  local r=$1 R=$S/$1 pids newest line played
+  local r=$1 R=$S/$1 pids newest line played h
   pids=$(pgrep -f "^[^ ]*python[^ ]* [^ ]*loop1\.py --role selfplay --run $R( |\$)" | tr '\n' ' ')
   if [ -n "$pids" ]; then echo "run $r: RUNNING (pid $pids)"; else echo "run $r: NOT RUNNING"; fi
   newest=$(ls $R/models 2>/dev/null | sed -n 's/^actor_\([0-9]*\)\.onnx$/\1/p' | sort -n | tail -n 1)
@@ -66,6 +72,7 @@ status_run() {
     read seed done total secs < $R/selfplay_progress.txt
     awk -v sd=$seed -v d=$done -v t=$total -v s=$secs 'BEGIN { sub(/^.*_/, "", sd); p = t > 0 ? 100 * d / t : 0; eta = d > 0 ? s * (t - d) / d : -1;
       printf "now: SELF-PLAY iteration %s: %.0f%% (%d of %d hands, %d s so far", sd, p, d, t, s; if (eta >= 0) printf ", about %d s left", eta; print ")" }'
+    h=$(helper_of $r); [ -n "$h" ] && echo "     (the hands played here; $h plays as many at the same time)"
   elif pgrep -f "cpp/build/mahjong selfplay .*$R/" > /dev/null; then
     echo "now: SELF-PLAY of iteration $((played + 1)) (this run's engine writes no progress file)"
   elif pgrep -f "cpp/build/mahjong match .*$R/" > /dev/null; then
@@ -95,7 +102,12 @@ start)
   [ -n "$run" ] || { echo "Which run? (none named, and no $BIN/current_run)"; exit 1; }
   start_run $run ;;
 stop)
-  if [ -n "$2" ]; then stop_run $2; else for r in $(runs); do stop_run $r; done; fi ;;
+  # The helper's engine goes too (it would only finish the half it is playing).
+  for r in ${2:-$(runs)}; do
+    stop_run $r
+    h=$(helper_of $r)
+    [ -n "$h" ] && ssh -o BatchMode=yes -o ConnectTimeout=10 $h "bash $BIN/mahjong.sh stop $r" 2>&1 | sed "s/^/$h: /"
+  done ;;
 status)
   [ -n "$run" ] || { echo "Which run? (none named, and no $BIN/current_run)"; exit 1; }
   status_run $run

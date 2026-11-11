@@ -1,5 +1,5 @@
 #!/bin/bash
-# The training side of the run s2 (features version 2).
+# The training side of the run s2 (features version 2; its self-play is on a workstation, helped by another). Started by mahjong.sh.
 D=$HOME/mahjong_runs
 cd $D/Mahjong-TW-v2
 exec nice -n 5 $HOME/ml_venv/bin/python python/train_loop.py --run $D/s2 --share selfplay:s2 \
