@@ -159,6 +159,11 @@ class Practice {
     const meta = this.meta;
     const key = `${this.game.wall.slice(0, 24)}/${this.game.actions.length}`;
     if (meta.recorded === key) {
+      // After a reload: the hand's record (this game's, by its number) for the review and favorite on the result, and
+      // the summary if the reload cut it short.
+      const rec = records.ofGroup(meta.id).find((r) => r.index === meta.hands);
+      this.lastRecord = rec ? rec.id : null;
+      if (rec) void keepSummary(rec);
       this.stage = 'result';
       return;
     }

@@ -363,6 +363,13 @@ static void testGuiEngine() {
       for(size_t i = 0; i < f1.size(); i++)
         testAssert(f1[i].shanten == f2[i].shanten && f1[i].ukeire == f2[i].ukeire &&
                    f1[i].waits.size() == f2[i].waits.size() && f1[i].winTai == f2[i].winTai);
+      // The game analyzed with a hand in place of the seat's: with the seat's own, the game's own figures.
+      if(step % 8 == 0) {
+        json own{{"cmd", "analyze"}, {"game", g}, {"seat", person}, {"hand", v["position"]["hand"]}, {"seed", "hand"}};
+        if(!v["position"]["drawn"].is_null())
+          own["drawn"] = v["position"]["drawn"];
+        testAssert(engine.handle(own) == engine.handle(json{{"cmd", "analyze"}, {"game", g}, {"seat", person}}));
+      }
       // The person plays like greedy.
       json act = engine.handle(json{{"cmd", "bot"}, {"game", g}, {"seat", person}, {"player", "greedy"}})["action"];
       g = engine.handle(json{{"cmd", "act"}, {"game", g}, {"seat", person}, {"action", act}})["game"];

@@ -56,7 +56,6 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.kennyfs.mahjong.ui.AnalyzeScreen
 import io.github.kennyfs.mahjong.ui.BattleScreen
-import io.github.kennyfs.mahjong.ui.DecisionAnalysisScreen
 import io.github.kennyfs.mahjong.ui.LocalTable
 import io.github.kennyfs.mahjong.ui.MahjongTheme
 import io.github.kennyfs.mahjong.ui.PlayScreen
@@ -109,7 +108,8 @@ class MainActivity : ComponentActivity() {
 /**
  * The screens with the navigation bar (a tall window) or rail (a wide one). Each screen keeps its own pages, so
  * switching screens and back returns to the page left. Back: the screen's own pages first, then to Practice, then out
- * of the app. At a battle's table the other screens are out of reach (no bar or rail) until the player leaves.
+ * of the app. At a battle's table the other screens are out of reach (no bar or rail) until the player leaves; nor is
+ * there a bar or rail over a hand's review: its Back leads out, and the table takes the room.
  */
 @Composable
 private fun App(vm: AppModel) {
@@ -127,7 +127,8 @@ private fun App(vm: AppModel) {
     if (landscape) controller.hide(WindowInsetsCompat.Type.systemBars()) else controller.show(WindowInsetsCompat.Type.systemBars())
   }
   LaunchedEffect(battle.inRoom) { if (battle.inRoom) vm.tab = Screen.BATTLE }
-  val immersive = battle.playing && vm.tab == Screen.BATTLE && vm.pages.isEmpty()
+  val review = vm.pages.lastOrNull() == Page.REVIEW
+  val immersive = battle.playing && vm.tab == Screen.BATTLE && vm.pages.isEmpty() || review
   BackHandler(vm.pages.isNotEmpty()) { vm.back() }
   BackHandler(vm.pages.isEmpty() && vm.tab != Screen.PLAY && !battle.inRoom && battle.room == null) { vm.tab = Screen.PLAY }
   NavigationSuiteScaffold(
@@ -147,7 +148,9 @@ private fun App(vm: AppModel) {
     layoutType = if (immersive) NavigationSuiteType.None else type,
   ) {
     // The bar or rail looks after its own side; the content keeps clear of the rest.
-    val sides = if (immersive) WindowInsetsSides.Top + WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
+    // (A review sideways keeps clear of the sides itself: its table's felt and its controls reach the edges.)
+    val sides = if (review && landscape) WindowInsetsSides.Top + WindowInsetsSides.Bottom
+    else if (immersive) WindowInsetsSides.Top + WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
     else if (type == NavigationSuiteType.NavigationBar) WindowInsetsSides.Top + WindowInsetsSides.Horizontal
     else WindowInsetsSides.Top + WindowInsetsSides.End + WindowInsetsSides.Bottom
     // Sideways, a table's felt reaches the edges, under the camera's cutout too; its tiles keep clear of it.
@@ -159,7 +162,6 @@ private fun App(vm: AppModel) {
       when (vm.pages.lastOrNull()) {
         Page.RULES -> RulesScreen(vm, vm::back)
         Page.REVIEW -> ReplayScreen(vm, vm::back)
-        Page.ANALYSIS -> DecisionAnalysisScreen(vm, vm::back)
         null -> when (vm.tab) {
           Screen.PLAY -> PlayScreen(vm)
           Screen.BATTLE -> BattleScreen(vm)

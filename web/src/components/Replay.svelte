@@ -270,8 +270,9 @@
   function toAnalysis() {
     if (!rec || !deciding) return;
     const seat = deciding.seat;
-    void engine.view(cut(step), seat).then((v) => {
-      editor.load(v.position, rec.game.rules);
+    const game = cut(step);
+    void engine.view(game, seat).then((v) => {
+      editor.load(v.position, rec.game.rules, game);
       nav.go('ANALYZE');
     });
   }
@@ -422,7 +423,7 @@
         <div class="seat-hand">
           {#if side}<button class="btn icon text list-back" aria-label={t('back')} onclick={onback}><Icon name="back" /></button>{/if}
           {#if seatHand && deciding}
-            <div class="body-medium dim">{seatHand.head}・{t('analysis_turn_of', names[deciding.seat])}</div>
+            <div class="body-medium dim">{seatHand.head}・{deciding.seat === rec.me ? t('analysis_your_turn') : t('analysis_turn_of', names[deciding.seat])}</div>
             <MyHand tiles={seatHand.tiles} drawn={seatHand.drawn} w={hw} perRow={8} bind:selected tagH={17}
               marks={focus ? tileMarks(focus.analysis, focus.played, unit) : NO_MARKS} />
             {#if seatHand.claim?.tile}
@@ -469,8 +470,15 @@
         </div>
       {/if}
       {@render summary()}
-      {@render info()}
-      <div class="nav-row">{@render buttons()}</div>
+      <!-- Beside the table the step buttons come before the words, whose height changes from step to step: a button
+           stays under the pointer. Under the table the words keep the room of three lines (the table stays put). -->
+      {#if side}
+        <div class="nav-row">{@render buttons()}</div>
+        {@render info()}
+      {:else}
+        {@render info()}
+        <div class="nav-row">{@render buttons()}</div>
+      {/if}
       {#if inlinePanel}<div class="inline-panel" bind:this={inlineEl} onscroll={onListScroll}>{@render panel()}</div>{/if}
     </div>
   {/if}
@@ -497,7 +505,8 @@
   .with-panel .sum-text { display: flex; flex-wrap: wrap; gap: 2px 14px; }
   .count { font-weight: 700; color: var(--good); }
   .count.some { color: var(--bad); }
-  .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 40px; justify-content: center; }
+  .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 62px; }
+  .side .info { min-height: 40px; }
   .where { display: flex; flex-wrap: wrap; gap: 0 12px; align-items: baseline; }
   .decide { color: var(--on-surface-variant); }
   .to-result { margin-left: auto; align-self: center; min-height: 36px; padding: 0 16px; }

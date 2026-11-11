@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.PathParser
@@ -38,11 +39,12 @@ private object Faces {
 /**
  * A tile, standing: its face (or its back for a null tile: another player's, a concealed kong), the edge of its back
  * under it. `w` wide, w * TILE_RATIO high. The web page's Tile.svelte, drawn the same way (a 60 x 87 box).
+ * `danger` (1 to 3): a band along its foot, how likely a discard of it is to deal in (an analysis' figure).
  */
 @Composable
 fun TileView(
   tile: String?, w: Dp, modifier: Modifier = Modifier, selected: Boolean = false, dim: Boolean = false, glow: Boolean = false,
-  mark: Boolean = false,
+  mark: Boolean = false, danger: Int = 0,
 ) {
   val c = LocalTable.current
   val label = tile?.let(Tiles::name)
@@ -70,6 +72,8 @@ fun TileView(
           for ((p, color, _) in Faces.of(tile)) drawPath(p, color, alpha = alpha)
         }
       }
+      // The danger: a band along the foot (the edge of the back).
+      if (danger > 0) clipRect(top = 76f) { drawRoundRect(Marks.danger(danger), Offset.Zero, Size(60f, 87f), CornerRadius(7f), alpha = alpha) }
     }
   }
 }

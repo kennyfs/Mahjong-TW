@@ -8,6 +8,11 @@
   `oneClick` (a computer's mouse): a tile rises under the pointer and one click discards it.
   `marks` (a review): by tile, a tag over it (what it costs against the best), whether it was the one played, and its
   danger as a band along its foot; `tagH` px are kept over each row for the tags.
+
+  A tile's touch target is its own place, whether the tile is lifted or not, and while it is lifted the room over it
+  too: the second tap lands where the first did (a thumb at the tile's foot) or on the tile where it now is. (A
+  target that rose with the tile left its foot dead: "sometimes it will not discard"; and under a mouse the tile
+  fell back from under the pointer there.)
 -->
 <script lang="ts">
   import Tile, { TILE_RATIO } from './Tile.svelte';
@@ -86,15 +91,17 @@
       {#each row as i (i + '/' + all[i] + (drawn && i === tiles.length ? '/d' : ''))}
         {@const isDrawn = !!drawn && i === tiles.length}
         <button class="slot" class:up={selected === i} class:hover={oneClick && canDiscard(all[i])}
-          style="margin-left: {isDrawn && row.length > 1 ? w * DRAWN_GAP : 0}px; transform: translateY({drag?.i === i ? drag.dy : selected === i ? -h * LIFT : 0}px)"
+          style="margin-left: {isDrawn && row.length > 1 ? w * DRAWN_GAP : 0}px"
           onpointerdown={(e) => down(e, i)} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}
           in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0 }}
           aria-pressed={selected === i}>
-          {#if marks?.get(all[i])}
-            {@const m = marks.get(all[i])!}
-            <span class="tag {m.tone}" class:played={m.played} style="font-size: {Math.min(13, Math.max(10, w * 0.27))}px; height: {tagH - 2}px">{m.tag}</span>
-          {/if}
-          <Tile tile={all[i]} {w} selected={selected === i} glow={!!marks?.get(all[i])?.played} danger={marks?.get(all[i])?.danger ?? 0} />
+          <span class="lifted" style="transform: translateY({drag?.i === i ? drag.dy : selected === i ? -h * LIFT : 0}px)">
+            {#if marks?.get(all[i])}
+              {@const m = marks.get(all[i])!}
+              <span class="tag {m.tone}" class:played={m.played} style="font-size: {Math.min(13, Math.max(10, w * 0.27))}px; height: {tagH - 2}px">{m.tag}</span>
+            {/if}
+            <Tile tile={all[i]} {w} selected={selected === i} glow={!!marks?.get(all[i])?.played} danger={marks?.get(all[i])?.danger ?? 0} />
+          </span>
         </button>
       {/each}
     </div>
@@ -104,8 +111,10 @@
 <style>
   .hand { display: flex; flex-direction: column; align-items: flex-start; touch-action: none; flex: none; }
   .row { display: flex; align-items: flex-end; }
-  .slot { padding: 0; margin: 0; border: none; background: none; cursor: pointer; display: block; transition: transform 0.08s;
+  .slot { padding: 0; margin: 0; border: none; background: none; cursor: pointer; display: block;
     -webkit-tap-highlight-color: transparent; touch-action: none; position: relative; }
+  .slot.up::before, .slot.hover:hover::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--lift); }
+  .lifted { display: block; position: relative; transition: transform 0.08s; }
   .tag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 1px; padding: 0 3px; border-radius: 5px;
     display: flex; align-items: center; font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none;
     background: rgba(0, 0, 0, 0.42); color: #fff; font-variant-numeric: tabular-nums; }
@@ -114,8 +123,9 @@
   .tag.g2 { background: var(--danger-2); color: var(--on-danger); }
   .tag.g3 { background: var(--danger-3); color: #fff; }
   .tag.played { outline: 2px solid var(--highlight); outline-offset: 0; }
-  .slot:focus-visible { outline: 2px solid var(--highlight); outline-offset: 1px; border-radius: 4px; }
+  .slot:focus-visible { outline: none; }
+  .slot:focus-visible .lifted { outline: 2px solid var(--highlight); outline-offset: 1px; border-radius: 4px; }
   @media (hover: hover) {
-    .slot.hover:hover { transform: translateY(calc(var(--lift) * -1)) !important; }
+    .slot.hover:hover .lifted { transform: translateY(calc(var(--lift) * -1)) !important; }
   }
 </style>

@@ -53,8 +53,9 @@ fun rulesChip(tai: String, flowers: String, custom: Boolean = false): String =
 
 /**
  * Practice: the table against three bots; a bar over it (a phone upright) with the hand, the rules and a new game; the
- * hand's result over the table when it ends, and the game's totals when the game does. No hint or analysis while the
- * hand is in play: the review (and each decision's analysis) is a button on the result. The web page's Play.svelte.
+ * hand's result over the table when it ends (with the network's review of it in a line, once it is there), and the
+ * game's totals when the game does. No hint or analysis while the hand is in play: the review (and each decision's
+ * analysis) is a button on the result. The web page's Play.svelte.
  */
 @Composable
 fun PlayScreen(vm: AppModel) {
@@ -73,7 +74,8 @@ fun PlayScreen(vm: AppModel) {
   val chip = rulesChip(settings.rules.tai, settings.rules.flowers, settings.rules.overrides.isNotEmpty())
   val totals = meta?.totals ?: listOf(0.0, 0.0, 0.0, 0.0)
   val shown = if (stage != Practice.Stage.PLAYING && final != null) final else view
-  val lastFav = practice.lastRecord?.let { vm.records.get(it)?.fav } ?: false
+  val last = practice.lastRecord?.let { vm.records.get(it) }
+  val lastFav = last?.fav ?: false
 
   BoxWithConstraints(Modifier.fillMaxSize()) {
     val wide = maxWidth > maxHeight
@@ -104,7 +106,7 @@ fun PlayScreen(vm: AppModel) {
           overlay = {
             when {
               stage == Practice.Stage.RESULT && final?.result != null && !hideResult -> Sheet {
-                HandResultCard(final, names, Practice.ME, resultTileW(wide, w)) {
+                HandResultCard(final, names, Practice.ME, resultTileW(wide, w), rev = last?.rev, level = settings.level) {
                   IconButton(onClick = { practice.lastRecord?.let { vm.records.setFav(it, !lastFav) } }) {
                     Icon(if (lastFav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite))
                   }

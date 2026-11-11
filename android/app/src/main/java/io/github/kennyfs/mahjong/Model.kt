@@ -2,14 +2,11 @@ package io.github.kennyfs.mahjong
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.math.roundToInt
 
 // The engine's JSON forms (cpp/command/guiengine.h, docs/gui-engine.md), as the app uses them: the same as the web
 // page's web/src/lib/types.ts.
@@ -56,6 +53,8 @@ data class Position(
   val players: List<PlayerPos>,
   // The engine's default (-1: not known), so that a 0 is sent.
   @SerialName("wall_left") val wallLeft: Int = -1,
+  /** The seat has passed a win this turn (過水): it may not win on a discard until its next draw. */
+  val missed: Boolean = false,
 )
 
 @Serializable
@@ -105,49 +104,111 @@ data class Pending(val phase: String, val current: Int = 0, val pending: List<In
 @Serializable
 data class Wait(val tile: String, val left: Int = 0, @SerialName("ron_tai") val ronTai: Int = 0, @SerialName("tsumo_tai") val tsumoTai: Int = 0)
 
-/** One action's figures: tile efficiency now; a network adds its own numbers later (`extra`, shown when present). */
+/**
+ * One action's figures. Tile efficiency: the tiles from ready (shanten, -1: a win), the improving tiles left, and when
+ * ready the waits. What the network adds: the expected result in points (q), how often it would choose the action
+ * (policy), the chances of winning (by self-draw: tsumo), of dealing in and of another's self-draw, the tai of a win,
+ * and the three parts of q (winning, dealing in, others' self-draws); for a discard, the chance that it deals in now
+ * (danger), per opponent (the seats 1, 2, 3 places after the deciding one) with the tai it would pay for.
+ */
+@Serializable
 data class ActionFigures(
-  val action: Action, val shanten: Int, val ukeire: Int, val waits: List<Wait>, val winTai: Int, val extra: Map<String, Double>,
+  val action: Action, val shanten: Int = 99, val ukeire: Int = 0, val waits: List<Wait> = emptyList(), @SerialName("win_tai") val winTai: Int = 0,
+  val q: Double? = null, val policy: Double? = null, val win: Double? = null, val tsumo: Double? = null,
+  @SerialName("deal_in") val dealIn: Double? = null, @SerialName("others_tsumo") val othersTsumo: Double? = null, val tai: Double? = null,
+  val parts: List<Double>? = null, val danger: Double? = null, @SerialName("danger_each") val dangerEach: List<Double>? = null,
+  @SerialName("danger_tai") val dangerTai: List<Double>? = null,
 ) {
   /** Lower is better: a win first (more tai first), then fewer steps to ready, then more tiles that help. */
   val rank: Pair<Int, Int> get() = if (shanten < 0) -1 to -winTai else shanten to -ukeire
 }
 
-data class Analysis(val source: String, val actions: List<ActionFigures>) {
-  /** The indices of the best actions by their figures. */
+/**
+ * What the network thinks of an opponent: the chances that it is ready, 1, 2, 3 or more tiles away, and per kind
+ * (Tiles.KINDS) the chance that a discard of it deals in to it now, with how many tai.
+ */
+@Serializable
+data class Opponent(
+  val seat: Int, val ready: List<Double> = emptyList(), val danger: List<Double> = emptyList(),
+  @SerialName("danger_tai") val dangerTai: List<Double> = emptyList(),
+)
+
+/** `source` "efficiency": tile efficiency alone; "network": the network's figures too, the best action and its value. */
+@Serializable
+data class Analysis(
+  val source: String = "efficiency", val actions: List<ActionFigures> = emptyList(), val best: Int? = null, val value: Double? = null,
+  @SerialName("policy_value") val policyValue: Double? = null, val opponents: List<Opponent>? = null,
+) {
+  /** The network's figures are there. */
+  val net: Boolean get() = source == "network" && best != null
+
+  /** The indices of the best actions by tile efficiency. */
   fun best(): Set<Int> {
     val b = actions.minOfWithOrNull(compareBy<Pair<Int, Int>>({ it.first }, { it.second })) { it.rank } ?: return emptySet()
     return actions.indices.filter { actions[it].rank == b }.toSet()
   }
-
-  companion object {
-    private val KNOWN = setOf("action", "shanten", "ukeire", "waits", "win_tai")
-
-    fun of(o: JsonObject): Analysis = Analysis(
-      o["source"]?.jsonPrimitive?.content ?: "efficiency",
-      (o["actions"]?.jsonArray ?: JsonArray(emptyList())).map { e ->
-        val a = e as JsonObject
-        ActionFigures(
-          EngineJson.decodeFromJsonElement(a["action"]!!),
-          a["shanten"]?.jsonPrimitive?.int ?: 99,
-          a["ukeire"]?.jsonPrimitive?.int ?: 0,
-          a["waits"]?.let { EngineJson.decodeFromJsonElement<List<Wait>>(it) } ?: emptyList(),
-          a["win_tai"]?.jsonPrimitive?.int ?: 0,
-          a.filterKeys { it !in KNOWN }.mapNotNull { (k, v) -> (v as? JsonPrimitive)?.doubleOrNull?.let { k to it } }.toMap(),
-        )
-      },
-    )
-  }
 }
+
+@Serializable
+data class TruthWait(val tile: String, val tai: Int = 0)
+
+/** What an opponent really held: the tiles from ready, whether it had passed a win this turn, and its waits. */
+@Serializable
+data class Truth(val seat: Int, val shanten: Int = 0, val missed: Boolean = false, val waits: List<TruthWait> = emptyList())
+
+/**
+ * A decision of a reviewed hand: the record's step, the index of the action taken in the analysis' actions, and what
+ * it lost against the best (points).
+ */
+@Serializable
+data class ReviewDecision(val step: Int, val played: Int = -1, val analysis: Analysis, val truth: List<Truth> = emptyList(), val loss: Double? = null)
+
+/** A hand's review for a seat: result = firstValue - loss + luck; `unit`: a typical payment under its rules. */
+@Serializable
+data class Review(
+  val seat: Int, val decisions: List<ReviewDecision> = emptyList(), val result: Double = 0.0,
+  @SerialName("first_value") val firstValue: Double? = null, val loss: Double? = null, val luck: Double? = null, val unit: Double? = null,
+)
+
+/**
+ * A record's actions as a review steps through them. `taken`: the action took effect (everything on a seat's own turn;
+ * of the answers to a discard only the claim that was made; a pass never). `over`: for a claim that was not made, the
+ * index of the one that took its place (-1 otherwise). `last`: the action the play ended with (the first win; without
+ * one the last action taken; -1 without any).
+ */
+@Serializable
+data class Steps(val taken: List<Boolean> = emptyList(), val over: List<Int> = emptyList(), val last: Int = -1)
+
+/**
+ * After a draw of `tile` (`left` copies unseen): the best action, its figures and value, the second best and how much
+ * worse it is.
+ */
+@Serializable
+data class WhatIfDraw(
+  val tile: String, val left: Int = 0, val value: Double = 0.0, val figures: ActionFigures, val action: Action, val next: Action? = null,
+  @SerialName("next_loss") val nextLoss: Double = 0.0,
+)
+
+/** On `seat`'s discard of `tile`: the options (a pass among them) and the best one's index. */
+@Serializable
+data class WhatIfClaim(val seat: Int, val tile: String, val left: Int = 0, val best: Int = 0, val options: List<ActionFigures> = emptyList())
+
+@Serializable
+data class WhatIf(val draws: List<WhatIfDraw> = emptyList(), val claims: List<WhatIfClaim> = emptyList())
 
 @Serializable
 data class RuleItem(val param: String, val name: String)
 
+/** The rules of a spec: every parameter's value, the presets' names, and the tai items with their names. */
 @Serializable
 data class RulesInfo(
   val spec: String,
-  val values: Map<String, Int> = emptyMap(),
+  // The engine writes the values as numbers with a fraction ("base": 2.0), which do not read as integers.
+  @SerialName("values") private val numbers: Map<String, Double> = emptyMap(),
   @SerialName("tai_presets") val taiPresets: List<String> = emptyList(),
   @SerialName("flower_presets") val flowerPresets: List<String> = emptyList(),
   val items: List<RuleItem> = emptyList(),
-)
+) {
+  @Transient
+  val values: Map<String, Int> = numbers.mapValues { it.value.roundToInt() }
+}

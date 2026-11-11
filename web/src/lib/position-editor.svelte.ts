@@ -1,9 +1,11 @@
 // The analysis screen's position, set up by hand: the player's hand (and the tile just drawn, or another player's
 // discard to decide on), every seat's melds, flowers and discards, the dealer, the round wind and the wall. It is
 // turned into the engine's POSITION (docs/gui-engine.md), which checks it. A port of the app's PositionEditor.kt.
-// A step of a hand's review can be taken here (load), to try changes on it.
+// A step of a hand's review can be taken here (load), to try changes on it: while only the hand's own tiles are
+// changed, the figures are asked of that hand's game (source), whose history the network reads; a position of its
+// own has only the plain history of its discards.
 import { FLOWERS, KINDS, parseTiles, sortTiles, tilesString, type Tile } from './tiles';
-import type { Meld, Position } from './types';
+import type { GameRecord, Meld, Position } from './types';
 
 export type Mode = 'self' | 'claim';
 export type Section =
@@ -43,6 +45,24 @@ class Editor {
   private streak = 0;
   private afterCall = false;
   private missed = false;
+  private from = $state<{ game: GameRecord; seat: number; table: string } | null>(null);
+
+  /** What the editor holds of the table: everything but the hand's own tiles. */
+  private table(): string {
+    const claim = this.mode === 'claim';
+    return JSON.stringify([this.mode, claim ? this.claimSeat : -1, claim ? this.claimTile : null, this.melds, this.flowers, this.discards,
+      this.dealer, this.round, this.wallLeft, this.rules]);
+  }
+
+  /**
+   * The step of a hand the position was taken from (the hand's record cut there, and the seat deciding), for as long
+   * as nothing but the hand's own tiles differs from it: the figures are then asked of that game with this hand
+   * (engine.analyzeGame), and read the game's history as the hand's review does. Null: a position of its own.
+   */
+  get source(): { game: GameRecord; seat: number } | null {
+    const f = this.from;
+    return f && f.table === this.table() ? { game: f.game, seat: f.seat } : null;
+  }
 
   /** How many concealed tiles the hand needs, the drawn tile apart: 16 less 3 a meld. */
   get handSize(): number { return 16 - 3 * this.melds[0].length; }
@@ -114,14 +134,15 @@ class Editor {
     this.east = -1;
     this.streak = 0;
     this.afterCall = this.missed = false;
+    this.from = null;
   }
 
   /**
    * A position of a hand as its seat `me` saw it (a view's), under the hand's rules: the seats turned so that `me`
    * is the player. The tiles taken by melds leave the rivers (the melds show them); a discard being decided on is
-   * the tile to claim.
+   * the tile to claim. `game`: the hand's record up to this position (see source).
    */
-  load(p: Position, rules: string) {
+  load(p: Position, rules: string, game?: GameRecord) {
     this.clear();
     const rel = (s: number) => (s - p.me + 4) % 4;
     const seat = (r: number) => (r + p.me) % 4;
@@ -157,6 +178,7 @@ class Editor {
     this.wallLeft = p.wall_left;
     this.missed = !!p.missed;
     this.section = { kind: claim ? 'claim' : 'drawn' };
+    this.from = game ? { game, seat: p.me, table: this.table() } : null;
   }
 
   /** A random hand of 16 and a drawn tile, nothing else seen. */

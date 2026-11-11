@@ -107,9 +107,13 @@ export async function nextHand(game: GameRecord, startDealer: number, seed?: str
   return { game: a.game, gameOver: a.game_over };
 }
 
-/** A decision's figures: the network's (`net`), or tile efficiency alone. */
-export async function analyzeGame(game: GameRecord, seat: number, net = true): Promise<Analysis> {
-  return request({ cmd: 'analyze', game, seat, model: net ? MODEL : undefined });
+/**
+ * A decision's figures: the network's (`net`), or tile efficiency alone. `hand` (TILES, with `drawn` the tile drawn of
+ * it on the seat's own turn): the seat's position in the game with that hand in place of its own; the table and its
+ * history stay the game's.
+ */
+export async function analyzeGame(game: GameRecord, seat: number, net = true, hand?: string, drawn?: string | null): Promise<Analysis> {
+  return request({ cmd: 'analyze', game, seat, model: net ? MODEL : undefined, ...(hand ? { hand, drawn: drawn ?? undefined, seed: 'analysis' } : {}) });
 }
 
 export async function analyzePosition(rules: string, position: Position, seed?: string, net = true): Promise<Analysis> {
@@ -126,9 +130,10 @@ export async function steps(game: GameRecord): Promise<Steps> {
   return request({ cmd: 'steps', game });
 }
 
-/** What `seat` would do after each tile it may draw, and on each discard of the others it could claim. */
-export async function whatIfGame(game: GameRecord, seat: number): Promise<WhatIf> {
-  return request({ cmd: 'whatif', game, seat, model: MODEL, seed: 'whatif' });
+/** What `seat` would do after each tile it may draw, and on each discard of the others it could claim (with `hand`
+ *  and `drawn` in place of its own, as in analyzeGame). */
+export async function whatIfGame(game: GameRecord, seat: number, hand?: string, drawn?: string | null): Promise<WhatIf> {
+  return request({ cmd: 'whatif', game, seat, model: MODEL, seed: 'whatif', ...(hand ? { hand, drawn: drawn ?? undefined } : {}) });
 }
 
 export async function whatIfPosition(rules: string, position: Position): Promise<WhatIf> {

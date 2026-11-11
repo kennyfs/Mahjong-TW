@@ -143,10 +143,16 @@ are in docs/gui-engine.md (`analyze` with a model, `review`, `whatif`, `steps`);
   questionable move over the obvious one: a win passed up, a discard that gives up a step towards ready (to fold, or
   for a slower hand worth more), a call left alone; with a star on the graph when the player found it.
 - **The analysis screen**: the figures follow every change at once; a step of a review is taken there with its
-  rules; the tables of draws (what to do after each tile, which ones are kept) and of claims (which discards are
-  worth calling) on request.
+  rules, and while only the hand's own tiles change, the figures are asked of the hand's game with that hand (the
+  network reads the game's order of play; a position of its own has only a plain history, docs/gui-engine.md), so
+  they match the review's; the tables of draws (what to do after each tile, which ones are kept) and of claims
+  (which discards are worth calling) on request.
 - **Statistics** over the reviewed hands of a records tab: points lost a hand, mistakes a hand, and the loss by kind
-  of decision (tile choice, danger, calls, wins).
+  of decision (tile choice, danger, calls, wins); hands not reviewed by this network (another network, or a review
+  cut short) are reviewed on request.
+- **The app** (0.1.0) has all of the above, the same screens as the page; the review is full screen (no navigation
+  bar or rail), with its controls beside the table on a phone sideways and the list of actions beside the table too
+  on a large window.
 
 Not done: the Docker image of the site with the network (when a stable version is released); a review of another
 seat's decisions (they are analyzed one at a time when their list is opened).

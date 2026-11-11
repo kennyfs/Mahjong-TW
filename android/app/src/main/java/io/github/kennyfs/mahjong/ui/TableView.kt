@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -68,16 +69,38 @@ import io.github.kennyfs.mahjong.flowersOf
 import io.github.kennyfs.mahjong.meldTiles
 import io.github.kennyfs.mahjong.seatAt
 import io.github.kennyfs.mahjong.sideOf
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Constraints
+import io.github.kennyfs.mahjong.TileMark
+import kotlin.math.floor
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 private val Float.d: Dp get() = this.dp
 
+/** A few words on a name plate (a review): how likely the player is ready, or what they held (level 0 to 3). */
+data class SeatNote(val text: String, val level: Int)
+
+/** The room kept over each row of the hand for the tiles' tags, when there may be some. */
+private const val TAG_H = 17f
+
+/** What another seat shows: its melds' tile counts, its flowers, and its concealed tiles when they are shown. */
+private class Shown(val counts: List<Int>, val flowers: Int, val concealed: Int)
+
 /**
  * The table as one seat sees it (a seat's `view`): the player at the bottom with their hand, the others around, the
  * rivers in the middle around a box with the round, the wall and the streak. Sizes from TableLayout (the web page's
- * Table.svelte, the same arithmetic). `revealed`: every seat's concealed tiles (a finished hand, a replay showing all).
+ * Table.svelte, the same arithmetic).
+ *
+ * `revealed`: every seat's concealed tiles (a finished hand, a replay showing all). The others' then lie on a rack (a
+ * lighter strip) after their melds, their tiles as large as their room allows: the player opposite in one line along
+ * the top of a wide table; on a tall one the others' strip grows for them (the rivers give the room).
  * `status`: beside the player's name plate (a battle's clock); `corner`: in the box (wide); `overlay`: over the table.
+ * A review's: `marks` (tags and danger on the hand's tiles, Review.kt), `notes` (a few words on each name plate),
+ * `strip` (a line over the hand: the options that are not discards, a tile's figures), `onPick` (the tile tapped), and
+ * `clearCorner`: dp kept free at the top-left corner, where a button of the screen lies over the table.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -86,15 +109,82 @@ fun TableView(
   interactive: Boolean = true, onAct: ((Action) -> Unit)? = null, handLabel: String = "", maxHand: Float = 64f,
   away: List<Boolean> = listOf(false, false, false, false),
   status: (@Composable () -> Unit)? = null, corner: (@Composable () -> Unit)? = null, overlay: (@Composable BoxScope.() -> Unit)? = null,
+  marks: Map<String, TileMark>? = null, notes: List<SeatNote?>? = null, strip: (@Composable () -> Unit)? = null,
+  onPick: ((String?) -> Unit)? = null, clearCorner: Float = 0f,
 ) {
   val c = LocalTable.current
+  val density = LocalDensity.current
   BoxWithConstraints(modifier.fillMaxSize().background(c.felt)) {
     val roomW = maxWidth.value
-    val s = remember(maxWidth, maxHeight, maxHand) { tableSizes(maxWidth.value, maxHeight.value, maxHand) }
+    val roomH = maxHeight.value
     val pos = view.position
     val setup = pos.setup
     val turnSeat = if (view.phase == "over") -1 else view.current
     val winds = view.seatWinds
+    // The name plates as they are laid out, in dp (a long note takes a second line); BOTTOM: the player's corner.
+    var plates by remember { mutableStateOf(mapOf<Side, Pair<Float, Float>>()) }
+    fun measured(side: Side) = Modifier.onSizeChanged { size ->
+      val v = size.width / density.density to size.height / density.density
+      if (plates[side] != v) plates = plates + (side to v)
+    }
+    fun shownOf(seat: Int): Shown {
+      val p = pos.players[seat]
+      return Shown(p.melds.map { meldTiles(it).size }, flowersOf(p).size, if (revealed != null) Tiles.parse(revealed[seat]).size else 0)
+    }
+    val tagH = if (marks != null) TAG_H else 0f
+
+    // The sizes. The tags' room comes off the table's height: what the hand's own lift does not already leave them.
+    // A tall table's others' strip with everyone's tiles shown: as high as the three need at the largest tiles (20 dp
+    // and up) that leave the rivers tiles of SHOWN_RIVER.
+    var s0 = tableSizes(roomW, roomH, maxHand)
+    var extra = 0f
+    if (tagH > 0) {
+      extra = (if (s0.wide) 1 else 2) * maxOf(0f, tagH - s0.hand * TILE_RATIO * LIFT)
+      if (extra > 0) s0 = tableSizes(roomW, roomH - extra, maxHand)
+    }
+    if (revealed != null && !s0.wide) {
+      val room = tallTopRoom(s0, roomH - extra, SHOWN_RIVER)
+      var need = 0f
+      for (side in listOf(Side.RIGHT, Side.TOP, Side.LEFT)) {
+        val o = shownOf(seatAt(side, me))
+        val plateH = plates[side]?.second ?: 40f
+        val w = fitShown(o.counts, o.flowers, o.concealed, s0.sideW - 9, room - plateH - 12, s0.opp, 20f)
+        need = maxOf(need, plateH + 12 + shownHeight(o.counts, o.flowers, o.concealed, s0.sideW - 9, w))
+      }
+      val top = minOf(room, need)
+      if (top > s0.topH) s0 = tableSizes(roomW, roomH - extra, maxHand, top)
+    }
+    val s = s0
+    val meH = s.meH + extra
+    fun plateH(side: Side) = plates[side]?.second ?: if (s.wide) 30f else 40f
+    /** What of `clearCorner` reaches into the table (the felt beside a narrower table holds the rest). */
+    val clear = maxOf(0f, clearCorner - maxOf(0f, (roomW - s.tableW) / 2))
+    /** The player's own name plate lies over the foot of the left column of a wide table: both columns end above it. */
+    val cornerH = if (s.wide) (plates[Side.BOTTOM]?.second ?: (s.font * density.fontScale * 1.7f + 8)) + 4 else 0f
+    /** Whole pixels, so that a line of tiles is as wide as counted. */
+    fun snap(w: Float) = floor(w * density.density) / density.density
+
+    // The others' tiles. Tall: each one's melds and flowers in OPP_LINES lines of their column, smaller when needed.
+    // With everyone's tiles shown: as large as fits each one's room with the concealed tiles too: the player opposite
+    // in one line along a wide table's top (the corner kept clear and the name plate off its width), the others in
+    // their columns under their name plates.
+    fun oppW(side: Side, seat: Int): Float {
+      val o = shownOf(seat)
+      if (!s.wide) {
+        if (revealed == null) return fitMelds(o.counts, o.flowers, s.sideW - 8, OPP_LINES, s.opp)
+        return fitShown(o.counts, o.flowers, o.concealed, s.sideW - 9, s.topH - plateH(side) - 12, s.opp)
+      }
+      // Wide: the concealed tiles' backs, when they are not shown, take their room first.
+      val backs = if (revealed != null) 0 else concealedCount(view, seat)
+      if (side == Side.TOP) {
+        val room = minOf(roomW, s.tableW) - 12 - clear - (plates[Side.TOP]?.first ?: 150f) - 14 - (if (backs > 0) backs * s.back + 10 else 0f)
+        return fitShownRow(o.counts, o.flowers, o.concealed, room, if (revealed != null) s.opp - 1.5f else s.opp)
+      }
+      val width = s.sideW - 13
+      val backsH = if (backs > 0) runLines(backs, width, s.back) * s.back * TILE_RATIO + 4 else 0f
+      return fitShown(o.counts, o.flowers, o.concealed, width, roomH - s.topH - meH - cornerH - plateH(side) - 12 - backsH, s.opp)
+    }
+
     val lastDiscard = remember(view.events) {
       var seat = -1
       for (e in view.events.asReversed()) {
@@ -110,11 +200,12 @@ fun TableView(
     val discardable = if (interactive && view.myTurn) view.legal.filter { it.type == "discard" }.mapNotNull { it.tile }.toSet() else emptySet()
     val claims = if (interactive && view.myTurn) view.legal.filter { it.type != "discard" } else emptyList()
     var selected by remember(view.eventCount) { mutableStateOf<Int?>(null) }
+    if (onPick != null) LaunchedEffect(selected, view.eventCount) { onPick(selected?.let { i -> mine.getOrNull(i) ?: drawn }) }
 
     @Composable
     fun badge(seat: Int, count: Int?) = SeatBadge(
       Tiles.wind(winds[seat]), names[seat], scores?.get(seat), setup.dealer == seat, setup.streak, turnSeat == seat, count,
-      compact = !s.wide, away = away[seat], font = s.font,
+      compact = !s.wide, away = away[seat], font = s.font, note = if (seat == me) null else notes?.getOrNull(seat),
     )
 
     @Composable
@@ -122,26 +213,32 @@ fun TableView(
       val seat = seatAt(side, me)
       val p = pos.players[seat]
       val hidden = concealedCount(view, seat)
-      val oppW = if (s.wide) s.opp else fitMelds(p.melds.map { meldTiles(it).size }, flowersOf(p).size, s.sideW - 8, OPP_LINES, s.opp)
-      val align = when {
-        !s.wide -> Alignment.CenterHorizontally
-        side == Side.RIGHT -> Alignment.End
-        else -> Alignment.Start
-      }
+      val ow = snap(oppW(side, seat))
+      val shown = revealed?.get(seat)?.let { Tiles.sort(Tiles.parse(it)) }
+      val count = if (s.back == 0f && revealed == null) hidden else null
       if (s.wide && side == Side.TOP) {
-        Row(mod.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-          badge(seat, if (s.back == 0f && revealed == null) hidden else null)
-          Melds(p.melds, flowersOf(p), oppW, wrap = false)
-          Concealed(revealed?.get(seat), hidden, s, wrap = false)
+        Row(mod.padding(start = (6 + clear).d, end = 6.dp, top = 4.dp, bottom = 4.dp),
+          horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+          Box(measured(side)) { badge(seat, count) }
+          Row(horizontalArrangement = Arrangement.spacedBy(RACK_GAP_ROW.d), verticalAlignment = Alignment.Bottom) {
+            Melds(p.melds, flowersOf(p), ow, wrap = false)
+            if (shown != null) Rack(shown, ow, wrap = false)
+            else if (s.back > 0) Row { repeat(hidden) { TileView(null, s.back.d) } }
+          }
         }
         return
       }
-      Column(mod.padding(horizontal = 4.dp, vertical = 4.dp), horizontalAlignment = align,
-        verticalArrangement = if (s.wide) Arrangement.spacedBy(4.dp, Alignment.CenterVertically) else Arrangement.spacedBy(4.dp)) {
-        badge(seat, if (s.back == 0f && revealed == null) hidden else null)
-        Melds(p.melds, flowersOf(p), oppW, wrap = true,
-          arrangement = if (!s.wide) Arrangement.Center else if (side == Side.RIGHT) Arrangement.End else Arrangement.Start)
-        Concealed(revealed?.get(seat), hidden, s, wrap = true, end = side == Side.RIGHT)
+      val end = s.wide && side == Side.RIGHT
+      Column(
+        if (s.wide) mod.padding(start = 6.dp, end = 6.dp, top = 4.dp, bottom = (4 + cornerH).d) else mod.padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalAlignment = if (!s.wide) Alignment.CenterHorizontally else if (end) Alignment.End else Alignment.Start,
+        verticalArrangement = if (s.wide) Arrangement.spacedBy(4.dp, Alignment.CenterVertically) else Arrangement.spacedBy(4.dp),
+      ) {
+        Box(measured(side)) { badge(seat, count) }
+        Melds(p.melds, flowersOf(p), ow, wrap = true,
+          arrangement = if (!s.wide) Arrangement.Center else if (end) Arrangement.End else Arrangement.Start)
+        if (shown != null) Rack(shown, ow, wrap = true, end = end)
+        else if (s.back > 0) FlowRow(horizontalArrangement = if (end) Arrangement.End else Arrangement.Start) { repeat(hidden) { TileView(null, s.back.d) } }
       }
     }
 
@@ -184,22 +281,22 @@ fun TableView(
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
       Box(Modifier.fillMaxHeight().width(minOf(roomW, s.tableW).d)) {
         if (s.wide) {
+          // The player opposite along the whole top (the screen's corner button, if any, before them), the other two
+          // beside the rivers.
           Column(Modifier.fillMaxSize()) {
+            seat(Side.TOP, Modifier.height(s.topH.d).fillMaxWidth())
             Row(Modifier.weight(1f).fillMaxWidth()) {
               seat(Side.LEFT, Modifier.width(s.sideW.d).fillMaxHeight())
-              Column(Modifier.weight(1f).fillMaxHeight()) {
-                seat(Side.TOP, Modifier.height(s.topH.d).fillMaxWidth())
-                center(Modifier.weight(1f).fillMaxWidth())
-              }
+              center(Modifier.weight(1f).fillMaxHeight())
               seat(Side.RIGHT, Modifier.width(s.sideW.d).fillMaxHeight())
             }
-            Row(Modifier.height(s.meH.d).fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
+            Row(Modifier.height(meH.d).fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
               horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.Bottom) {
               Melds(pos.players[me].melds, flowersOf(pos.players[me]), s.meld, wrap = false)
-              MyHand(mine, drawn, s.hand, 0, discardable, discard, selected) { selected = it }
+              MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH)
             }
           }
-          Column(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (s.meH + 2).d).widthIn(max = (s.sideW - 12).d),
+          Column(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 2).d).widthIn(max = (s.sideW - 12).d).then(measured(Side.BOTTOM)),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             status?.invoke()
             badge(me, null)
@@ -212,22 +309,24 @@ fun TableView(
               seat(Side.RIGHT, Modifier.weight(1f).fillMaxHeight())
             }
             center(Modifier.weight(1f).fillMaxWidth())
-            Column(Modifier.height(s.meH.d).fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 6.dp),
+            Column(Modifier.height(meH.d).fillMaxWidth().padding(start = 4.dp, end = 4.dp, bottom = 6.dp),
               horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom)) {
               Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
                 Box(Modifier.align(Alignment.CenterVertically)) { badge(me, null) }
                 Melds(pos.players[me].melds, flowersOf(pos.players[me]), s.meld, wrap = true)
               }
-              MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected) { selected = it }
+              MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH)
             }
           }
-          if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (s.meH + 4).d)) { status() }
+          if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 4).d)) { status() }
         }
         if (claims.isNotEmpty() && onAct != null) {
-          Box(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, start = 8.dp, bottom = (s.meH + 4).d)) {
+          Box(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, start = 8.dp, bottom = (meH + 4).d)) {
             ClaimBar(claims, s.hand, onAct)
           }
         }
+        if (strip != null) Column(Modifier.align(Alignment.BottomCenter).padding(start = 8.dp, end = 8.dp, bottom = (meH + 4).d),
+          horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) { strip() }
         Callouts(view, me, s)
       }
       overlay?.invoke(this)
@@ -235,26 +334,25 @@ fun TableView(
   }
 }
 
-/** Others' concealed tiles: their faces when revealed, else backs (wide) or nothing (tall: a count on the badge). */
+/** A hand shown: on a rack (a lighter strip), to tell it from the melds. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Concealed(revealed: String?, hidden: Int, s: TableSizes, wrap: Boolean, end: Boolean = false) {
-  if (revealed != null) {
-    FlowRow(horizontalArrangement = if (end) Arrangement.End else Arrangement.Start) {
-      for (t in Tiles.sort(Tiles.parse(revealed))) TileView(t, s.opp.d)
-    }
-  } else if (s.back > 0) {
-    if (wrap) FlowRow(horizontalArrangement = if (end) Arrangement.End else Arrangement.Start) { repeat(hidden) { TileView(null, s.back.d) } }
-    else Row { repeat(hidden) { TileView(null, s.back.d) } }
-  }
+private fun Rack(tiles: List<String>, w: Float, wrap: Boolean, end: Boolean = false) {
+  if (tiles.isEmpty()) return
+  val mod = Modifier.background(Color.White.copy(alpha = 0.17f), RoundedCornerShape(6.dp)).padding(RACK_PAD.d)
+  if (wrap) FlowRow(mod, horizontalArrangement = if (end) Arrangement.End else Arrangement.Start) { for (t in tiles) TileView(t, w.d) }
+  else Row(mod) { for (t in tiles) TileView(t, w.d) }
 }
 
-/** A player's name plate: their seat wind (lit for the dealer, with the streak), name, tiles held, score. */
+/**
+ * A player's name plate: their seat wind (lit for the dealer, with the streak), name, tiles held, score. `note` (a
+ * review): a few words in place of the count; it goes to a second line where the plate has no room for it.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SeatBadge(
   wind: String, name: String, score: Double?, dealer: Boolean, streak: Int, turn: Boolean, count: Int?, compact: Boolean = false,
-  away: Boolean = false, font: Float = 16f,
+  away: Boolean = false, font: Float = 16f, note: SeatNote? = null,
 ) {
   val c = LocalTable.current
   val f = (if (compact) font * 0.86f else font).sp
@@ -276,13 +374,18 @@ fun SeatBadge(
         color = c.highlight, fontWeight = FontWeight.Bold, fontSize = f, maxLines = 1)
     }
     val figures: @Composable RowScope.() -> Unit = {
-      if (count != null) Text(stringResource(R.string.hand_cards, count), color = c.onFeltDim, fontSize = f, maxLines = 1)
+      if (note != null) Text(
+        note.text, color = if (note.level > 0) Marks.on(note.level) else c.onFelt, fontWeight = FontWeight.Bold, fontSize = f, maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f, fill = false).background(if (note.level > 0) Marks.danger(note.level) else Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+          .padding(horizontal = 6.dp),
+      ) else if (count != null) Text(stringResource(R.string.hand_cards, count), color = c.onFeltDim, fontSize = f, maxLines = 1)
       if (score != null) Text(signed(score), color = if (score > 0) c.good else if (score < 0) c.bad else c.onFelt, fontWeight = FontWeight.Bold,
         fontSize = f, maxLines = 1)
     }
     val gap = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)
     // A third of an upright phone's width: the name over the figures (a name of a battle's player has room then).
-    if (compact && count != null) Column(Modifier.weight(1f, fill = false)) {
+    if (compact && (count != null || note != null)) Column(Modifier.weight(1f, fill = false)) {
       Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { nameLine() }
       Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { figures() }
     } else {
@@ -290,7 +393,7 @@ fun SeatBadge(
       // at a large font): the name stays whole.
       FlowRow(Modifier.weight(1f, fill = false), horizontalArrangement = gap, itemVerticalAlignment = Alignment.CenterVertically) {
         Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { nameLine() }
-        Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { figures() }
+        if (note != null || count != null || score != null) Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { figures() }
       }
     }
   }
@@ -342,7 +445,7 @@ fun River(discards: List<Discard>, w: Float, cols: Int, rows: Int, last: Boolean
 @Composable
 fun MyHand(
   tiles: List<String>, drawn: String?, w: Float, perRow: Int, discardable: Set<String>, onDiscard: (String) -> Unit,
-  selected: Int?, onSelect: (Int?) -> Unit,
+  selected: Int?, onSelect: (Int?) -> Unit, marks: Map<String, TileMark>? = null, tagH: Float = 0f,
 ) {
   val all = if (drawn != null) tiles + drawn else tiles
   val h = w * TILE_RATIO
@@ -365,8 +468,8 @@ fun MyHand(
     } else onSelect(i)
   }
   Column(
-    Modifier.padding(top = (h * LIFT).d).let { if (perRow > 0) it.width(((perRow + DRAWN_GAP + 1) * w).d) else it },
-    verticalArrangement = Arrangement.spacedBy((h * ROW_GAP).d),
+    Modifier.padding(top = maxOf(h * LIFT, tagH).d).let { if (perRow > 0) it.width(((perRow + DRAWN_GAP + 1) * w).d) else it },
+    verticalArrangement = Arrangement.spacedBy(maxOf(h * ROW_GAP, tagH).d),
   ) {
     for (row in rows) {
       Row(Modifier.height(h.d), verticalAlignment = Alignment.Bottom) {
@@ -377,12 +480,21 @@ fun MyHand(
             selected == i -> -h * LIFT * density.density
             else -> 0f
           }
-          TileView(
-            all[i], w.d, selected = selected == i,
-            modifier = Modifier
+          val mark = marks?.get(all[i])
+          // The touch target is the tile's own place, whether the tile is lifted or not, and while it is lifted the
+          // room over it too: the second tap lands where the first did (a thumb at the tile's foot) or on the tile
+          // where it now is. (A target that rose with the tile left its foot dead: "sometimes it will not discard".)
+          val reach = if (selected == i) h * LIFT else 0f
+          Box(
+            Modifier
               .testTag(if (isDrawn) "hand_drawn" else "hand_$i")
+              .semantics(mergeDescendants = true) {}
               .padding(start = if (isDrawn && row.size > 1) (w * DRAWN_GAP).d else 0.dp)
-              .offset { IntOffset(0, lift.roundToInt()) }
+              .layout { m, c ->
+                val up = reach.d.roundToPx()
+                val p = m.measure(if (c.hasBoundedHeight) c.copy(maxHeight = c.maxHeight + up) else c)
+                layout(p.width, p.height - up) { p.place(0, -up) }
+              }
               .pointerInput(all[i], i, selected, discardable) { detectTapGestures { tap(i) } }
               .pointerInput(all[i], i, discardable) {
                 detectVerticalDragGestures(
@@ -398,11 +510,51 @@ fun MyHand(
                   },
                   onDragCancel = { dragging = -1; dy = 0f },
                 ) { _, d -> dy = minOf(0f, dy + d) }
-              },
-          )
+              }
+              .padding(top = reach.d),
+          ) {
+            Box(Modifier.offset { IntOffset(0, lift.roundToInt()) }) {
+              TileView(all[i], w.d, selected = selected == i, glow = mark?.played == true, danger = mark?.danger ?: 0)
+              if (mark != null) TileTag(mark, w, if (tagH > 0) tagH else TAG_H, Modifier.align(Alignment.TopCenter))
+            }
+          }
         }
       }
     }
+  }
+}
+
+/**
+ * A tile's tag at a decision (a review): what discarding it costs against the best, over the tile (outside its own
+ * room: the hand keeps `tagH` over each row). The tile played has a lit edge.
+ */
+@Composable
+fun TileTag(mark: TileMark, w: Float, tagH: Float, modifier: Modifier = Modifier) {
+  val c = LocalTable.current
+  val bg = when (mark.tone) {
+    TileMark.Tone.BEST -> Marks.found
+    TileMark.Tone.G1 -> Marks.danger1
+    TileMark.Tone.G2 -> Marks.danger2
+    TileMark.Tone.G3 -> Marks.danger3
+    TileMark.Tone.PLAIN -> Color.Black.copy(alpha = 0.42f)
+  }
+  val fg = if (mark.tone == TileMark.Tone.G1 || mark.tone == TileMark.Tone.G2) Marks.on(1) else Color.White
+  // In dp, whatever the font scale: the tag has a fixed room.
+  val size = with(LocalDensity.current) { (w * 0.27f).coerceIn(10f, 13f).dp.toSp() }
+  Box(
+    modifier
+      .layout { m, _ ->
+        val p = m.measure(Constraints())
+        layout(0, 0) { p.place(-p.width / 2, -p.height - 1.dp.roundToPx()) }
+      }
+      .height((tagH - 2).d).background(bg, RoundedCornerShape(5.dp))
+      .let { if (mark.played) it.border(2.dp, c.highlight, RoundedCornerShape(5.dp)) else it }.padding(horizontal = 3.dp),
+    contentAlignment = Alignment.Center,
+  ) {
+    // The words' own line may be higher than the tag (Chinese characters' is): it is centered over the tag's edges
+    // rather than held to the tag's height, where a line that does not fit is not drawn at all.
+    Text(mark.tag, Modifier.wrapContentHeight(Alignment.CenterVertically, unbounded = true), color = fg, fontSize = size, lineHeight = size,
+      fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
   }
 }
 
@@ -468,6 +620,8 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes) {
     }
     val fresh = view.events.takeLast(count - seen)
     seen = count
+    // A jump over many events (a review going to another decision) says none of them.
+    if (fresh.size > 8) return@LaunchedEffect
     val flowers = HashSet<Int>()
     for (e in fresh) {
       val text = texts[e.type] ?: continue

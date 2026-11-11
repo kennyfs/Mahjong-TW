@@ -5,7 +5,8 @@
 
   The network's figures for each legal action follow every change at once (so the tile drawn can be changed with a
   tap to see what it does), and on request its tables of what the hand would do after each tile it may draw next and
-  on each discard of the others (lib/engine.ts whatIfPosition).
+  on each discard of the others (lib/engine.ts whatIfPosition). A step of a review keeps its hand's history while only
+  the hand's own tiles are changed (the editor's source), so its figures are the review's.
 -->
 <script lang="ts">
   import * as engine from '../lib/engine';
@@ -68,6 +69,8 @@
   $effect(() => {
     const ok = !missing;
     const key = ok ? JSON.stringify([spec, ed.position(), showTables]) : '';
+    // A position from a hand's review, with nothing but the hand's own tiles changed, is asked of that hand's game.
+    const source = ok ? ed.source : null;
     const mine = ++asked;
     if (!ok) {
       result = null;
@@ -80,12 +83,14 @@
     running = true;
     const timer = setTimeout(async () => {
       try {
-        const a = await engine.analyzePosition(rules, position, 'analysis');
+        const a = source ? await engine.analyzeGame(source.game, source.seat, true, position.hand, position.drawn)
+          : await engine.analyzePosition(rules, position, 'analysis');
         if (mine !== asked) return;
         result = a;
         error = null;
         if (withTables && a.source === 'network') {
-          const w = await engine.whatIfPosition(rules, position);
+          const w = source ? await engine.whatIfGame(source.game, source.seat, position.hand, position.drawn)
+            : await engine.whatIfPosition(rules, position);
           if (mine === asked) tables = w;
         } else tables = null;
       } catch (e) {

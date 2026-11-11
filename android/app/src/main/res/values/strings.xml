@@ -242,6 +242,7 @@
   <string name="analysis_title_decision">分析：%1$s的決定</string>
   <string name="analysis_source_note">依據</string>
   <string name="analysis_turn_of">%1$s 的回合</string>
+  <string name="analysis_your_turn">你的回合</string>
   <string name="analysis_seat_you">你（自己）</string>
   <string name="analysis_meld_pick">選一種副露</string>
   <string name="analysis_chi_from">吃（%1$s 開頭）</string>
@@ -342,6 +343,7 @@
   <!-- The network's analysis: the review of a hand, a decision's figures, the tables of draws and claims (the web page
        first; the app when its design is chosen) -->
   <string name="about_text_net">台灣十六張麻將。電腦玩家與分析用還在訓練中的神經網路（測試版），也可以改用牌效率（向聽數與進張數）。程式以 GPLv3 授權釋出，牌面的字取自 Noto Serif CJK（SIL Open Font License）。</string>
+  <string name="about_version">版本 %1$s・神經網路 %2$s</string>
   <string name="bot_net">神經網路（測試版）</string>
   <string name="settings_analysis">分析</string>
   <string name="settings_list_rows">「每個選擇」的清單怎麼顯示</string>
@@ -367,7 +369,7 @@
   <string name="review_decisions">決策</string>
   <string name="review_luck">運氣</string>
   <string name="review_result">結果</string>
-  <string name="review_mistakes">%1$s %2$d</string>
+  <string name="review_mistakes">%1$s %2$s</string>
   <string name="review_count_none">沒有%1$s</string>
   <string name="review_line">起手期望 %1$s・決策 %2$s・運氣 %3$s</string>
   <string name="review_prev_key">上一個該看的決定</string>
@@ -436,7 +438,7 @@
   <string name="stats_reviewed">已分析 %1$d 局</string>
   <string name="stats_loss">每局損失 %1$s 台</string>
   <string name="stats_net_note">（網路自己隨機取樣對局約 0.19）</string>
-  <string name="stats_per_hand">每局 %1$s</string>
+  <string name="stats_per_hand">每局%1$s</string>
   <string name="stats_kinds">損失來自</string>
   <string name="stats_kind_tile">選牌</string>
   <string name="stats_kind_danger">放槍風險</string>

@@ -126,8 +126,21 @@ danger of each of the 34 kinds). Two more requests use the network (cpp/command/
   (the best action and the value then) and with each discard of the others that leaves a choice (the options'
   figures): some 140 evaluations in one batch, 0.4 s as WebAssembly.
 
-A position has no history of its own: its discards are taken as made in turn order, so the features that depend on
-the order of play (which tiles passed since a seat's last call or discard) are close, not exact. A game's are exact.
+A position has no history of its own: its discards are taken as made in turn order, and its melds have no calls
+behind them. What the network reads of the order of play (how long ago a seat called, which tiles passed since a
+seat's last discard) is then not what the game's was, and with calls on the table the figures differ from the game's
+by up to several tenths of a point (measured on a hand: 0.1 to 0.15 from the history alone, 0.6 with the claimed
+discards left out of the rivers as the analysis screen's editor does). A game's are exact. So a game takes another
+hand for the seat:
+
+```
+>> {"cmd":"analyze","game":GAME,"seat":1,"hand":"123456789m234s55m7z","drawn":"5m","model":FILE}
+```
+
+is the seat's position in the game with that hand in place of its own (`drawn`: the tile drawn of it, on the seat's
+own turn); the table and its history stay the game's, and with the seat's own hand the answer is the game's own.
+`whatif` takes the same. The analysis screen asks this way for a step taken from a review, for as long as only the
+hand's own tiles have been changed there.
 
 A review steps through a record's actions, and a record keeps every decision, the ones that came to nothing too: on
 a discard each seat that could claim it answers, and only the claim of the highest priority is made (a win before a

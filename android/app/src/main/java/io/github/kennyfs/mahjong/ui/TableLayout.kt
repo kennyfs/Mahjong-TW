@@ -54,6 +54,46 @@ fun fitMelds(counts: List<Int>, flowers: Int, width: Float, lines: Int, maxW: Fl
   return minW
 }
 
+// Another player's tiles when their hand is shown (a finished hand, a review showing everyone's): the melds and
+// flowers as always, then the concealed tiles on a rack (a lighter strip behind them, RACK_PAD around), so that the
+// hand is told from the melds at a glance.
+const val RACK_PAD = 3f
+/** The gap between the melds and the rack: under them, and beside them in one line. */
+const val RACK_GAP = 5f
+const val RACK_GAP_ROW = 10f
+
+/** Lines that `n` tiles `w` wide take in `width`. */
+fun runLines(n: Int, width: Float, w: Float): Int = if (n > 0) ceil(n / max(1f, floor(width / w))).toInt() else 0
+
+/** The height of a seat's shown tiles in a column `width` wide: its melds and flowers in lines, the rack under them. */
+fun shownHeight(counts: List<Int>, flowers: Int, concealed: Int, width: Float, w: Float): Float {
+  val a = meldLines(counts, flowers, width, w)
+  val b = runLines(concealed, width - 2 * RACK_PAD, w)
+  return a * h(w) + max(0, a - 1) * meldGaps(w).row + (if (a > 0 && b > 0) RACK_GAP else 0f) + (if (b > 0) b * h(w) + 2 * RACK_PAD else 0f)
+}
+
+/** The largest tile width from `maxW` down to `minW` at which a seat's shown tiles fit in `width` x `height`. */
+fun fitShown(counts: List<Int>, flowers: Int, concealed: Int, width: Float, height: Float, maxW: Float, minW: Float = 16f): Float {
+  var w = maxW
+  while (w > minW) {
+    if (shownHeight(counts, flowers, concealed, width, w) <= height) return w
+    w -= 0.5f
+  }
+  return minW
+}
+
+/** The same in one line (the player opposite on a wide table): melds, flowers and the rack side by side in `width`. */
+fun fitShownRow(counts: List<Int>, flowers: Int, concealed: Int, width: Float, maxW: Float, minW: Float = 14f): Float {
+  val items = counts.size + flowers
+  var w = maxW
+  while (w > minW) {
+    val melds = counts.sum() * w + flowers * w * FLOWER_SCALE + max(0, items - 1) * meldGaps(w).col
+    if (melds + (if (items > 0 && concealed > 0) RACK_GAP_ROW else 0f) + (if (concealed > 0) concealed * w + 2 * RACK_PAD else 0f) <= width) return w
+    w -= 0.5f
+  }
+  return minW
+}
+
 data class TableSizes(
   val wide: Boolean,
   /** The player's own concealed tiles. */
@@ -91,8 +131,17 @@ private const val RIVER = 20
 /** The rivers' tiles on a tall table: no smaller than this while the hand can give room. */
 private const val MIN_RIVER = 26f
 
-/** Sizes for a table of w x h dp; `maxHand` caps the hand's tiles (a tablet). */
-fun tableSizes(width: Float, height: Float, maxHand: Float = 64f): TableSizes {
+/** The rivers' tiles on a tall table whose others' strip has grown to show everyone's tiles: no smaller than this. */
+const val SHOWN_RIVER = 20f
+
+/** The height left for the others' strip on a tall table `height` high when the rivers' tiles are `river` wide. */
+fun tallTopRoom(s: TableSizes, height: Float, river: Float) = height - s.meH - 4 - ((2 * s.acrossRows + 1.3f) * h(river) + 14)
+
+/**
+ * Sizes for a table of w x h dp; `maxHand` caps the hand's tiles (a tablet). `top`: a tall table's others' strip is
+ * this high when that is more than it would be (everyone's tiles shown): the rivers give the room.
+ */
+fun tableSizes(width: Float, height: Float, maxHand: Float = 64f, top: Float = 0f): TableSizes {
   var w = width
   val wide = w >= height * 1.1f
   if (wide) w = min(w, height * 2.3f)
@@ -137,13 +186,13 @@ fun tableSizes(width: Float, height: Float, maxHand: Float = 64f): TableSizes {
   val acrossCols = 6
   val acrossRows = 3
   data class Fit(val hand: Float, val meld: Float, val opp: Float, val meH: Float, val topH: Float, val centerH: Float, val river: Float)
-  fun tall(hand: Float): Fit {
+  fun tall(hand: Float, more: Float = 0f): Fit {
     val meld = min(hand * 0.72f, 40f)
     val opp = max(22f, min(hand * 0.6f, 32f))
     val meldLine = max(30f, h(meld))
     val meH = meldLine + 4 + h(hand) * (2 + ROW_GAP + LIFT) + 6
     // The others' name plates in two lines (TableView's SeatBadge: the name over the tiles held and the score).
-    val topH = 40 + OPP_LINES * (h(opp) + meldGaps(opp).row) + 4
+    val topH = max(more, 40 + OPP_LINES * (h(opp) + meldGaps(opp).row) + 4)
     val centerH = height - meH - topH - 4
     var river = min(hand * 0.9f, (w - 24) / (acrossCols + 2 * sideCols))
     while (river > 16 && (2 * acrossRows + 1.3f) * h(river) + 14 > centerH) river -= 0.5f
@@ -151,6 +200,8 @@ fun tableSizes(width: Float, height: Float, maxHand: Float = 64f): TableSizes {
   }
   var fit = tall(max(30f, min(maxHand, (w - 10) / (HAND_ROW + DRAWN_GAP + 1))))
   while (fit.river < MIN_RIVER && fit.hand > 30) fit = tall(max(30f, fit.hand - 1))
+  // A higher strip takes its room from the rivers alone: the hand stays as it was.
+  if (top > fit.topH) fit = tall(fit.hand, top)
   val sideRows = max(4, floor((fit.centerH - 4) / h(fit.river)).toInt())
   val boxH = max(h(fit.river) * 1.3f, min(h(fit.river) * 2, fit.centerH - 2 * acrossRows * h(fit.river) - 14))
   return TableSizes(

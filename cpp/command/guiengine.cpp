@@ -442,6 +442,26 @@ static json analysisJson(const Game& game, int seat, shared_ptr<const Learn::Net
   return batch.analysis(0);
 }
 
+// A game's position for a seat with another hand ("hand": TILES, and on the seat's own turn "drawn": the tile drawn of
+// it), loaded into `out`: what the seat sees of the table stays the game's, and so do the game's events, which the
+// network reads (how long ago a seat called, which kinds are safe against whom). A position given by itself has only
+// the plain history of its discards (Game::plainHistory), so its figures differ from the game's once there are calls.
+// False: the request names no hand.
+static bool withOtherHand(const json& req, const Game& game, int seat, Rand& rand, Game& out) {
+  if(!req.contains("hand") || req["hand"].is_null())
+    return false;
+  Position p = game.positionOf(seat);
+  p.hand = Tiles::countsOf(Tiles::parse(req["hand"].get<string>()));
+  p.drawn = -1;
+  if(p.claimSeat < 0 && !p.afterCall && req.contains("drawn") && !req["drawn"].is_null()) {
+    p.drawn = parseTile(req["drawn"]);
+    if(p.hand[p.drawn] == 0)
+      throw StringError("The drawn tile must be in the hand");
+  }
+  out.loadPosition(p, rand, game.events());
+  return true;
+}
+
 // The tiles of each kind `seat` has not seen.
 static Counts unseenBy(const Game& game, int seat) {
   Counts visible = game.visibleCounts(seat);
@@ -843,13 +863,14 @@ json GuiEngine::handle(const json& req) {
     return json{{"game", GuiJson::record(r)}, {"game_over", gameOver}};
   }
 
-  if(cmd == "analyze") {
-    return analysisJson(game, seatOf(req), modelOf(req));
-  }
-
-  if(cmd == "whatif") {
+  if(cmd == "analyze" || cmd == "whatif") {
+    const int seat = seatOf(req);
     unique_ptr<Rand> rand = randOf(req);
-    return whatIf(game, seatOf(req), modelOf(req), *rand);
+    Game other(game.rules());
+    const Game& g = withOtherHand(req, game, seat, *rand, other) ? other : game;
+    if(cmd == "whatif")
+      return whatIf(g, seat, modelOf(req), *rand);
+    return analysisJson(g, seat, modelOf(req));
   }
 
   if(cmd == "pending") {

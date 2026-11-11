@@ -58,7 +58,7 @@
 //   {"cmd": "next", "game": RECORD, "start_dealer": s, "seed": S?}
 //       The next hand of a game (一將) after this one: the dealer and streak from the result, the round wind moving on
 //       when the deal comes back to start_dealer  -> {"game": RECORD, "game_over": bool (after the north round)}
-//   {"cmd": "analyze", "game": RECORD, "seat": s, "model": FILE?}
+//   {"cmd": "analyze", "game": RECORD, "seat": s, "model": FILE?, "hand": TILES?, "drawn": T?, "seed": S?}
 //   or  {"cmd": "analyze", "rules": SPEC, "position": POSITION, "seed": S?, "model": FILE?}
 //       Every legal action of the seat  -> ANALYSIS: {"source": "efficiency", "actions": [FIGURES]}, FIGURES being
 //       {"action": ACTION, "shanten": n (-1 a win), "ukeire": n, "waits": [{"tile", "left", "ron_tai", "tsumo_tai"}],
@@ -71,6 +71,10 @@
 //       answer also has "best" (an index into actions), "value" (its q), "policy_value", and "opponents":
 //       [{"seat", "ready": [4] (the chances of being ready, 1, 2, 3 or more tiles away), "danger": [34 kinds],
 //         "danger_tai": [34]} x3].
+//       A game with "hand" (and, on the seat's own turn, "drawn": the tile drawn of it): the seat's position in the
+//       game with that hand in place of its own. The table stays the game's and so does its history, which the
+//       network reads (how long ago a seat called, which kinds are safe against whom); a POSITION by itself has only
+//       the plain history of its discards, so with calls on the table its figures differ from the game's.
 //   {"cmd": "model", "model": FILE?}   -> {"available": bool (this build runs networks), "features": version
 //       (when the file loads)}
 //   {"cmd": "review", "game": RECORD (a finished hand), "seat": s, "model": FILE?}
@@ -85,7 +89,8 @@
 //       pung or a kong before a chow; a pass never)], "over": [per action: the index of the claim that took its
 //       place, or -1], "last": the action the play ended with (the first win taken; without a win the last action
 //       taken; -1 without any)}
-//   {"cmd": "whatif", "model": FILE, "seed": S?, and "game": RECORD, "seat": s  or  "rules": SPEC, "position": POSITION}
+//   {"cmd": "whatif", "model": FILE, "seed": S?, and "game": RECORD, "seat": s, "hand": TILES?, "drawn": T?  or
+//    "rules": SPEC, "position": POSITION}
 //       The seat's hand as it rests between turns (without the tile just drawn), tried with every kind it has not
 //       seen  -> {"draws": [{"tile", "left", "value", "action": the best ACTION after drawing it, "figures": its
 //       FIGURES, "next": the second best ACTION|null, "next_loss"}], "claims": [{"seat", "tile", "left", "best":

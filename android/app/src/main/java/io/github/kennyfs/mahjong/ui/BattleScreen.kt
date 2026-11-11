@@ -527,10 +527,10 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
                     }
                   }
                   if (side) Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    HandResultCard(table.view, names, table.seat, ((w - 330) / 18.5f).coerceIn(22f, 30f), Modifier.weight(1f), actions)
+                    HandResultCard(table.view, names, table.seat, ((w - 330) / 18.5f).coerceIn(22f, 30f), Modifier.weight(1f), actions = actions)
                     Box(Modifier.width(300.dp)) { standings() }
                   } else Column(Modifier.widthIn(max = 760.dp), verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    HandResultCard(table.view, names, table.seat, resultTileW(wide, w), Modifier.weight(1f, fill = false), actions)
+                    HandResultCard(table.view, names, table.seat, resultTileW(wide, w), Modifier.weight(1f, fill = false), actions = actions)
                     standings()
                   }
                 }

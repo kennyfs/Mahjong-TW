@@ -12,18 +12,19 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 
 | Screen | What |
 |---|---|
-| 練習 Practice | Against three bots (the engine's `greedy`, tile efficiency), for one hand, a round or a game; the result of each hand (winner, hand, tai items, payments, next dealer) with its review; the game's totals. No hint or analysis during play. |
+| 練習 Practice | Against three bots (the network by default, or the engine's `greedy`, tile efficiency), for one hand, a round or a game; the result of each hand (winner, hand, tai items, payments, next dealer, the network's summary of the player's play) with its review; the game's totals. No hint or analysis during play. |
 | 對戰 Battles | A table game (1 to 4 people, bots in the empty seats) or a same-tiles contest, on a battle server; the app also with phones nearby. Lobby with a 6-digit PIN, the host's settings, the table with a clock per decision, each hand's result with the standings, the final standings and the player's hands. docs/battle.md. |
-| 分析 Analysis | A position set up by hand, then the engine's figures for each legal action. A finished hand's decisions are analyzed from its review (records). The web page tries the network's analysis first (docs/analysis.md section 4); the app follows when its design is chosen. |
-| 紀錄 Records | Practice hands, table battles and contests (battles as groups of hands); favorites; statistics; each hand opens its review: step by step, everyone's tiles at a tap, each decision's analysis with the action taken marked. |
-| 設定 Settings | Rules (tai preset, flower preset, base, every parameter), practice's length, the bots' pace, text size, colors (table green or minimal), dark mode, about. |
+| 分析 Analysis | A position set up by hand, or a step of a review taken there, with the network's figures for each legal action as it changes, and the tables of draws and of claims (docs/analysis.md section 4). |
+| 紀錄 Records | Practice hands, table battles and contests (battles as groups of hands); favorites; statistics of the network's reviews; each hand opens its review: the graph of the value, the decisions worth a look, each decision's verdict and figures, everyone's tiles at a tap. |
+| 設定 Settings | Rules (tai preset, flower preset, base, every parameter with its explanation), practice's length, the bots and their pace, how a decision's list shows and the level of mistakes, text size, colors (table green or minimal), dark mode, about (the version and the network's id). |
 
 - **The table** is laid out from the room it has (`web/src/lib/layout.ts`, ported as `android/.../ui/TableLayout.kt`,
   the same arithmetic): wide (a phone sideways, a tablet, a computer) or tall (a phone upright). Landscape is the
   main layout; portrait works; a computer gets a side panel with the scores and keyboard play (web).
 - **The engine** is `cpp/` behind `GuiEngine` (docs/gui-engine.md), stateless (a hand is its record, replayed per
-  request): JNI in the app, WebAssembly in a worker on the page, `mahjong gui` processes on the server. No ONNX
-  Runtime yet; Thirteen's structure for it is kept (see "Later").
+  request): JNI in the app, WebAssembly in a worker on the page, `mahjong gui` processes on the server. The network
+  (an actor's `.onnx`, iteration 50 of stage 1 in 0.1.0) runs in ONNX Runtime, linked into the JNI library in the
+  app and built into the WebAssembly on the page; the server has none yet (its bots are `greedy`).
 - **Shared between the two**: the strings (`android/app/src/main/res/values/strings.xml`, which the page reads through
   `web/scripts/strings.mjs`), the tile art (`art/make_tiles.py` writes `TileArt.kt` and `tile-art.ts`), the table's
   layout arithmetic, the records' JSON form, the battle protocol (Kotlin in `protocol/`, a TypeScript port in
@@ -32,6 +33,9 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.1.0.apk` (branch `analysis`, 2026-11-11): the first beta with the network, its review and its
+    analysis; release build, signed with the same debug key, so it installs over 0.0.15 keeping the records. Run on
+    the emulator through practice, the review, the analysis, the records, the settings and the rules.
   - `apk/mahjong-0.0.15.apk`: the release APK (minified with R8), signed with the debug key (no release key exists
     yet: android/README.md, "Signing"); it was installed on the emulator and played through practice, a review, the
     analysis and a table game on the local server.
@@ -112,12 +116,15 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 
 ## Missing or rough (the next steps, roughly in order)
 
-**Bugs the user found on the prototype (2026-11-10, APK 0.0.15 or the last commit of `ui`), not yet looked at**
-(the plan puts app work after training; there are likely more):
+**Bugs the user found on the prototype (2026-11-10, APK 0.0.15), fixed in 0.1.0:**
 
-- Android: tapping the base's + or − button (底) crashes the app.
-- 所有參數 (every parameter) on the rules page never expands.
-- Sometimes a tile cannot be discarded.
+- Android: tapping the base's + or − button (底) crashed the app, and 所有參數 (every parameter) never expanded. One
+  cause: the engine writes the rules' values as numbers with a fraction (`2.0`), which the app's `RulesInfo` read as
+  integers; the decoding failed, a `runCatching` hid it (no parameters to show), and the base's buttons threw it
+  uncaught. The values are read as numbers now, every decoding failure is the engine's error, and the rules page
+  shows it.
+- Sometimes a tile could not be discarded: the lifted tile's touch area rose with it, leaving the lower part of its
+  place dead to the second tap. The touch area now covers both the tile's place and the lifted tile (app and page).
 
 
 1. **Test on real devices**: the release APK on a phone (sideways and upright), rooms nearby on two or three phones,
@@ -126,8 +133,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
    screen.
 3. **Nearby**: no backup host (the room dies with the host's phone); no reconnect for a guest who drops.
 4. **A tutorial** or first-run help (Thirteen has one): none yet.
-5. **The analysis** is tile efficiency only: no defense (danger of a discard), no tai-aware expected value. The network
-   (docs/plan.md) is meant to replace it; its figures plug in as described under "Later".
+5. **The analysis** has the network since 0.1.0 (docs/analysis.md); a better network replaces the file.
 6. **English (US)** strings (`values-en/strings.xml`; the page would need its language picked from the browser).
 7. **Records export and import** (Thirteen's app has export and share): `records_export` is in the strings, unused.
 8. **Polish**: animations of tiles moving (only the callouts animate now), sound and haptics, predictive back, a
@@ -140,14 +146,11 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
    resuming, leaving and the claim window's timing.
 10. **Docker** was built with the legacy builder only (this host has no BuildKit).
 
-## Later: the network
+## Later: the network on the server
 
-- The engine gets the network's figures into `analyze` (more number fields per action, e.g. a win rate and an
-  expected score), which the app and the page show as they come, and a bot spec (`net:...`) that the settings'
-  bot list (`BOTS` in `Settings.kt`, `web/src/lib/settings.svelte.ts`) and the server's `Validation.BOTS` then name.
-- The app links ONNX Runtime as Thirteen's does (`android/app/src/main/cpp/CMakeLists.txt`, `build-ort.sh` and
-  `ort-ops.config` there); the page loads the network with the engine (Thirteen's `virtual:engine-files` and
-  `stored.ts`, already here for the WebAssembly); the server's image adds the network file.
+The app and the page have the network (0.1.0). The server's bots are still `greedy`: its image would add the network
+file and a build of `mahjong` with ONNX Runtime, and `Validation.BOTS` would name `net:...` (when a stable version is
+released).
 
 ## Commands
 

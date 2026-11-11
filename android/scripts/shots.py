@@ -2,9 +2,11 @@
 """The app's screenshots on an emulator, driven over adb (device-tests.sh starts the emulator and installs the APK).
 
 It plays as a person would, by taps found in the screen's accessibility tree (uiautomator dump): practice until a hand
-ends, its review and a decision's analysis, the analysis screen, the records, the rules, the settings, and battles (the
-entry, and, when BATTLE_SERVER names a server the emulator reaches, e.g. 10.0.2.2:8091, a table game's lobby and
-table). Each screen in landscape (the phone sideways, first) and portrait, PNGs in OUT (default
+ends, its review by the network (a decision worth a look, a tile's figures, everyone's tiles, the list of every action,
+the step taken to the analysis screen, the result), the analysis screen with its tables, the records with their
+statistics, the rules with an explanation open, the settings, and battles (the entry, and, when BATTLE_SERVER names a
+server the emulator reaches, e.g. 10.0.2.2:8091, a table game's lobby and table). Each screen in landscape (the phone
+sideways, first) and portrait, PNGs in OUT (default
 $WORK/shots/android). ONLY=name,... takes only those shots; STEPS=step,... runs only those
 steps (practice, practice_result, analyze, records, settings, battle, battle_table), e.g. STEPS=battle_table.
 
@@ -213,57 +215,117 @@ def practice(orient):
   shot(f'play-{orient}')
 
 
+def swipe_up(times=1):
+  """Scrolls what is in the middle of the screen towards its end."""
+  w, h = screen_size()
+  if rotation() in (1, 3):
+    w, h = h, w
+  for _ in range(times):
+    sh(f'input swipe {w // 3} {int(h * 0.72)} {w // 3} {int(h * 0.22)} 250')
+    time.sleep(0.4)
+
+
 def practice_result(orient):
-  """A hand to its end, its result; its review, and a decision's analysis."""
+  """A hand to its end and its result; its review: a decision worth a look, a tile's figures, everyone's tiles, the
+  list of every action, the step taken to the analysis screen, and the result again."""
   go('練習')
   log('playing a hand...')
   if not play_hand():
     log('the hand did not end')
     return
-  time.sleep(1.5)
+  # The network's review of the hand comes in a moment after the result.
+  wait_for(lambda ns: find(ns, rid='result_review_line'), 30)
   shot(f'play-result-{orient}')
   tap_id('result_review')
-  wait_for(lambda ns: find(ns, rid='replay_step_4'), 15)
-  # A few of the player's decisions in, where one is to be made (not the end).
-  for _ in range(3):
-    n = find(ui(), rid='replay_step_4')
-    if not n or not n.enabled:
-      break
-    tap_node(n)
-    time.sleep(0.5)
-  if not find(ui(), rid='replay_analyze'):
-    tap_id('replay_step_1')
+  wait_for(lambda ns: find(ns, rid='replay_mistakes'), 40)
+  # A decision worth a look (a mistake, or a good move that is not the obvious one); else one of the player's own.
+  n = find(ui(), rid='replay_next_key')
+  tap_node(n if n and n.enabled else find(ui(), rid='replay_next_mine'))
+  time.sleep(1.0)
   shot(f'replay-{orient}')
-  tap_id('replay_analyze')
-  wait_for(lambda ns: find(ns, text='最佳'), 20)
-  shot(f'analysis-{orient}')
-  back()
+  mine = hand_tiles(ui())
+  if mine:
+    tap_node(mine[min(3, len(mine) - 1)])
+    time.sleep(0.6)
+    shot(f'replay-tile-{orient}')
+  tap_id('replay_all')
+  time.sleep(1.0)
+  shot(f'replay-all-{orient}')
+  tap_id('replay_all')
+  # The list of every action: its own view where there is no room for it beside the table.
+  if find(ui(), rid='replay_panel'):
+    tap_id('replay_panel')
+    wait_for(lambda ns: find(ns, text='期望') or find(ns, text='最佳'), 20)
+    shot(f'replay-list-{orient}')
+  n = None
+  for _ in range(8):
+    n = find(ui(), rid='replay_to_analysis')
+    if n:
+      break
+    swipe_up()
+  if n:
+    shot(f'replay-list-end-{orient}')
+    tap_node(n)
+    wait_for(lambda ns: find(ns, rid='analyze_results'), 30)
+    shot(f'analyze-from-review-{orient}')
+    go('練習')
+  if find(ui(), rid='replay_panel'):
+    n = find(ui(), rid='replay_to_analysis') or find(ui(), text='期望')
+    if n:
+      tap_id('replay_panel')
+  tap_id('replay_last')
+  tap_id('replay_result')
+  shot(f'replay-result-{orient}')
   back()
 
 
 def analyze(orient):
   go('分析')
   tap_id('analyze_random')
-  shot(f'analyze-edit-{orient}')
-  tap_id('analyze_run')
-  wait_for(lambda ns: find(ns, text='最佳'), 20)
+  wait_for(lambda ns: find(ns, rid='analyze_results'), 30)
   shot(f'analyze-{orient}')
   if orient == 'port':
-    back()
+    # The palette away, to read the figures.
+    n = find(ui(), rid='analyze_palette_toggle')
+    if n:
+      tap_node(n)
+      time.sleep(0.6)
+      shot(f'analyze-figures-{orient}')
+  n = None
+  for _ in range(10):
+    n = find(ui(), rid='analyze_whatif')
+    if n:
+      break
+    swipe_up()
+  if n:
+    tap_node(n)
+    wait_for(lambda ns: find(ns, text='摸牌表'), 60)
+    swipe_up()
+    shot(f'analyze-tables-{orient}')
 
 
 def records(orient):
   go('紀錄')
+  wait_for(lambda ns: find(ns, rid='records_stats'), 10)
   shot(f'records-{orient}')
 
 
 def settings(orient):
   go('設定')
   shot(f'settings-{orient}')
-  w, h = screen_size()
   if orient == 'port':
+    swipe_up(2)
+    shot(f'settings-analysis-{orient}')
+    sh('input swipe 500 600 500 2000 200')
+    time.sleep(0.5)
     tap_text('規則')
-    shot(f'rules-{orient}')
+  tap_id('rules_advanced')
+  n = wait_for(lambda ns: find(ns, rid='rules_help_base'), 15)
+  if n:
+    tap_node(n)
+    time.sleep(0.5)
+  shot(f'rules-{orient}')
+  if orient == 'port':
     back()
 
 
