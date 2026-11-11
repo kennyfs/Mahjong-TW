@@ -8,7 +8,7 @@
   import { t } from '../lib/i18n.svelte';
   import { records, type BattleGroup, type HandRecord, type RecordKind } from '../lib/records.svelte';
   import * as engine from '../lib/engine';
-  import { keepSummary, KINDS_OF_LOSS, levelWord, mistakesOf, pts } from '../lib/review';
+  import { keepSummary, KINDS_OF_LOSS, levelOrWorse, mistakesOf, pts } from '../lib/review';
   import { flowerLabel, parseChoice, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import { localTime, signed } from '../lib/ui.svelte';
@@ -110,7 +110,7 @@
 {/snippet}
 
 <div class="page">
-  <TitleBar title={t('records_title')}>
+  <TitleBar title={t('records_title')} max={760}>
     <button class="btn text" disabled={!records.hands.some((h) => !h.fav)} onclick={() => (confirmClear = true)}>{t('records_clear')}</button>
   </TitleBar>
   <div class="scroll"><div class="readable">
@@ -137,7 +137,7 @@
         {#if review}
           <div class="stats-line body-medium">
             <span><b>{t('stats_loss', pts(review.loss, false))}</b> <span class="dim">{t('stats_net_note')}</span></span>
-            <span>{t('stats_per_hand', t('review_mistakes', levelWord(settings.level), review.mistakes.toFixed(2)))}</span>
+            <span>{t('stats_per_hand', t('review_mistakes', levelOrWorse(settings.level), review.mistakes.toFixed(2)))}</span>
           </div>
           <div class="kinds body-small">
             <span class="dim">{t('stats_kinds')}</span>

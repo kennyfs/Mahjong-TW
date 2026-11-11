@@ -1,13 +1,14 @@
 <!--
   A finished hand: who won and how, the winner's hand (the winning tile apart), its tai items by name, the payments
-  (under each, how it comes about: the bases and the tai, the dealer's among them), and the next dealer. `final` is the hand's view with everything shown (reveal). `rev`: the network's review of the
+  (under each, how it comes about: the bases and the tai, the dealer's among them), and the next dealer. The tai's
+  total says what every payer pays in tai: the dealer's tai is in it when every payment has it. `final` is the hand's view with everything shown (reveal). `rev`: the network's review of the
   player's decisions, in a line (the expected result at the first decision, what the decisions lost, the rest as luck).
 -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { t } from '../lib/i18n.svelte';
   import type { ReviewSummary } from '../lib/records.svelte';
-  import { levelWord, mistakesOf, pts } from '../lib/review';
+  import { mistakesOf, mistakesText, pts } from '../lib/review';
   import { meldTiles, flowersOf } from '../lib/seats';
   import { settings } from '../lib/settings.svelte';
   import { parseTiles, sortTiles, without } from '../lib/tiles';
@@ -34,9 +35,12 @@
     const win = r.win_tile && !r.flower_win ? r.win_tile : null;
     return { rest: win ? without(all, [win]) : all, win };
   }
-  // Payments involving the dealer carry the dealer's tai.
+  // Payments involving the dealer carry the dealer's tai: every payment of a win by the dealer or on the dealer's
+  // discard (the total says them all, then); of another's self-drawn win only the dealer's own (said after the total).
   const dealer = $derived(final.position.setup.dealer);
-  const dealerShown = $derived(r.dealer_tai > 0 && !r.exhausted && (r.winners.some((x) => x.seat === dealer) || r.points[dealer] < 0));
+  const dealerWord = $derived(final.position.setup.streak > 0 ? t('result_dealer_streak_tai', r.dealer_tai, final.position.setup.streak) : t('result_dealer_tai', r.dealer_tai));
+  const dealerIn = (seat: number) => r.dealer_tai > 0 && !r.exhausted && (seat === dealer || (!r.self_draw && r.loser === dealer));
+  const dealerPays = (seat: number) => r.dealer_tai > 0 && !r.exhausted && r.self_draw && seat !== dealer && r.points[dealer] < 0;
   /** How a seat's points come about, "底 2＋1 台" for −3: the bases, and the tai (with the dealer's where they count). */
   function parts(seat: number): string {
     const bases = r.base_delta?.[seat] ?? 0;
@@ -66,10 +70,9 @@
       {#each wn.items as it (it.item)}
         <div class="item"><span>{it.name}</span><span class="tai">{t('tai_unit', it.tai)}</span></div>
       {/each}
-      {#if dealerShown}
-        <div class="item dealer"><span>{final.position.setup.streak > 0 ? t('result_dealer_streak_tai', r.dealer_tai, final.position.setup.streak) : t('result_dealer_tai', r.dealer_tai)}</span></div>
-      {/if}
-      <div class="item total"><span>{t('result_tai_total', wn.tai)}</span></div>
+      {#if dealerIn(wn.seat)}<div class="item dealer"><span>{dealerWord}</span></div>{/if}
+      <div class="item total"><span>{t('result_tai_total', wn.tai + (dealerIn(wn.seat) ? r.dealer_tai : 0))}</span></div>
+      {#if dealerPays(wn.seat)}<div class="item dealer more"><span>{t('result_dealer_pays', dealerWord)}</span></div>{/if}
     </div>
   {/each}
 
@@ -88,7 +91,7 @@
   {#if rev}
     <div class="rev body-medium">
       <span>{t('review_line', pts(rev.first), pts(-rev.loss), pts(rev.luck))}</span>
-      <span class="count" class:some={mistakes > 0}>{mistakes ? t('review_mistakes', levelWord(settings.level), mistakes) : t('review_count_none', levelWord(settings.level))}</span>
+      <span class="count" class:some={mistakes > 0}>{mistakesText(rev.grades, settings.level)}</span>
     </div>
   {/if}
   {#if actions}<div class="actions">{@render actions()}</div>{/if}
@@ -102,7 +105,8 @@
   .title { color: var(--primary); }
   .hand-line { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 0; }
   .group { display: inline-flex; margin-right: 8px; }
-  .group.rest { display: contents; }
+  /* The concealed tiles keep together: on a line of their own where they do not fit after the melds. */
+  .group.rest { flex-wrap: wrap; row-gap: 6px; max-width: 100%; }
   .group.win { margin-left: 8px; }
   .items { display: flex; flex-wrap: wrap; gap: 6px; }
   .item { display: inline-flex; gap: 6px; padding: 3px 10px; border-radius: 10px; background: var(--secondary-container);
@@ -119,5 +123,8 @@
     font-variant-numeric: tabular-nums; }
   .count { font-weight: 700; color: var(--good); }
   .count.some { color: var(--bad); }
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  /* The buttons stay in sight where the card is taller than its room and scrolls (a phone held sideways). */
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; position: sticky; bottom: -16px; z-index: 1;
+    margin: -4px -16px -16px; padding: 8px 16px 16px; background: var(--surface-container-high); border-radius: 0 0 20px 20px; }
+  .result.compact .actions { bottom: -12px; margin: -4px -12px -12px; padding: 8px 12px 12px; }
 </style>

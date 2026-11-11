@@ -202,9 +202,17 @@ fun summarize(r: Review): ReviewSummary {
 /** Mistakes of a summary at a level: the decisions of its grade and worse. */
 fun mistakesOf(s: ReviewSummary, level: Level): Int = s.grades.drop(level.grade - 1).sum()
 
-/** "失誤 2", or "沒有失誤". */
-fun mistakesText(res: Resources, level: Level, n: Int): String =
-  if (n > 0) res.getString(R.string.review_mistakes, levelWord(res, level), n.toString()) else res.getString(R.string.review_count_none, levelWord(res, level))
+/** The level's grade and worse, for a count of them all: "失誤以上" (a beginner's is the worst alone). */
+fun levelOrWorse(res: Resources, level: Level): String =
+  if (level.grade < 3) res.getString(R.string.grade_or_worse, levelWord(res, level)) else levelWord(res, level)
+
+/** Mistakes at a level in words, each grade by its own name from the worst down: "大失誤 1・疑問手 2" (`grades`: how
+ *  many were questionable, mistakes, blunders); "沒有失誤" when there are none. */
+fun mistakesText(res: Resources, level: Level, grades: List<Int>): String {
+  val out = (3 downTo level.grade).filter { grades.getOrElse(it - 1) { 0 } > 0 }
+    .map { res.getString(R.string.review_mistakes, res.getString(GRADE_NAME[it]), grades[it - 1].toString()) }
+  return if (out.isNotEmpty()) out.joinToString("・") else res.getString(R.string.review_count_none, levelWord(res, level))
+}
 
 private val reviews = LinkedHashMap<String, Review>()
 

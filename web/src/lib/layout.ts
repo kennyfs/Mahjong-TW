@@ -47,7 +47,7 @@ export function fitMelds(counts: number[], flowers: number, width: number, lines
 }
 
 // Another player's tiles when their hand is shown (a finished hand, a review showing everyone's): the melds and
-// flowers as always, then the concealed tiles on a rack (a lighter strip behind them, RACK_PAD px around), so that
+// flowers as always, then the concealed tiles on a rack (a darker tray behind them, RACK_PAD px around), so that
 // the hand is told from the melds at a glance.
 export const RACK_PAD = 3;
 /** The gap between the melds and the rack: under them, and beside them in one line. */
@@ -92,7 +92,7 @@ export interface TableSizes {
   river: number;
   /** Others' melds and flowers. */
   opp: number;
-  /** Others' concealed tiles, as backs (0: a count instead). */
+  /** Others' concealed tiles, as backs (0: a count instead: a tall table, and a low wide one). */
   back: number;
   /** Tiles a row in the top and bottom rivers, and rows; tiles a row in the side rivers, and rows. */
   acrossCols: number;
@@ -128,8 +128,15 @@ const MIN_RIVER = 26;
 /** The rivers' tiles on a tall table whose others' strip has grown to show everyone's tiles: no smaller than this. */
 export const SHOWN_RIVER = 20;
 
+/** The room kept between that strip and the rivers under it, so that a shown hand is not taken for a river. */
+export const SHOWN_GAP = 14;
+
 /** The height left for the others' strip on a tall table of height `h` when the rivers' tiles are `river` px wide. */
-export const tallTopRoom = (s: TableSizes, h: number, river: number) => h - s.meH - 4 - ((2 * s.acrossRows + BOX_ROWS) * H(river) + 14);
+export const tallTopRoom = (s: TableSizes, h: number, river: number) => h - s.meH - 4 - ((2 * s.acrossRows + BOX_ROWS) * H(river) + 14) - SHOWN_GAP;
+
+/** A wide table lower than this (a phone held sideways) says the others' concealed tiles as a count on their name
+ *  plates, as a tall one does: rows of backs took the side players' room from their melds. */
+const LOW = 500;
 
 /** Sizes for a table of w x h px; `maxHand` caps the hand's tiles (a computer's big window). `top`: a tall table's
  *  others' strip is this high when that is more than it would be (everyone's tiles shown): the rivers give the room. */
@@ -174,7 +181,7 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSi
     const sideW = Math.max(sideMin, (tableW - riversW) / 2);
     const sideRows = Math.max(4, Math.floor((centerH - 4) / H(river)));
     return {
-      wide, hand, handRow: 0, meld, river, opp, back: Math.max(10, opp * 0.66), acrossCols: b.acrossCols, acrossRows: b.acrossRows,
+      wide, hand, handRow: 0, meld, river, opp, back: h < LOW ? 0 : Math.max(10, opp * 0.66), acrossCols: b.acrossCols, acrossRows: b.acrossRows,
       sideCols: b.sideCols, sideRows, sideW, topH, meH, boxW: 0, mid: MID_ROWS * H(river), tableW,
       font: Math.max(14, Math.min(18, opp * 0.46)),
     };
@@ -189,12 +196,15 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSi
     const opp = Math.max(22, Math.min(hand * 0.6, 32));
     const meldLine = Math.max(30, H(meld));
     const meH = meldLine + 4 + H(hand) * (2 + ROW_GAP + LIFT) + 6;
-    const topH = Math.max(more, 28 + OPP_LINES * (H(opp) + meldGaps(opp).row) + 4);
+    const own = 28 + OPP_LINES * (H(opp) + meldGaps(opp).row) + 4;
+    const topH = Math.max(more, own);
+    // A strip grown for shown hands keeps SHOWN_GAP clear of the rivers (they are centered in what is left).
     const centerH = h - meH - topH - 4;
+    const riversH = centerH - (more > own ? SHOWN_GAP : 0);
     // The rivers: 3 columns at the sides, 5 across in 3 rows; as wide as the table allows, unless its height says less.
     let river = Math.min(hand * 0.9, (w - 24) / (acrossCols + 2 * sideCols));
-    while (river > 16 && (2 * acrossRows + BOX_ROWS) * H(river) + 14 > centerH) river -= 0.5;
-    return { hand, meld, opp, meH, topH, centerH, river };
+    while (river > 16 && (2 * acrossRows + BOX_ROWS) * H(river) + 14 > riversH) river -= 0.5;
+    return { hand, meld, opp, meH, topH, centerH: riversH, river };
   };
   const sideCols = 3;
   const acrossCols = 5;

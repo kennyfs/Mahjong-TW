@@ -3,10 +3,13 @@
   river in the middle. A wide table has the round, the wall and the dealer's streak in its top-left corner and the
   screen's `corner` (its buttons) in its top-right one, nothing between the rivers; a tall one has them in a box
   between the rivers (its screen's buttons are in its own bar). Its sizes come from its own room (lib/layout.ts).
-  Calls, wins and flowers show in large words over the player who made them (and 放槍 over the one who dealt in), a
-  colored block a character, about twice a tile of the hand (under a win's and under 放槍, the player's name): a
-  call's and a win's for two seconds (lib/callouts.ts; a practice game's computer players wait for them), a flower's
-  briefly; a tap anywhere, or a key, lets them go at once. New discards, melds and the drawn tile come in moving.
+  Calls, wins and flowers show in large words on a plaque (one plaque a word, about twice a tile of the hand): a call's
+  and a win's over the river of the player who made them, where nothing of that moment lies (the tiles called are in
+  the melds and in another's river, the winner's hand at their seat); 放槍 over the tiles of the one who dealt in, clear
+  of the rivers (the tile dealt is in theirs); 流局 in the middle. Under a win's and under 放槍, the player's name.
+  A call's and a win's stay two seconds (lib/callouts.ts; a practice game's computer players wait for them), a
+  flower's briefly; a tap anywhere, or a key, lets them go at once, and a player's own go when they discard. New
+  discards, melds and the drawn tile come in moving.
 
   The player's turn to discard: the hand in a pulsing frame of the turn's color, and with no tile drawn (the dealer's
   first discard, after a call) its last tile set apart as a drawn one is. A discard the player may claim stands out
@@ -14,7 +17,7 @@
   A wide table's own flowers lie over the hand, above the player's name plate (in the hand's row they took its room).
 
   `revealed`: every seat's concealed tiles, to show (a finished hand, a replay showing all). The others' then lie on
-  a rack (a lighter strip) after their melds, their tiles as large as their room allows: the player opposite in one
+  a rack (a darker tray) after their melds, their tiles as large as their room allows: the player opposite in one
   line along the top of a wide table; on a tall one the others' strip grows for them (the rivers give the room).
   `keys`: a computer's: a click discards, and the keyboard plays (← → choose a tile, Enter discards it, Esc lets go;
   H wins, G kongs, P pungs, C chows, 1 2 3 a chow's way, Space passes).
@@ -22,6 +25,10 @@
   the `corner` is not shown then (the panel has its buttons).
   A review's: `marks` (tags and danger on the hand's tiles, lib/review.ts), `notes` (a few words on each name plate),
   `strip` (a line over the hand: the options that are not discards, a tile's figures), `onpick` (the tile tapped).
+  `onnext` (practice at the manual pace): the others' next step waits for the player: a button for it, where the
+  player's hand leaves room when it is not their turn (a tall table: at the end of the hand's first row, the place
+  of no tile, so that a tap too many discards nothing; a wide one: over the hand's right end), and Space or Enter.
+  `stay`: a call's and a win's words stay until the next tap or key (the game waits for the player anyway).
 -->
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte';
@@ -29,7 +36,7 @@
   import { CALL_MS, FLOWER_MS, calloutShown, calloutsSkipped } from '../lib/callouts';
   import { t } from '../lib/i18n.svelte';
   import {
-    DRAWN_GAP, fitMelds, fitShown, fitShownRow, OPP_LINES, runLines, SHOWN_RIVER, shownHeight, tableSizes, tallTopRoom, type TableSizes,
+    DRAWN_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, OPP_LINES, runLines, SHOWN_RIVER, shownHeight, tableSizes, tallTopRoom, type TableSizes,
   } from '../lib/layout';
   import { concealedCount, meldTiles, seatAt, sideOf, flowersOf, type Side } from '../lib/seats';
   import type { TileMark } from '../lib/review';
@@ -45,13 +52,13 @@
   let {
     view, me, names, scores = null, revealed = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
-    marks = null, notes = null, strip, onpick,
+    marks = null, notes = null, strip, onpick, onnext, stay = false,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
     onact?: (a: Action) => void; handLabel?: string; maxHand?: number; keys?: boolean; away?: boolean[];
     status?: Snippet; overlay?: Snippet; corner?: Snippet; aside?: Snippet; selected?: number | null; asideW?: number;
     marks?: Map<T, TileMark> | null; notes?: ({ text: string; level: number } | null)[] | null; strip?: Snippet;
-    onpick?: (tile: T | null) => void;
+    onpick?: (tile: T | null) => void; onnext?: (() => void) | null; stay?: boolean;
   } = $props();
 
   const others: Side[] = ['right', 'top', 'left'];
@@ -123,6 +130,8 @@
     const apart = !revealed && !drawn && view.phase === 'self' && view.current === me && tiles.length % 3 === 2 ? tiles.pop()! : null;
     return { tiles, drawn: drawn ?? apart, apart: !!apart };
   });
+  /** The rows of the hand on a tall table (the next-step button stands at the end of the first). */
+  const handRows = $derived(s.handRow > 0 && mine.tiles.length + (mine.drawn ? 1 : 0) > s.handRow ? 2 : 1);
   $effect(() => {
     const i = selected;
     onpick?.(i === null ? null : i < mine.tiles.length ? mine.tiles[i] : mine.drawn);
@@ -155,9 +164,16 @@
     return undefined;
   }
   function onkey(e: KeyboardEvent) {
-    if (!keys || !interactive || !view.my_turn || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const el = e.target as HTMLElement | null;
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+    // The others' next step (the manual pace): Space or Enter, wherever the focus is not on another button.
+    if (onnext && (e.key === ' ' || e.key === 'Enter') && !e.repeat && (el?.tagName !== 'BUTTON' || el.classList.contains('next'))) {
+      e.preventDefault();
+      onnext();
+      return;
+    }
+    if (!keys || !interactive || !view.my_turn) return;
     const n = mine.tiles.length + (mine.drawn ? 1 : 0);
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && discardable.size && n) {
       const d = e.key === 'ArrowLeft' ? -1 : 1;
@@ -191,9 +207,11 @@
   });
 
   // Words over a player for a call, a win, a flower: from the events that came since the last view.
-  /** `kind`: the plate under the words: a call's (and a declaration's), a win's, the one who dealt in, a flower's, a draw's. */
+  /** `kind`: the plaque's color: a call's (and a declaration's), a win's, the one who dealt in, a flower's, a draw's.
+   *  `at`: where it stands: over the player's river, over their own tiles, or in the middle of the table. */
   type CalloutKind = 'call' | 'win' | 'dealin' | 'flower' | 'drawn';
-  let callouts = $state<{ id: number; side: Side; text: string; big: boolean; kind: CalloutKind; who: string }[]>([]);
+  type CalloutAt = 'river' | 'own' | 'center';
+  let callouts = $state<{ id: number; side: Side; text: string; kind: CalloutKind; at: CalloutAt; who: string }[]>([]);
   let seen = -1;
   let nextId = 0;
   const WORDS: Partial<Record<GameEvent['type'], string>> = {
@@ -221,11 +239,18 @@
       // wherever they stand.
       const say = (side: Side, text: string, kind: CalloutKind, ms: number, who = '') => {
         const id = nextId++;
-        callouts = [...callouts.filter((c) => c.side !== side), { id, side, text, big: kind === 'win', kind, who }];
-        setTimeout(() => { callouts = callouts.filter((c) => c.id !== id); }, ms);
+        const at: CalloutAt = kind === 'drawn' ? 'center' : kind === 'dealin' ? 'own' : 'river';
+        callouts = [...callouts.filter((c) => c.side !== side || c.at !== at), { id, side, text, kind, at, who }];
+        if (!stay || ms < CALL_MS) setTimeout(() => { callouts = callouts.filter((c) => c.id !== id); }, ms);
         if (ms >= CALL_MS) calloutShown(ms);
       };
       for (const e of fresh) {
+        // A player's discard lands in their river: their words over it go.
+        if (e.type === 'discard') {
+          const side = sideOf(e.seat, me);
+          if (callouts.some((c) => c.side === side && c.at === 'river')) callouts = callouts.filter((c) => c.side !== side || c.at !== 'river');
+          continue;
+        }
         const word = e.type === 'declare' ? `call_${e.declared ?? 'tianting'}` : WORDS[e.type];
         if (!word) continue;
         // One 補花 for a run of flowers.
@@ -247,8 +272,10 @@
     });
   });
 
-  /** Words that are set in blocks, a character each: Chinese characters and kana (others stay one plain plate). */
-  const TILE_WORD = /^[\u3040-\u30ff\u3400-\u9fff]{1,4}$/;
+  /** A word's size on its plaque by its length: one Chinese character, two (or more), or other words (smaller). */
+  const CJK_WORD = /^[\u3040-\u30ff\u3400-\u9fff]{1,4}$/;
+  const wordSize = (text: string) => (!CJK_WORD.test(text) ? 'long' : [...text].length > 1 ? 'two' : 'one');
+  const AREA: Record<Side, string> = { top: 'on-rt', left: 'on-rl', right: 'on-rr', bottom: 'on-rb' };
   /** A tap anywhere, or a key: the words go at once (and whoever waits for them goes on). The tap still does what it
    *  was for. */
   function skipCallouts() {
@@ -275,7 +302,7 @@
       return fitShown(o.counts, o.flowers, o.concealed, s.sideW - 8, s.topH - plateH(side) - 12, s.opp);
     }
     // Wide: the concealed tiles' backs, when they are not shown, take their room first.
-    const backs = revealed ? 0 : concealedCount(view, seat);
+    const backs = revealed || s.back === 0 ? 0 : concealedCount(view, seat);
     if (side === 'top') {
       const room = s.tableW - 12 - padL - padR - (plate.top.w || 150) - 14 - (backs ? backs * s.back + 10 : 0);
       return fitShownRow(o.counts, o.flowers, o.concealed, room, revealed ? s.opp - 1.5 : s.opp);
@@ -308,6 +335,13 @@
 </script>
 
 <svelte:window onkeydown={onkey} />
+<!-- A word on its plaque (`where`: a river's cell or the middle of the rivers; else the side of the seat it lies over). -->
+{#snippet plaque(c: (typeof callouts)[number], where: string)}
+  <div class="callout {c.kind} {c.at} {where} {wordSize(c.text)}" out:fade={{ duration: 160 }}>
+    <span class="word"><span class="face">{c.text}</span></span>
+    {#if c.who}<span class="who">{c.who}</span>{/if}
+  </div>
+{/snippet}
 <div class="felt-bg" bind:clientWidth={W} bind:clientHeight={H}>
 <div class="table" class:wide={s.wide} class:shown={!!revealed} style="max-width: {s.tableW}px; font-size: {s.font}px;
   --side-w: {s.sideW}px; --top-h: {s.topH}px; --me-h: {meH}px; --pad-l: {padL}px; --pad-r: {padR}px; --below-l: {belowL}px;
@@ -359,6 +393,9 @@
               rows={across ? s.acrossRows : s.sideRows} last={lastDiscard === seat} claim={claimSeat === seat} from={r.side} />
           </div>
         {/each}
+        {#each callouts as c (c.id)}
+          {#if c.at !== 'own'}{@render plaque(c, c.at === 'center' ? 'mid' : AREA[c.side])}{/if}
+        {/each}
         {#if !s.wide}
           <div class="box" style="width: {s.boxW}px; min-height: {s.mid}px">
             <div class="box-round">{t('round_wind', windName(setup.round))}{handLabel ? ' ' + handLabel : ''}</div>
@@ -402,11 +439,15 @@
     {#if claims.length && onact}
       <div class="claims" style="bottom: {meH + 4}px"><ClaimBar actions={claims} w={s.hand} {onact} {keys} claimed={claimTile} /></div>
     {/if}
+    {#if onnext}
+      <button class="next" class:tall={!s.wide} onclick={onnext} style={s.wide ? `bottom: ${meH + 4}px`
+        : `bottom: ${6 + (handRows - 1) * s.hand * TILE_RATIO * (1 + ROW_GAP)}px; width: ${s.hand * (1 + DRAWN_GAP) - 4}px; height: ${s.hand * TILE_RATIO}px`}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg><span>{t('manual_next')}</span>{#if keys}<kbd>Space</kbd>{/if}
+      </button>
+    {/if}
     {#if strip}<div class="strip" style="bottom: {meH + 4}px">{@render strip()}</div>{/if}
     {#each callouts as c (c.id)}
-      <div class="callout {c.side} {c.kind}" class:big={c.big} class:two={[...c.text].length > 1} out:fade={{ duration: 160 }}>{#if c.kind === 'flower' || !TILE_WORD.test(c.text)}<span class="plain">{c.text}</span>
-        {:else}<span class="word">{#each [...c.text] as ch}<span class="ch">{ch}</span>{/each}</span>{/if}
-        {#if c.who}<span class="who">{c.who}</span>{/if}</div>
+      {#if c.at === 'own'}{@render plaque(c, c.side)}{/if}
     {/each}
   {/if}
 </div>
@@ -447,7 +488,8 @@
   .concealed.backs { flex-wrap: nowrap; }
   .seat:not(.top) .concealed.backs { flex-wrap: wrap; max-width: 100%; }
   /* A hand shown: on a rack, to tell it from the melds. */
-  .concealed.rack { padding: 3px; border-radius: 6px; background: rgba(255, 255, 255, 0.17); max-width: 100%; }
+  .concealed.rack { padding: 3px; border-radius: 6px; background: rgba(0, 0, 0, 0.24); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+    max-width: 100%; }
   .table.wide .seat.top .concealed.rack { flex-wrap: nowrap; max-width: none; }
   /* Tall: the three along the top, as columns. */
   .table:not(.wide) .seat { justify-content: flex-start; padding: 4px 4px 0; }
@@ -456,11 +498,13 @@
   .table:not(.wide) .seat.top :global(.melds) { justify-content: center; }
 
   .center { grid-area: center; display: flex; align-items: center; justify-content: center; min-height: 0; min-width: 0; }
-  .rivers { display: grid; gap: 4px 6px;
+  .rivers { position: relative; display: grid; gap: 4px 6px;
     grid-template-columns: calc(var(--side-cols) * var(--river)) calc(var(--cols) * var(--river)) calc(var(--side-cols) * var(--river));
     grid-template-rows: auto auto auto; grid-template-areas: "rl rt rr" "rl box rr" "rl rb rr"; align-items: center; }
   .rivers.wide { grid-template-rows: auto auto; grid-template-areas: "rl rt rr" "rl rb rr"; row-gap: var(--mid); }
   .river-cell { min-height: 0; display: flex; }
+  /* A river across keeps a row's room while it is empty (the words over it are centered in it). */
+  .rt, .rb { min-height: calc(var(--river) * 1.45); }
   .rt { grid-area: rt; align-self: end; justify-content: center; }
   .rb { grid-area: rb; align-self: start; justify-content: center; }
   .rl { grid-area: rl; align-self: center; justify-content: flex-end; }
@@ -485,42 +529,79 @@
   .strip { position: absolute; right: 8px; left: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; z-index: 3;
     pointer-events: none; }
   .strip > :global(*) { pointer-events: auto; }
+  /* A wide table: between the side players, clear of the player's own name plate. */
+  .table.wide .strip { left: calc(var(--side-w) + 4px); right: calc(var(--side-w) + 4px); }
+  /* The others' next step (the manual pace): the turn's color, large enough for a thumb, always in the same place. */
+  /* On a wide table in the corner over the hand's right end, under the right player's column: further in, the
+     rivers of a long hand come down to this height (tried; it covered the right player's fifth row of discards).
+     The right player's hand shown at the end can reach it on a low table, until the tap that it waits for. */
+  .next { position: absolute; right: 8px; z-index: 3; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    min-height: 52px; padding: 0 20px 0 14px; border: none; border-radius: 26px; cursor: pointer; background: var(--highlight); color: #3a2a00;
+    font-weight: 700; font-size: 1.125rem; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); white-space: nowrap; }
+  .next svg { width: 1.5em; height: 1.5em; fill: currentColor; flex: none; }
+  .next.tall { right: 5px; flex-direction: column; gap: 0; padding: 0; border-radius: 12px; font-size: 0.8125rem; line-height: 1.1; }
+  .next.tall svg { width: 2em; height: 2em; }
+  .next:active { filter: brightness(0.92); }
+  .next kbd { font: inherit; font-size: 0.7rem; font-weight: 500; padding: 0 4px; border-radius: 4px; border: 1px solid currentColor; opacity: 0.7; }
   .status { pointer-events: none; }
   .status.tall { position: absolute; left: 8px; z-index: 2; }
-  /* The words over a player: a block a character, about twice a tile of the hand, laid down askew, in a color no tile
-     has: a call's gold, a win's vermilion (and larger), the one who dealt in dark. Under a win's and under 放槍, whose
-     they are. A flower's are small and plain. */
+  /* The words over a player: one plaque a word, its corners cut (no tile has them), a lip under it and a fine line
+     inside its edge, laid down a little askew: a call's gold, a win's vermilion (and larger), the one who dealt in
+     dark, a draw's slate, a flower's small and jade. About twice a tile of the hand wide. Under a win's and under 放槍,
+     whose they are, on a tab over the plaque's lower edge. */
   .callout { position: absolute; z-index: 4; pointer-events: none; white-space: nowrap; display: flex; flex-direction: column;
-    align-items: center; gap: 0.12em; font-size: clamp(2.6rem, calc(var(--hand-w) * 1.4), 4.6rem); animation: pop 0.32s ease-out both;
-    --face: #f6b93b; --ink: #3b2200; --back: #b9780f; --line: rgba(59, 34, 0, 0.38); }
-  .callout.big { font-size: clamp(3rem, calc(var(--hand-w) * 1.6), 5.4rem); }
-  /* Two characters: smaller blocks, so that the words take about the room of one large one and a half. */
-  .callout.two { font-size: clamp(1.9rem, calc(var(--hand-w) * 1), 3.4rem); }
-  .callout.big.two { font-size: clamp(2.2rem, calc(var(--hand-w) * 1.15), 3.9rem); }
-  .callout.win { --face: #d5382d; --ink: #fff6dc; --back: #8c1c15; --line: rgba(255, 214, 120, 0.9); }
-  .callout.dealin { --face: #2e383e; --ink: #ffb3a7; --back: #12171a; --line: rgba(255, 179, 167, 0.4); }
-  .callout.drawn { --face: #5b7684; --ink: #fff; --back: #384b55; --line: rgba(255, 255, 255, 0.4); }
-  /* A wide table is low: the name beside the words, not under them. */
-  .table.wide .callout { flex-direction: row; gap: 0.2em; }
-  .word { display: flex; gap: 0.07em; rotate: -5deg; filter: drop-shadow(0 0.08em 0.1em rgba(0, 0, 0, 0.5)); }
-  .ch { width: 1.36em; height: 1.6em; display: grid; place-items: center; line-height: 1; color: var(--ink); font-weight: 900;
-    font-family: 'Noto Serif CJK TC', 'Noto Serif TC', 'Source Han Serif TC', 'Songti TC', 'PMingLiU', serif;
-    background: var(--face); border-radius: 0.2em; margin-bottom: 0.13em; box-shadow: 0 0.13em 0 var(--back);
-    outline: 0.03em solid var(--line); outline-offset: -0.11em; }
-  .plain, .who { padding: 0.28em 0.8em 0.32em; border-radius: 999px; background: rgba(12, 38, 30, 0.86); color: #fff; font-weight: 700;
-    line-height: 1.1; }
-  .plain { font-size: clamp(1.1rem, calc(var(--hand-w) * 0.42), 1.7rem); }
-  .who { font-size: clamp(0.85rem, 0.22em, 1.1rem); }
-  .callout.bottom { left: 50%; bottom: calc(var(--me-h) + 10px); transform: translateX(-50%); }
-  .callout.top { left: 50%; top: calc(var(--top-h) + 6px); transform: translateX(-50%); }
-  .callout.left { left: calc(var(--side-w) * 0.5); top: 42%; }
-  .callout.right { right: calc(var(--side-w) * 0.5); top: 42%; }
-  /* Tall: under the others' strip, each under their own column, so that the tiles just called stay in sight. */
-  .table:not(.wide) .callout.left { left: 4%; top: calc(var(--top-h) + 2px); }
-  .table:not(.wide) .callout.right { right: 4%; top: calc(var(--top-h) + 2px); }
-  .table:not(.wide) .callout.top { top: calc(var(--top-h) + 2px); }
-  /* The player's own: over their name plate's row, not over their river (the tile dealt in is there). */
-  .table:not(.wide) .callout.bottom { bottom: calc(var(--me-h) - 3rem); }
+    align-items: center; font-size: clamp(2.1rem, calc(var(--hand-w) * 1.1), 5rem); animation: pop 0.32s ease-out both;
+    --face: #f6b93b; --ink: #3b2200; --back: #b9780f; --line: rgba(59, 34, 0, 0.42); --cut: 0.24em; }
+  .callout.two { font-size: clamp(1.7rem, calc(var(--hand-w) * 0.88), 4rem); }
+  .callout.long { font-size: clamp(1.2rem, calc(var(--hand-w) * 0.6), 2.7rem); }
+  .callout.win { --face: #d5382d; --ink: #fff6dc; --back: #8c1c15; --line: rgba(255, 214, 120, 0.9);
+    font-size: clamp(2.4rem, calc(var(--hand-w) * 1.25), 5.7rem); }
+  .callout.win.two { font-size: clamp(1.9rem, calc(var(--hand-w) * 0.98), 4.5rem); }
+  .callout.win.long { font-size: clamp(1.3rem, calc(var(--hand-w) * 0.66), 3rem); }
+  .callout.dealin { --face: #2e383e; --ink: #ffb3a7; --back: #12171a; --line: rgba(255, 179, 167, 0.45);
+    font-size: clamp(1.6rem, calc(var(--hand-w) * 0.8), 3.7rem); }
+  .callout.dealin.long { font-size: clamp(1.1rem, calc(var(--hand-w) * 0.55), 2.5rem); }
+  .callout.drawn { --face: #5b7684; --ink: #fff; --back: #384b55; --line: rgba(255, 255, 255, 0.45); }
+  .callout.flower { --face: #2b5b4c; --ink: #d8f3e5; --back: #17382e; --line: rgba(216, 243, 229, 0.45); --cut: 0.3em;
+    font-size: clamp(1.05rem, calc(var(--hand-w) * 0.44), 2rem); }
+  .word { position: relative; display: block; rotate: -2deg; padding-bottom: 0.09em;
+    filter: drop-shadow(0 0.07em 0.09em rgba(0, 0, 0, 0.5)); }
+  .word::before, .face { clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut),
+    100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut)); }
+  /* The lip: the same shape, a little lower. */
+  .word::before { content: ''; position: absolute; inset: 0.09em 0 0; background: var(--back); }
+  .face { position: relative; display: block; height: 1.5em; line-height: 1.5em; padding: 0 0.42em; background: var(--face);
+    color: var(--ink); font-weight: 900; text-align: center;
+    font-family: 'Noto Serif CJK TC', 'Noto Serif TC', 'Source Han Serif TC', 'Songti TC', 'PMingLiU', serif; }
+  .two .face { padding: 0 0.3em 0 0.36em; letter-spacing: 0.06em; }
+  .long .face { padding: 0 0.6em; }
+  .flower .face { height: 1.6em; line-height: 1.6em; font-weight: 800; }
+  /* The fine line inside the edge: a ring of the plaque's shape. */
+  .face::after { content: ''; position: absolute; inset: 0.085em; background: var(--line); --c: calc(var(--cut) - 0.035em); --t: 0.035em;
+    --k: calc(var(--c) + 0.41 * var(--t));
+    clip-path: polygon(evenodd, var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c), 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%,
+      var(--c) 100%, 0 calc(100% - var(--c)), 0 var(--c), var(--c) 0,
+      var(--k) var(--t), calc(100% - var(--k)) var(--t), calc(100% - var(--t)) var(--k), calc(100% - var(--t)) calc(100% - var(--k)),
+      calc(100% - var(--k)) calc(100% - var(--t)), var(--k) calc(100% - var(--t)), var(--t) calc(100% - var(--k)), var(--t) var(--k),
+      var(--k) var(--t)); }
+  .who { position: relative; margin-top: -0.75em; padding: 0.2em 0.9em 0.24em; border-radius: 999px; background: #18221f; color: #fff6dc;
+    border: 1.5px solid var(--line); font-weight: 700; line-height: 1.1; font-size: clamp(0.8rem, 0.3em, 1rem); }
+  /* Over the player's river: the cell of the rivers' grid is the room they are centered in. */
+  .callout.river, .callout.center { left: 50%; top: 50%; translate: -50% -50%; }
+  .callout.on-rt { grid-area: rt; }
+  .callout.on-rb { grid-area: rb; }
+  .callout.on-rl { grid-area: rl; }
+  .callout.on-rr { grid-area: rr; }
+  .callout.mid { grid-area: box; }
+  .rivers.wide .callout.mid { grid-area: 1 / 2 / 3 / 3; }
+  /* Over the player's own tiles: 放槍. A wide table: beside the rivers and along the top; a tall one: at the top of
+     the others' columns. The player's own: over the foot of their hand. */
+  .callout.own.bottom { left: 50%; bottom: 8px; translate: -50% 0; }
+  .callout.own.top { left: 50%; top: 2px; translate: -50% 0; }
+  .callout.own.left { left: calc(var(--side-w) / 2); top: 45%; translate: -50% -50%; }
+  .callout.own.right { right: calc(var(--side-w) / 2); top: 45%; translate: 50% -50%; }
+  .table:not(.wide) .callout.own.left { left: 16.67%; top: 2px; translate: -50% 0; }
+  .table:not(.wide) .callout.own.right { right: 16.67%; top: 2px; translate: 50% 0; }
   /* The words come in at once and stay; they go when their time is up or at a tap (the fade of the markup). */
   @keyframes pop { 0% { opacity: 0; scale: 0.5; } 50% { opacity: 1; scale: 1.15; } 100% { opacity: 1; scale: 1; } }
   @media (prefers-reduced-motion: reduce) { .callout { animation: none; } }

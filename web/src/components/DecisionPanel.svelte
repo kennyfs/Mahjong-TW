@@ -2,7 +2,7 @@
   A decision's analysis by the network: every legal action from the best down, with what it costs against the best,
   and what the network thinks of the three opponents. What a row shows for an action (the settings): `numbers`, its
   figures; `bars`, where it differs from the best (what it wins, what it pays for dealing in, what it pays to others'
-  self-draws) with the few figures that matter most; `both`. Without a network (it failed to load) the list is tile
+  self-draws; hatched where it is worse than the best, filled where it is better) with the few figures that matter most; `both`. Without a network (it failed to load) the list is tile
   efficiency's.
 
   `played`: the index of the action taken (a review), or -1: its row comes first, the others from the best down. The
@@ -15,6 +15,7 @@
   note on a best action that is not the obvious one (the review says them itself).
 -->
 <script lang="ts">
+  import { tick } from 'svelte';
   import { actionText, actionTiles } from '../lib/actions';
   import { t } from '../lib/i18n.svelte';
   import { costOf, efficiencyText, EQUAL, figureItems, gradeOf, GRADE_NAME, notableOf, notableText, pct, pts, readyLevel, reasonOf,
@@ -32,6 +33,12 @@
     truth?: Truth[] | null; showTruth?: boolean; picked?: number; brief?: boolean; who?: string;
   } = $props();
 
+  /** The row of the tile chosen in the hand comes into sight (the list may be scrolled away from it). */
+  let panelEl = $state<HTMLElement | null>(null);
+  $effect(() => {
+    if (picked < 0 || !panelEl) return;
+    void tick().then(() => panelEl?.querySelector('.row.picked')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+  });
   /** The explanation of a row's figures, open. */
   let help = $state(false);
   const net = $derived(analysis.source === 'network' && analysis.best !== undefined);
@@ -64,7 +71,7 @@
     d.forEach((x, k) => {
       const wd = Math.abs(x) * perPoint;
       if (wd < 0.4) return;
-      if (x > 0) { l -= wd; out.push({ cls: PART[k], left: l, width: wd }); }
+      if (x > 0) { l -= wd; out.push({ cls: PART[k] + ' worse', left: l, width: wd }); }
       else { out.push({ cls: PART[k], left: r, width: wd }); r += wd; }
     });
     return out;
@@ -76,7 +83,7 @@
 {#if !net}
   <AnalysisList {analysis} chosen={played >= 0 ? analysis.actions[played]?.action ?? null : null} {w} />
 {:else}
-  <div class="panel">
+  <div class="panel" bind:this={panelEl}>
     {#if played >= 0 && !brief}
       <div class="verdict g{grade}">
         <span class="badge-g">{played === best ? t('grade_best') : playedCost < EQUAL ? t('grade_equal') : t(GRADE_NAME[grade])}</span>
@@ -94,6 +101,9 @@
         <span class="key"><i class="win"></i>{t('bars_win')}</span>
         <span class="key"><i class="deal"></i>{t('bars_deal')}</span>
         <span class="key"><i class="tsumo"></i>{t('bars_tsumo')}</span>
+        <span class="sides"><span class="key"><i class="worse"></i>{t('bars_worse')}</span><span class="key"><i class="better"></i>{t('bars_better')}</span></span>
+      {:else}
+        <span>{t('list_caption')}</span>
       {/if}
       <!-- What the figure at each row's right is: said here, not on every row. -->
       <button class="btn icon text info" aria-label={t('list_help')} title={t('list_help')} aria-haspopup="dialog" onclick={() => (help = true)}>
@@ -222,6 +232,11 @@
   .bar { position: relative; height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--on-surface) 8%, transparent); overflow: hidden; }
   .zero { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--on-surface); opacity: 0.55; z-index: 1; }
   .seg { position: absolute; top: 0; bottom: 0; }
+  /* Left of the line the action is worse than the best there: hatched, so that a long green bar is not read as a
+     good chance of winning. Right of it (better there): filled. */
+  .seg.worse, .key i.worse { background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255, 255, 255, 0.6) 3px 5.5px); }
+  .key i.worse, .key i.better { background-color: var(--on-surface-variant); }
+  .sides { display: inline-flex; gap: 10px; }
   .waits, .opp-danger { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
   .wait { display: inline-flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; }
   .opp { display: flex; flex-direction: column; gap: 4px; padding: 7px 12px; border-radius: 12px; background: var(--surface-container); }

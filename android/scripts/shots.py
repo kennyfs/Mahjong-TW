@@ -8,8 +8,8 @@ with its tables, the records with their statistics, the rules with an explanatio
 explained (with its quiz answered) and the tour, and battles (the entry's steps, and, when BATTLE_SERVER names a server
 the emulator reaches, e.g. 10.0.2.2:8091, a table game's lobby and table). Each screen in landscape (the phone
 sideways, first) and portrait, PNGs in OUT (default $WORK/shots/android). ONLY=name,... takes
-only those shots; STEPS=step,... runs only those steps (practice, practice_result, analyze, records, settings, guide,
-tour, battle, battle_table), e.g. STEPS=battle_table.
+only those shots; STEPS=step,... runs only those steps (practice, practice_result, analyze, records, settings, manual,
+guide, tour, battle, battle_table), e.g. STEPS=battle_table.
 
 Usage: python3 android/scripts/shots.py   (ANDROID_SERIAL picks the emulator, e.g. emulator-5556)
 """
@@ -291,6 +291,10 @@ def practice_result(orient):
       break
     swipe_up()
   if n:
+    # Found by its first sliver over the panel under the list: a little further, so that the tap lands on it.
+    sh('input swipe 500 1100 500 800 300')
+    time.sleep(0.6)
+    n = find(ui(), rid='replay_to_analysis') or n
     shot(f'replay-list-end-{orient}')
     tap_node(n)
     wait_for(lambda ns: find(ns, rid='analyze_results'), 30)
@@ -364,6 +368,83 @@ def settings(orient):
     time.sleep(0.5)
   shot(f'rules-{orient}')
   back()
+
+
+def manual(orient):
+  """Practice at the manual pace (the settings): the computer players' steps wait for the button. A hand to its end by
+  the button and the player's own turns, the words of the calls on the way (they stay until the next tap), the table
+  at the end (it stays, too); then the pace as it was."""
+  go('設定')
+  if not scroll_to('settings_speed', 6):
+    raise RuntimeError('not found: settings_speed')
+  tap_text('手動')
+  time.sleep(0.3)
+  shot(f'manual-settings-{orient}')
+  go('練習')
+  n = wait_for(lambda ns: find(ns, rid='result_next') or find(ns, rid='next_step') or find(ns, rid='hand_drawn'), 40)
+  if isinstance(n, Node) and n.rid == 'result_next':
+    tap_node(n)
+    time.sleep(1.0)
+  presses = calls = 0
+  ended = False
+  for _ in range(260):
+    nodes = ui()
+    if find(nodes, rid='result_next'):
+      ended = True
+      break
+    # The table at the hand's end stays until a tap.
+    if find(nodes, rid='result_skip'):
+      shot(f'manual-end-{orient}')
+      time.sleep(3.0)
+      if not find(ui(), rid='result_skip'):
+        log('manual: the table at the end did not stay')
+      w, h = screen_size()
+      if rotation() in (1, 3):
+        w, h = h, w
+      tap(w // 2, h // 2)
+      time.sleep(0.8)
+      continue
+    nx = find(nodes, rid='next_step')
+    if nx:
+      if presses == 0:
+        shot(f'manual-wait-{orient}')
+      tap_node(nx)
+      presses += 1
+      time.sleep(0.7)
+      after = ui()
+      if find(after, rid='callout') and calls < 4 and not find(after, rid='result_skip'):
+        calls += 1
+        shot(f'manual-call{calls}-{orient}')
+        # The words stay at the manual pace.
+        time.sleep(2.6)
+        if not find(ui(), rid='callout'):
+          log('manual: the words did not stay')
+      continue
+    win = find(nodes, rid='claim_tsumo') or find(nodes, rid='claim_ron')
+    p = find(nodes, rid='claim_pass')
+    t = find(nodes, rid='hand_drawn')
+    if win:
+      tap_node(win)
+      time.sleep(1.0)
+    elif p:
+      tap_node(p)
+    elif t:
+      tap_node(t)
+      time.sleep(0.2)
+      tap_node(t)
+    else:
+      mine = hand_tiles(nodes)
+      if mine and len(mine) % 3 == 2:
+        tap_node(mine[-1])
+        time.sleep(0.2)
+        tap_node(mine[-1])
+    time.sleep(0.4)
+  log(f'manual: {presses} presses, {calls} calls shown, the hand ended: {ended}')
+  if ended:
+    shot(f'manual-result-{orient}')
+  go('設定')
+  if scroll_to('settings_speed', 6):
+    tap_text('中')
 
 
 def guide(orient):
@@ -480,12 +561,13 @@ def main():
     time.sleep(2)
   else:
     raise RuntimeError('the app did not start')
-  # The first start's welcome card: shown once, then put away.
-  if find(ui(), rid='welcome_skip'):
+  # The first start's welcome card: shown once, then put away. It comes a moment after the navigation on a slow
+  # machine, so it is waited for (it was missed, and then covered every step after).
+  if wait_for(lambda ns: find(ns, rid='welcome_skip'), 8):
     shot('welcome')
     tap_id('welcome_skip')
     time.sleep(0.6)
-  steps = [practice, practice_result, analyze, records, settings, guide, tour, battle, battle_table]
+  steps = [practice, practice_result, analyze, records, settings, manual, guide, tour, battle, battle_table]
   for orient in ('land', 'port'):
     rotate(orient == 'land')
     for step in steps:

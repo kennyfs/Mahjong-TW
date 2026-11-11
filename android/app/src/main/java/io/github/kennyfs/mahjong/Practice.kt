@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -15,8 +16,16 @@ import kotlin.random.Random
  * Practice: the player (seat 0) against three bots, for one hand, one round (一圈) or a full game (一將). The app is the
  * authority here: it holds the record, lets the bots decide one decision point at a time (so each bot's turn shows on
  * its own), and shows the player only the view of seat 0. The web page's lib/practice.svelte.ts.
+ *
+ * The computer players' pace is the settings': a pause before each of their turns, or MANUAL: nothing of theirs happens
+ * until the player says so (`step`). One step is one thing that shows on the table, as the table settles it: a discard
+ * (with the draw before it), a call, a declaration, a win. What the three answer to a discard is settled together, by
+ * the rules' precedence, before any of it shows (a chow that a pung or a win comes before never shows), so what the
+ * next step will be is worked out ahead and held. Only what shows waits: when all three let a discard go, the game
+ * goes on by itself (a wait there would say that one of them could have called). The player's own call is answered
+ * at once, also when another's call comes before it (`notice` says so).
  */
-class Practice(context: Context, private val scope: CoroutineScope, private val settings: Settings, private val records: Records,
+class Practice(private val context: Context, private val scope: CoroutineScope, private val settings: Settings, private val records: Records,
   private val names: () -> List<String>, private val onError: (String) -> Unit) {
 
   @Serializable
@@ -52,9 +61,52 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
     private set
   var busy by mutableStateOf(false)
     private set
+  /** The manual pace: the computer players' next step is ready and waits for `step`. */
+  var waiting by mutableStateOf(false)
+    private set
+  /** A few words on the table for a moment: the player's call did not stand. */
+  var notice by mutableStateOf<String?>(null)
+    private set
 
   private var running = false
   private var epoch = 0
+  /** The step held (the game after it, and the player's view of it), for the game of this many actions. */
+  private class Ahead(val from: Int, val game: GameRecord, val view: View)
+  private var ahead: Ahead? = null
+  /** The call the player just made on another's tile, until what came of it is known. */
+  private var claimed: String? = null
+  private var noticeJob: Job? = null
+
+  /** Another game or hand: nothing held from the last. */
+  private fun reset() {
+    epoch++
+    ahead = null
+    waiting = false
+    claimed = null
+    say(null)
+  }
+
+  private fun say(text: String?) {
+    noticeJob?.cancel()
+    notice = text
+    if (text != null) noticeJob = scope.launch {
+      delay(NOTICE_MS)
+      notice = null
+    }
+  }
+
+  /** What of `view`'s events since `before` of them shows on the table as a player's doing. */
+  private fun shownSince(view: View, before: Int) = view.events.takeLast((view.eventCount - before).coerceIn(0, view.events.size)).filter { it.type in SHOWN }
+
+  /** Another's call that came before the player's own (among what just showed), said. */
+  private fun sayOverridden(fresh: List<GameEvent>): Boolean {
+    val mine = claimed ?: return false
+    if (fresh.any { it.seat == ME }) return false
+    val over = fresh.firstOrNull { it.seat != ME && it.type != "discard" } ?: return false
+    say(context.getString(R.string.claim_overridden, context.getString(actionWord(mine)), names().getOrElse(over.seat) { "" },
+      context.getString(actionWord(over.type))))
+    return true
+  }
 
   /** Per seat: the bot (Settings' BOTS), or null for the player. */
   val bots: List<String?> get() = (meta?.bot ?: settings.bot).let { listOf(null, it, it, it) }
@@ -80,7 +132,7 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
   fun newGame() = scope.launch { newGameNow() }
 
   private suspend fun newGameNow() {
-    epoch++
+    reset()
     val startDealer = Random.nextInt(4)
     meta = Meta(Records.newId(), settings.length, settings.spec, settings.bot, startDealer)
     final = null
@@ -103,7 +155,8 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
   }
 
   /** The bots decide, a decision point at a time, until the player must decide or the hand is over. Each bot's turn
-   *  waits the pace of the settings, and the words of a call (CalloutClock), so it can be followed. */
+   *  waits the pace of the settings, and the words of a call (CalloutClock), so it can be followed; at the manual
+   *  pace, what shows waits for `step` (see the top). */
   private fun run() {
     if (running) return
     running = true
@@ -117,17 +170,44 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
             finish()
             break
           }
-          if (ME in p.pending) break
+          if (ME in p.pending) {
+            claimed = null
+            break
+          }
+          val seed = "${meta?.id}/${meta?.hands}/${g.actions.size}"
+          val before = view?.eventCount ?: 0
+          if (settings.speed == Speed.MANUAL) {
+            val next = Engine.advance(g, bots, seed, 1)
+            val v = Engine.view(next, ME)
+            if (e != epoch || game !== g) break
+            val fresh = shownSince(v, before)
+            val mine = fresh.any { it.seat == ME }
+            // Another's call came before the player's own: said at once, as the answer to the player's tap.
+            val over = !mine && sayOverridden(fresh)
+            if (fresh.isNotEmpty() && !mine && !over) {
+              ahead = Ahead(g.actions.size, next, v)
+              waiting = true
+              break
+            }
+            claimed = null
+            game = next
+            view = v
+            persist()
+            continue
+          }
           busy = true
           // A bot's own turn takes the pace; deciding on a discard (nobody else may) takes a short beat.
           delay(if (p.phase == "self") settings.speed.ms else minOf(250L, settings.speed.ms / 2))
           // A call's words (碰, 槓, 天聽) stay their time before the game goes on; a touch anywhere lets them go.
           CalloutClock.done()
           if (e != epoch || game == null) break
-          val seed = "${meta?.id}/${meta?.hands}/${g.actions.size}"
           game = Engine.advance(g, bots, seed, 1)
           persist()
           refresh()
+          if (claimed != null) {
+            view?.let { sayOverridden(shownSince(it, before)) }
+            claimed = null
+          }
         }
       } catch (ex: EngineException) {
         onError(ex.message ?: "")
@@ -138,10 +218,36 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
     }
   }
 
+  /** The manual pace: the computer players' next step, now. */
+  fun step() {
+    val a = ahead ?: return
+    val g = game ?: return
+    if (!waiting || running || a.from != g.actions.size) return
+    ahead = null
+    waiting = false
+    game = a.game
+    view = a.view
+    persist()
+    run()
+  }
+
+  /** The pace changed: a step held for the manual pace goes on by itself at another. */
+  fun paceChanged() {
+    if (settings.speed != Speed.MANUAL && waiting) {
+      ahead = null
+      waiting = false
+      run()
+    }
+  }
+
   /** The player's decision (one of view.legal). */
   fun act(action: Action) = scope.launch {
     val g = game ?: return@launch
-    if (view?.myTurn != true || running) return@launch
+    val v = view
+    if (v?.myTurn != true || running) return@launch
+    say(null)
+    // A call on another's tile may yet give way to a call that comes before it.
+    claimed = if (v.phase != "self" && action.type != "pass") action.type else null
     try {
       game = Engine.act(g, ME, action)
     } catch (e: EngineException) {
@@ -200,7 +306,7 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
       persist()
       return@launch
     }
-    epoch++
+    reset()
     game = next
     final = null
     stage = Stage.PLAYING
@@ -217,5 +323,21 @@ class Practice(context: Context, private val scope: CoroutineScope, private val 
 
   companion object {
     const val ME = 0
+    /** What shows on the table as a player's doing (a draw and a flower are not waited for). */
+    private val SHOWN = setOf("discard", "chi", "pon", "kan", "ankan", "kakan", "declare", "tsumo", "ron", "flower_win")
+    /** A notice's time on the table, ms. */
+    private const val NOTICE_MS = 4500L
+
+    private fun actionWord(type: String) = when (type) {
+      "ron" -> R.string.act_ron
+      "tsumo" -> R.string.act_tsumo
+      "kan" -> R.string.act_kan
+      "ankan" -> R.string.act_ankan
+      "kakan" -> R.string.act_kakan
+      "pon" -> R.string.act_pon
+      "chi" -> R.string.act_chi
+      "declare" -> R.string.act_declare
+      else -> R.string.act_pass
+    }
   }
 }

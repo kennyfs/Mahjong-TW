@@ -83,7 +83,7 @@ import io.github.kennyfs.mahjong.Rules
 import io.github.kennyfs.mahjong.RulesInfo
 import io.github.kennyfs.mahjong.Speed
 import io.github.kennyfs.mahjong.TextSize
-import io.github.kennyfs.mahjong.levelWord
+import io.github.kennyfs.mahjong.levelOrWorse
 import io.github.kennyfs.mahjong.mistakesOf
 import io.github.kennyfs.mahjong.pts
 import kotlinx.coroutines.launch
@@ -214,7 +214,7 @@ private fun ReviewStats(reviewed: List<HandRecord>, pending: Int, level: Level, 
           style = MaterialTheme.typography.bodyMedium,
         )
         Text(
-          stringResource(R.string.stats_per_hand, stringResource(R.string.review_mistakes, levelWord(res, level), "%.2f".format(Locale.ROOT, mistakes))),
+          stringResource(R.string.stats_per_hand, stringResource(R.string.review_mistakes, levelOrWorse(res, level), "%.2f".format(Locale.ROOT, mistakes))),
           style = MaterialTheme.typography.bodyMedium,
         )
       }
@@ -445,7 +445,8 @@ private fun ruleGroups(f: RulesInfo): List<Pair<Int, List<String>>> {
   for (p in f.values.keys) if (p !in listed) tai += p
   return listOf(
     R.string.rules_group_play to Rules.PLAY_PARAMS.filter { it in f.values },
-    R.string.rules_group_flowers to Rules.FLOWER_PARAMS.filter { it in f.values },
+    // The flowers' mode itself is the cards' choice above, not a number here.
+    R.string.rules_group_flowers to Rules.FLOWER_PARAMS.filter { it in f.values && it != "flowers" },
     R.string.rules_group_tai to tai.filter { it !in Rules.PLAY_PARAMS },
   )
 }
@@ -516,9 +517,10 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
         Block(stringResource(R.string.settings_speed)) {
           ToggleGroup(
             listOf(Speed.SLOW to stringResource(R.string.speed_slow), Speed.NORMAL to stringResource(R.string.speed_normal),
-              Speed.FAST to stringResource(R.string.speed_fast)),
-            s.speed, { s.speed = it; save() }, Modifier.fillMaxWidth(),
+              Speed.FAST to stringResource(R.string.speed_fast), Speed.MANUAL to stringResource(R.string.speed_manual)),
+            s.speed, { s.speed = it; save(); vm.practice.paceChanged() }, Modifier.fillMaxWidth().testTag("settings_speed"),
           )
+          Text(stringResource(R.string.speed_manual_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         SectionHeader(stringResource(R.string.settings_analysis))
         Block(stringResource(R.string.settings_list_rows)) {

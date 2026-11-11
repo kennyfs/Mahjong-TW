@@ -93,6 +93,13 @@ import io.github.kennyfs.mahjong.meldTiles
 import io.github.kennyfs.mahjong.seatAt
 import io.github.kennyfs.mahjong.sideOf
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
@@ -128,11 +135,15 @@ private class Shown(val counts: List<Int>, val flowers: Int, val concealed: Int)
  * squeezed small).
  *
  * `revealed`: every seat's concealed tiles (a finished hand, a replay showing all). The others' then lie on a rack (a
- * lighter strip) after their melds, their tiles as large as their room allows: the player opposite in one line along
+ * darker tray) after their melds, their tiles as large as their room allows: the player opposite in one line along
  * the top of a wide table; on a tall one the others' strip grows for them (the rivers give the room).
  * `status`: beside the player's name plate (a battle's clock); `overlay`: over the table.
  * A review's: `marks` (tags and danger on the hand's tiles, Review.kt), `notes` (a few words on each name plate),
  * `strip` (a line over the hand: the options that are not discards, a tile's figures), `onPick` (the tile tapped).
+ * `onNext` (practice at the manual pace): the others' next step waits for the player: a button for it, where the
+ * player's hand leaves room when it is not their turn (a tall table: at the end of the hand's first row, the place of
+ * no tile, so that a tap too many discards nothing; a wide one: over the hand's right end).
+ * `stay`: a call's and a win's words stay until the next touch (the game waits for the player anyway).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -142,7 +153,7 @@ fun TableView(
   away: List<Boolean> = listOf(false, false, false, false),
   status: (@Composable () -> Unit)? = null, corner: (@Composable () -> Unit)? = null, overlay: (@Composable BoxScope.() -> Unit)? = null,
   marks: Map<String, TileMark>? = null, notes: List<SeatNote?>? = null, strip: (@Composable () -> Unit)? = null,
-  onPick: ((String?) -> Unit)? = null,
+  onPick: ((String?) -> Unit)? = null, onNext: (() -> Unit)? = null, stay: Boolean = false,
 ) {
   val c = LocalTable.current
   val density = LocalDensity.current
@@ -216,7 +227,7 @@ fun TableView(
         return fitShown(o.counts, o.flowers, o.concealed, s.sideW - 9, s.topH - plateH(side) - 12, s.opp)
       }
       // Wide: the concealed tiles' backs, when they are not shown, take their room first.
-      val backs = if (revealed != null) 0 else concealedCount(view, seat)
+      val backs = if (revealed != null || s.back == 0f) 0 else concealedCount(view, seat)
       if (side == Side.TOP) {
         val room = minOf(roomW, s.tableW) - 12 - padL - padR - (plates[Side.TOP]?.first ?: 150f) - 14 - (if (backs > 0) backs * s.back + 10 else 0f)
         return fitShownRow(o.counts, o.flowers, o.concealed, room, if (revealed != null) s.opp - 1.5f else s.opp)
@@ -306,10 +317,16 @@ fun TableView(
       }
     }
 
+    // The rivers' places on the table, px (the words over them are set by these).
+    var rivers by remember { mutableStateOf(mapOf<Side, Rect>()) }
+    var origin by remember { mutableStateOf(Offset.Zero) }
     @Composable
     fun river(side: Side, rows: Int, cols: Int) {
       val seat = seatAt(side, me)
-      River(pos.players[seat].discards, s.river, cols, rows, lastDiscard == seat, claim = claimSeat == seat)
+      Box(Modifier.onGloballyPositioned {
+        val r = it.boundsInRoot()
+        if (rivers[side] != r) rivers = rivers + (side to r)
+      }) { River(pos.players[seat].discards, s.river, cols, rows, lastDiscard == seat, claim = claimSeat == seat) }
     }
 
     @Composable
@@ -347,7 +364,7 @@ fun TableView(
 
     val discard = { t: String -> onAct?.invoke(Action("discard", t)); Unit }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-      Box(Modifier.fillMaxHeight().width(minOf(roomW, s.tableW).d)) {
+      Box(Modifier.fillMaxHeight().width(minOf(roomW, s.tableW).d).onGloballyPositioned { val o = it.positionInRoot(); if (origin != o) origin = o }) {
         if (s.wide) {
           // The player opposite along the whole top (the screen's corner button, if any, before them), the other two
           // beside the rivers.
@@ -412,21 +429,25 @@ fun TableView(
             ClaimBar(claims, s.hand, onAct, claimTile)
           }
         }
-        if (strip != null) Column(Modifier.align(Alignment.BottomCenter).padding(start = 8.dp, end = 8.dp, bottom = (meH + 4).d),
+        if (onNext != null) NextStep(onNext, s, meH, minOf(roomW, s.tableW), if (s.handRow > 0 && mine.size + (if (drawn != null) 1 else 0) > s.handRow) 2 else 1)
+        // A wide table: between the side players, clear of the player's own name plate.
+        val stripPad = if (s.wide) (s.sideW + 4).d else 8.dp
+        if (strip != null) Column(Modifier.align(Alignment.BottomCenter).padding(start = stripPad, end = stripPad, bottom = (meH + 4).d),
           horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) { strip() }
-        Callouts(view, me, s, names)
+        Callouts(view, me, s, names, rivers.mapValues { it.value.translate(-origin.x, -origin.y) }, minOf(roomW, s.tableW), roomH, stay)
       }
       overlay?.invoke(this)
     }
   }
 }
 
-/** A hand shown: on a rack (a lighter strip), to tell it from the melds. */
+/** A hand shown: on a rack (a darker tray with a light edge), to tell it from the melds. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Rack(tiles: List<String>, w: Float, wrap: Boolean, end: Boolean = false) {
   if (tiles.isEmpty()) return
-  val mod = Modifier.background(Color.White.copy(alpha = 0.17f), RoundedCornerShape(6.dp)).padding(RACK_PAD.d)
+  val mod = Modifier.background(Color.Black.copy(alpha = 0.24f), RoundedCornerShape(6.dp))
+    .border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(6.dp)).padding(RACK_PAD.d)
   if (wrap) FlowRow(mod, horizontalArrangement = if (end) Arrangement.End else Arrangement.Start) { for (t in tiles) TileView(t, w.d) }
   else Row(mod) { for (t in tiles) TileView(t, w.d) }
 }
@@ -541,11 +562,11 @@ const val END_PAUSE = 2200L
 
 /**
  * A hand's end: whether the table is still to show how it ended (every hand shown, the words of the win, 放槍 over who
- * dealt in) before the result: for END_PAUSE after `over` turns true here, not for a result come back to. The second
- * value lets go at once (a tap on the table: SkipPause).
+ * dealt in) before the result: for END_PAUSE after `over` turns true here (`stay`: until it is let go), not for a
+ * result come back to. The second value lets go at once (a tap on the table: SkipPause).
  */
 @Composable
-fun endPause(over: Boolean): Pair<Boolean, () -> Unit> {
+fun endPause(over: Boolean, stay: Boolean = false): Pair<Boolean, () -> Unit> {
   var held by remember { mutableStateOf(false) }
   val inPlay = remember { booleanArrayOf(false) }
   LaunchedEffect(over) {
@@ -555,8 +576,10 @@ fun endPause(over: Boolean): Pair<Boolean, () -> Unit> {
     } else if (inPlay[0]) {
       held = true
       inPlay[0] = false
-      delay(END_PAUSE)
-      held = false
+      if (!stay) {
+        delay(END_PAUSE)
+        held = false
+      }
     }
   }
   return (over && (held || inPlay[0])) to { held = false }
@@ -602,6 +625,9 @@ fun MyHand(
   var dragging by remember { mutableIntStateOf(-1) }
   var dy by remember { mutableStateOf(0f) }
   val density = LocalDensity.current
+  // How far a chosen tile rises. In a review (to see a tile's figures) it does not: its tag would run into the row
+  // above; its face and frame say it is chosen.
+  val up = if (marks != null) 0f else h * LIFT
   fun tap(i: Int) {
     val t = all[i]
     if (t !in discardable) return onSelect(if (selected == i) null else i)
@@ -631,14 +657,14 @@ fun MyHand(
           val isDrawn = drawn != null && i == tiles.size
           val lift = when {
             dragging == i -> dy
-            selected == i -> -h * LIFT * density.density
+            selected == i -> -up * density.density
             else -> 0f
           }
           val mark = marks?.get(all[i])
           // The touch target is the tile's own place, whether the tile is lifted or not, and while it is lifted the
           // room over it too: the second tap lands where the first did (a thumb at the tile's foot) or on the tile
           // where it now is. (A target that rose with the tile left its foot dead: "sometimes it will not discard".)
-          val reach = if (selected == i) h * LIFT else 0f
+          val reach = if (selected == i) up else 0f
           Box(
             Modifier
               .testTag(if (isDrawn) "hand_drawn" else "hand_$i")
@@ -698,7 +724,7 @@ fun TileTag(mark: TileMark, w: Float, tagH: Float, modifier: Modifier = Modifier
     TileMark.Tone.G1 -> Marks.danger1
     TileMark.Tone.G2 -> Marks.danger2
     TileMark.Tone.G3 -> Marks.danger3
-    TileMark.Tone.PLAIN -> Color.Black.copy(alpha = 0.42f)
+    TileMark.Tone.PLAIN -> Color(0xC214201A)
   }
   val fg = if (mark.tone == TileMark.Tone.G1 || mark.tone == TileMark.Tone.G2) Marks.on(1) else Color.White
   // In dp, whatever the font scale: the tag has a fixed room.
@@ -717,6 +743,42 @@ fun TileTag(mark: TileMark, w: Float, tagH: Float, modifier: Modifier = Modifier
     // rather than held to the tag's height, where a line that does not fit is not drawn at all.
     Text(mark.tag, Modifier.wrapContentHeight(Alignment.CenterVertically, unbounded = true), color = fg, fontSize = size, lineHeight = size,
       fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+  }
+}
+
+/**
+ * The others' next step (practice at the manual pace): the turn's color, large enough for a thumb, always in the same
+ * place. A tall table: at the end of the first of the hand's `rows` (no tile's place, so that a tap too many discards
+ * nothing); a wide one: over the hand's right end. `w`: the table's width, dp.
+ */
+@Composable
+private fun BoxScope.NextStep(onNext: () -> Unit, s: TableSizes, meH: Float, w: Float, rows: Int) {
+  val c = LocalTable.current
+  val ink = Color(0xFF3A2A00)
+  if (s.wide) Surface(
+    onClick = onNext, shape = RoundedCornerShape(26.dp), color = c.highlight, contentColor = ink, shadowElevation = 4.dp,
+    // In the corner, under the right player's column: further in, the rivers of a long hand come down to this height.
+    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = (meH + 4).d).testTag("next_step"),
+  ) {
+    Row(Modifier.heightIn(min = 52.dp).padding(start = 12.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+      Icon(Icons.Filled.PlayArrow, null, Modifier.size(28.dp))
+      Text(stringResource(R.string.manual_next), fontWeight = FontWeight.Bold, fontSize = 18.sp, maxLines = 1)
+    }
+  } else {
+    val block = (HAND_ROW + DRAWN_GAP + 1) * s.hand
+    Surface(
+      onClick = onNext, shape = RoundedCornerShape(12.dp), color = c.highlight, contentColor = ink, shadowElevation = 4.dp,
+      modifier = Modifier.align(Alignment.BottomEnd)
+        .padding(end = (maxOf(0f, (w - block) / 2) + 1).d, bottom = (6 + (rows - 1) * s.hand * TILE_RATIO * (1 + ROW_GAP)).d)
+        .size((s.hand * (1 + DRAWN_GAP) - 4).d, (s.hand * TILE_RATIO).d).testTag("next_step"),
+    ) {
+      Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Icon(Icons.Filled.PlayArrow, null, Modifier.size(26.dp))
+        val small = with(LocalDensity.current) { 13.dp.toSp() }
+        Text(stringResource(R.string.manual_next), fontWeight = FontWeight.Bold, fontSize = small, lineHeight = small, maxLines = 1, softWrap = false)
+      }
+    }
   }
 }
 
@@ -767,41 +829,51 @@ fun ClaimBar(actions: List<Action>, w: Float, onAct: (Action) -> Unit, claimed: 
   }
 }
 
-/** The blocks the words are set in, a character each: the face's color, the character's, the edge's under it, its inner line's. */
+/** The plaques the words are set on: the face's color, the word's, the lip's under it, the fine line's inside the edge. */
 private enum class CalloutKind(val face: Color, val ink: Color, val back: Color, val line: Color) {
   /** A call, a declaration: gold. */
-  CALL(Color(0xFFF6B93B), Color(0xFF3B2200), Color(0xFFB9780F), Color(0x613B2200)),
+  CALL(Color(0xFFF6B93B), Color(0xFF3B2200), Color(0xFFB9780F), Color(0x6B3B2200)),
   /** A win: vermilion, and larger. */
   WIN(Color(0xFFD5382D), Color(0xFFFFF6DC), Color(0xFF8C1C15), Color(0xE6FFD678)),
   /** The one who dealt in: dark. */
-  DEALIN(Color(0xFF2E383E), Color(0xFFFFB3A7), Color(0xFF12171A), Color(0x66FFB3A7)),
-  /** A flower: small and plain (no blocks). */
-  FLOWER(Color(0xDB0C261E), Color.White, Color.Transparent, Color.Transparent),
-  /** A drawn hand. */
-  DRAWN(Color(0xFF5B7684), Color.White, Color(0xFF384B55), Color(0x66FFFFFF)),
+  DEALIN(Color(0xFF2E383E), Color(0xFFFFB3A7), Color(0xFF12171A), Color(0x73FFB3A7)),
+  /** A flower: small, jade. */
+  FLOWER(Color(0xFF2B5B4C), Color(0xFFD8F3E5), Color(0xFF17382E), Color(0x73D8F3E5)),
+  /** A drawn hand: slate. */
+  DRAWN(Color(0xFF5B7684), Color.White, Color(0xFF384B55), Color(0x73FFFFFF)),
 }
 
-private class Callout(val id: Int, val side: Side, val text: String, val kind: CalloutKind, val ms: Long, val who: String = "")
+/** Where a plaque stands: over the player's river, over their own tiles, or in the middle of the table. */
+private enum class CalloutAt { RIVER, OWN, CENTER }
+
+private class Callout(val id: Int, val side: Side, val text: String, val kind: CalloutKind, val ms: Long, val who: String = "") {
+  val at get() = when (kind) { CalloutKind.DRAWN -> CalloutAt.CENTER; CalloutKind.DEALIN -> CalloutAt.OWN; else -> CalloutAt.RIVER }
+}
 
 /** The words' coming in and their fading, ms. */
 private const val CALLOUT_IN = 320
 private const val CALLOUT_OUT = 160
 
 /**
- * Words over a player for a call, a win, a flower: from the events that came since the last view. A call's and a
- * win's stay two seconds (CalloutClock: a practice game's computer players wait for them), a flower's briefly; a
- * touch anywhere lets them go at once. One at a time over a player: later words take the place of earlier ones.
+ * Words over a player for a call, a win, a flower: from the events that came since the last view. Each word on a
+ * plaque (about twice a tile of the hand): a call's and a win's over the river of the player who made them, where
+ * nothing of that moment lies (the tiles called are in the melds and in another's river, the winner's hand at their
+ * seat); 放槍 over the tiles of the one who dealt in, clear of the rivers (the tile dealt is in theirs); 流局 in the
+ * middle. A call's and a win's stay two seconds (CalloutClock: a practice game's computer players wait for them;
+ * `stay`: until the next touch), a flower's briefly; a touch anywhere lets them go at once, and a player's own go when
+ * they discard. `rivers`: the rivers' places on the table, px; `w`, `h`: the table's size, dp.
  */
 @Composable
-private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<String>) {
+private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<String>, rivers: Map<Side, Rect>, w: Float, h: Float, stay: Boolean) {
   val list = remember { mutableStateListOf<Callout>() }
   val skips by CalloutClock.skips.collectAsState()
   LaunchedEffect(skips) { list.clear() }
   // `who`: the player's name under the words (a win's, the one who dealt in), so that they say whose they are
   // wherever they stand.
   fun say(side: Side, text: String, kind: CalloutKind, ms: Long, id: Int, who: String = "") {
-    list.removeAll { it.side == side }
-    list += Callout(id, side, text, kind, ms, who)
+    val co = Callout(id, side, text, kind, ms, who)
+    list.removeAll { it.side == side && it.at == co.at }
+    list += co
     if (ms >= CalloutClock.CALL_MS) CalloutClock.shown(ms)
   }
   var seen by remember { mutableIntStateOf(-1) }
@@ -828,6 +900,12 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<St
     val flowers = HashSet<Int>()
     var said = false
     for (e in fresh) {
+      // A player's discard lands in their river: their words over it go.
+      if (e.type == "discard") {
+        val side = sideOf(e.seat, me)
+        list.removeAll { it.side == side && it.at == CalloutAt.RIVER }
+        continue
+      }
       val text = texts[if (e.type == "declare") "declare:${e.declared ?: "tianting"}" else e.type] ?: continue
       if (e.type == "flower" && !flowers.add(e.seat)) continue
       val kind = when (e.type) {
@@ -847,12 +925,14 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<St
       }
     }
   }
+  val density = LocalDensity.current.density
   for (co in list.toList()) {
     key(co.id) {
       // 0 to 1: the words come in (larger, then their size); they stay their time; 1 to 2: they fade.
       val a = remember { Animatable(0f) }
       LaunchedEffect(Unit) {
         a.animateTo(1f, tween(CALLOUT_IN, easing = LinearEasing))
+        if (stay && co.ms >= CalloutClock.CALL_MS) return@LaunchedEffect
         delay(co.ms - CALLOUT_IN)
         a.animateTo(2f, tween(CALLOUT_OUT, easing = LinearEasing))
         list.remove(co)
@@ -860,67 +940,84 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<St
       val t = a.value
       val alpha = when { t < 0.5f -> t / 0.5f; t > 1f -> 2f - t; else -> 1f }
       val scale = when { t < 0.5f -> 0.5f + t / 0.5f * 0.65f; t < 1f -> 1.15f - (t - 0.5f) / 0.5f * 0.15f; else -> 1f }
-      // Tall: under the others' strip, each under their own column, so that the tiles just called stay in sight.
-      val align = when (co.side) {
-        Side.BOTTOM -> Alignment.BottomCenter
-        Side.TOP -> Alignment.TopCenter
-        Side.LEFT -> if (s.wide) Alignment.CenterStart else Alignment.TopStart
-        Side.RIGHT -> if (s.wide) Alignment.CenterEnd else Alignment.TopEnd
+      // The point the plaque is set at (px), and which point of the plaque lies there (0 to 1 across and down).
+      val wPx = w * density
+      val hPx = h * density
+      val rt = rivers[Side.TOP]
+      val rb = rivers[Side.BOTTOM]
+      val middle = if (rt != null && rb != null) Offset(rt.center.x, (rt.bottom + rb.top) / 2) else Offset(wPx / 2, hPx / 2)
+      val (at, pivot) = when (co.at) {
+        CalloutAt.CENTER -> middle to Offset(0.5f, 0.5f)
+        CalloutAt.RIVER -> (rivers[co.side]?.center ?: middle) to Offset(0.5f, 0.5f)
+        // Over the player's own tiles. A wide table: beside the rivers and along the top; a tall one: at the top of
+        // the others' columns. The player's own: over the foot of their hand.
+        CalloutAt.OWN -> when (co.side) {
+          Side.BOTTOM -> Offset(wPx / 2, hPx - 8 * density) to Offset(0.5f, 1f)
+          Side.TOP -> Offset(wPx / 2, 2 * density) to Offset(0.5f, 0f)
+          Side.LEFT -> if (s.wide) Offset(s.sideW * density / 2, hPx * 0.45f) to Offset(0.5f, 0.5f) else Offset(wPx / 6, 2 * density) to Offset(0.5f, 0f)
+          Side.RIGHT -> if (s.wide) Offset(wPx - s.sideW * density / 2, hPx * 0.45f) to Offset(0.5f, 0.5f) else Offset(wPx * 5 / 6, 2 * density) to Offset(0.5f, 0f)
+        }
       }
-      val pad = when (co.side) {
-        // The player's own on a tall table: over their name plate's row, not over their river (the tile dealt in is there).
-        Side.BOTTOM -> Modifier.padding(bottom = (if (s.wide) s.meH + 10 else s.meH - 48).d)
-        Side.TOP -> Modifier.padding(top = (if (s.wide) s.topH + 6 else s.topH + 2).d)
-        Side.LEFT -> if (s.wide) Modifier.padding(start = (s.sideW * 0.5f).d) else Modifier.padding(start = 16f.d, top = (s.topH + 2).d)
-        Side.RIGHT -> if (s.wide) Modifier.padding(end = (s.sideW * 0.5f).d) else Modifier.padding(end = 16f.d, top = (s.topH + 2).d)
+      val cjk = co.text.length in 1..4 && co.text.all { it in '\u3040'..'\u30ff' || it in '\u3400'..'\u9fff' }
+      val len = if (!cjk) 3 else if (co.text.length > 1) 2 else 1
+      // The word's size, dp: about twice a tile of the hand for the plaque of one character.
+      val fs = when (co.kind) {
+        CalloutKind.WIN -> when (len) { 1 -> (s.hand * 1.25f).coerceIn(38f, 91f); 2 -> (s.hand * 0.98f).coerceIn(30f, 72f); else -> (s.hand * 0.66f).coerceIn(21f, 48f) }
+        CalloutKind.DEALIN -> if (len < 3) (s.hand * 0.8f).coerceIn(26f, 59f) else (s.hand * 0.55f).coerceIn(18f, 40f)
+        CalloutKind.FLOWER -> (s.hand * 0.44f).coerceIn(17f, 32f)
+        else -> when (len) { 1 -> (s.hand * 1.1f).coerceIn(34f, 80f); 2 -> (s.hand * 0.88f).coerceIn(27f, 64f); else -> (s.hand * 0.6f).coerceIn(19f, 43f) }
       }
-      // A block a character, about twice a tile of the hand (two characters: smaller blocks), laid down askew; under
-      // a win's and under 放槍, whose they are. A flower's words are small and plain.
-      val kind = co.kind
-      val chars = co.text.map { it.toString() }
-      val blocks = kind != CalloutKind.FLOWER && chars.size in 1..4 && co.text.all { it in '\u3040'..'\u30ff' || it in '\u3400'..'\u9fff' }
+      Box(
+        Modifier.align(Alignment.TopStart).layout { m, _ ->
+          val p = m.measure(Constraints())
+          layout(0, 0) { p.place((at.x - p.width * pivot.x).roundToInt(), (at.y - p.height * pivot.y).roundToInt()) }
+        }.scale(scale).alpha(alpha).testTag("callout"),
+      ) { Plaque(co.text, co.kind, fs, len, co.who) }
+    }
+  }
+}
+
+/**
+ * A word on its plaque: one plaque a word, its corners cut (no tile has them), a lip under it and a fine line inside
+ * its edge, laid down a little askew. `fs`: the word's size, dp; `len`: 1 one Chinese character, 2 more, 3 other
+ * words. Under it `who`, on a tab over the plaque's lower edge.
+ */
+@Composable
+private fun Plaque(text: String, kind: CalloutKind, fs: Float, len: Int, who: String) {
+  val flower = kind == CalloutKind.FLOWER
+  val lip = fs * 0.09f
+  val cut = fs * (if (flower) 0.3f else 0.24f)
+  val pad = fs * when (len) { 1 -> 0.42f; 2 -> 0.36f; else -> 0.6f }
+  // In dp, whatever the font scale: the plaque is sized by it.
+  val font = with(LocalDensity.current) { fs.dp.toSp() }
+  Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Box(
+      Modifier.rotate(-2f).drawBehind {
+        fun plate(l: Float, t: Float, r: Float, b: Float, c: Float) = Path().apply {
+          moveTo(l + c, t); lineTo(r - c, t); lineTo(r, t + c); lineTo(r, b - c); lineTo(r - c, b); lineTo(l + c, b); lineTo(l, b - c); lineTo(l, t + c)
+          close()
+        }
+        val lipPx = lip.dp.toPx()
+        val c = cut.dp.toPx()
+        val bottom = size.height - lipPx
+        // The shade under the plaque, its lip, its face, the line inside the face.
+        drawPath(plate(0f, lipPx * 1.9f, size.width, size.height + lipPx * 0.9f, c), Color(0x59000000))
+        drawPath(plate(0f, lipPx, size.width, size.height, c), kind.back)
+        drawPath(plate(0f, 0f, size.width, bottom, c), kind.face)
+        val inset = (fs * 0.1f).dp.toPx()
+        drawPath(plate(inset, inset, size.width - inset, bottom - inset, c - inset * 0.59f), kind.line, style = Stroke((fs * 0.035f).dp.toPx()))
+      }.height((fs * (if (flower) 1.6f else 1.5f) + lip).d).padding(start = pad.d, end = (if (len == 2) pad - fs * 0.06f else pad).d, bottom = lip.d),
+      contentAlignment = Alignment.Center,
+    ) {
+      Text(text, Modifier.wrapContentHeight(Alignment.CenterVertically, unbounded = true), maxLines = 1, softWrap = false,
+        style = TextStyle(color = kind.ink, fontWeight = if (flower) FontWeight.ExtraBold else FontWeight.Black, fontFamily = FontFamily.Serif,
+          fontSize = font, lineHeight = font, letterSpacing = if (len == 2) (font.value * 0.06f).sp else 0.sp))
+    }
+    if (who.isNotEmpty()) {
       val pill = RoundedCornerShape(50)
-      val words: @Composable () -> Unit = {
-        if (blocks) {
-          val fs = when {
-            kind == CalloutKind.WIN && chars.size > 1 -> (s.hand * 1.15f).coerceIn(35f, 62f)
-            kind == CalloutKind.WIN -> (s.hand * 1.6f).coerceIn(48f, 86f)
-            chars.size > 1 -> (s.hand * 1f).coerceIn(30f, 54f)
-            else -> (s.hand * 1.4f).coerceIn(42f, 74f)
-          }
-          Row(Modifier.rotate(-5f), horizontalArrangement = Arrangement.spacedBy((fs * 0.07f).d)) {
-            for (ch in chars) {
-              Box(
-                Modifier.size((fs * 1.36f).d, (fs * 1.73f).d).drawBehind {
-                  val r = CornerRadius(size.width * 0.147f)
-                  val edge = size.height * 0.075f
-                  // The shade under the block, its edge, its face, the line inside the face.
-                  drawRoundRect(Color(0x66000000), Offset(0f, edge * 0.9f), Size(size.width, size.height), r)
-                  drawRoundRect(kind.back, Offset.Zero, size, r)
-                  drawRoundRect(kind.face, Offset.Zero, Size(size.width, size.height - edge), r)
-                  val inset = size.width * 0.08f
-                  drawRoundRect(kind.line, Offset(inset, inset), Size(size.width - 2 * inset, size.height - edge - 2 * inset),
-                    CornerRadius(size.width * 0.09f), style = Stroke(size.width * 0.022f))
-                }.padding(bottom = (fs * 0.13f).d),
-                contentAlignment = Alignment.Center,
-              ) {
-                Text(ch, style = TextStyle(color = kind.ink, fontWeight = FontWeight.Black, fontFamily = FontFamily.Serif, fontSize = fs.sp))
-              }
-            }
-          }
-        } else {
-          Text(co.text, Modifier.background(CalloutKind.FLOWER.face, pill).padding(horizontal = 14.dp, vertical = 5.dp),
-            style = TextStyle(color = Color.White, fontWeight = FontWeight.Bold, fontSize = (s.hand * 0.42f).coerceIn(18f, 27f).sp))
-        }
-        if (co.who.isNotEmpty()) {
-          Text(co.who, Modifier.background(CalloutKind.FLOWER.face, pill).padding(horizontal = 12.dp, vertical = 4.dp),
-            style = TextStyle(color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp))
-        }
-      }
-      // A wide table is low: the name beside the words, not under them.
-      val place = Modifier.align(align).then(pad).scale(scale).alpha(alpha)
-      if (s.wide) Row(place, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { words() }
-      else Column(place, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) { words() }
+      val small = with(LocalDensity.current) { (fs * 0.3f).coerceIn(13f, 16f).dp.toSp() }
+      Text(who, Modifier.offset(y = -(fs * 0.2f).d).background(Color(0xFF18221F), pill).border(1.5.dp, kind.line, pill).padding(horizontal = 13.dp, vertical = 3.dp),
+        style = TextStyle(color = Color(0xFFFFF6DC), fontWeight = FontWeight.Bold, fontSize = small), maxLines = 1, softWrap = false)
     }
   }
 }

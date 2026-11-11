@@ -1,5 +1,10 @@
 package io.github.kennyfs.mahjong.ui
 
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -94,6 +99,19 @@ private fun lerp(a: Color, b: Color, t: Float) = androidx.compose.ui.graphics.le
 // The bars: an action's three parts against the best's, drawn to one scale from a line two thirds along.
 private const val ZERO = 66f
 
+/** Light stripes across `area` at `at` (a bar's part where the action is worse than the best). */
+private fun DrawScope.hatch(at: Offset, area: Size) {
+  val step = 5.5.dp.toPx()
+  val stroke = 2.5.dp.toPx()
+  clipRect(at.x, at.y, at.x + area.width, at.y + area.height) {
+    var x = at.x - area.height
+    while (x < at.x + area.width + area.height) {
+      drawLine(Color.White.copy(alpha = 0.6f), Offset(x, at.y + area.height), Offset(x + area.height, at.y), stroke)
+      x += step
+    }
+  }
+}
+
 /**
  * A decision's analysis by the network: every legal action from the best down, with what it costs against the best,
  * and what the network thinks of the three opponents. What a row shows for an action (the settings): `numbers`, its
@@ -177,7 +195,16 @@ fun DecisionPanel(
               Text(stringResource(label), style = small, color = dim)
             }
           }
-        }
+          // Left of a bar's line the action is worse than the best there (hatched), right of it better (filled).
+          Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            for ((hatched, label) in listOf(true to R.string.bars_worse, false to R.string.bars_better)) {
+              Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Canvas(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(dim)) { if (hatched) hatch(Offset.Zero, size) }
+                Text(stringResource(label), style = small, color = dim)
+              }
+            }
+          }
+        } else Text(stringResource(R.string.list_caption), style = small, color = dim)
       }
       // What the figure at each row's right is: said here, not on every row.
       IconButton(onClick = { help = true }, Modifier.size(36.dp).testTag("list_help")) {
@@ -190,6 +217,8 @@ fun DecisionPanel(
       title = { Text(stringResource(R.string.list_help)) },
       text = { Text(stringResource(R.string.list_help_text), style = MaterialTheme.typography.bodyLarge) },
     )
+    val bring = remember { BringIntoViewRequester() }
+    LaunchedEffect(picked) { if (picked >= 0) runCatching { bring.bringIntoView() } }
     for ((k, i) in rows.withIndex()) {
       val f = analysis.actions[i]
       val cost = costOf(analysis, i)
@@ -204,7 +233,8 @@ fun DecisionPanel(
       Surface(
         shape = shape, color = tint ?: if (strong) cs.secondaryContainer else cs.surfaceContainer,
         contentColor = if (strong) cs.onSecondaryContainer else cs.onSurface,
-        modifier = Modifier.fillMaxWidth().let { if (i == picked) it.border(2.dp, LocalTable.current.highlight, shape) else it },
+        // The row of the tile chosen in the hand comes into sight (the list may be scrolled away from it).
+        modifier = Modifier.fillMaxWidth().let { if (i == picked) it.border(2.dp, LocalTable.current.highlight, shape).bringIntoViewRequester(bring) else it },
       ) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
           Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -231,7 +261,11 @@ fun DecisionPanel(
                 val wd = abs(d[part]) * perPoint
                 if (wd < 0.4) continue
                 val left = if (d[part] > 0) { l -= wd; l } else { val at = r; r += wd; at }
-                drawRect(partColors[part], Offset((left / 100 * size.width).toFloat(), 0f), Size((wd / 100 * size.width).toFloat(), size.height))
+                val at = Offset((left / 100 * size.width).toFloat(), 0f)
+                val area = Size((wd / 100 * size.width).toFloat(), size.height)
+                drawRect(partColors[part], at, area)
+                // Worse than the best there: hatched, so that a long green bar is not read as a good chance of winning.
+                if (d[part] > 0) hatch(at, area)
               }
               val x = ZERO / 100 * size.width
               drawRect(line, Offset(x - 1.dp.toPx(), 0f), Size(2.dp.toPx(), size.height))

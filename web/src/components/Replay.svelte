@@ -30,7 +30,7 @@
   import { editor } from '../lib/position-editor.svelte';
   import { practice } from '../lib/practice.svelte';
   import { records } from '../lib/records.svelte';
-  import { costOf, efficiencyText, EQUAL, figureItems, gradeOf, GRADE_NAME, isKey, keysOf, levelWord, notableText, pct, pts, readyLevel,
+  import { costOf, efficiencyText, EQUAL, figureItems, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pct, pts, readyLevel,
     reasonOf, reviewOf, summarize, tagCost, tileMarks, tilesShort, type TileMark } from '../lib/review';
   import { flowersOf, meldTiles } from '../lib/seats';
   import { settings } from '../lib/settings.svelte';
@@ -154,7 +154,9 @@
   const keys = $derived(rev && hasNet ? keysOf(rev) : []);
   const stops = $derived(keys.filter((k) => isKey(k, settings.level)));
   const points = $derived(rev && hasNet ? rev.decisions.map((d) => ({ step: d.step, value: d.analysis.value ?? 0 })) : []);
-  const mistakes = $derived(keys.filter((k) => k.grade >= (settings.level === 'beginner' ? 3 : settings.level === 'mid' ? 2 : 1)).length);
+  /** How many decisions were questionable, mistakes, blunders. */
+  const grades = $derived([1, 2, 3].map((g) => keys.filter((k) => k.grade === g).length));
+  const mistakes = $derived(grades.slice(settings.level === 'beginner' ? 2 : settings.level === 'mid' ? 1 : 0).reduce((a, b) => a + b, 0));
   const nextKeyStep = $derived(stops.find((k) => k.step > step)?.step ?? -1);
   const prevKeyStep = $derived([...stops].reverse().find((k) => k.step < step)?.step ?? -1);
   const mine = $derived(rev?.decisions.find((d) => d.step === step));
@@ -343,7 +345,7 @@
         <span><span class="dim">{t('review_first')}</span> {pts(rev.first_value ?? 0)}</span>
         <span><span class="dim">{t('review_decisions')}</span> <b class:bad={(rev.loss ?? 0) >= EQUAL}>{pts(-(rev.loss ?? 0))}</b></span>
         <span><span class="dim">{t('review_luck')}</span> {pts(rev.luck ?? 0)}</span>
-        <span class="count" class:some={mistakes > 0}>{mistakes ? t('review_mistakes', levelWord(settings.level), mistakes) : t('review_count_none', levelWord(settings.level))}</span>
+        <span class="count" class:some={mistakes > 0}>{mistakesText(grades, settings.level)}</span>
       </div>
       <ValueGraph {points} keys={stops} {step} {n} height={side ? 44 : 38} onpick={go} />
     {:else if revError}
@@ -438,7 +440,8 @@
   {/if}
 {/snippet}
 
-<!-- Over the hand on the table: the options that are not discards, and the figures of the tile tapped. -->
+<!-- Over the hand on the table: the options that are not discards, and the figures of the tile tapped (with the list
+     beside the table its row there is lit instead, and comes into sight). -->
 {#snippet strip()}
   {#if mine && options.length > 0}
     <div class="opts">
@@ -450,7 +453,7 @@
       {/each}
     </div>
   {/if}
-  {#if mine && pickedIndex >= 0}
+  {#if mine && pickedIndex >= 0 && !inlinePanel}
     {@const f = mine.analysis.actions[pickedIndex]}
     <div class="detail body-small">
       <b>{t('act_discard')} {tileName(picked ?? '')}</b>

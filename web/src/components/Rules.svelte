@@ -15,6 +15,7 @@
   } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import type { RulesInfo } from '../lib/types';
+  import { ui } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
   import Icon from './Icon.svelte';
   import TitleBar from './TitleBar.svelte';
@@ -57,7 +58,8 @@
     for (const p of Object.keys(values)) if (!listed.has(p)) tai.push(p);
     return [
       { title: 'rules_group_play', params: PLAY_PARAMS.filter((p) => p in values) },
-      { title: 'rules_group_flowers', params: FLOWER_PARAMS.filter((p) => p in values) },
+      // The flowers' mode itself is the cards' choice above, not a number here.
+      { title: 'rules_group_flowers', params: FLOWER_PARAMS.filter((p) => p in values && p !== 'flowers') },
       { title: 'rules_group_tai', params: tai },
     ];
   });
@@ -72,7 +74,7 @@
 </script>
 
 <div class="page">
-  <TitleBar title={t('rules_title')} {onback} />
+  <TitleBar title={t('rules_title')} {onback} max={ui.desk ? 0 : 720} />
   <div class="scroll"><div class="readable">
     <div class="section-header">{t('rules_tai')}</div>
     <div class="cards" role="radiogroup" aria-label={t('rules_tai')}>

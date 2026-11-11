@@ -23,9 +23,9 @@ the `protocol/` module shared with the server. Status and the decisions behind i
   decision's verdict and every action's figures; a tab's statistics (points lost and mistakes a hand, by kind).
 - **設定 (settings)**: help (規則說明, the rules explained, and 導覽, the tour), the rules (a tai preset
   簡單/標準/大師 and a flower preset 無花/見花見台/正花, chosen apart, the base, and any value changed, each with its
-  explanation: names and values from the engine), practice's length, the bots, their pace, how the list of actions
-  shows (numbers, bars or both), the level of mistakes (入門, 中級, 高手), the text size, the colors, dark mode; the
-  version and the network's id.
+  explanation: names and values from the engine), practice's length, the bots, their pace (slow, medium, fast, or
+  manual: a press of 下一步 for each thing they do), how the list of actions shows (numbers, bars or both), the
+  level of mistakes (入門, 中級, 高手), the text size, the colors, dark mode; the version and the network's id.
 - **規則說明 (the rules explained)**: eight pages for someone new to Taiwanese mahjong: the rules to explain first
   (the settings' at the start), then the goal, the tiles and flowers, a turn and the calls, waits, tai and payments,
   a quiz on waits, and on to practice (under the rules explained, if they differ) or the tour. Where the flowers and

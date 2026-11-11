@@ -68,6 +68,7 @@
   <string name="result_tai_total">共 %1$d 台</string>
   <string name="result_dealer_tai">莊家 %1$d 台</string>
   <string name="result_dealer_streak_tai">莊家・連 %2$d 拉 %2$d．%1$d 台</string>
+  <string name="result_dealer_pays">＋%1$s（莊家多付）</string>
   <string name="result_base">底 %1$s 台</string>
   <string name="result_parts">底 %1$s＋%2$s 台</string>
   <string name="result_next_dealer">下一局 %1$s 做莊</string>
@@ -141,6 +142,10 @@
   <string name="speed_slow">慢</string>
   <string name="speed_normal">中</string>
   <string name="speed_fast">快</string>
+  <string name="speed_manual">手動</string>
+  <string name="speed_manual_hint">手動：電腦不會自己動，每按一次「下一步」才做下一個動作。</string>
+  <string name="manual_next">下一步</string>
+  <string name="claim_overridden">你的%1$s沒有成立：%2$s 的%3$s優先</string>
   <string name="settings_look">外觀</string>
   <string name="settings_colors">配色</string>
   <string name="colors_table">牌桌綠</string>
@@ -366,6 +371,7 @@
   <string name="grade_best">最佳</string>
   <string name="grade_equal">一樣好</string>
   <string name="grade_fine">小差距</string>
+  <string name="grade_or_worse">%1$s以上</string>
   <string name="review_you">你</string>
   <string name="review_loss">損失 %1$s 台</string>
   <string name="review_best_was">最佳：%1$s</string>
@@ -376,6 +382,7 @@
   <string name="review_now">目前期望</string>
   <string name="list_help">清單的數字</string>
   <string name="list_help_text">每一列右邊的數字是那個選擇的期望：照這樣打，這一局最後得分的平均（台）。前面括號裡的小字是它比最佳選擇少多少；差距小到算一樣好時不顯示。有實際選擇時，它排在最上面，其餘從最好的往下排。</string>
+  <string name="list_caption">每一列右邊：照這樣打的期望（台）</string>
   <string name="review_mistakes">%1$s %2$s</string>
   <string name="review_count_none">沒有%1$s</string>
   <string name="review_line">起手期望 %1$s・決策 %2$s・運氣 %3$s</string>
@@ -417,6 +424,8 @@
   <string name="bars_win">胡牌</string>
   <string name="bars_deal">放槍</string>
   <string name="bars_tsumo">被自摸</string>
+  <string name="bars_worse">比最佳差</string>
+  <string name="bars_better">比最佳好</string>
   <string name="opp_title">對手（網路的估計）</string>
   <string name="opp_ready">聽 %1$s</string>
   <string name="opp_one_away">一向聽 %1$s</string>

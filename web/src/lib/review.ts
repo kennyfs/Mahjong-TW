@@ -28,6 +28,15 @@ export const gradeFrom = (g: Grade, unit?: number) => (g ? STEPS[g - 1] * scale(
 export const LEVEL_GRADE: Record<Level, Grade> = { beginner: 3, mid: 2, expert: 1 };
 export const GRADE_NAME = ['grade_fine', 'grade_questionable', 'grade_mistake', 'grade_blunder'];
 export const levelWord = (level: Level) => t(GRADE_NAME[LEVEL_GRADE[level]]);
+/** The level's grade and worse, for a count of them all: "失誤以上" (a beginner's is the worst alone). */
+export const levelOrWorse = (level: Level) => (LEVEL_GRADE[level] < 3 ? t('grade_or_worse', levelWord(level)) : levelWord(level));
+/** Mistakes at a level in words, each grade by its own name from the worst down: "大失誤 1・疑問手 2" (`grades`: how
+ *  many were questionable, mistakes, blunders); "沒有失誤" when there are none. */
+export function mistakesText(grades: number[], level: Level): string {
+  const out: string[] = [];
+  for (let g = 3; g >= LEVEL_GRADE[level]; g--) if (grades[g - 1] > 0) out.push(t('review_mistakes', t(GRADE_NAME[g]), grades[g - 1]));
+  return out.length ? out.join('・') : t('review_count_none', levelWord(level));
+}
 
 /** "+0.31", "−1.20": points with two decimals (one from 10 up). */
 export function pts(x: number, signed = true): string {

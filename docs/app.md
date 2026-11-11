@@ -90,9 +90,95 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   - The engine: a declared hand with no legal discard by the rule (it cannot happen in play) may discard anything
     rather than have no action.
 
+- **0.4.0** (2026-11-12, after a second opinion on the screens; app and page alike). The user had another model
+  (Gemini) look at 138 screenshots of 0.3.2 (`$WORK/ui-review-20261112/`: `prompt.md`, its
+  answer `comment.md`, shapes it drew in `svg-examples.md`) and asked for what it found to be taken up. Each point
+  was checked against the screenshots first; nearly all held.
+  - **The words over the players** (its P1 and P5). They covered what the moment was about: the tile dealt in, the
+    meld just made, the winner's hand. Now each stands where nothing of that moment lies: a call's and a win's over
+    the river of the player who made them (the tiles called are in the melds and in another player's river; the
+    winner's hand is at their seat), 放槍 over the tiles of the one who dealt in, clear of every river (the tile
+    dealt is in theirs: a tall table's others at the top of their columns, a wide table's beside the rivers and
+    along the top, the player's own over the foot of their hand), 流局 in the middle. A player's own words over
+    their river go when they discard into it. And the shape: the blocks, a character each, still read as large
+    tiles (upright rectangles with a tile's edge under them), so a word is now on one plaque with cut corners (no
+    tile has them), a lip under it and a fine line inside its edge, a little askew (2 degrees); the name under a
+    win's and under 放槍 is a tab over the plaque's lower edge; a flower's are a small jade plaque of the same
+    shape. Gold, vermilion and dark as before. Its advice to make the words a fifth smaller was not taken as said:
+    the user asked for about twice a tile of the hand, and the plaque of one character is that wide (the character
+    itself is smaller than it was in its block).
+  - **The result's tai** (P2): the total said `共 0 台` beside `莊家 1 台`, and the payments under it said `1 台`.
+    The total now says what every payer pays in tai: the dealer's tai is in it when every payment has it (a win by
+    the dealer, or on the dealer's discard); for another's self-drawn win, which only the dealer pays more for, it
+    follows the total as `＋莊家 N 台（莊家多付）`. The winner's concealed tiles keep together on a line of their
+    own where they do not fit after the melds (they were torn across two lines).
+  - **A review's hand** (P3, P9): a tile chosen there (to see its figures) is not lifted (its tag ran into the row
+    above, or into the line of figures); its face and frame say it is chosen. The tags of the other discards are
+    dark enough to read on the light pages too.
+  - **The line of a tile's figures over the hand** (P4): not shown where the list is beside the table (its row
+    there is lit, and comes into sight); on a wide table without the list it keeps between the side players, clear
+    of the player's own name plate.
+  - **Shown hands on a tall table** (P6): the others' strip, grown to show their hands, keeps 14 px clear of the
+    rivers under it, and a shown hand's rack is a darker tray with a light edge (it was a lighter strip that the
+    rivers' tiles ran into).
+  - **A phone held sideways** (P7): the others' concealed tiles are a count on their name plates there, as on an
+    upright phone (a table lower than 500 px): three rows of backs took the side players' room from their melds.
+    A name plate's note (天聽, a review's 聽 18%) comes last and alone goes to a second line; the score stays
+    beside the name. Where a side column is too narrow for the name, the count and the score, the count and the
+    score go under the name together (the name was cut to `電…`).
+  - **The count of mistakes** (P8): `疑問手 1` over a hand whose one mistake was a 大失誤 (the count was named by
+    the level's lowest grade). Each grade is now counted by its own name from the worst down (`大失誤 1・疑問手
+    2`); the records' average a hand says `失誤以上`.
+  - **A decision's list** (P9): a bar's parts left of its line (where the action is worse than the best) are
+    hatched, those right of it filled, and the legend says so: a long green bar on a blunder's row read as a good
+    chance of winning. With rows of numbers alone, the line over the list says what the figure at each row's right
+    is (it held the help button alone).
+  - **The rules' parameters** (P10): the flowers' mode as a number (0, 1, 2) is not listed; the three cards above
+    choose it.
+  - **The result's buttons** stay in sight where the card is taller than its room (a phone held sideways in a
+    review, a hand of melds with its tai and the payments' parts): the whole card scrolled, and the buttons were
+    under the screen's edge (seen on the emulator; a tap meant for 下一局 went nowhere). In the app the winner's
+    tiles are also a little smaller where that keeps them on one line (down to 22 dp).
+  - **Page titles** on a wide window keep to the page's column (the records, the settings, the rules): the title
+    and its button stood in the window's far corners over a centered column.
+  - Not taken: fading the edges of scrolling pages (the screenshots caught lists mid-scroll); a wider side column
+    for shown hands on a computer (the room it would take is the rivers', which were nearly empty in the
+    screenshot); `第 N 局` moved into the table's box (the bar over an upright table has the rules' button and the
+    new game's, so it stays). Its note that a result's screenshot showed no sheet was the script's timing.
+  - **The manual pace** (the user's request; the settings' pace has 手動 beside 慢, 中, 快). The computer players
+    do nothing until the player presses 下一步 (Space or Enter on a computer). One press is one thing that shows
+    on the table, as the table settles it: a discard (with the draw before it), a call, a declaration, a win. What
+    the three answer to a discard is settled together by the rules' precedence before any of it shows, so a chow
+    that a pung or a win comes before never shows: the next step is worked out ahead (the engine's `advance` by one
+    decision point, which the seed makes the same whenever it is asked) and held until the press. Only what shows
+    waits: when all three let a discard go, the game goes on to the next turn by itself (a button there would say
+    that one of them could have called), so the button means only that somebody's turn or call comes next. The
+    player's own call is answered at once, also when another's comes before it; the table then says so for a
+    few seconds (`你的吃沒有成立：電腦 1 的碰優先`), at every pace. The words of a call stay until the next tap at
+    this pace, and so does the table at a hand's end. The button: on a tall table at the end of the hand's first
+    row (no tile's place while it is not the player's turn, and not where the drawn tile comes, so that a tap too
+    many discards nothing); on a wide one in the corner over the hand's right end. (Further in, left of the right
+    player's column, it covered the fifth row of that player's discards in a long hand; in the corner the right
+    player's hand shown at the end can reach it on a low table, until the tap it waits for.)
+
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.4.0.apk` (2026-11-12): 0.4.0 above. The page: `scratch/manual/manual_check.py` at phone, phone
+    sideways and laptop sizes over four seeds (every press of 下一步 shows exactly one thing of the computer players',
+    nothing of theirs shows without one except a call that comes before the player's own, which is said; the words
+    stay; the table at a hand's end stays until a tap), `scratch/ui/callout_check.py` (the other paces: two seconds,
+    as before), and the screenshot scripts (the table, the review, the declarations) at the three sizes, into
+    `ui-after-20261112/` beside the reviewed set `ui-review-20261112/`. The app: the debug build walked through on
+    the emulator by `shots.py` sideways and upright (`shots/android-0.4/`, `shots/android-0.4-port/`): a hand, its
+    result and review, the records, the settings and rules, and its new step `manual` (the pace set to 手動 in the
+    settings, a hand played by pressing 下一步, the words of its calls, its end and result). The release build
+    too, as its x86_64 twin (`apk/mahjong-0.4.0-x86.apk`, `MAHJONG_ABIS=x86_64`; `shots/android-0.4-release/`): the
+    arm64 APK itself dies on the x86_64 emulator while its translation loads ONNX Runtime, as before. What the
+    emulator showed and was put right: the result's buttons under the screen's edge (above), and in `shots.py`
+    the welcome card missed when it came after the navigation, and the list's last button tapped by its first
+    sliver. Once, on a first start after a boot, every screenshot was the splash screen while the app ran under
+    it (the script went on finding its buttons); it did not come again in five more runs.
   - `apk/mahjong-0.3.2.apk` (2026-11-12): 0.3.2 above. Built and type-checked; the page went through
     `scratch/ui/callout_check.py` (the words' two seconds, the computer players' wait, the tap that lets them go) and
     the screenshot scripts at phone, phone sideways and laptop sizes (`shots/web-032*/`); the app was not walked
@@ -216,9 +302,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 7. **Records export and import** (Thirteen's app has export and share): `records_export` is in the strings, unused.
 8. **Polish**: animations of tiles moving (only the callouts animate now), sound and haptics, predictive back, a
    tablet's side panel in the app (the page has one on a computer), TalkBack and keyboard focus checked through; a
-   connection error shows the system's message (English) in parentheses, which could become plain words; a hand of
-   0 tai shows 「共 0 台」 beside 「莊家 1 台」 (the dealer's tai counts only in payments with the dealer), which a
-   wording could make plainer; upright, the analysis screen's palette takes the lower half, so the section being
+   connection error shows the system's message (English) in parentheses, which could become plain words; upright, the analysis screen's palette takes the lower half, so the section being
    edited may need a scroll.
 9. **Tests**: the app has no unit or instrumented tests (Thirteen's ScreenshotTest is a model); `RoomTest` misses
    resuming, leaving and the claim window's timing.

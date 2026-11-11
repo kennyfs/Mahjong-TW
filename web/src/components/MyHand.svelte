@@ -7,7 +7,8 @@
   edge, the drawn tile after the last one. 0: one row.
   `oneClick` (a computer's mouse): a tile rises under the pointer and one click discards it.
   `marks` (a review): by tile, a tag over it (what it costs against the best), whether it was the one played, and its
-  danger as a band along its foot; `tagH` px are kept over each row for the tags.
+  danger as a band along its foot; `tagH` px are kept over each row for the tags. A tile chosen there (to see its
+  figures) is not lifted: its tag would run into the row above; its face and frame say it is chosen.
   `turn`: the player's turn to discard: a frame of the turn's color pulses around the tiles, and a tile that may not
   be discarded then (after declaring a ready hand: all but those that keep it ready, later all but the one drawn) is
   darker. `apart`: the tile set
@@ -34,6 +35,8 @@
   // The drawn tile last, as its own index.
   const all = $derived(drawn ? [...tiles, drawn] : tiles);
   const h = $derived(w * TILE_RATIO);
+  /** How far a chosen tile rises. */
+  const lift = $derived(marks ? 0 : h * LIFT);
   const rows = $derived.by(() => {
     const n = tiles.length;
     const size = perRow > 0 ? perRow : Math.max(1, n);
@@ -90,7 +93,7 @@
   }
 </script>
 
-<div class="hand" class:turn style="padding-top: {Math.max(h * LIFT, tagH)}px; row-gap: {Math.max(h * ROW_GAP, tagH)}px; --lift: {h * LIFT}px;
+<div class="hand" class:turn style="padding-top: {Math.max(h * LIFT, tagH)}px; row-gap: {Math.max(h * ROW_GAP, tagH)}px; --lift: {lift}px;
   --top: {Math.max(h * LIFT, tagH)}px; {blockW ? `width: ${blockW}px` : ''}">
   {#each rows as row, r (r)}
     <div class="row" style="height: {h}px">
@@ -101,7 +104,7 @@
           onpointerdown={(e) => down(e, i)} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}
           in:fly={isDrawn && apart ? { x: -w * DRAWN_GAP, duration: 220 } : { y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0 }}
           aria-pressed={selected === i}>
-          <span class="lifted" style="transform: translateY({drag?.i === i ? drag.dy : selected === i ? -h * LIFT : 0}px)">
+          <span class="lifted" style="transform: translateY({drag?.i === i ? drag.dy : selected === i ? -lift : 0}px)">
             {#if marks?.get(all[i])}
               {@const m = marks.get(all[i])!}
               <span class="tag {m.tone}" class:played={m.played} style="font-size: {Math.min(13, Math.max(10, w * 0.27))}px; height: {tagH - 2}px">{m.tag}</span>
@@ -135,7 +138,7 @@
   .slot.held .lifted { filter: brightness(0.58) saturate(0.8); }
   .tag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 1px; padding: 0 3px; border-radius: 5px;
     display: flex; align-items: center; font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none;
-    background: rgba(0, 0, 0, 0.42); color: #fff; font-variant-numeric: tabular-nums; }
+    background: rgba(20, 32, 26, 0.76); color: #fff; font-variant-numeric: tabular-nums; }
   .tag.best { background: var(--found); color: #fff; }
   .tag.g1 { background: var(--danger-1); color: var(--on-danger); }
   .tag.g2 { background: var(--danger-2); color: var(--on-danger); }

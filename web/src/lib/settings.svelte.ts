@@ -3,14 +3,16 @@ import { DEFAULT_RULES, parseChoice, ruleSpec, type RuleChoice } from './rules';
 import { KEYS, load, save } from './store';
 
 export type Length = 'hand' | 'round' | 'game';
-export type Speed = 'slow' | 'normal' | 'fast';
+/** The computer players' pace; `manual`: each of their steps waits for the player (lib/practice.svelte.ts). */
+export type Speed = 'slow' | 'normal' | 'fast' | 'manual';
+export const SPEEDS: Speed[] = ['slow', 'normal', 'fast', 'manual'];
 export type Colors = 'TABLE' | 'MINIMAL';
 export type Dark = 'SYSTEM' | 'LIGHT' | 'DARK';
 export type TextSize = 'SMALL' | 'NORMAL' | 'LARGE';
 
 export const TEXT_SCALE: Record<TextSize, number> = { SMALL: 0.88, NORMAL: 1, LARGE: 1.15 };
 /** A bot's pause before it plays, and before the next turn after a discard, in ms. */
-export const PACE: Record<Speed, number> = { slow: 1100, normal: 650, fast: 250 };
+export const PACE: Record<Exclude<Speed, 'manual'>, number> = { slow: 1100, normal: 650, fast: 250 };
 
 /** The bots: the network (the engine's built-in one, playing the action it values most) and tile efficiency. */
 export const NET_BOT = 'net:model=/models/actor.onnx';
@@ -64,7 +66,7 @@ class Settings {
     this.rules = parseChoice(s.rules);
     this.length = (['hand', 'round', 'game'] as Length[]).includes(s.length) ? s.length : 'game';
     this.bot = BOTS.some((b) => b.spec === s.bot) ? s.bot : NET_BOT;
-    this.speed = (['slow', 'normal', 'fast'] as Speed[]).includes(s.speed) ? s.speed : 'normal';
+    this.speed = SPEEDS.includes(s.speed) ? s.speed : 'normal';
     this.colors = s.colors === 'MINIMAL' ? 'MINIMAL' : 'TABLE';
     this.dark = (['SYSTEM', 'LIGHT', 'DARK'] as Dark[]).includes(s.dark) ? s.dark : 'SYSTEM';
     this.text = (['SMALL', 'NORMAL', 'LARGE'] as TextSize[]).includes(s.text) ? s.text : 'NORMAL';

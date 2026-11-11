@@ -242,7 +242,9 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
   val keys = remember(r) { if (r != null && r.firstValue != null) keysOf(r) else emptyList() }
   val stops = keys.filter { isKey(it, level) }
   val points = remember(r) { if (r != null && r.firstValue != null) r.decisions.map { it.step to (it.analysis.value ?: 0.0) } else emptyList() }
-  val mistakes = keys.count { it.grade >= level.grade }
+  /** How many decisions were questionable, mistakes, blunders. */
+  val grades = (1..3).map { g -> keys.count { it.grade == g } }
+  val mistakes = grades.drop(level.grade - 1).sum()
   val nextKeyStep = stops.firstOrNull { it.step > step }?.step ?: -1
   val prevKeyStep = stops.lastOrNull { it.step < step }?.step ?: -1
   val mine = r?.decisions?.firstOrNull { it.step == step }
@@ -392,7 +394,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         val lost = @Composable { item(R.string.review_decisions, pts(-(r.loss ?: 0.0)), (r.loss ?: 0.0) >= EQUAL) }
         val luck = @Composable { item(R.string.review_luck, pts(r.luck ?: 0.0), false) }
         val count = @Composable {
-          Text(mistakesText(res, level, mistakes), style = small, fontWeight = FontWeight.Bold, maxLines = 1,
+          Text(mistakesText(res, level, grades), style = small, fontWeight = FontWeight.Bold, maxLines = 1,
             color = if (mistakes > 0) outcomeColors.bad else outcomeColors.good, modifier = Modifier.testTag("replay_mistakes"))
         }
         val graph = @Composable { mod: Modifier -> ValueGraph(points, stops, step, n, if (side) 44.dp else 38.dp, mod) { go(it) } }
@@ -530,9 +532,11 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
       } else if (deciding != null) Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
     }
 
-    // Over the hand on the table: the options that are not discards, and the figures of the tile tapped.
+    // Over the hand on the table: the options that are not discards, and the figures of the tile tapped (with the
+    // list beside the table its row there is lit instead, and comes into sight).
     val highlight = LocalTable.current.highlight
-    val strip: (@Composable () -> Unit)? = if (mine != null && (options.isNotEmpty() || pickedIndex >= 0)) ({
+    val detail = pickedIndex >= 0 && !inlinePanel
+    val strip: (@Composable () -> Unit)? = if (mine != null && (options.isNotEmpty() || detail)) ({
       val a = mine.analysis
       if (options.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         for (i in options) {
@@ -552,7 +556,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
           }
         }
       }
-      if (pickedIndex >= 0 && pickedTile != null) {
+      if (detail && pickedTile != null) {
         val f = a.actions[pickedIndex]
         val small = MaterialTheme.typography.bodySmall
         val soft = Color.White.copy(alpha = 0.72f)

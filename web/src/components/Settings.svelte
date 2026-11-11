@@ -17,7 +17,7 @@
   import Toggle from './Toggle.svelte';
 
   const lengths: [Length, string][] = [['hand', t('length_hand')], ['round', t('length_round')], ['game', t('length_game')]];
-  const speeds: [Speed, string][] = [['slow', t('speed_slow')], ['normal', t('speed_normal')], ['fast', t('speed_fast')]];
+  const speeds: [Speed, string][] = [['slow', t('speed_slow')], ['normal', t('speed_normal')], ['fast', t('speed_fast')], ['manual', t('speed_manual')]];
   const colors: [Colors, string][] = [['TABLE', t('colors_table')], ['MINIMAL', t('colors_minimal')]];
   const darks: [Dark, string][] = [['SYSTEM', t('dark_system')], ['LIGHT', t('dark_light')], ['DARK', t('dark_dark')]];
   const texts: [TextSize, string][] = [['SMALL', t('text_small')], ['NORMAL', t('text_normal')], ['LARGE', t('text_large')]];
@@ -31,7 +31,7 @@
   function setBot(v: string) { settings.bot = v; settings.persist(); void practice.settingsChanged(); }
   function setRows(v: ListRows) { settings.listRows = v; settings.persist(); }
   function setLevel(v: Level) { settings.level = v; settings.persist(); }
-  function setSpeed(v: Speed) { settings.speed = v; settings.persist(); }
+  function setSpeed(v: Speed) { settings.speed = v; settings.persist(); practice.paceChanged(); }
   function setColors(v: Colors) { settings.colors = v; settings.persist(); }
   function setDark(v: Dark) { settings.dark = v; settings.persist(); }
   function setText(v: TextSize) { settings.text = v; settings.persist(); }
@@ -39,7 +39,7 @@
 
 {#snippet list(desk: boolean)}
   <div class="page">
-    <TitleBar title={t('settings_title')} />
+    <TitleBar title={t('settings_title')} max={720} />
     <div class="scroll"><div class="readable">
       <div class="section-header">{t('settings_help')}</div>
       <SettingRow title={t('guide_title')} value={t('guide_row')} onclick={() => nav.open('guide')} />
@@ -57,6 +57,7 @@
       <div class="block">
         <div class="body-large">{t('settings_speed')}</div>
         <Toggle options={speeds} selected={settings.speed} onselect={setSpeed} />
+        <div class="body-small dim">{t('speed_manual_hint')}</div>
       </div>
 
       <div class="section-header">{t('settings_analysis')}</div>

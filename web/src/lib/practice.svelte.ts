@@ -1,6 +1,14 @@
 // Practice: the player (seat 0) against three bots, for one hand, one round (一圈) or a full game (一將). The page is
 // the authority here: it holds the record, lets the bots decide one decision point at a time (so each bot's turn
 // shows on its own), and shows the player only the view of seat 0. A port of the app's Practice.kt.
+//
+// The computer players' pace is the settings': a pause before each of their turns, or `manual`: nothing of theirs
+// happens until the player says so (`step`). One step is one thing that shows on the table, as the table settles it: a
+// discard (with the draw before it), a call, a declaration, a win. What the three answer to a discard is settled
+// together, by the rules' precedence, before any of it shows (a chow that a pung or a win comes before never shows),
+// so what the next step will be is worked out ahead and held. Only what shows waits: when all three let a discard
+// go, the game goes on by itself (a wait there would say that one of them could have called). The player's own
+// call is answered at once, also when another's call comes before it (`notice` says so).
 import * as engine from './engine';
 import { t } from './i18n.svelte';
 import { handRecord, newId, records } from './records.svelte';
@@ -8,7 +16,7 @@ import { keepSummary } from './review';
 import { calloutsDone } from './callouts';
 import { PACE, settings, type Length } from './settings.svelte';
 import { KEYS, load, save } from './store';
-import type { Action, GameRecord, View } from './types';
+import type { Action, GameEvent, GameRecord, View } from './types';
 
 export const ME = 0;
 
@@ -34,6 +42,10 @@ interface Saved { game: GameRecord; meta: Meta }
 export type Stage = 'playing' | 'result' | 'over';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** What shows on the table as a player's doing (a draw and a flower are not waited for). */
+const SHOWN = new Set<GameEvent['type']>(['discard', 'chi', 'pon', 'kan', 'ankan', 'kakan', 'declare', 'tsumo', 'ron', 'flower_win']);
+/** A notice's time on the table, ms. */
+const NOTICE_MS = 4500;
 
 class Practice {
   game = $state<GameRecord | null>(null);
@@ -47,8 +59,17 @@ class Practice {
   lastRecord = $state<string | null>(null);
   busy = $state(false);
   error = $state<string | null>(null);
+  /** The manual pace: the computer players' next step is ready and waits for `step`. */
+  waiting = $state(false);
+  /** A few words on the table for a moment: the player's call did not stand. */
+  notice = $state<string | null>(null);
   private running = false;
   private epoch = 0;
+  /** The step held (the game after it, and the player's view of it), for the game of this many actions. */
+  private ahead: { from: number; game: GameRecord; view: View } | null = null;
+  /** The call the player just made on another's tile, until what came of it is known. */
+  private claimed: Action['type'] | null = null;
+  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
   get bots(): (string | null)[] {
     const b = this.meta?.bot ?? settings.bot;
@@ -71,6 +92,21 @@ class Practice {
     } else await this.newGame();
   }
 
+  /** Another game or hand: nothing held from the last. */
+  private reset() {
+    this.epoch++;
+    this.ahead = null;
+    this.waiting = false;
+    this.claimed = null;
+    this.say(null);
+  }
+
+  private say(text: string | null) {
+    clearTimeout(this.noticeTimer);
+    this.notice = text;
+    if (text) this.noticeTimer = setTimeout(() => (this.notice = null), NOTICE_MS);
+  }
+
   private persist() {
     if (this.game && this.meta) save(KEYS.practice, { game: this.game, meta: this.meta } satisfies Saved);
   }
@@ -78,7 +114,7 @@ class Practice {
   /** A new game under the settings' rules, length and bot; the first dealer drawn at random. `seed`: the same walls
    *  every time (the screenshot scripts). */
   async newGame(seed?: string) {
-    this.epoch++;
+    this.reset();
     const rules = settings.spec;
     const startDealer = seed ? 0 : Math.floor(Math.random() * 4);
     this.meta = {
@@ -106,7 +142,8 @@ class Practice {
 
   /**
    * The bots decide, a decision point at a time, until the player must decide or the hand is over. Each bot's turn
-   * waits the pace of the settings, and the words of a call (lib/callouts.ts), so it can be followed.
+   * waits the pace of the settings, and the words of a call (lib/callouts.ts), so it can be followed; at the manual
+   * pace, what shows waits for `step` (see the top).
    */
   private async run() {
     if (this.running) return;
@@ -119,17 +156,51 @@ class Practice {
           await this.finish();
           break;
         }
-        if (p.pending.includes(ME)) break;
+        if (p.pending.includes(ME)) {
+          this.claimed = null;
+          break;
+        }
+        const seed = `${this.meta?.id}/${this.meta?.hands}/${this.game.actions.length}`;
+        if (settings.speed === 'manual') {
+          const from = this.game.actions.length;
+          const before = this.view?.event_count ?? 0;
+          const game = await engine.advance(this.game, this.bots, seed, 1);
+          const view = await engine.view(game, ME);
+          if (epoch !== this.epoch || !this.game || this.game.actions.length !== from) break;
+          const fresh = view.events.slice(Math.max(0, view.events.length - (view.event_count - before))).filter((e) => SHOWN.has(e.type));
+          const mine = fresh.some((e) => e.seat === ME);
+          // Another's call came before the player's own: said at once, as the answer to the player's tap.
+          const over = this.claimed && !mine ? fresh.find((e) => e.seat !== ME && e.type !== 'discard') : undefined;
+          if (fresh.length && !mine && !over) {
+            this.ahead = { from, game, view };
+            this.waiting = true;
+            break;
+          }
+          if (over) this.say(t('claim_overridden', t('act_' + this.claimed), this.names()[over.seat], t('act_' + over.type)));
+          this.claimed = null;
+          this.game = game;
+          this.view = view;
+          this.persist();
+          continue;
+        }
         this.busy = true;
         // A bot's own turn takes the pace; deciding on a discard (nobody else may) takes a short beat.
-        await sleep(p.phase === 'self' ? PACE[settings.speed] : Math.min(250, PACE[settings.speed] / 2));
+        const pace = PACE[settings.speed];
+        await sleep(p.phase === 'self' ? pace : Math.min(250, pace / 2));
         // A call's words (碰, 槓, 天聽) stay their time before the game goes on; a tap anywhere lets them go.
         await calloutsDone();
         if (epoch !== this.epoch || !this.game) break;
-        const seed = `${this.meta?.id}/${this.meta?.hands}/${this.game.actions.length}`;
+        const before = this.view?.event_count ?? 0;
         this.game = await engine.advance(this.game, this.bots, seed, 1);
         this.persist();
         await this.refresh();
+        if (this.claimed && this.view) {
+          const v = this.view;
+          const fresh = v.events.slice(Math.max(0, v.events.length - (v.event_count - before))).filter((e) => SHOWN.has(e.type));
+          const over = fresh.some((e) => e.seat === ME) ? undefined : fresh.find((e) => e.seat !== ME && e.type !== 'discard');
+          if (over) this.say(t('claim_overridden', t('act_' + this.claimed), this.names()[over.seat], t('act_' + over.type)));
+          this.claimed = null;
+        }
       }
     } catch (e) {
       this.error = String((e as Error).message ?? e);
@@ -139,9 +210,33 @@ class Practice {
     }
   }
 
+  /** The manual pace: the computer players' next step, now. */
+  step() {
+    const a = this.ahead;
+    if (!this.waiting || !a || !this.game || this.running || a.from !== this.game.actions.length) return;
+    this.ahead = null;
+    this.waiting = false;
+    this.game = a.game;
+    this.view = a.view;
+    this.persist();
+    void this.run();
+  }
+
+  /** The pace changed: a step held for the manual pace goes on by itself at another. */
+  paceChanged() {
+    if (settings.speed !== 'manual' && this.waiting) {
+      this.ahead = null;
+      this.waiting = false;
+      void this.run();
+    }
+  }
+
   /** The player's decision (one of view.legal). */
   async act(action: Action) {
     if (!this.game || !this.view?.my_turn || this.running) return;
+    this.say(null);
+    // A call on another's tile may yet give way to a call that comes before it.
+    this.claimed = this.view.phase !== 'self' && action.type !== 'pass' ? action.type : null;
     try {
       this.game = await engine.act(this.game, ME, action);
     } catch (e) {
@@ -201,7 +296,7 @@ class Practice {
       this.persist();
       return;
     }
-    this.epoch++;
+    this.reset();
     this.game = n.game;
     this.final = null;
     this.stage = 'playing';

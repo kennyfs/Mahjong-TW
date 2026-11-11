@@ -1,6 +1,7 @@
 <!--
   Practice: the table against three bots; a bar over it with the hand, the rules and the totals; the hand's result over
-  the table when it ends, and the game's totals when the game does. No hint or analysis while the hand is in play: the
+  the table when it ends, and the game's totals when the game does. At the manual pace (the settings) the computer
+  players' steps wait for the player's button (lib/practice.svelte.ts), and so does the table at a hand's end. No hint or analysis while the hand is in play: the
   review (and each decision's analysis) is a button on the result.
 -->
 <script lang="ts">
@@ -48,15 +49,21 @@
     if (stage !== 'result' || !inPlay) return;
     inPlay = false;
     held = true;
+    if (settings.speed === 'manual') return;
     const id = setTimeout(() => (held = false), END_PAUSE);
     return () => clearTimeout(id);
   });
 
   function act(a: Action) { void practice.act(a); }
+  /** The manual pace: the others' next step waits for the player; and so does the table at a hand's end. */
+  const manual = $derived(settings.speed === 'manual');
+  const onnext = $derived(stage === 'playing' && practice.waiting ? () => practice.step()
+    : stage === 'result' && held && manual ? () => { held = false; } : null);
   const totals = $derived(meta?.totals ?? [0, 0, 0, 0]);
   const shown = $derived(stage !== 'playing' && final ? final : view);
 </script>
 
+{#snippet notice()}<span class="notice">{practice.notice}</span>{/snippet}
 <div class="play">
   {#if !ui.wide}
   <header class="bar" data-tour="top">
@@ -72,7 +79,7 @@
     {#if shown}
       <Table view={shown} me={ME} {names} scores={totals} revealed={stage !== 'playing' ? final?.hands ?? null : null}
         interactive={stage === 'playing' && !practice.busy} onact={act} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64}
-        keys={ui.desk}>
+        keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined}>
         {#snippet corner()}
           {#if ui.wide}
             <span class="corner-buttons" data-tour="top">
@@ -175,6 +182,8 @@
   .spacer { flex: 1; }
   /* The corner's buttons together (the tour lights them as one), one over the other in the table's top-right corner. */
   .corner-buttons { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .notice { display: inline-block; padding: 4px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.72); color: #fff; font-weight: 500;
+    font-size: 0.9375rem; }
   .skip { position: absolute; inset: 0; z-index: 5; border: none; background: transparent; cursor: pointer; }
   .table-wrap { flex: 1; min-height: 0; position: relative; }
   .sheet { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 12px;

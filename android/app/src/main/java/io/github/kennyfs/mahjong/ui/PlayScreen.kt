@@ -43,6 +43,8 @@ import io.github.kennyfs.mahjong.Page
 import io.github.kennyfs.mahjong.Practice
 import io.github.kennyfs.mahjong.R
 import io.github.kennyfs.mahjong.Rules
+import io.github.kennyfs.mahjong.Speed
+import androidx.compose.ui.graphics.Color
 import io.github.kennyfs.mahjong.Tiles
 
 /** The rules in a few words: "簡單台數・無花", and "自訂" when values were changed. */
@@ -55,7 +57,8 @@ fun rulesChip(tai: String, flowers: String, custom: Boolean = false): String =
  * Practice: the table against three bots; a bar over it (a phone upright) with the hand, the rules and a new game; the
  * hand's result over the table when it ends (with the network's review of it in a line, once it is there), and the
  * game's totals when the game does. No hint or analysis while the hand is in play: the review (and each decision's
- * analysis) is a button on the result. The web page's Play.svelte.
+ * analysis) is a button on the result. At the manual pace (the settings) the computer players' steps wait for the
+ * player's button (Practice.kt), and so does the table at a hand's end. The web page's Play.svelte.
  */
 @Composable
 fun PlayScreen(vm: AppModel) {
@@ -71,7 +74,15 @@ fun PlayScreen(vm: AppModel) {
   val stage = practice.stage
   LaunchedEffect(stage) { if (stage == Practice.Stage.PLAYING) hideResult = false }
   // A hand's end: the table as it ended for a moment before the result; a tap goes on at once.
-  val (held, letGo) = endPause(stage != Practice.Stage.PLAYING)
+  // At the manual pace the computer players' steps wait for the player's button, and so does the table at a hand's end.
+  val manual = settings.speed == Speed.MANUAL
+  val (held, letGo) = endPause(stage != Practice.Stage.PLAYING, stay = manual)
+  val onNext: (() -> Unit)? = when {
+    stage == Practice.Stage.PLAYING && practice.waiting -> ({ practice.step() })
+    stage == Practice.Stage.RESULT && held && manual -> letGo
+    else -> null
+  }
+  val notice = practice.notice
   val handLabel = meta?.let { stringResource(R.string.hand_n, it.hands + if (stage == Practice.Stage.PLAYING) 1 else 0) } ?: ""
   val chip = rulesChip(settings.rules.tai, settings.rules.flowers, settings.rules.overrides.isNotEmpty())
   val totals = meta?.totals ?: listOf(0.0, 0.0, 0.0, 0.0)
@@ -98,7 +109,11 @@ fun PlayScreen(vm: AppModel) {
           shown, Practice.ME, names, scores = totals,
           revealed = if (stage != Practice.Stage.PLAYING) final?.hands else null,
           interactive = stage == Practice.Stage.PLAYING && !practice.busy,
-          onAct = { practice.act(it) }, handLabel = if (wide) handLabel else "",
+          onAct = { practice.act(it) }, handLabel = if (wide) handLabel else "", onNext = onNext, stay = manual,
+          status = if (notice != null) ({
+            Text(notice, Modifier.background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 4.dp),
+              color = Color.White, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+          }) else null,
           // The table's top-right corner: the buttons one over the other (the tour lights them as one).
           corner = if (wide) ({
             Column(Modifier.tourAnchor("top"), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
