@@ -66,6 +66,9 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.3.0.apk` (branch `analysis`, 2026-11-12): the requests after 0.2.0 (above); arm64-v8a, 15 MB.
+    The debug build went through `shots.py` sideways and upright (`shots/android-030/`), the page through
+    `scratch/ui-analysis/web_review_check.py` at five sizes (`shots/web-030-review/`).
   - `apk/mahjong-0.2.0.apk` (branch `analysis`, 2026-11-11): the rules explained, the tour and the welcome card, the
     battle entry in steps; arm64-v8a only, 14.7 MB (below). The same debug key, so it installs over 0.1.0 keeping the
     records. Its x86_64 twin ran on the emulator; the debug build went through `shots.py` (`shots/android-020/`).
