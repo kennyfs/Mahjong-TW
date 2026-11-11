@@ -3,4 +3,4 @@
 D=$HOME/mahjong_runs
 cd $D/Mahjong-TW-v2
 exec nice -n 5 $HOME/ml_venv/bin/python python/train_loop.py --run $D/s2 --share selfplay:s2 \
-  --ssh-key $HOME/.ssh/mahjong_sync --bwlimit 200 --logs $D/logs --train-args "--amp --expand-threads 10"
+  --ssh-key $HOME/.ssh/mahjong_sync --bwlimit 500 --logs $D/logs --train-args "--amp --expand-threads 10"
