@@ -219,5 +219,33 @@ networks are copied to it (it has the same paths and the engine at the same plac
 own, and the loop fetches its files into the iteration before the iteration appears. An iteration whose helper
 cannot be reached, or whose half fails, has the hands played on the first machine only. `mahjong.sh stop` on the
 first machine stops the helper's engine too. The run `s2` (2026-11-12) plays on one workstation with another as its helper, 32
-threads each: 100,000 hands in about four minutes.
+threads each: 100,000 hands in about three minutes (150 s of play at 332 hands/s a machine, the rest copying).
+
+### The weight of the KL term, and the run `s2` (2026-11-12)
+
+Two arms from network 50 of `s1`, nine iterations each on a workstation (16 threads each, 100,000 hands an iteration, 12
+marks and 1.5 forks a hand): `s1` with the KL weight 0.1, `s1b` with 0.03. Held out, an iteration of `s1b` moved the
+policy 0.0095 nats from the one that played against 0.0042, and its predicted gain (`improve`, a decision) was
+0.0009 against 0.0006 (seven iterations each, about 0.0001 either way): a third of the weight gave a third more,
+so the weight is not what holds the policy back. For the last two iterations `s1` took the weight 0.03 with batches
+of 256 (twice the steps), `s1b` kept 0.03 with the learning rate 0.001: both moved the policy further (0.013 and
+0.014) and predicted 0.0011 and 0.0010, no more than noise apart from 0.0009. The critic stayed calibrated in all
+of them (`fork_slope` 0.9 to 1.3). Matches of the networks 59 of both arms against each other and against network
+50 (6,000 deals each way and under `simple1,none` and `simple2,see`) were all within 1.2 standard errors of zero
+(0.025 and 0.035): nine iterations do not show in a match of that size. `s1`'s network 59 wins larger hands (1.65
+tai against 1.52) and deals in more (0.146 against 0.139) for the same result.
+
+`s2` goes on from `s1`'s network 59, taken over to features version 2 (`scripts/migrate_v2_desk.sh`; a run taken
+over has only the last twenty networks, so `loop1.py` takes the next one there is for an earlier opponent that is
+missing). Its parameters and why:
+
+- KL weight 0.03 (`train_args.txt`: `corr 0.05`, `kl 0.03`, `batch 256`).
+- Forks 0.17 a hand: a tenth of the evaluations (a fork costs about 31, a hand without one 47; at 1.5 a hand they
+  were 45%). With them and the two machines an iteration of 100,000 hands is played in three minutes.
+- The training machine reads about 3,700 samples a second whatever the batch (it is the ten threads that expand the
+  samples, not the GPU, that set the pace: 215 s for 800,000 samples at batches of 384, 233 s at 256), so it, not
+  self-play, is the slow side now. Six marks a hand (600,000 samples an iteration) take it about as long as
+  self-play takes to play the next iteration, and batches of 256 make 2,340 steps of them, as many as an iteration
+  of the arms had. Self-play waits when it is two iterations ahead of the newest network (`--ahead`).
+- Matches against network 0 every 20 networks (4,000 deals; about ten minutes in which nothing is played).
 

@@ -165,6 +165,7 @@ def evaluate(args, k):
                     cmd += ["-p", p]
                 text = subprocess.run(cmd, capture_output=True, text=True).stdout
                 f.write(f"== {name}, {rules}\n{text}\n")
+                f.flush()
                 rows = [line.split() for line in text.splitlines() if re.match(r"\d\s", line)]
                 if len(rows) == 4:
                     # The newest network's seats against the opponent's: mean result per hand of each side.
