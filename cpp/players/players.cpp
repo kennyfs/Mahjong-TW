@@ -23,6 +23,8 @@ namespace {
         return *a;
       if(const Action* a = findType(legal, Action::RON))
         return *a;
+      if(const Action* a = findType(legal, Action::DECLARE))
+        return *a;
       return legal[rand.nextUInt((uint32_t)legal.size())];
     }
   };
@@ -78,6 +80,29 @@ namespace {
       Counts visible = game.visibleCounts(seat);
 
       if(game.phase() == Game::SELF) {
+        // A ready hand is declared whenever it may be; a declared hand has one discard, or only those that keep it
+        // ready (the first of them with the most winning tiles left).
+        if(const Action* a = findType(legal, Action::DECLARE))
+          return *a;
+        if(st.declared) {
+          int best = -1, bestLeft = -1;
+          for(const Action& a : legal) {
+            if(a.type != Action::DISCARD)
+              continue;
+            Counts c = st.hand;
+            c[a.kind]--;
+            uint64_t waits = Tai::waits(c, st.melds);
+            int left = 0;
+            for(int k = 0; k < Tiles::NUM_KINDS; k++)
+              if(waits & ((uint64_t)1 << k))
+                left += max(0, 4 - (int)visible[k]);
+            if(left > bestLeft) {
+              bestLeft = left;
+              best = a.kind;
+            }
+          }
+          return Action(Action::DISCARD, best);
+        }
         if(eps_ > 0.0 && rand.nextDouble() < eps_) {
           vector<Action> discards;
           for(const Action& a : legal)

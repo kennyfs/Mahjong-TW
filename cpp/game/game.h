@@ -13,7 +13,8 @@
 // replacement draws, flower wins and the end of the wall are handled inside.
 //
 // Phases:
-//   SELF      the current player has drawn (or called) and must win, declare a kong or discard;
+//   SELF      the current player has drawn (or called) and must win, declare a kong or discard (or declare a
+//             ready hand first, and then discard);
 //   REACT     players decide on a discard (win, pung, kong, chow or pass), all of them before it is resolved;
 //   ROB_KONG  players decide whether to rob an added kong;
 //   OVER      the hand is over (result()).
@@ -26,7 +27,7 @@ struct HandSetup {
 };
 
 struct Action {
-  enum Type : uint8_t { DISCARD = 0, TSUMO, ANKAN, KAKAN, PASS, RON, PON, MINKAN, CHI, NUM_TYPES };
+  enum Type : uint8_t { DISCARD = 0, TSUMO, ANKAN, KAKAN, PASS, RON, PON, MINKAN, CHI, DECLARE, NUM_TYPES };
   Type type = PASS;
   uint8_t kind = 0;  // DISCARD, ANKAN, KAKAN: the kind; CHI: the lowest kind of the chow; PON, MINKAN, RON: the discard
 
@@ -39,11 +40,12 @@ struct Action {
 
 // The public record of a hand. DRAW events are private to their seat (the tile is hidden from the others).
 struct Event {
-  enum Type : uint8_t { DRAW, FLOWER, DISCARD, CHI, PON, MINKAN, ANKAN, KAKAN, TSUMO, RON, FLOWER_WIN, EXHAUSTED };
+  enum Type : uint8_t { DRAW, FLOWER, DISCARD, CHI, PON, MINKAN, ANKAN, KAKAN, TSUMO, RON, FLOWER_WIN, EXHAUSTED, DECLARE };
   Type type;
   int8_t seat;
   uint8_t tile;   // DRAW, FLOWER, DISCARD, kongs, wins: the tile; CHI: the called tile
-  uint8_t extra;  // DRAW: 1 for a replacement draw; DISCARD: 1 when it was the tile just drawn; CHI: the lowest kind
+  uint8_t extra;  // DRAW: 1 for a replacement draw; DISCARD: 1 when it was the tile just drawn; CHI: the lowest kind;
+                  // DECLARE: 1 天聽, 2 地聽
   std::string toString() const;
 };
 
@@ -62,6 +64,10 @@ struct SeatState {
   int draws = 0;           // ordinary draws so far
   bool hasDiscarded = false;
   bool declaredKong = false;
+  // Declared ready (docs/rules.md 6): 0 no, 1 天聽, 2 地聽. From the declaration on the hand is locked: the seat
+  // discards what it draws and may only win. `declaring`: declared, and the discard that goes with it is still due.
+  uint8_t declared = 0;
+  bool declaring = false;
 };
 
 struct HandResult {
@@ -92,6 +98,7 @@ struct Position {
     std::vector<Meld> melds;
     uint8_t flowers = 0;
     std::vector<Discard> discards;
+    uint8_t declared = 0;  // 1: 天聽, 2: 地聽
   };
   HandSetup setup;
   int me = 0;
@@ -99,6 +106,7 @@ struct Position {
   // Deciding on its own turn (SELF): the tile just drawn, -1 after a chow or pung (afterCall) or when unknown.
   int drawn = -1;
   bool afterCall = false;
+  bool declaring = false;  // on its own turn, between its declaration and the discard
   // Deciding on another player's discard instead: that player, and the tile (-1: its last discard). With robKong,
   // on the tile of its added kong (its pung still shows three).
   int claimSeat = -1;
@@ -166,6 +174,8 @@ class Game {
   // The tai `seat` would score by winning now: on its drawn tile in SELF, or on the claim tile in REACT and ROB_KONG.
   // -1 when it cannot win (not complete, missed win, or below min_tai).
   int winTai(int seat) const;
+  // What `seat` may declare on its turn now (Action::DECLARE): 0 nothing, 1 天聽, 2 地聽.
+  int declareType(int seat) const;
   Tai::WinInfo winInfo(int seat, int tile, bool selfDraw, bool robbedKong) const;
 
  private:

@@ -22,9 +22,9 @@
 //          tile. The actions are every decision in order; on a discard the deciding seats' decisions may come in any
 //          order. SPEC is a rules spec of docs/rules.md section 11.
 // SETUP    {"dealer": s, "east": s (-1: the dealer), "round": wind, "streak": n}
-// ACTION   {"type": TYPE, "tile": TILE}: TYPE is discard, tsumo, ankan, kakan, pass, ron, pon, kan, chi; the tile is
-//          the discard, the kong's kind, a chow's lowest tile, or (ron, pon, kan) the claimed tile; tsumo and pass
-//          have none. A chow also lists "tiles" (its three).
+// ACTION   {"type": TYPE, "tile": TILE}: TYPE is discard, tsumo, ankan, kakan, pass, ron, pon, kan, chi, declare; the tile is
+//          the discard, the kong's kind, a chow's lowest tile, or (ron, pon, kan) the claimed tile; tsumo, pass and
+//          declare (a ready hand, docs/rules.md 5.1; the discard follows as its own action) have none. A chow also lists "tiles" (its three).
 // MELD     {"type": chi|pon|kan|ankan|kakan, "tile": T (a chow's lowest; null: another player's concealed kong),
 //          "tiles": [T...], "called": T (the claimed tile), "from": s}
 // DISCARD  {"tile": T, "drawn": bool (the tile just drawn, 摸切), "called": bool (taken by a meld)}
@@ -33,8 +33,10 @@
 //           "claim": {"seat": s, "tile": T, "rob_kong": bool}|null,
 //           "players": [{"melds": [MELD], "flowers": TILES, "discards": [DISCARD]} x4], "wall_left": n}
 //          On its own turn (claim null) the hand has 17 tiles less 3 per meld, 16 less 3 per meld otherwise.
-// EVENT    {"seat": s, "type": draw|flower|discard|chi|pon|kan|ankan|kakan|tsumo|ron|flower_win|exhausted,
-//           "tile": T|null}, plus "replacement" (draw), "drawn" (discard), "tiles" (chi). Others' draws and concealed
+//          A player that declared a ready hand also has "declared": tianting|diting; "declaring": true when the
+//          deciding seat has declared and its discard is due.
+// EVENT    {"seat": s, "type": draw|flower|discard|chi|pon|kan|ankan|kakan|tsumo|ron|flower_win|exhausted|declare,
+//           "tile": T|null}, plus "replacement" (draw), "drawn" (discard), "tiles" (chi), "declared" (declare). Others' draws and concealed
 //          kongs have tile null unless revealed.
 // RESULT   {"exhausted", "winners": [{"seat", "tai", "items": [{"item": PARAM, "name": 中文, "tai"}]}], "loser": s|-1,
 //           "win_tile": T|null, "self_draw", "flower_win", "dealer_tai", "points": [4] (base + tai, in tai, with the

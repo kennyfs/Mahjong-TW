@@ -22,16 +22,19 @@ string Action::toString() const {
     case PON: return "pon";
     case MINKAN: return "kan";
     case CHI: return "chi " + Tiles::toString(vector<int>{kind, kind + 1, kind + 2});
+    case DECLARE: return "declare";
     default: return "?";
   }
 }
 
 string Event::toString() const {
   static const char* const NAMES[] = {"draw", "flower", "discard", "chi", "pon", "kan", "ankan", "kakan",
-                                      "tsumo", "ron", "flower-win", "exhausted"};
+                                      "tsumo", "ron", "flower-win", "exhausted", "declare"};
   string s = "S" + Global::intToString(seat) + " " + NAMES[type];
   if(type == EXHAUSTED)
     return s;
+  if(type == DECLARE)
+    return s + (extra == 1 ? " tianting" : " diting");
   if(type == CHI)
     return s + " " + Tiles::name(tile) + " -> " + Tiles::toString(vector<int>{extra, extra + 1, extra + 2});
   s += " " + Tiles::name(tile);
@@ -238,6 +241,7 @@ Tai::WinInfo Game::winInfo(int s, int tile, bool selfDraw, bool robbedKong) cons
   w.heavenly = selfDraw && isDealer && !st.hasDiscarded && !st.declaredKong;
   w.earthly = selfDraw && !isDealer && st.draws == 1 && !st.hasDiscarded && !anyCall_ && !st.declaredKong;
   w.human = !selfDraw && !isDealer && !st.hasDiscarded && !anyCall_ && !robbedKong;
+  w.declared = st.declared;
   w.seatWind = seatWind(s);
   w.roundWind = setup_.roundWind;
   return w;
@@ -314,8 +318,28 @@ void Game::legalActions(int s, vector<Action>& out) const {
     return;
   const SeatState& st = seats_[s];
   if(phase_ == SELF) {
+    if(st.declaring) {
+      // The discard of a declaration leaves the hand ready.
+      Counts c = st.hand;
+      for(int k = 0; k < Tiles::NUM_KINDS; k++) {
+        if(c[k] == 0)
+          continue;
+        c[k]--;
+        if(Tai::waits(c, st.melds) != 0)
+          out.push_back(Action(Action::DISCARD, k));
+        c[k]++;
+      }
+      return;
+    }
     if(winTai(s) >= 0)
       out.push_back(Action(Action::TSUMO));
+    if(st.declared) {
+      // A locked hand: win, or discard the tile drawn.
+      out.push_back(Action(Action::DISCARD, drawn_));
+      return;
+    }
+    if(declareType(s) != 0)
+      out.push_back(Action(Action::DECLARE));
     if(!afterCall_ && wallLeft() >= 1) {
       for(int k = 0; k < Tiles::NUM_KINDS; k++)
         if(st.hand[k] == 4)
@@ -332,7 +356,7 @@ void Game::legalActions(int s, vector<Action>& out) const {
   int t = claimTile_;
   if(canRon_[s])
     out.push_back(Action(Action::RON, t));
-  if(phase_ == REACT && !claimLast_) {
+  if(phase_ == REACT && !claimLast_ && !st.declared) {
     if(st.hand[t] >= 2)
       out.push_back(Action(Action::PON, t));
     if(st.hand[t] >= 3)
@@ -408,7 +432,14 @@ void Game::act(int s, const Action& a) {
           resolveRob();
         return;
       }
+      case Action::DECLARE: {
+        st.declared = (uint8_t)declareType(s);
+        st.declaring = true;
+        log(Event::DECLARE, s, 0, st.declared);
+        return;
+      }
       case Action::DISCARD: {
+        st.declaring = false;
         st.hand[a.kind]--;
         Discard d;
         d.kind = a.kind;
@@ -436,6 +467,35 @@ void Game::act(int s, const Action& a) {
     resolveReact();
   else
     resolveRob();
+}
+
+int Game::declareType(int s) const {
+  const SeatState& st = seats_[s];
+  if(phase_ != SELF || s != cur_ || st.declared || st.hasDiscarded || anyCall_ || !st.melds.empty())
+    return 0;
+  if(rules_.tianting <= 0 && rules_.diting <= 0)
+    return 0;
+  // Ready after some discard. 天聽: the dealer, or a player whose dealt tiles were ready before the first draw;
+  // 地聽: another player whose first discard leaves the hand ready. Nobody has called so far.
+  bool ready = false;
+  Counts c = st.hand;
+  for(int k = 0; k < Tiles::NUM_KINDS && !ready; k++) {
+    if(c[k] == 0)
+      continue;
+    c[k]--;
+    ready = Tai::waits(c, st.melds) != 0;
+    c[k]++;
+  }
+  if(!ready)
+    return 0;
+  bool heavenly = s == setup_.dealer;
+  if(!heavenly && drawn_ >= 0) {
+    c[drawn_]--;
+    heavenly = Tai::waits(c, st.melds) != 0;
+    c[drawn_]++;
+  }
+  int type = heavenly ? 1 : 2;
+  return (type == 1 ? rules_.tianting : rules_.diting) > 0 ? type : 0;
 }
 
 void Game::afterDiscard(int d, int kind) {
@@ -659,6 +719,7 @@ Position Game::positionOf(int s) const {
   if(phase_ == SELF && cur_ == s) {
     p.drawn = drawn_;
     p.afterCall = afterCall_;
+    p.declaring = seats_[s].declaring;
   }
   else if((phase_ == REACT || phase_ == ROB_KONG) && s != claimSeat_) {
     p.claimSeat = claimSeat_;
@@ -674,6 +735,7 @@ Position Game::positionOf(int s) const {
           m.kind = m.called = Position::UNKNOWN;
     pl.flowers = seats_[q].flowers;
     pl.discards = seats_[q].discards;
+    pl.declared = seats_[q].declared;
   }
   p.wallLeft = wallLeft();
   return p;
@@ -695,6 +757,7 @@ void Game::loadPosition(const Position& p, Rand& rand) {
     seats_[s].melds = pl.melds;
     seats_[s].flowers = pl.flowers;
     seats_[s].discards = pl.discards;
+    seats_[s].declared = pl.declared;
     if(flowersShown & pl.flowers)
       throw StringError("A flower shown twice");
     flowersShown |= pl.flowers;
@@ -789,6 +852,7 @@ void Game::loadPosition(const Position& p, Rand& rand) {
   }
   if(!react) {
     enterSelf(p.me, p.drawn, p.afterCall);
+    seats_[p.me].declaring = p.declaring && seats_[p.me].declared != 0;
     return;
   }
   cur_ = p.claimSeat;

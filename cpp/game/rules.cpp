@@ -55,6 +55,9 @@ const vector<Rules::Param>& Rules::params() {
     {"keep", &Rules::keep, nullptr},
     {"min_tai", &Rules::minTai, nullptr},
     {"duting_loose", &Rules::dutingLoose, nullptr},
+    // Added later, at the end: the networks take the parameters in this order.
+    {"tianting", &Rules::tianting, nullptr},
+    {"diting", &Rules::diting, nullptr},
   };
   return PARAMS;
 }
@@ -100,6 +103,7 @@ void Rules::applyPreset(const string& name) {
     pengpenghu = sananke = sianke = wuanke = hunyise = ziyise = 0;
     qianggang = gangshang = haidi = hedi = tianhu = dihu = renhu = 0;
     anyWind = noHonorFlower = kongTai = ankongTai = 0;
+    tianting = diting = 0;
     if(name == "simple1") {
       // Southern Taiwan: dealer, streak and self-draw only; base 2 tai; 截胡.
       streak = 1;
@@ -139,6 +143,8 @@ void Rules::applyPreset(const string& name) {
     qianggang = gangshang = haidi = hedi = 1;
     tianhu = 24;
     dihu = 16;
+    tianting = 8;
+    diting = 4;
     if(name == "masters") {
       quanqiuDuting = 1;
       banqiu = 1;

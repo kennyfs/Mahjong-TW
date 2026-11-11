@@ -33,6 +33,7 @@ namespace {
     win.concealed = hand;
     win.melds = melds;
     win.flowers = game.seat(seat).flowers;
+    win.declared = game.seat(seat).declared;
     win.seatWind = game.seatWind(seat);
     win.roundWind = game.setup().roundWind;
     double ronSum = 0, tsumoSum = 0, ronPlain = 0, tsumoPlain = 0;
@@ -320,7 +321,8 @@ void Features::observation(const Game& game, int me, float* kind, float* seats, 
       c[k]--;
       uint64_t mask;
       int u = improving(c, numSets, visible, s[k], &mask);
-      f[KO_CAN_DISCARD] = 1.0f;
+      if(legalOut[Learn::A_DISCARD + k])
+        f[KO_CAN_DISCARD] = 1.0f;
       oneHotShanten(f + KO_DISCARD_SHANTEN, s[k]);
       if(s[k] == bestS) {
         f[KO_DISCARD_BEST] = 1.0f;
@@ -369,6 +371,15 @@ void Features::observation(const Game& game, int me, float* kind, float* seats, 
         float* g = special(Learn::A_TSUMO);
         g[GA_LEGAL] = 1.0f;
         g[GA_READY + 2] = taiFeature(max(0, game.winTai(me)));
+      }
+      else if(a.type == Action::DECLARE) {
+        // Ready after it; the tai the declaration adds to a win, in both slots.
+        float* g = special(Learn::A_DECLARE);
+        g[GA_LEGAL] = 1.0f;
+        oneHotShanten(g + GA_SHANTEN, 0);
+        const float v = taiFeature(game.declareType(me) == 1 ? rules.tianting : rules.diting);
+        g[GA_READY + 1] = v;
+        g[GA_READY + 2] = v;
       }
     }
   }
@@ -516,6 +527,8 @@ void Features::observation(const Game& game, int me, float* kind, float* seats, 
       f[SO_TURN] = 1.0f;
     if(self && p == game.current())
       f[SO_TURN + 1] = 1.0f;
+    if(sp.declared)
+      f[SO_DECLARED + sp.declared - 1] = 1.0f;
   }
 
   // ----- The table and the rules -----

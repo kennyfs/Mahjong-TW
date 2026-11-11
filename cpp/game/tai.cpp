@@ -23,7 +23,7 @@ const char* const Tai::NAMES[Tai::NUM_ITEMS] = {
   "莊家", "連莊拉莊", "門清", "自摸", "不求人", "獨聽", "平胡", "全求人", "半求", "圈風", "門風", "三元牌",
   "小三元", "大三元", "小四喜", "大四喜", "碰碰胡", "三暗刻", "四暗刻", "五暗刻", "混一色", "清一色", "字一色",
   "搶槓", "槓上開花", "海底撈月", "河底撈魚", "天胡", "地胡", "人胡", "見風見台", "無字無花", "明槓", "暗槓",
-  "花牌", "花槓", "八仙過海", "七搶一",
+  "花牌", "花槓", "八仙過海", "七搶一", "天聽", "地聽",
 };
 
 const char* const Tai::PARAM_NAMES[Tai::NUM_ITEMS] = {
@@ -31,6 +31,7 @@ const char* const Tai::PARAM_NAMES[Tai::NUM_ITEMS] = {
   "seat_wind", "dragon", "xiaosanyuan", "dasanyuan", "xiaosixi", "dasixi", "pengpenghu", "sananke", "sianke", "wuanke",
   "hunyise", "qingyise", "ziyise", "qianggang", "gangshang", "haidi", "hedi", "tianhu", "dihu", "renhu", "any_wind",
   "no_honor_flower", "kong_tai", "ankong_tai", "flower_tai", "flower_set", "eight_flowers", "seven_rob_one",
+  "tianting", "diting",
 };
 
 string Tai::Result::toString() const {
@@ -185,6 +186,10 @@ Tai::Result Tai::compute(const Rules& r, const WinInfo& w) {
         s.add(DIHU, r.dihu);
       else if(renhu)
         s.add(RENHU, r.renhu);
+      if(w.declared == 1)
+        s.add(TIANTING, r.tianting);
+      else if(w.declared == 2)
+        s.add(DITING, r.diting);
       if(!tianhu && !dihu && !renhu && menqing)
         s.add(MENQING, r.menqing);
       if(!tianhu && !dihu && w.selfDraw)

@@ -178,3 +178,13 @@ slope 0.99 against the realized one (0.34 against 1.19 points in size, so it exp
 exported policy is 0.022 in KL from the playing one, and better by 0.0010 points a decision by the critic's
 values. Training an iteration takes 130 seconds (6,100 samples a second), fetching it 140 (at 200 KiB/s), playing
 it 450: the GPU idles two thirds of the time.
+
+## A change of the features: version 2 (declared ready hands)
+
+Features version 2 (2026-11-11) adds the action `declare`, two features of a seat, two rules and two tai items.
+`python/upgrade_features.py OLD.pt NEW.pt [--export NEW.onnx]` takes a checkpoint of version 1 over: the new inputs
+get weights of zero, so the network computes exactly what it did on every old position (checked on a stage 0
+network: the largest difference of any output is 0), the new action starts from the embedding of `tsumo`, and the
+optimizer's statistics stay. Self-play files, the data library and the `.onnx` networks of the two versions do not
+mix: a run is taken over as a whole (its newest checkpoints and the earlier networks it plays against).
+

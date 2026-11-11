@@ -138,8 +138,9 @@ randomization); 5.2 goes through its methods one by one.
    and, as an option, the result of the hand if everybody played `greedy` from here (one playout, about a
    millisecond), a strong hint of where the wall leads.
 3. **Actions**: per kind, discard and kong (concealed or added: at most one applies to a kind); and win by
-   self-draw, win on a discard (or a robbed kong), pass, pung, exposed kong and chow in its three positions. 76
-   outputs, masked by legality. A decision with one legal action never reaches the network.
+   self-draw, win on a discard (or a robbed kong), pass, pung, exposed kong, chow in its three positions, and
+   declaring a ready hand (docs/rules.md 5.1; the discard that goes with it is the next decision). 77 outputs,
+   masked by legality. A decision with one legal action never reaches the network.
 4. **Outcome events** of a hand for one seat: it wins by self-draw; it wins on seat j's discard; seat j wins on its
    discard; seat j wins by self-draw (ten events, not exclusive when several players win on a discard), with the tai
    of each winning hand. The seat's result follows exactly: every payment is the base, plus the winner's tai, plus

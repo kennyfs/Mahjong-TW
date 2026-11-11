@@ -324,6 +324,113 @@ static void testGames() {
 }
 
 
+// Declared ready hands (docs/rules.md 6): a wall dealt by hand. The dealer (S0) is ready after a discard (天聽), S1's
+// dealt tiles are ready (天聽), S2 becomes ready with its first discard (地聽); S3 declares nothing.
+static void testDeclare() {
+  const char* hands[4] = {"123456789m123p4599s1z", "234567789p23478s55z", "333444666777z56p8m9p",
+                          "2255m3388p115566s22z"};
+  auto buildWall = [&](const Rules& rules) {
+    vector<vector<int>> h;
+    for(int s = 0; s < 4; s++)
+      h.push_back(Tiles::parse(hands[s]));
+    testAssert(h[0].size() == 17 && h[1].size() == 16 && h[2].size() == 16 && h[3].size() == 16);
+    vector<uint8_t> wall;
+    Counts used{};
+    auto put = [&](int t) {
+      wall.push_back((uint8_t)t);
+      used[t]++;
+    };
+    for(int round = 0; round < 4; round++)
+      for(int s = 0; s < 4; s++)
+        for(int j = 0; j < 4; j++)
+          put(h[s][round * 4 + j]);
+    put(h[0][16]);
+    // The draws: S1 2z, S2 8m, S3 9m, S0 7z, S1 6s.
+    for(int t : Tiles::parse("2z8m9m7z6s"))
+      put(t);
+    for(int k = 0; k < Tiles::NUM_KINDS; k++)
+      for(int n = used[k]; n < 4; n++)
+        wall.push_back((uint8_t)k);
+    testAssert((int)wall.size() == rules.numTiles());
+    return wall;
+  };
+  auto has = [](const vector<Action>& legal, Action::Type t) {
+    for(const Action& a : legal)
+      if(a.type == t)
+        return true;
+    return false;
+  };
+  auto passAll = [](Game& g) {
+    while(g.phase() == Game::REACT && !g.pending().empty())
+      g.act(g.pending()[0], Action(Action::PASS));
+  };
+  const int z = Tiles::parse("1z")[0];
+  vector<Action> legal;
+
+  Rules rules = Rules::parse("standard,none");
+  testAssert(rules.tianting == 8 && rules.diting == 4 && Rules::parse("masters").tianting == 8);
+  testAssert(Rules::parse("simple1").tianting == 0 && Rules::parse("simple2").diting == 0);
+  Game g(rules);
+  HandSetup setup;
+  g.start(setup, buildWall(rules));
+  // The dealer declares; its discard must leave the hand ready.
+  testAssert(g.declareType(0) == 1);
+  g.legalActions(0, legal);
+  testAssert(has(legal, Action::DECLARE));
+  g.act(0, Action(Action::DECLARE));
+  testAssert(g.seat(0).declared == 1 && g.seat(0).declaring && g.pending() == vector<int>{0});
+  testAssert(g.positionOf(0).declaring);
+  g.legalActions(0, legal);
+  testAssert(legal.size() == 1 && legal[0] == Action(Action::DISCARD, z));
+  g.act(0, legal[0]);
+  testAssert(!g.seat(0).declaring);
+  passAll(g);
+  // S1: ready as dealt.
+  testAssert(g.current() == 1 && g.declareType(1) == 1);
+  g.act(1, Action(Action::DECLARE));
+  g.legalActions(1, legal);
+  testAssert(legal.size() == 1 && legal[0] == Action(Action::DISCARD, z + 1));
+  g.act(1, legal[0]);
+  passAll(g);
+  // S2: ready only after its first draw and discard.
+  testAssert(g.current() == 2 && g.declareType(2) == 2);
+  g.act(2, Action(Action::DECLARE));
+  g.legalActions(2, legal);
+  testAssert(legal.size() == 1 && legal[0] == Action(Action::DISCARD, Tiles::parse("9p")[0]));
+  g.act(2, legal[0]);
+  passAll(g);
+  testAssert(g.positionOf(3).players[2].declared == 2 && g.positionOf(3).players[1].declared == 1);
+  // S3 cannot be ready; its 9m is not for the dealer, whose hand is locked (no chow).
+  testAssert(g.current() == 3 && g.declareType(3) == 0);
+  g.legalActions(3, legal);
+  testAssert(!has(legal, Action::DECLARE));
+  g.act(3, Action(Action::DISCARD, Tiles::parse("9m")[0]));
+  // The dealer draws 7z: nothing but to discard it. S2 holds three of them and cannot call either.
+  testAssert(g.phase() == Game::SELF && g.current() == 0);
+  g.legalActions(0, legal);
+  testAssert(legal.size() == 1 && legal[0] == Action(Action::DISCARD, z + 6));
+  g.act(0, legal[0]);
+  testAssert(g.phase() == Game::SELF && g.current() == 1);
+  // S1 draws its 6s.
+  g.legalActions(1, legal);
+  testAssert(legal.size() == 2 && has(legal, Action::TSUMO) && has(legal, Action::DISCARD));
+  g.act(1, Action(Action::TSUMO));
+  ostringstream out;
+  out << g.result().toString(rules.base) << endl;
+
+  // With the items off nobody can declare.
+  for(const char* spec : {"simple2,none", "standard,none,tianting=0"}) {
+    Rules r = Rules::parse(spec);
+    Game g2(r);
+    g2.start(setup, buildWall(r));
+    testAssert(g2.declareType(0) == 0);
+    g2.legalActions(0, legal);
+    testAssert(!has(legal, Action::DECLARE));
+  }
+  cout << out.str();
+  cout << "declare ok" << endl;
+}
+
 // The GUI engine: records replay to the same hand; a seat's view hides what it cannot see; a position taken from a
 // game and loaded back gives the seat the same choices and figures.
 static void testGuiEngine() {
@@ -455,6 +562,7 @@ void Tests::runAll() {
   testTai();
   cout << "tai ok" << endl;
   testGames();
+  testDeclare();
   cout << "games ok" << endl;
   testGuiEngine();
   cout << "gui engine ok" << endl;

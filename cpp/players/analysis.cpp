@@ -35,6 +35,7 @@ namespace {
       win.concealed[k]++;
       win.melds = melds;
       win.flowers = ctx.st.flowers;
+      win.declared = ctx.st.declared;
       win.winTile = k;
       win.seatWind = ctx.game.seatWind(ctx.seat);
       win.roundWind = ctx.game.setup().roundWind;
@@ -123,6 +124,7 @@ vector<Analysis::ActionInfo> Analysis::efficiency(const Game& game, int seat) {
         break;
       }
       case Action::PASS:
+      case Action::DECLARE:
         ready(ctx, hand, melds, info);
         break;
       case Action::PON: {

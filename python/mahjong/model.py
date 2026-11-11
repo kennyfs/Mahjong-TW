@@ -12,7 +12,7 @@ The 38 tokens go through a small Transformer. Nothing in the inputs names a suit
 only a kind's type (number tile of some rank, wind, dragon) and an attention bias by how two tokens relate (same
 suit and the distance in rank, and so on), so exchanging suits changes nothing.
 
-Heads. Per action (76: discard and kong per kind, 8 special ones), from the kind's token or from the deciding seat's
+Heads. Per action (77: discard and kong per kind, 9 special ones), from the kind's token or from the deciding seat's
 context: a policy logit (from a head of its own); the logits of 17 outcome events (the ten of my own result in the order of
 cpp/learn/outcome.h, the six among the other seats, the exhaustive draw); and for each of my ten events the tai of
 its winner, given that it happens. The expected result of an action is composed from these exactly by the rules'
@@ -30,15 +30,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-FEATURES_VERSION = 1
+FEATURES_VERSION = 2
 NUM_KINDS = 34
 NUM_SEATS = 4
 NUM_TOKENS = NUM_KINDS + NUM_SEATS
-NUM_ACTIONS = 76
+NUM_ACTIONS = 77
 A_KONG = 34
 A_SPECIAL = 68
-NUM_SPECIAL = 8
-SPECIAL_NAMES = ("tsumo", "ron", "pass", "pon", "minkan", "chi_low", "chi_mid", "chi_high")
+NUM_SPECIAL = 9
+SPECIAL_NAMES = ("tsumo", "ron", "pass", "pon", "minkan", "chi_low", "chi_mid", "chi_high", "declare")
 # Outcome events (cpp/learn/outcome.h): bit 4 w + p of a sample's events is "the seat w places after me wins from
 # the seat p places after me" (p == w: by self-draw).
 NUM_EVENTS = 10
@@ -56,7 +56,7 @@ KO_CLAIM = 5
 # Training-only heads.
 PAIR_OUT = 9          # per (seat, kind): danger, its tai, copies held (5 classes), next discard, winning tile
 SEAT_OUT = 10         # per seat: from ready (4 classes), shanten at the end (5 classes), no winning tile
-NUM_TAI_ITEMS = 38
+NUM_TAI_ITEMS = 40
 TAI_CLASSES = 33      # my win's tai, 0 to 32 or more
 ME_OUT = NUM_TAI_ITEMS + TAI_CLASSES + 4 + 1  # items, tai, ready within 1, 2, 4, 8 draws, draws left
 DRAWS_SCALE = 40.0
@@ -77,8 +77,8 @@ class ModelConfig:
     # The sizes of the inputs, from the data library (Features::VERSION and its sizes).
     features: int = FEATURES_VERSION
     kind_obs: int = 93
-    seat_obs: int = 26
-    global_obs: int = 158
+    seat_obs: int = 28
+    global_obs: int = 171
     kind_full: int = 34
     seat_full: int = 15
     global_full: int = 1
@@ -156,7 +156,7 @@ class Block(nn.Module):
 
 
 class ActionHead(nn.Module):
-    """A vector per action (76): discard and kong from the kind's token, the eight special actions from their
+    """A vector per action (77): discard and kong from the kind's token, the nine special actions from their
     features in the global vector; all of them with the deciding seat's context (its token, the tokens of the tile
     on offer and of the tile drawn, the mean over the kinds)."""
 
@@ -174,7 +174,7 @@ class ActionHead(nn.Module):
         self.special_out = nn.Linear(width, out)
 
     def forward(self, h, kind, glob):
-        """-> (per action [B, 76, out], the context [B, width])."""
+        """-> (per action [B, 77, out], the context [B, width])."""
         b = h.shape[0]
         hk, me = h[:, :NUM_KINDS], h[:, NUM_KINDS]
         claim = (kind[:, :, KO_CLAIM:KO_CLAIM + 1] * hk).sum(dim=1)
@@ -300,7 +300,7 @@ class MahjongNet(nn.Module):
     def forward(self, kind, seat, glob, detach_policy=False):
         """Everything, as a dict (the trainers' form).
 
-        policy [B, 76] logits; outcomes [B, 76, 17] logits; tai [B, 76, 10]; pair [B, 4, 34, PAIR_OUT];
+        policy [B, 77] logits; outcomes [B, 77, 17] logits; tai [B, 77, 10]; pair [B, 4, 34, PAIR_OUT];
         seats [B, 4, SEAT_OUT]; chow [B, 34] logits; me [B, ME_OUT]; trunk [B, 38, d]. With detach_policy the
         policy head reads the trunk without sending gradients into it.
         """

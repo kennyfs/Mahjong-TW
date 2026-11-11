@@ -155,3 +155,14 @@ The answer is a function of the request line, so the embedding is a few lines, a
   `server/.../EnginePool.kt`, and `protocol/.../GameEngine.kt` for the requests a room makes).
 
 Requests are built by the client from checked values; nothing a remote player sends reaches the engine as text.
+
+## Declared ready hands
+
+Under rules with `tianting` or `diting` (docs/rules.md 5.1) a seat's actions on its first turn may include
+`{"type":"declare"}` (in a record: `[seat,"declare"]`). After it the same seat decides again, and its only actions
+are the discards that leave the hand ready. The event is `{"seat":s,"type":"declare","tile":null,"declared":
+"tianting"|"diting"}`. In a position, a player that has declared carries `"declared":"tianting"|"diting"`, and
+`"declaring":true` says that the deciding seat has declared and still owes the discard; the `tai` request takes
+`"declared"` as well. A declared seat is only asked about a discard it can win on, and on its own turn it has one
+discard (the tile drawn) besides a win.
+

@@ -13,10 +13,10 @@ using json = nlohmann::json;
 // Pieces
 
 static const char* const ACTION_NAMES[Action::NUM_TYPES] = {"discard", "tsumo", "ankan", "kakan", "pass",
-                                                            "ron",     "pon",   "kan",   "chi"};
+                                                            "ron",     "pon",   "kan",   "chi", "declare"};
 static const char* const MELD_NAMES[5] = {"chi", "pon", "kan", "ankan", "kakan"};
 static const char* const EVENT_NAMES[] = {"draw", "flower", "discard", "chi",  "pon",        "kan",
-                                          "ankan", "kakan", "tsumo",   "ron",  "flower_win", "exhausted"};
+                                          "ankan", "kakan", "tsumo",   "ron",  "flower_win", "exhausted", "declare"};
 static const char* const PHASE_NAMES[] = {"self", "react", "rob_kong", "over"};
 
 static json tileJson(int t) { return t < 0 || t >= Tiles::NUM_ALL ? json(nullptr) : json(Tiles::name(t)); }
@@ -157,7 +157,7 @@ static json eventJson(const Event& e, int viewer, bool reveal) {
   j["seat"] = e.seat;
   j["type"] = EVENT_NAMES[e.type];
   bool hidden = !reveal && e.seat != viewer && (e.type == Event::DRAW || e.type == Event::ANKAN);
-  if(e.type == Event::EXHAUSTED || e.type == Event::FLOWER_WIN || hidden)
+  if(e.type == Event::EXHAUSTED || e.type == Event::FLOWER_WIN || e.type == Event::DECLARE || hidden)
     j["tile"] = nullptr;
   else
     j["tile"] = Tiles::name(e.tile);
@@ -165,6 +165,8 @@ static json eventJson(const Event& e, int viewer, bool reveal) {
     j["replacement"] = e.extra != 0;
   if(e.type == Event::DISCARD)
     j["drawn"] = e.extra != 0;
+  if(e.type == Event::DECLARE)
+    j["declared"] = e.extra == 1 ? "tianting" : "diting";
   if(e.type == Event::CHI)
     j["tiles"] = json::array({Tiles::name(e.extra), Tiles::name(e.extra + 1), Tiles::name(e.extra + 2)});
   return j;
@@ -217,6 +219,7 @@ json GuiJson::action(const Action& a, int claimTile) {
   switch(a.type) {
     case Action::TSUMO:
     case Action::PASS:
+    case Action::DECLARE:
       break;
     case Action::RON:
     case Action::PON:
@@ -254,6 +257,8 @@ json GuiJson::position(const Position& p) {
   j["hand"] = Tiles::toString(p.hand);
   j["drawn"] = tileJson(p.drawn);
   j["after_call"] = p.afterCall;
+  if(p.declaring)
+    j["declaring"] = true;
   if(p.claimSeat >= 0)
     j["claim"] = json{{"seat", p.claimSeat}, {"tile", tileJson(p.claimTile)}, {"rob_kong", p.robKong}};
   else
@@ -266,7 +271,10 @@ json GuiJson::position(const Position& p) {
       melds.push_back(meldJson(m));
     for(const Discard& d : pl.discards)
       discards.push_back(discardJson(d));
-    players.push_back(json{{"melds", melds}, {"flowers", flowersString(pl.flowers)}, {"discards", discards}});
+    json player{{"melds", melds}, {"flowers", flowersString(pl.flowers)}, {"discards", discards}};
+    if(pl.declared)
+      player["declared"] = pl.declared == 1 ? "tianting" : "diting";
+    players.push_back(player);
   }
   j["players"] = players;
   j["wall_left"] = p.wallLeft;
@@ -282,6 +290,7 @@ Position GuiJson::parsePosition(const json& j) {
   if(p.drawn >= 0 && p.hand[p.drawn] == 0)
     throw StringError("The drawn tile must be in the hand");
   p.afterCall = getBool(j, "after_call");
+  p.declaring = getBool(j, "declaring");
   if(j.contains("claim") && !j["claim"].is_null()) {
     const json& c = j["claim"];
     p.claimSeat = c.at("seat").get<int>();
@@ -298,6 +307,8 @@ Position GuiJson::parsePosition(const json& j) {
         for(const json& m : ps[s]["melds"])
           pl.melds.push_back(parseMeld(m));
       pl.flowers = parseFlowers(getString(ps[s], "flowers", ""));
+      const string declared = getString(ps[s], "declared", "");
+      pl.declared = declared == "tianting" ? 1 : declared == "diting" ? 2 : 0;
       if(ps[s].contains("discards"))
         for(const json& d : ps[s]["discards"])
           pl.discards.push_back(parseDiscard(d));
@@ -345,7 +356,7 @@ GuiJson::Record GuiJson::parseRecord(const json& j) {
 static Action normalized(const Game& game, Action a) {
   if(a.type == Action::RON || a.type == Action::PON || a.type == Action::MINKAN)
     a.kind = (uint8_t)game.claimTile();
-  if(a.type == Action::TSUMO || a.type == Action::PASS)
+  if(a.type == Action::TSUMO || a.type == Action::PASS || a.type == Action::DECLARE)
     a.kind = 0;
   return a;
 }
@@ -474,6 +485,8 @@ json GuiEngine::handle(const json& req) {
     w.lastTile = getBool(req, "last");
     w.replacement = getBool(req, "replacement");
     w.heavenly = getBool(req, "heavenly");
+    const string declared = getString(req, "declared", "");
+    w.declared = declared == "tianting" ? 1 : declared == "diting" ? 2 : 0;
     w.earthly = getBool(req, "earthly");
     w.human = getBool(req, "human");
     w.seatWind = getInt(req, "seat_wind", 0);

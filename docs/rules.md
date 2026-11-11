@@ -85,6 +85,23 @@ Terms used throughout:
 5. A win needs at least `min_tai` tai (default 0: a win without tai, 屁胡, is allowed). Winning is always optional.
 6. A hand without a winner when the wall ends (3.4) is an exhaustive draw (流局). Nobody pays.
 
+### 5.1 Declared ready hands (天聽, 地聽)
+
+With `tianting` or `diting` above 0 (`standard` and `masters`: 8 and 4; added 2026-11-11), a player may declare a
+ready hand on their first turn:
+
+1. **When:** on one's own turn, before one's first discard, if nobody has made a chow, a pung or an exposed kong so
+   far, the player has declared no kong, and some discard leaves the hand ready (waiting on at least one kind the
+   player does not hold all four of).
+2. **Which:** 天聽 for the dealer, and for another player whose sixteen dealt tiles (after the flowers were replaced)
+   were already ready before the first draw; 地聽 for another player who becomes ready only with the first draw and
+   discard. Each can be declared only when its own item is above 0.
+3. **How:** the player declares, then discards a tile that leaves the hand ready (any such tile). The declaration is
+   public. It is optional.
+4. **After it** the hand is locked: the player discards every tile drawn, declares no kong and claims no discard
+   except to win. Winning stays optional, and the missed-win rule (5.4) applies as usual.
+5. A win of a declared hand adds the item's tai to everything else it scores.
+
 ## 6. The hand's end and the next dealer
 
 1. If the dealer wins, the dealer keeps the deal and the streak grows by one.
@@ -112,7 +129,7 @@ Points are zero-sum. Results are reported in tai, so `base` only changes how a b
 
 ## 8. Not implemented
 
-Declared ready hands (天聽, 地聽/MIGI, 宣告聽牌), 嚦咕嚦咕, special draws (four kongs, four winds), penalties (詐胡,
+Declaring a ready hand later than the first turn (宣告聽牌), 嚦咕嚦咕, special draws (four kongs, four winds), penalties (詐胡,
 相公), dora and other online-only items (寶牌, 一發, 斷么九, …).
 
 ## 9. Scoring: tai (台數)
@@ -166,6 +183,8 @@ The columns are the tai presets (section 11), listed in this order:
 | 天胡 Heavenly hand | `tianhu` | 0 | 0 | 24 | 16 | The dealer wins before their first discard (without a kong). Replaces concealed and self-draw. |
 | 地胡 Earthly hand | `dihu` | 0 | 0 | 16 | 16 | Another player self-draws on their first draw, with no chow, pung or kong so far. Replaces concealed and self-draw. |
 | 人胡 Human hand | `renhu` | 0 | 0 | 0 | 16 | Another player wins on a discard before their first discard, with no chow, pung or kong so far. Replaces concealed. |
+| 天聽 Declared ready, heavenly | `tianting` | 0 | 0 | 8 | 8 | Section 5.1. |
+| 地聽 Declared ready, earthly | `diting` | 0 | 0 | 4 | 4 | Section 5.1. |
 | 見風見台 Any wind pung | `any_wind` | 0 | 1 | 0 | 0 | Per wind pung, instead of 圈風 and 門風 (明星3缺1's 見花見字 option). |
 | 無字無花 No honors, no flowers | `no_honor_flower` | 0 | 0 | 0 | 0 | (見花見字 option.) |
 | 明槓 Kong | `kong_tai` | 0 | 0 | 0 | 0 | Per exposed or added kong (見花見字 option). |

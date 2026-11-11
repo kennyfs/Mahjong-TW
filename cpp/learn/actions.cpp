@@ -15,6 +15,7 @@ int Learn::actionIndex(const Game& game, const Action& a) {
     case Action::PON: return A_PON;
     case Action::MINKAN: return A_MINKAN;
     case Action::CHI: return A_CHI + (game.claimTile() - a.kind);
+    case Action::DECLARE: return A_DECLARE;
     default: break;
   }
   ASSERT_UNREACHABLE;

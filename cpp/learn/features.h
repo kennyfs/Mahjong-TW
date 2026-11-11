@@ -10,7 +10,7 @@
 // the players (round wind, somebody's seat wind), and the network adds the kind's type and rank by position, so
 // exchanging suits changes nothing.
 namespace Features {
-  constexpr int VERSION = 1;
+  constexpr int VERSION = 2;  // 2: declared ready hands (an action, two seat features, two rules, two tai items)
   constexpr int NUM_KINDS = Tiles::NUM_KINDS;
   constexpr int NUM_SEATS = 4;
 
@@ -54,7 +54,8 @@ namespace Features {
     SO_TSUMOGIRI,                // 2: the last discard came straight from the draw; how many in a row / 5
     SO_CALL = SO_TSUMOGIRI + 2,  // 2: has called; discards since its last call / 10
     SO_TURN = SO_CALL + 2,       // 2: discarded the tile on offer; is on turn
-    SEAT_OBS = SO_TURN + 2
+    SO_DECLARED = SO_TURN + 2,   // 2: declared 天聽, 地聽 (its hand is locked)
+    SEAT_OBS = SO_DECLARED + 2
   };
 
   // ----- The global vector, observation -----

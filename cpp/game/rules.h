@@ -52,6 +52,8 @@ struct Rules {
   int noHonorFlower = 0;
   int kongTai = 0;
   int ankongTai = 0;
+  int tianting = 0;  // 天聽 (0: it cannot be declared)
+  int diting = 0;    // 地聽
 
   // --- Play ---
   double base = 2.0;

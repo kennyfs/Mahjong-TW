@@ -182,7 +182,7 @@ int Learn::Symmetry::action(int index, int claimTile) const {
     return A_DISCARD + tile(index - A_DISCARD);
   if(index < A_TSUMO)
     return A_KONG + tile(index - A_KONG);
-  if(index >= A_CHI && claimTile >= 0 && claimTile < 27) {
+  if(index >= A_CHI && index < A_CHI + 3 && claimTile >= 0 && claimTile < 27) {
     // The claimed tile is already transformed: find the suit it came from.
     int to = claimTile / 9;
     for(int s = 0; s < 3; s++)
