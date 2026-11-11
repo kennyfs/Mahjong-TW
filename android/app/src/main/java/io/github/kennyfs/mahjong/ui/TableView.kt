@@ -2,6 +2,11 @@ package io.github.kennyfs.mahjong.ui
 
 import androidx.compose.ui.platform.testTag
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,9 +49,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -74,6 +85,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import io.github.kennyfs.mahjong.TileMark
+import kotlinx.coroutines.delay
 import kotlin.math.floor
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -91,16 +103,22 @@ private class Shown(val counts: List<Int>, val flowers: Int, val concealed: Int)
 
 /**
  * The table as one seat sees it (a seat's `view`): the player at the bottom with their hand, the others around, the
- * rivers in the middle around a box with the round, the wall and the streak. Sizes from TableLayout (the web page's
- * Table.svelte, the same arithmetic).
+ * rivers in the middle. A wide table has the round, the wall and the dealer's streak in its top-left corner and the
+ * screen's `corner` (its buttons) in its top-right one, nothing between the rivers; a tall one has them in a box
+ * between the rivers. Sizes from TableLayout (the web page's Table.svelte, the same arithmetic).
+ *
+ * The player's turn to discard: the hand in a pulsing frame of the turn's color, and with no tile drawn (the dealer's
+ * first discard, after a call) its last tile set apart as a drawn one is. A discard the player may claim stands out in
+ * its river (larger, pulsing), and the claim buttons show their tiles large, the claimed one lit. A wide table's own
+ * flowers lie over the hand, above the player's name plate (in the hand's row they took its room: a drawn tile was
+ * squeezed small).
  *
  * `revealed`: every seat's concealed tiles (a finished hand, a replay showing all). The others' then lie on a rack (a
  * lighter strip) after their melds, their tiles as large as their room allows: the player opposite in one line along
  * the top of a wide table; on a tall one the others' strip grows for them (the rivers give the room).
- * `status`: beside the player's name plate (a battle's clock); `corner`: in the box (wide); `overlay`: over the table.
+ * `status`: beside the player's name plate (a battle's clock); `overlay`: over the table.
  * A review's: `marks` (tags and danger on the hand's tiles, Review.kt), `notes` (a few words on each name plate),
- * `strip` (a line over the hand: the options that are not discards, a tile's figures), `onPick` (the tile tapped), and
- * `clearCorner`: dp kept free at the top-left corner, where a button of the screen lies over the table.
+ * `strip` (a line over the hand: the options that are not discards, a tile's figures), `onPick` (the tile tapped).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -110,7 +128,7 @@ fun TableView(
   away: List<Boolean> = listOf(false, false, false, false),
   status: (@Composable () -> Unit)? = null, corner: (@Composable () -> Unit)? = null, overlay: (@Composable BoxScope.() -> Unit)? = null,
   marks: Map<String, TileMark>? = null, notes: List<SeatNote?>? = null, strip: (@Composable () -> Unit)? = null,
-  onPick: ((String?) -> Unit)? = null, clearCorner: Float = 0f,
+  onPick: ((String?) -> Unit)? = null,
 ) {
   val c = LocalTable.current
   val density = LocalDensity.current
@@ -157,10 +175,19 @@ fun TableView(
     val s = s0
     val meH = s.meH + extra
     fun plateH(side: Side) = plates[side]?.second ?: if (s.wide) 30f else 40f
-    /** What of `clearCorner` reaches into the table (the felt beside a narrower table holds the rest). */
-    val clear = maxOf(0f, clearCorner - maxOf(0f, (roomW - s.tableW) / 2))
-    /** The player's own name plate lies over the foot of the left column of a wide table: both columns end above it. */
-    val cornerH = if (s.wide) (plates[Side.BOTTOM]?.second ?: (s.font * density.fontScale * 1.7f + 8)) + 4 else 0f
+    // A wide table's corners: the round, the wall and the streak at the top-left; the screen's buttons at the
+    // top-right. The player opposite keeps between them; the side players start below them where they reach under
+    // the top row.
+    var infoSize by remember { mutableStateOf(0f to 0f) }
+    var cornerSize by remember { mutableStateOf(0f to 0f) }
+    val padL = if (s.wide) infoSize.first + 10 else 0f
+    val padR = if (s.wide && corner != null) cornerSize.first + 10 else 0f
+    val belowL = if (s.wide) maxOf(0f, infoSize.second + 8 - s.topH) else 0f
+    val belowR = if (s.wide && corner != null) maxOf(0f, cornerSize.second + 8 - s.topH) else 0f
+    /** The player's own name plate (with their flowers over it, and a battle's clock) lies over the foot of the left
+     *  column of a wide table: the column ends above it. The right one ends as high as the plate alone would be. */
+    val cornerR = if (s.wide) s.font * density.fontScale * 1.7f + 12 else 0f
+    val cornerH = if (s.wide) maxOf(cornerR, (plates[Side.BOTTOM]?.second ?: 0f) + 8) else 0f
     /** Whole pixels, so that a line of tiles is as wide as counted. */
     fun snap(w: Float) = floor(w * density.density) / density.density
 
@@ -177,12 +204,13 @@ fun TableView(
       // Wide: the concealed tiles' backs, when they are not shown, take their room first.
       val backs = if (revealed != null) 0 else concealedCount(view, seat)
       if (side == Side.TOP) {
-        val room = minOf(roomW, s.tableW) - 12 - clear - (plates[Side.TOP]?.first ?: 150f) - 14 - (if (backs > 0) backs * s.back + 10 else 0f)
+        val room = minOf(roomW, s.tableW) - 12 - padL - padR - (plates[Side.TOP]?.first ?: 150f) - 14 - (if (backs > 0) backs * s.back + 10 else 0f)
         return fitShownRow(o.counts, o.flowers, o.concealed, room, if (revealed != null) s.opp - 1.5f else s.opp)
       }
       val width = s.sideW - 13
       val backsH = if (backs > 0) runLines(backs, width, s.back) * s.back * TILE_RATIO + 4 else 0f
-      return fitShown(o.counts, o.flowers, o.concealed, width, roomH - s.topH - meH - cornerH - plateH(side) - 12 - backsH, s.opp)
+      val taken = if (side == Side.LEFT) cornerH + belowL else cornerR + belowR
+      return fitShown(o.counts, o.flowers, o.concealed, width, roomH - s.topH - meH - taken - plateH(side) - 12 - backsH, s.opp)
     }
 
     val lastDiscard = remember(view.events) {
@@ -193,12 +221,30 @@ fun TableView(
       }
       seat
     }
-    // The player's tiles: the drawn one apart.
+    // The player's tiles: the drawn one apart. With none drawn on the player's turn to discard (the dealer's first
+    // discard, after a call), the last one apart as a drawn one is: the hand says whose turn it is.
     val all = if (revealed != null) Tiles.parse(revealed[me]) else Tiles.parse(pos.hand)
-    val drawn = if (revealed == null && pos.drawn != null && view.phase == "self" && view.current == me) pos.drawn else null
-    val mine = Tiles.sort(if (drawn != null) Tiles.without(all, listOf(drawn)) else all)
+    val reallyDrawn = if (revealed == null && pos.drawn != null && view.phase == "self" && view.current == me) pos.drawn else null
+    val sorted = Tiles.sort(if (reallyDrawn != null) Tiles.without(all, listOf(reallyDrawn)) else all)
+    val apart = revealed == null && reallyDrawn == null && view.phase == "self" && view.current == me && sorted.size % 3 == 2
+    val mine = if (apart) sorted.dropLast(1) else sorted
+    val drawn = reallyDrawn ?: if (apart) sorted.last() else null
     val discardable = if (interactive && view.myTurn) view.legal.filter { it.type == "discard" }.mapNotNull { it.tile }.toSet() else emptySet()
     val claims = if (interactive && view.myTurn) view.legal.filter { it.type != "discard" } else emptyList()
+    /** The player's turn to discard: the hand's frame pulses. */
+    val myTurn = interactive && view.myTurn && discardable.isNotEmpty()
+    /** The tile the player may claim (a discard, or a kong's added tile), while they may: it stands out. */
+    val claimTile = if (claims.any { it.type != "pass" } && view.phase != "self") pos.claim?.tile else null
+    val claimSeat = if (claimTile != null && view.phase == "react") pos.claim?.seat ?: -1 else -1
+    val myFlowers = flowersOf(pos.players[me])
+    /** The player's melds: a wide table's in the hand's row, smaller when they would take the hand's room (kongs); a
+     *  tall one's in the line over the hand beside the name plate, smaller rather than in a second line. */
+    val myMeldW = run {
+      val counts = pos.players[me].melds.map { meldTiles(it).size }
+      if (counts.isEmpty()) s.meld
+      else if (s.wide) fitShownRow(counts, 0, 0, minOf(roomW, s.tableW) - 28 - (mine.size + 1 + DRAWN_GAP) * s.hand, s.meld)
+      else fitMelds(counts, myFlowers.size, minOf(roomW, s.tableW) - 16 - (plates[Side.BOTTOM]?.first ?: 90f), 1, s.meld, 22f)
+    }
     var selected by remember(view.eventCount) { mutableStateOf<Int?>(null) }
     if (onPick != null) LaunchedEffect(selected, view.eventCount) { onPick(selected?.let { i -> mine.getOrNull(i) ?: drawn }) }
 
@@ -217,7 +263,7 @@ fun TableView(
       val shown = revealed?.get(seat)?.let { Tiles.sort(Tiles.parse(it)) }
       val count = if (s.back == 0f && revealed == null) hidden else null
       if (s.wide && side == Side.TOP) {
-        Row(mod.padding(start = (6 + clear).d, end = 6.dp, top = 4.dp, bottom = 4.dp),
+        Row(mod.padding(start = (6 + padL).d, end = (6 + padR).d, top = 4.dp, bottom = 4.dp),
           horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
           Box(measured(side)) { badge(seat, count) }
           Row(horizontalArrangement = Arrangement.spacedBy(RACK_GAP_ROW.d), verticalAlignment = Alignment.Bottom) {
@@ -230,7 +276,8 @@ fun TableView(
       }
       val end = s.wide && side == Side.RIGHT
       Column(
-        if (s.wide) mod.padding(start = 6.dp, end = 6.dp, top = 4.dp, bottom = (4 + cornerH).d) else mod.padding(horizontal = 4.dp, vertical = 4.dp),
+        if (s.wide) mod.padding(start = 6.dp, end = 6.dp, top = (4 + if (end) belowR else belowL).d, bottom = (4 + if (end) cornerR else cornerH).d)
+        else mod.padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalAlignment = if (!s.wide) Alignment.CenterHorizontally else if (end) Alignment.End else Alignment.Start,
         verticalArrangement = if (s.wide) Arrangement.spacedBy(4.dp, Alignment.CenterVertically) else Arrangement.spacedBy(4.dp),
       ) {
@@ -245,7 +292,7 @@ fun TableView(
     @Composable
     fun river(side: Side, rows: Int, cols: Int) {
       val seat = seatAt(side, me)
-      River(pos.players[seat].discards, s.river, cols, rows, lastDiscard == seat)
+      River(pos.players[seat].discards, s.river, cols, rows, lastDiscard == seat, claim = claimSeat == seat)
     }
 
     @Composable
@@ -253,10 +300,14 @@ fun TableView(
       Box(mod, contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
           Box(Modifier.width((s.sideCols * s.river).d), contentAlignment = Alignment.CenterEnd) { river(Side.LEFT, s.sideRows, s.sideCols) }
-          Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          // A wide table: nothing between the two rivers across but a gap. A tall one: the box.
+          if (s.wide) Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(s.mid.d)) {
+            river(Side.TOP, s.acrossRows, s.acrossCols)
+            river(Side.BOTTOM, s.acrossRows, s.acrossCols)
+          } else Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             river(Side.TOP, s.acrossRows, s.acrossCols)
             Box(
-              Modifier.width(s.boxW.d).heightIn(min = s.boxH.d).background(Color.Black.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+              Modifier.width(s.boxW.d).heightIn(min = s.mid.d).background(Color.Black.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
                 .padding(horizontal = 10.dp, vertical = 4.dp),
               contentAlignment = Alignment.Center,
             ) {
@@ -292,15 +343,34 @@ fun TableView(
             }
             Row(Modifier.height(meH.d).fillMaxWidth().tourAnchor("hand").padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
               horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.Bottom) {
-              Melds(pos.players[me].melds, flowersOf(pos.players[me]), s.meld, wrap = false)
-              MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH)
+              Melds(pos.players[me].melds, emptyList(), snap(myMeldW), wrap = false)
+              MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, apart = apart)
             }
           }
           Column(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 2).d).widthIn(max = (s.sideW - 12).d).then(measured(Side.BOTTOM)),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             status?.invoke()
+            if (myFlowers.isNotEmpty()) Box(Modifier.padding(start = 4.dp)) { Melds(emptyList(), myFlowers, s.opp, wrap = true) }
             badge(me, null)
           }
+          // The corners: the round, the wall and the streak; the screen's buttons.
+          Column(
+            // As wide as its first line needs (a round's label on one line, as the page's): the opposite seat moves aside.
+            Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 4.dp).widthIn(max = maxOf(s.sideW - 12, s.font * 12).d)
+              .onSizeChanged { val v = it.width / density.density to it.height / density.density; if (infoSize != v) infoSize = v }
+              .background(Color.Black.copy(alpha = 0.18f), RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
+          ) {
+            Text(stringResource(R.string.round_wind, Tiles.wind(setup.round)) + if (handLabel.isNotEmpty()) " $handLabel" else "",
+              color = c.onFelt, fontWeight = FontWeight.Bold, fontSize = s.font.sp, lineHeight = (s.font * 1.25f).sp)
+            Text(stringResource(R.string.wall_left, pos.wallLeft), color = c.onFeltDim, fontSize = (s.font * 0.92f).sp, lineHeight = (s.font * 1.2f).sp)
+            if (setup.streak > 0) Text("${names[setup.dealer]} " + stringResource(R.string.streak_n, setup.streak), color = c.highlight,
+              fontWeight = FontWeight.Bold, fontSize = (s.font * 0.85f).sp, lineHeight = (s.font * 1.15f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+          }
+          if (corner != null) Column(
+            Modifier.align(Alignment.TopEnd).padding(end = 8.dp, top = 4.dp).widthIn(max = (s.sideW - 12).d)
+              .onSizeChanged { val v = it.width / density.density to it.height / density.density; if (cornerSize != v) cornerSize = v },
+            horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp),
+          ) { corner() }
         } else {
           Column(Modifier.fillMaxSize()) {
             Row(Modifier.height(s.topH.d).fillMaxWidth()) {
@@ -312,17 +382,17 @@ fun TableView(
             Column(Modifier.height(meH.d).fillMaxWidth().tourAnchor("hand").padding(start = 4.dp, end = 4.dp, bottom = 6.dp),
               horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom)) {
               Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                Box(Modifier.align(Alignment.CenterVertically)) { badge(me, null) }
-                Melds(pos.players[me].melds, flowersOf(pos.players[me]), s.meld, wrap = true)
+                Box(Modifier.align(Alignment.CenterVertically).then(measured(Side.BOTTOM))) { badge(me, null) }
+                Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = true)
               }
-              MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH)
+              MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, apart = apart)
             }
           }
           if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 4).d)) { status() }
         }
         if (claims.isNotEmpty() && onAct != null) {
           Box(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, start = 8.dp, bottom = (meH + 4).d)) {
-            ClaimBar(claims, s.hand, onAct)
+            ClaimBar(claims, s.hand, onAct, claimTile)
           }
         }
         if (strip != null) Column(Modifier.align(Alignment.BottomCenter).padding(start = 8.dp, end = 8.dp, bottom = (meH + 4).d),
@@ -406,14 +476,17 @@ fun signed(x: Double): String {
   return (if (x > 0) "+" else if (x < 0) "−" else "±") + n
 }
 
-/** A player's melds, each a group of tiles, and their flowers after them (each on its own, so a line breaks between). */
+/**
+ * A player's melds, each a group of tiles, and their flowers after them (each on its own, so a line breaks between).
+ * A chow's taken tile lies in the middle (meldTiles), tinted.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun Melds(melds: List<Meld>, flowers: List<String>, w: Float, wrap: Boolean, arrangement: Arrangement.Horizontal = Arrangement.Start) {
   if (melds.isEmpty() && flowers.isEmpty()) return
   val g = meldGaps(w)
   val content: @Composable () -> Unit = {
-    for (m in melds) Row { for (t in meldTiles(m)) TileView(t, w.d) }
+    for (m in melds) Row { for ((k, t) in meldTiles(m).withIndex()) TileView(t, w.d, mark = m.type == "chi" && m.called != null && k == 1) }
     for (f in flowers) TileView(f, (w * FLOWER_SCALE).d)
   }
   if (wrap) FlowRow(horizontalArrangement = Arrangement.spacedBy(g.col.d, if (arrangement == Arrangement.End) Alignment.End else if (arrangement == Arrangement.Center) Alignment.CenterHorizontally else Alignment.Start),
@@ -421,32 +494,84 @@ fun Melds(melds: List<Meld>, flowers: List<String>, w: Float, wrap: Boolean, arr
   else Row(horizontalArrangement = Arrangement.spacedBy(g.col.d), verticalAlignment = Alignment.Bottom) { content() }
 }
 
-/** One player's discards in order, `cols` a row; the tiles taken by a meld faded, the last discard lit. */
+/**
+ * One player's discards in order, `cols` a row; the tiles taken by a meld faded, the last discard lit. `claim`: the
+ * player may claim the last discard: it stands out, larger and pulsing.
+ */
 @Composable
-fun River(discards: List<Discard>, w: Float, cols: Int, rows: Int, last: Boolean) {
+fun River(discards: List<Discard>, w: Float, cols: Int, rows: Int, last: Boolean, claim: Boolean = false) {
   val fit = if (rows > 0 && discards.size > cols * rows) ceil(discards.size.toFloat() / rows).toInt() else cols
   val tw = w * cols / fit
+  val pulse = if (claim) pulse(900) else 0f
   Column(Modifier.width((cols * w).d)) {
     for (r in discards.indices step fit) {
-      Row {
+      val end = r + fit >= discards.size
+      Row(if (claim && end) Modifier.zIndex(1f) else Modifier) {
         for (i in r until minOf(r + fit, discards.size)) {
           val d = discards[i]
-          TileView(d.tile, tw.d, dim = d.called, glow = last && i == discards.size - 1 && !d.called)
+          val out = claim && i == discards.size - 1 && !d.called
+          Box(if (out) Modifier.zIndex(1f).scale(1.25f + 0.15f * pulse) else Modifier) {
+            TileView(d.tile, tw.d, dim = d.called, glow = (last || out) && i == discards.size - 1 && !d.called)
+          }
         }
       }
     }
   }
 }
 
+/** A hand's end: how long the table shows how it ended (the hands, the words of the win) before the result, ms. */
+const val END_PAUSE = 2200L
+
+/**
+ * A hand's end: whether the table is still to show how it ended (every hand shown, the words of the win, 放槍 over who
+ * dealt in) before the result: for END_PAUSE after `over` turns true here, not for a result come back to. The second
+ * value lets go at once (a tap on the table: SkipPause).
+ */
+@Composable
+fun endPause(over: Boolean): Pair<Boolean, () -> Unit> {
+  var held by remember { mutableStateOf(false) }
+  val inPlay = remember { booleanArrayOf(false) }
+  LaunchedEffect(over) {
+    if (!over) {
+      inPlay[0] = true
+      held = false
+    } else if (inPlay[0]) {
+      held = true
+      inPlay[0] = false
+      delay(END_PAUSE)
+      held = false
+    }
+  }
+  return (over && (held || inPlay[0])) to { held = false }
+}
+
+/** Over the table during the pause at a hand's end: a tap goes on to the result. */
+@Composable
+fun BoxScope.SkipPause(onSkip: () -> Unit) =
+  Box(Modifier.matchParentSize().testTag("result_skip").pointerInput(Unit) { detectTapGestures { onSkip() } })
+
+/** A value going between 0 and 1 and back, `ms` each way: what pulses (the turn's frame, a tile to claim). */
+@Composable
+fun pulse(ms: Int): Float {
+  val t = rememberInfiniteTransition(label = "pulse")
+  val v by t.animateFloat(0f, 1f, infiniteRepeatable(tween(ms, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "pulse")
+  return v
+}
+
 /**
  * The player's concealed tiles, the drawn one apart at the end. On the player's turn a tap lifts a tile and a second
  * tap discards it; a tile dragged upwards is discarded when let go. `perRow`: tiles a row (an upright phone), 0 one row.
+ * `turn`: the player's turn to discard: a frame of the turn's color pulses around the tiles. `apart`: the tile set
+ * apart (`drawn`) was not drawn (the dealer's first discard, after a call).
  */
 @Composable
 fun MyHand(
   tiles: List<String>, drawn: String?, w: Float, perRow: Int, discardable: Set<String>, onDiscard: (String) -> Unit,
-  selected: Int?, onSelect: (Int?) -> Unit, marks: Map<String, TileMark>? = null, tagH: Float = 0f,
+  selected: Int?, onSelect: (Int?) -> Unit, marks: Map<String, TileMark>? = null, tagH: Float = 0f, turn: Boolean = false,
+  apart: Boolean = false,
 ) {
+  val highlight = LocalTable.current.highlight
+  val glow = if (turn) pulse(1100) else 0f
   val all = if (drawn != null) tiles + drawn else tiles
   val h = w * TILE_RATIO
   val size = if (perRow > 0) perRow else maxOf(1, tiles.size)
@@ -468,7 +593,18 @@ fun MyHand(
     } else onSelect(i)
   }
   Column(
-    Modifier.padding(top = maxOf(h * LIFT, tagH).d).let { if (perRow > 0) it.width(((perRow + DRAWN_GAP + 1) * w).d) else it },
+    Modifier.padding(top = maxOf(h * LIFT, tagH).d).let { if (perRow > 0) it.width(((perRow + DRAWN_GAP + 1) * w).d) else it }
+      // The turn's frame, around the tiles (not the room over them for a lifted tile): a line and its glow.
+      .then(if (turn) Modifier.drawBehind {
+        val out = 5.dp.toPx()
+        val corner = CornerRadius(10.dp.toPx())
+        val at = Offset(-out, -out)
+        val area = this.size
+        val box = Size(area.width + 2 * out, area.height + 2 * out)
+        for (k in 3 downTo 1) drawRoundRect(highlight.copy(alpha = 0.10f * glow), at - Offset(k * 2.dp.toPx(), k * 2.dp.toPx()),
+          Size(box.width + k * 4.dp.toPx(), box.height + k * 4.dp.toPx()), CornerRadius(10.dp.toPx() + k * 2.dp.toPx()), Stroke(4.dp.toPx()))
+        drawRoundRect(highlight.copy(alpha = 0.45f + 0.55f * glow), at, box, corner, Stroke(3.dp.toPx()))
+      } else Modifier),
     verticalArrangement = Arrangement.spacedBy(maxOf(h * ROW_GAP, tagH).d),
   ) {
     for (row in rows) {
@@ -572,10 +708,13 @@ fun actionLabel(type: String) = when (type) {
   else -> R.string.act_pass
 }
 
-/** The player's choices other than discarding: win, kongs, pung, each way of a chow (its three tiles), and pass. */
+/**
+ * The player's choices other than discarding: win, kongs, pung, each way of a chow (its three tiles), and pass. The
+ * tiles are large (`w` is the hand's tile), and `claimed`, the discard (or added tile) being claimed, is lit in each.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ClaimBar(actions: List<Action>, w: Float, onAct: (Action) -> Unit) {
+fun ClaimBar(actions: List<Action>, w: Float, onAct: (Action) -> Unit, claimed: String? = null) {
   val shown = actions.filter { it.type != "discard" }.sortedBy { ORDER.indexOf(it.type) }
   FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     val c = LocalTable.current
@@ -587,11 +726,14 @@ fun ClaimBar(actions: List<Action>, w: Float, onAct: (Action) -> Unit) {
         color = when { win -> Color(0xFFD84315); pass -> MaterialTheme.colorScheme.surfaceContainerHighest; else -> c.action },
         contentColor = when { win -> Color.White; pass -> MaterialTheme.colorScheme.onSurface; else -> c.onAction },
       ) {
-        Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+        Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(6.dp)) {
           Text(stringResource(actionLabel(a.type)), fontWeight = if (pass) FontWeight.Medium else FontWeight.Bold, fontSize = if (win) 20.sp else 18.sp)
           val ts = if (a.type == "chi") a.tiles ?: emptyList() else if (a.tile != null && a.type != "ron") listOf(a.tile) else emptyList()
-          if (ts.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) { for (t in ts) TileView(t, (w * 0.62f).d) }
+          val at = if (claimed != null) ts.indexOf(claimed) else -1
+          if (ts.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+            for ((k, t) in ts.withIndex()) TileView(t, (w * 0.8f).d, glow = k == at)
+          }
         }
       }
     }
@@ -612,6 +754,7 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes) {
     "exhausted" to R.string.call_exhausted,
   )
   val texts = words.mapValues { stringResource(it.value) }
+  val dealtIn = stringResource(R.string.call_deal_in)
   LaunchedEffect(view.eventCount) {
     val count = view.eventCount
     if (seen < 0 || count < seen) {
@@ -623,17 +766,24 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes) {
     // A jump over many events (a review going to another decision) says none of them.
     if (fresh.size > 8) return@LaunchedEffect
     val flowers = HashSet<Int>()
+    var said = false
     for (e in fresh) {
       val text = texts[e.type] ?: continue
       if (e.type == "flower" && !flowers.add(e.seat)) continue
       list += Callout(next++, if (e.type == "exhausted") Side.TOP else sideOf(e.seat, me), text, e.type in setOf("tsumo", "ron", "flower_win"))
+      // Who dealt in: the discard (or the added kong's tile) the win was on. Once, however many won on it.
+      if (e.type == "ron" && !said) {
+        said = true
+        val from = view.result?.loser?.takeIf { it >= 0 } ?: view.events.lastOrNull { it.type == "discard" || it.type == "kakan" }?.seat ?: -1
+        if (from >= 0 && from != e.seat) list += Callout(next++, sideOf(from, me), dealtIn, false)
+      }
     }
   }
   for (co in list.toList()) {
     key(co.id) {
       val a = remember { Animatable(0f) }
       LaunchedEffect(Unit) {
-        a.animateTo(1f, tween(if (co.big) 1600 else 900))
+        a.animateTo(1f, tween(if (co.big) 2000 else 900))
         list.remove(co)
       }
       val t = a.value

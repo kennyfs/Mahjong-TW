@@ -85,11 +85,18 @@ fun concealedCount(view: View, seat: Int): Int {
   return 16 - 3 * p.melds.size + if (view.phase == "self" && view.current == seat) 1 else 0
 }
 
-/** A meld's tiles in the order to show them (another player's concealed kong as four backs: nulls). */
+/**
+ * A meld's tiles in the order to show them: a chow with the tile taken in the middle, as on a real table (it says
+ * which tile was claimed); another player's concealed kong as four backs (nulls).
+ */
 fun meldTiles(m: Meld): List<String?> {
   if (m.tile == null) return listOf(null, null, null, null)
   val ts = m.tiles ?: emptyList()
   if (m.type == "ankan") return listOf(null, ts.getOrNull(1) ?: m.tile, ts.getOrNull(2) ?: m.tile, null)
+  if (m.type == "chi" && m.called != null && ts.size == 3) {
+    val rest = Tiles.without(ts, listOf(m.called))
+    if (rest.size == 2) return listOf(rest[0], m.called, rest[1])
+  }
   if (ts.isNotEmpty()) return ts
   // A meld set up by hand (the analysis' position) has its kind and tile only.
   return when (m.type) {

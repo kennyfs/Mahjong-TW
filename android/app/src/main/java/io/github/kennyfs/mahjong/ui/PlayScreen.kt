@@ -70,6 +70,8 @@ fun PlayScreen(vm: AppModel) {
   val final = practice.final
   val stage = practice.stage
   LaunchedEffect(stage) { if (stage == Practice.Stage.PLAYING) hideResult = false }
+  // A hand's end: the table as it ended for a moment before the result; a tap goes on at once.
+  val (held, letGo) = endPause(stage != Practice.Stage.PLAYING)
   val handLabel = meta?.let { stringResource(R.string.hand_n, it.hands + if (stage == Practice.Stage.PLAYING) 1 else 0) } ?: ""
   val chip = rulesChip(settings.rules.tai, settings.rules.flowers, settings.rules.overrides.isNotEmpty())
   val totals = meta?.totals ?: listOf(0.0, 0.0, 0.0, 0.0)
@@ -97,14 +99,16 @@ fun PlayScreen(vm: AppModel) {
           revealed = if (stage != Practice.Stage.PLAYING) final?.hands else null,
           interactive = stage == Practice.Stage.PLAYING && !practice.busy,
           onAct = { practice.act(it) }, handLabel = if (wide) handLabel else "",
+          // The table's top-right corner: the buttons one over the other (the tour lights them as one).
           corner = if (wide) ({
-            Row(Modifier.tourAnchor("top"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.tourAnchor("top"), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
               MiniButton(chip) { vm.open(Page.RULES) }
               MiniButton(stringResource(R.string.practice_new)) { confirmNew = true }
             }
           }) else null,
           overlay = {
             when {
+              stage == Practice.Stage.RESULT && held -> SkipPause(letGo)
               stage == Practice.Stage.RESULT && final?.result != null && !hideResult -> Sheet {
                 HandResultCard(final, names, Practice.ME, resultTileW(wide, w), rev = last?.rev, level = settings.level) {
                   IconButton(onClick = { practice.lastRecord?.let { vm.records.setFav(it, !lastFav) } }) {

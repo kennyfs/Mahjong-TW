@@ -82,8 +82,10 @@ if __name__ == '__main__':
             page.evaluate(PLAY, [9, True])
             shot(page, f'{name}-2-mid')
             r = page.evaluate(PLAY, [999, True])
-            page.wait_for_timeout(1800)
-            shot(page, f'{name}-3-result')
+            # The hand's end: the table as it ended for a moment (END_PAUSE), then the result.
+            shot(page, f'{name}-3-end')
+            page.wait_for_timeout(2400)
+            shot(page, f'{name}-4-result')
             (out / f'{name}-console.txt').write_text('\n'.join(logs))
             ctx.close()
         browser.close()

@@ -17,7 +17,7 @@
   import { FLOWER_PRESETS, flowerLabel, TAI_PRESETS, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import { windName } from '../lib/tiles';
-  import { localTime, signed, ui } from '../lib/ui.svelte';
+  import { END_PAUSE, localTime, signed, ui } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
@@ -46,6 +46,22 @@
   });
   // A new hand: its table, not the last one's result.
   $effect(() => { if (!handOver) hideResult = false; });
+  /** A hand's end: the table as it ended (every hand shown, the words of the win) for a moment before the result; a
+   *  tap goes on at once. Not for a result come back to. */
+  let held = $state(false);
+  let inPlay = false;
+  $effect(() => {
+    if (!handOver) {
+      inPlay = true;
+      held = false;
+      return;
+    }
+    if (!inPlay) return;
+    inPlay = false;
+    held = true;
+    const id = setTimeout(() => (held = false), END_PAUSE);
+    return () => clearTimeout(id);
+  });
 
   // A shared link (#/battle/123456): its PIN, ready to join.
   onMount(() => {
@@ -318,7 +334,9 @@
             </div>
           {/snippet}
           {#snippet overlay()}
-            {#if handOver && !hideResult}
+            {#if handOver && held}
+              <button class="skip" aria-label={t('replay_result')} onclick={() => (held = false)}></button>
+            {:else if handOver && !hideResult}
               <!-- A short window (a phone held sideways): the standings beside the result, which keeps its buttons in view. -->
               {@const side = short && room.phase === 'REVIEW' && people.length > 1}
               <div class="sheet">
@@ -469,6 +487,7 @@
   .mini-standings { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 20px; background: var(--surface-container-high);
     color: var(--on-surface); }
   .peek { position: absolute; right: 12px; top: 12px; z-index: 5; }
+  .skip { position: absolute; inset: 0; z-index: 5; border: none; background: transparent; cursor: pointer; }
   .reconnect { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px;
     padding: 8px 14px; border-radius: 18px; background: var(--surface-container-highest); color: var(--on-surface); }
   .panel { display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 16px 0; color: var(--on-felt); }

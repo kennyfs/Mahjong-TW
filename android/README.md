@@ -126,8 +126,10 @@ GRADLE_FLAGS=--offline BATTLE_SERVER=10.0.2.2:8091 OUT=$WORK/shots/android ./dev
 ```
 
 `shots.py` shoots the first start's welcome card and puts it away, plays a hand of practice to its end through taps
-(passing on claims, winning when it can, discarding the tile drawn), then shoots its result with the network's
-summary, the review (a decision worth a look, everyone's tiles, the list of actions, the last move and the result),
+(passing on claims, winning when it can, discarding the tile drawn), shoots the table in the pause at its end
+(`play-end-*`), then its result with the network's
+summary, the review (a decision worth a look, everyone's tiles, the list of actions and its i dialog, the last move,
+the result and 下一局),
 the analysis screen with a random hand, the records with their statistics, the settings, the rules with a parameter's
 explanation, the rules explained (its first page, the tiles, tai, the quiz answered, its end), the tour's first steps
 and its end, and the battle entry's steps, each sideways and upright; with `BATTLE_SERVER` (a battle server on this machine,
@@ -149,5 +151,7 @@ The emulator has no Nearby Connections: rooms nearby need two real phones.
 ## Versions
 
 0.x.x are betas (0.1.0: the network of iteration 50 of stage 1, its review and analysis; 0.2.0: the rules explained,
-the tour and the welcome card, the battle entry in steps, a release half the size); 1.0.0 will be the first stable
+the tour and the welcome card, the battle entry in steps, a release half the size; 0.3.0: larger rivers with the
+round and buttons in the corners, the turn and the claimable tile made plain, a pause at the end of a hand, the
+review's value at every step and its list reworked, 下一局); 1.0.0 will be the first stable
 version. What is missing is listed in [docs/app.md](../docs/app.md).

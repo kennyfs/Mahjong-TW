@@ -62,6 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -475,6 +476,8 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
   val handOver = table?.view?.result != null
   var hideResult by remember { mutableStateOf(false) }
   LaunchedEffect(handOver) { if (!handOver) hideResult = false }
+  // A hand's end: the table as it ended for a moment before the result; a tap goes on at once.
+  val (held, letGo) = endPause(handOver)
   var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
   LaunchedEffect(Unit) {
     while (true) {
@@ -522,14 +525,14 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
             revealed = if (handOver) table.view.hands else null, interactive = table.view.myTurn && !handOver,
             onAct = { battle.act(it) }, handLabel = if (wide) handLabel else "",
             status = if (wide) clock else null,
+            // The table's top-right corner: the rules over the way out.
             corner = if (wide) ({
-              Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(roomRules(s), color = LocalTable.current.onFeltDim, style = MaterialTheme.typography.labelMedium)
-                MiniButton(stringResource(R.string.battle_leave), onLeave)
-              }
+              Text(roomRules(s), color = LocalTable.current.onFeltDim, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End)
+              MiniButton(stringResource(R.string.battle_leave), onLeave)
             }) else null,
             overlay = {
-              if (handOver && !hideResult) {
+              if (handOver && held) SkipPause(letGo)
+              else if (handOver && !hideResult) {
                 val side = short && room.phase == Phase.REVIEW && people.size > 1
                 val actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {
                   TextButton(onClick = { hideResult = true }) { Text(stringResource(R.string.result_hands)) }

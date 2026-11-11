@@ -5,7 +5,11 @@
   self-draws) with the few figures that matter most; `both`. Without a network (it failed to load) the list is tile
   efficiency's.
 
-  `played`: the index of the action taken (a review), or -1; `picked`: the one whose tile is chosen in the hand.
+  `played`: the index of the action taken (a review), or -1: its row comes first, the others from the best down. The
+  best and the one taken are both set off (a filled row, a tag each: 最佳, and `who` took it: 你 or the seat's name);
+  one row with both tags when they are the same. A row's figure at the right is always its expected result, with what
+  it loses against the best before it (smaller, in brackets) when that is more than a tie.
+  `picked`: the one whose tile is chosen in the hand.
   `truth`: what the opponents really held, shown on request. `brief`: without the verdict on the action taken and the
   note on a best action that is not the obvious one (the review says them itself).
 -->
@@ -17,17 +21,22 @@
   import { KINDS } from '../lib/tiles';
   import type { Analysis, Truth } from '../lib/types';
   import AnalysisList from './AnalysisList.svelte';
+  import Dialog from './Dialog.svelte';
+  import Icon from './Icon.svelte';
   import Tile from './Tile.svelte';
 
   let { analysis, played = -1, unit = undefined, mode = 'numbers', w = 32, names = null, truth = null, showTruth = false, picked = -1,
-    brief = false }: {
+    brief = false, who = '' }: {
     analysis: Analysis; played?: number; unit?: number; mode?: 'numbers' | 'bars' | 'both'; w?: number; names?: string[] | null;
-    truth?: Truth[] | null; showTruth?: boolean; picked?: number; brief?: boolean;
+    truth?: Truth[] | null; showTruth?: boolean; picked?: number; brief?: boolean; who?: string;
   } = $props();
 
+  /** The explanation of a row's figures, open. */
+  let help = $state(false);
   const net = $derived(analysis.source === 'network' && analysis.best !== undefined);
   const best = $derived(analysis.best ?? 0);
-  const rows = $derived(analysis.actions.map((f, i) => ({ f, i, cost: net ? costOf(analysis, i) : 0 })).sort((a, b) => a.cost - b.cost || a.i - b.i));
+  const rows = $derived(analysis.actions.map((f, i) => ({ f, i, cost: net ? costOf(analysis, i) : 0 }))
+    .sort((a, b) => Number(b.i === played) - Number(a.i === played) || a.cost - b.cost || a.i - b.i));
   const notable = $derived(net ? notableOf(analysis, unit) : null);
   const playedCost = $derived(net && played >= 0 ? costOf(analysis, played) : 0);
   const grade = $derived(gradeOf(playedCost, unit));
@@ -78,17 +87,21 @@
     {#if notable && !brief}
       <div class="notable"><span class="star">★</span>{notableText(analysis, notable)}</div>
     {/if}
-    {#if mode !== 'numbers'}
-      <div class="legend body-small">
+    <div class="legend body-small">
+      {#if mode !== 'numbers'}
         <span>{t('bars_legend')}</span>
         <span class="key"><i class="win"></i>{t('bars_win')}</span>
         <span class="key"><i class="deal"></i>{t('bars_deal')}</span>
         <span class="key"><i class="tsumo"></i>{t('bars_tsumo')}</span>
-      </div>
-    {/if}
+      {/if}
+      <!-- What the figure at each row's right is: said here, not on every row. -->
+      <button class="btn icon text info" aria-label={t('list_help')} title={t('list_help')} aria-haspopup="dialog" onclick={() => (help = true)}>
+        <Icon name="info" size={20} />
+      </button>
+    </div>
     {#each rows as { f, i, cost }, k (i)}
       {@const g = gradeOf(cost, unit)}
-      <div class="row" class:best={i === best} class:played={i === played} class:picked={i === picked}>
+      <div class="row" class:strong={i === best || i === played} class:picked={i === picked}>
         <div class="act">
           {#if actionTiles(f.action).length}
             <span class="tiles">{#each actionTiles(f.action) as x}<Tile tile={x} w={w * 0.82} />{/each}</span>
@@ -96,10 +109,11 @@
           <span class="label-large">{actionTiles(f.action).length ? t('act_' + f.action.type) : actionText(f.action)}</span>
           <span class="marks">
             {#if i === best}<span class="mark best">{t('grade_best')}</span>{/if}
-            {#if i === played}<span class="mark you">{t('review_you')}</span>{/if}
+            {#if i === played}<span class="mark you">{who || t('review_you')}</span>{/if}
           </span>
-          {#if i === best}<span class="cost"><span class="lbl">{t('fig_value')}</span> {pts(f.q ?? 0)}</span>
-          {:else}<span class="cost g{g}">{cost < EQUAL ? '≈' : pts(-cost)}</span>{/if}
+          <span class="cost">
+            {#if i !== best && cost >= EQUAL}<span class="less g{g}">({pts(-cost)})</span>{/if}{pts(f.q ?? 0)}
+          </span>
         </div>
         {#if mode !== 'numbers'}
           <div class="bar" aria-hidden="true">
@@ -115,7 +129,7 @@
           </div>
         {:else}
           <div class="figs body-small">
-            {#each figureItems(f, null, oppNames).slice(i === best ? 1 : 0) as [label, value] (label)}<span><span class="dim">{label}</span> {value}</span>{/each}
+            {#each figureItems(f, null, oppNames).slice(1) as [label, value] (label)}<span><span class="dim">{label}</span> {value}</span>{/each}
             <span class="dim">{efficiencyText(f)}</span>
           </div>
         {/if}
@@ -153,6 +167,12 @@
     {/if}
     <p class="source body-small dim">{t('analysis_source_network')}</p>
   </div>
+  {#if help}
+    <Dialog title={t('list_help')} onclose={() => (help = false)}>
+      <p class="body-large help">{t('list_help_text')}</p>
+      {#snippet actions()}<button class="btn text" onclick={() => (help = false)}>{t('close')}</button>{/snippet}
+    </Dialog>
+  {/if}
 {/if}
 
 <style>
@@ -164,15 +184,16 @@
   .g3 .badge-g { background: var(--danger-3); color: #fff; }
   .notable { display: flex; gap: 6px; padding: 6px 12px; border-radius: 12px; background: var(--tertiary-container); color: var(--on-tertiary-container); font-weight: 500; }
   .star { color: var(--found); }
-  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 0 4px; color: var(--on-surface-variant); }
+  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 0 4px; color: var(--on-surface-variant); }
+  .info { margin-left: auto; width: 32px; min-height: 32px; border-radius: 16px; color: var(--on-surface-variant); }
+  .help { margin: 0; line-height: 1.6; }
   .key { display: inline-flex; align-items: center; gap: 4px; }
   .key i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
   .win { background: var(--found); }
   .deal { background: var(--danger-3); }
   .tsumo { background: var(--danger-2); }
   .row { display: flex; flex-direction: column; gap: 4px; padding: 7px 12px; border-radius: 12px; background: var(--surface-container); }
-  .row.best { background: var(--secondary-container); color: var(--on-secondary-container); }
-  .row.played { outline: 2px solid var(--primary); }
+  .row.strong { background: var(--secondary-container); color: var(--on-secondary-container); }
   .row.picked { box-shadow: inset 0 0 0 2px var(--highlight); }
   .act { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .tiles { display: inline-flex; gap: 1px; }
@@ -181,12 +202,12 @@
   .mark.best { background: var(--found); color: #fff; }
   .mark.you { background: var(--primary); color: var(--on-primary); }
   .cost { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .cost .lbl { font-weight: 400; font-size: 0.8125rem; opacity: 0.75; }
-  .cost.g1 { color: color-mix(in srgb, var(--danger-1) 60%, var(--on-surface)); }
-  .cost.g2 { color: color-mix(in srgb, var(--danger-2) 75%, var(--on-surface)); }
-  .cost.g3 { color: var(--danger-3); }
+  .less { font-size: 0.8125rem; margin-right: 6px; }
+  .less.g1 { color: color-mix(in srgb, var(--danger-1) 60%, var(--on-surface)); }
+  .less.g2 { color: color-mix(in srgb, var(--danger-2) 75%, var(--on-surface)); }
+  .less.g3 { color: var(--danger-3); }
   .figs { display: flex; flex-wrap: wrap; gap: 2px 12px; font-variant-numeric: tabular-nums; }
-  .row.best .dim { color: inherit; opacity: 0.75; }
+  .row.strong .dim { color: inherit; opacity: 0.75; }
   .bar { position: relative; height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--on-surface) 8%, transparent); overflow: hidden; }
   .zero { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--on-surface); opacity: 0.55; z-index: 1; }
   .seg { position: absolute; top: 0; bottom: 0; }

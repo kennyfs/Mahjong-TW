@@ -24,10 +24,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,8 +48,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -293,7 +295,8 @@ private fun BattleLine(b: BattleGroup, open: Boolean, onOpen: () -> Unit, onFav:
 
 /**
  * The rules: a tai preset and a flower preset, chosen apart (簡單/標準/大師; 無花/見花見台/正花), the base (底), and
- * every parameter in a list, the changed ones marked, each with what it means behind an i button (RULE_HELP). Names
+ * every parameter in a list, the changed ones marked, each with what it means behind an i button (RULE_HELP, in a
+ * dialog). No button changes the page's height: the mark and the reset are always in their place, shown or not. Names
  * and values come from the engine ({"cmd":"rules"}). Practice deals a new game under new rules when the page is left.
  * The web page's Rules.svelte.
  */
@@ -304,8 +307,8 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
   var full by remember { mutableStateOf<RulesInfo?>(null) }
   var presets by remember { mutableStateOf<RulesInfo?>(null) }
   var advanced by remember { mutableStateOf(false) }
-  /** The parameters whose explanation is open. */
-  var helped by remember { mutableStateOf(emptySet<String>()) }
+  /** The parameter whose explanation is open (in a dialog, so that the page keeps its height). */
+  var helped by remember { mutableStateOf<String?>(null) }
   val c = settings.rules
   LaunchedEffect(c) {
     try {
@@ -362,8 +365,8 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
           Icon(Icons.Filled.ArrowDropDown, null, Modifier.rotate(if (advanced) 180f else 0f))
         }
         if (advanced && f != null) {
-          if (c.overrides.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = { choose(c.copy(overrides = emptyMap())) }) { Text(stringResource(R.string.rules_reset)) }
+          Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = { choose(c.copy(overrides = emptyMap())) }, enabled = c.overrides.isNotEmpty()) { Text(stringResource(R.string.rules_reset)) }
           }
           val names = f.items.associate { it.param to it.name }
           for ((title, params) in ruleGroups(f)) {
@@ -377,15 +380,15 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f)) {
                   Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge, fontWeight = if (changed) FontWeight.Bold else null)
-                    if (help != null) IconButton(onClick = { helped = if (p in helped) helped - p else helped + p }, modifier = Modifier.testTag("rules_help_$p")) {
-                      Icon(if (p in helped) Icons.Filled.Info else Icons.Outlined.Info, stringResource(R.string.rules_help) + "：" + label,
-                        Modifier.size(20.dp), tint = if (p in helped) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
+                    if (help != null) IconButton(onClick = { helped = p }, modifier = Modifier.testTag("rules_help_$p")) {
+                      Icon(Icons.Outlined.Info, stringResource(R.string.rules_help) + "：" + label, Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                   }
-                  if (changed) Badge(stringResource(R.string.rules_changed), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                  if (help != null && p in helped) Text(stringResource(help), Modifier.padding(top = 2.dp, bottom = 4.dp),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                  // Always in its place, seen or not: a change moves nothing on the page.
+                  Badge(stringResource(R.string.rules_changed), MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer,
+                    Modifier.alpha(if (changed) 1f else 0f).clearAndSetSemantics { })
                 }
                 if (p in Rules.FLAG_PARAMS) Switch(checked = v == 1, onCheckedChange = { set(p, if (it) 1 else 0) })
                 else Stepper(v, { set(p, it) }, min = if (p == "base") 1 else 0, max = when (p) { "flowers" -> 2; "keep" -> 64; else -> 99 })
@@ -395,6 +398,17 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
         }
       }
     }
+  }
+  val open = helped
+  val openHelp = open?.let { RULE_HELP[it] }
+  if (open != null && openHelp != null) {
+    val label = f?.items?.firstOrNull { it.param == open }?.name ?: paramName(open)
+    AlertDialog(
+      onDismissRequest = { helped = null },
+      confirmButton = { TextButton(onClick = { helped = null }) { Text(stringResource(R.string.close)) } },
+      title = { Text(label) },
+      text = { Text(stringResource(openHelp), style = MaterialTheme.typography.bodyLarge) },
+    )
   }
 }
 

@@ -15,10 +15,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,7 +101,11 @@ private const val ZERO = 66f
  * self-draws) with the few figures that matter most; `both`. Without a network (it failed to load) the list is tile
  * efficiency's. The web page's DecisionPanel.svelte.
  *
- * `played`: the index of the action taken (a review), or -1; `picked`: the one whose tile is chosen in the hand.
+ * `played`: the index of the action taken (a review), or -1: its row comes first, the others from the best down. The
+ * best and the one taken are both set off (a filled row, a tag each: 最佳, and `who` took it: 你 or the seat's name);
+ * one row with both tags when they are the same. A row's figure at the right is always its expected result, with what
+ * it loses against the best before it (smaller, in brackets) when that is more than a tie; an i button over the rows
+ * says so. `picked`: the one whose tile is chosen in the hand.
  * `truth`: what the opponents really held, shown on request. `brief`: without the verdict on the action taken and the
  * note on a best action that is not the obvious one (the review says them itself).
  */
@@ -99,6 +114,7 @@ private const val ZERO = 66f
 fun DecisionPanel(
   analysis: Analysis, modifier: Modifier = Modifier, played: Int = -1, unit: Double? = null, mode: ListRows = ListRows.numbers, w: Float = 32f,
   names: List<String>? = null, truth: List<Truth>? = null, showTruth: Boolean = false, picked: Int = -1, brief: Boolean = false,
+  who: String = "",
 ) {
   if (!analysis.net) {
     AnalysisList(analysis, analysis.actions.getOrNull(played)?.action, w, modifier)
@@ -109,7 +125,8 @@ fun DecisionPanel(
   val small = MaterialTheme.typography.bodySmall
   val dim = cs.onSurfaceVariant
   val best = analysis.best ?: 0
-  val rows = analysis.actions.indices.sortedWith(compareBy({ costOf(analysis, it) }, { it }))
+  val rows = analysis.actions.indices.sortedWith(compareBy({ if (it == played) 0 else 1 }, { costOf(analysis, it) }, { it }))
+  var help by remember { mutableStateOf(false) }
   val notable = notableOf(analysis, unit)
   val playedCost = if (played >= 0) costOf(analysis, played) else 0.0
   val relative = listOf(stringResource(R.string.rel_next), stringResource(R.string.rel_opposite), stringResource(R.string.rel_prev))
@@ -149,28 +166,42 @@ fun DecisionPanel(
         Text(notableText(res, analysis, notable), fontWeight = FontWeight.Medium)
       }
     }
-    if (mode != ListRows.numbers) FlowRow(Modifier.padding(horizontal = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
-      verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-      Text(stringResource(R.string.bars_legend), style = small, color = dim)
-      for ((k, label) in listOf(R.string.bars_win, R.string.bars_deal, R.string.bars_tsumo).withIndex()) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-          Box(Modifier.size(12.dp).background(partColors[k], RoundedCornerShape(3.dp)))
-          Text(stringResource(label), style = small, color = dim)
+    Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+      FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = Alignment.CenterVertically) {
+        if (mode != ListRows.numbers) {
+          Text(stringResource(R.string.bars_legend), style = small, color = dim)
+          for ((k, label) in listOf(R.string.bars_win, R.string.bars_deal, R.string.bars_tsumo).withIndex()) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+              Box(Modifier.size(12.dp).background(partColors[k], RoundedCornerShape(3.dp)))
+              Text(stringResource(label), style = small, color = dim)
+            }
+          }
         }
       }
+      // What the figure at each row's right is: said here, not on every row.
+      IconButton(onClick = { help = true }, Modifier.size(36.dp).testTag("list_help")) {
+        Icon(Icons.Outlined.Info, stringResource(R.string.list_help), Modifier.size(20.dp), tint = dim)
+      }
     }
+    if (help) AlertDialog(
+      onDismissRequest = { help = false },
+      confirmButton = { TextButton(onClick = { help = false }) { Text(stringResource(R.string.close)) } },
+      title = { Text(stringResource(R.string.list_help)) },
+      text = { Text(stringResource(R.string.list_help_text), style = MaterialTheme.typography.bodyLarge) },
+    )
     for ((k, i) in rows.withIndex()) {
       val f = analysis.actions[i]
       val cost = costOf(analysis, i)
       val g = gradeOf(cost, unit)
       val isBest = i == best
+      val strong = isBest || i == played
       val shape = RoundedCornerShape(12.dp)
-      val soft = if (isBest) cs.onSecondaryContainer.copy(alpha = 0.75f) else dim
+      val soft = if (strong) cs.onSecondaryContainer.copy(alpha = 0.75f) else dim
       Surface(
-        shape = shape, color = if (isBest) cs.secondaryContainer else cs.surfaceContainer,
-        contentColor = if (isBest) cs.onSecondaryContainer else cs.onSurface,
-        modifier = Modifier.fillMaxWidth().let { if (i == played) it.border(2.dp, cs.primary, shape) else it }
-          .let { if (i == picked) it.padding(if (i == played) 2.dp else 0.dp).border(2.dp, LocalTable.current.highlight, shape) else it },
+        shape = shape, color = if (strong) cs.secondaryContainer else cs.surfaceContainer,
+        contentColor = if (strong) cs.onSecondaryContainer else cs.onSurface,
+        modifier = Modifier.fillMaxWidth().let { if (i == picked) it.border(2.dp, LocalTable.current.highlight, shape) else it },
       ) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
           Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -178,12 +209,12 @@ fun DecisionPanel(
             if (ts.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) { for (t in ts) TileView(t, (w * 0.82f).dp) }
             Text(if (ts.isNotEmpty()) stringResource(actionLabel(f.action.type)) else actionText(res, f.action), style = MaterialTheme.typography.labelLarge)
             if (isBest) Badge(stringResource(R.string.grade_best), Marks.found, Color.White)
-            if (i == played) Badge(stringResource(R.string.review_you), cs.primary, cs.onPrimary)
+            if (i == played) Badge(who.ifEmpty { stringResource(R.string.review_you) }, cs.primary, cs.onPrimary)
             Spacer(Modifier.weight(1f))
-            if (isBest) Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
-              Text(stringResource(R.string.fig_value), style = small, color = soft)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+              if (!isBest && cost >= EQUAL) Text("(${pts(-cost)})", style = small, fontWeight = FontWeight.Bold, color = costColor(g))
               Text(pts(f.q ?: 0.0), fontWeight = FontWeight.Bold)
-            } else Text(if (cost < EQUAL) "≈" else pts(-cost), fontWeight = FontWeight.Bold, color = costColor(g))
+            }
           }
           if (mode != ListRows.numbers) {
             val track = cs.onSurface.copy(alpha = 0.08f)
@@ -209,7 +240,7 @@ fun DecisionPanel(
               val danger = f.danger
               if (danger != null && danger >= 0.01) Text("${stringResource(R.string.fig_danger)} ${pct(danger)}", style = small)
             } else {
-              for ((label, value) in figureItems(res, f, null, oppNames).drop(if (isBest) 1 else 0)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+              for ((label, value) in figureItems(res, f, null, oppNames).drop(1)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(label, style = small, color = soft)
                 Text(value, style = small)
               }

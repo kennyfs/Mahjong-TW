@@ -1,7 +1,8 @@
 <!--
   The rules: a tai preset and a flower preset, chosen apart (簡單/標準/大師; 無花/見花見台/正花, in that order), the
   base (底), and every parameter in a list, the changed ones marked, each with what it means behind an i button (the
-  strings' help_<parameter>). The parameters' names and values come from the engine ({"cmd":"rules"}), never from a
+  strings' help_<parameter>, in a dialog). No button changes the page's height: the mark and the reset are always in
+  their place, shown or not. The parameters' names and values come from the engine ({"cmd":"rules"}), never from a
   table here. Practice deals a new game under new rules when the page is left.
 -->
 <script lang="ts">
@@ -14,6 +15,7 @@
   } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import type { RulesInfo } from '../lib/types';
+  import Dialog from './Dialog.svelte';
   import Icon from './Icon.svelte';
   import TitleBar from './TitleBar.svelte';
 
@@ -60,8 +62,8 @@
     ];
   });
   const label = (p: string) => names.get(p) ?? t('param_' + p);
-  /** The parameters whose explanation is open. */
-  let helped = $state<Record<string, boolean>>({});
+  /** The parameter whose explanation is open (in a dialog, so that the page keeps its height). */
+  let helped = $state<string | null>(null);
   const changed = (p: string) => !!presets && !!full && presets.values[p] !== full.values[p];
   const MIN: Record<string, number> = { base: 1 };
   const MAX: Record<string, number> = { flowers: 2, keep: 64 };
@@ -110,9 +112,7 @@
       <span class="chev" class:open={advanced}><Icon name="dropDown" /></span>
     </button>
     {#if advanced && full}
-      {#if anyChanged}
-        <div class="reset"><button class="btn text" onclick={() => choose({ ...settings.rules, overrides: {} })}>{t('rules_reset')}</button></div>
-      {/if}
+      <div class="reset"><button class="btn text" disabled={!anyChanged} onclick={() => choose({ ...settings.rules, overrides: {} })}>{t('rules_reset')}</button></div>
       {#each groups as g (g.title)}
         <div class="section-header">{t(g.title)}</div>
         {#each g.params as p (p)}
@@ -122,12 +122,12 @@
               <span class="name">
                 <span class="body-large">{label(p)}</span>
                 {#if has('help_' + p)}
-                  <button class="btn icon text info" class:on={helped[p]} aria-label={`${t('rules_help')}：${label(p)}`} aria-expanded={!!helped[p]}
-                    onclick={() => (helped[p] = !helped[p])}><Icon name="info" size={20} /></button>
+                  <button class="btn icon text info" aria-label={`${t('rules_help')}：${label(p)}`} aria-haspopup="dialog"
+                    onclick={() => (helped = p)}><Icon name="info" size={20} /></button>
                 {/if}
               </span>
-              {#if changed(p)}<span class="mark label-small">{t('rules_changed')}</span>{/if}
-              {#if helped[p]}<span class="help body-medium">{t('help_' + p)}</span>{/if}
+              <!-- Always in its place, seen or not: a change moves nothing on the page. -->
+              <span class="mark label-small" class:off={!changed(p)} aria-hidden={!changed(p)}>{t('rules_changed')}</span>
             </span>
             {#if FLAG_PARAMS.includes(p)}
               <button class="flag" role="switch" aria-checked={v === 1} aria-label={label(p)} onclick={() => set(p, v === 1 ? 0 : 1)}>
@@ -147,6 +147,13 @@
   </div></div>
 </div>
 
+{#if helped}
+  <Dialog title={label(helped)} onclose={() => (helped = null)}>
+    <p class="body-large help">{t('help_' + helped)}</p>
+    {#snippet actions()}<button class="btn text" onclick={() => (helped = null)}>{t('close')}</button>{/snippet}
+  </Dialog>
+{/if}
+
 <style>
   .page { height: 100%; display: flex; flex-direction: column; min-height: 0; }
   .scroll { flex: 1; overflow: auto; padding-bottom: 32px; }
@@ -159,12 +166,11 @@
   .radio.on { border-color: var(--primary); background: radial-gradient(var(--primary) 0 5px, transparent 5.5px); }
   .text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .row { display: flex; align-items: center; gap: 12px; padding: 8px 16px; min-height: 56px; }
-  .param.changed .body-large { font-weight: 700; }
   .name { display: flex; align-items: center; gap: 2px; min-width: 0; }
   .info { flex: none; width: 36px; min-height: 36px; border-radius: 18px; color: var(--on-surface-variant); }
-  .info.on { color: var(--primary); }
-  .help { color: var(--on-surface-variant); line-height: 1.5; padding: 2px 0 4px; }
+  .help { margin: 0; line-height: 1.6; }
   .mark { align-self: flex-start; padding: 1px 8px; border-radius: 8px; background: var(--tertiary-container); color: var(--on-tertiary-container); }
+  .mark.off { visibility: hidden; }
   .stepper { display: inline-flex; align-items: center; gap: 6px; flex: none; }
   .value { min-width: 2.2em; text-align: center; font-size: 1.125rem; font-weight: 700; }
   .note { padding: 0 16px; margin: 4px 0 8px; }

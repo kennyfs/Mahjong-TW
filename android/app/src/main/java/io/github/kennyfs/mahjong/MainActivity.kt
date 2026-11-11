@@ -22,12 +22,10 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,13 +42,17 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -74,8 +76,22 @@ import io.github.kennyfs.mahjong.ui.tourAnchor
 
 private class Tab(val screen: Screen, val label: Int, val icon: ImageVector, val selected: ImageVector)
 
+/** Practice's icon, the web page's (Icon.svelte: tileOutlined, tile): a tile, drawn here; outlined, and filled when chosen. */
+private fun tileIcon(name: String, path: String): ImageVector =
+  ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).addPath(addPathNodes(path), fill = SolidColor(Color.Black)).build()
+
+private val TileOutlined = tileIcon(
+  "TileOutlined",
+  "M8 2H16A3 3 0 0 1 19 5V19A3 3 0 0 1 16 22H8A3 3 0 0 1 5 19V5A3 3 0 0 1 8 2ZM8 4A1 1 0 0 0 7 5V19A1 1 0 0 0 8 20H16A1 1 0 0 0 17 19V5A1 1 0 0 0 16 4Z" +
+    "M12 9A3 3 0 1 1 12 15A3 3 0 1 1 12 9Z",
+)
+private val TileFilled = tileIcon(
+  "TileFilled",
+  "M8 2H16A3 3 0 0 1 19 5V19A3 3 0 0 1 16 22H8A3 3 0 0 1 5 19V5A3 3 0 0 1 8 2ZM12 9A3 3 0 1 0 12 15A3 3 0 1 0 12 9Z",
+)
+
 private val TABS = listOf(
-  Tab(Screen.PLAY, R.string.nav_play, Icons.Outlined.Style, Icons.Filled.Style),
+  Tab(Screen.PLAY, R.string.nav_play, TileOutlined, TileFilled),
   Tab(Screen.BATTLE, R.string.nav_battle, Icons.Outlined.Groups, Icons.Filled.Groups),
   Tab(Screen.ANALYZE, R.string.nav_analyze, Icons.Outlined.Assessment, Icons.Filled.Assessment),
   Tab(Screen.RECORDS, R.string.nav_records, Icons.Outlined.History, Icons.Filled.History),

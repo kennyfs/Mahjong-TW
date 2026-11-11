@@ -43,6 +43,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
+import io.github.kennyfs.mahjong.Practice
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -420,6 +422,23 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
           FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), itemVerticalAlignment = Alignment.CenterVertically) {
             Text(if (step >= n) stringResource(R.string.replay_over) else stringResource(R.string.replay_step, stepNumber, stopList.size),
               style = MaterialTheme.typography.labelLarge, modifier = Modifier.testTag("replay_where"))
+            // The player's expected result at this step, as the review knows it: at a decision its best action's,
+            // after it the action played's (until the next decision), before the first the first decision's; at the
+            // end the result.
+            if (r != null && hasNet) {
+              val before = r.decisions.lastOrNull { it.step < step }
+              val value = when {
+                step >= n -> r.result
+                mine != null -> mine.analysis.value ?: 0.0
+                before == null -> r.firstValue ?: 0.0
+                else -> before.analysis.actions.getOrNull(before.played)?.q ?: before.analysis.value ?: 0.0
+              }
+              Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("replay_now")) {
+                Text(stringResource(if (step >= n) R.string.review_result else R.string.review_now), style = MaterialTheme.typography.bodyMedium,
+                  color = cs.onSurfaceVariant)
+                Text(pts(value), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+              }
+            }
             if (deciding != null) Text(
               (if (deciding.first == rec.me) stringResource(R.string.replay_you_chose, actionText(res, deciding.second))
               else stringResource(R.string.replay_seat_chose, names[deciding.first], actionText(res, deciding.second))) +
@@ -482,9 +501,14 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
       } },
       { navButton("replay_last", R.string.replay_last, step < n, false, { toEnd() }) { Icon(Icons.Filled.SkipNext, stringResource(R.string.replay_last)) } },
     )
+    // One row, back at the left and on at the right; in the narrow column beside the table two such rows at its foot,
+    // the big jumps (the start, the player's decisions, the last move) over the small ones (the decisions worth a
+    // look, one step: the step on, the one most pressed, lowest).
     val buttons = @Composable {
-      if (side && !inlinePanel) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        for (row in navButtons.chunked(4)) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { for (b in row) b() }
+      if (side && !inlinePanel) Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (row in listOf(listOf(0, 2, 5, 7), listOf(1, 3, 4, 6))) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+          for (b in row) navButtons[b]()
+        }
       } else Row(Modifier.widthIn(max = 480.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         for (b in navButtons) b()
       }
@@ -494,7 +518,8 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     val panel = @Composable {
       if (focus != null) {
         DecisionPanel(focus.analysis, played = focus.played, unit = unit, mode = settings.listRows, w = if (inlinePanel) 34f else maxOf(30f, hw * 0.8f),
-          names = names, truth = focus.truth, showTruth = showAll, picked = pickedIndex, brief = focus.seat == rec.me && mine != null)
+          names = names, truth = focus.truth, showTruth = showAll, picked = pickedIndex, brief = focus.seat == rec.me && mine != null,
+          who = if (focus.seat == rec.me) "" else names[focus.seat])
         Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.End) {
           FilledTonalButton(onClick = ::toAnalysis, modifier = Modifier.testTag("replay_to_analysis")) {
             Icon(Icons.Filled.Assessment, null, Modifier.size(20.dp))
@@ -551,25 +576,34 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         if (v == null) Loading()
         else TableView(
           v, rec.me, names, revealed = if (showAll || step == n) v.hands else null, interactive = false, maxHand = 56f,
-          marks = marks, notes = notes, strip = strip, onPick = { picked = it }, clearCorner = if (side) 52f else 0f,
+          marks = marks, notes = notes, strip = strip, onPick = { picked = it },
           overlay = {
             val f = final
             if (step == n && f?.result != null && showResult) Sheet {
               HandResultCard(f, names, rec.me, resultTileW(side, w), rev = rec.rev, level = level) {
                 TextButton(onClick = { showResult = false }) { Text(stringResource(R.string.result_hands)) }
-                FilledTonalButton(onClick = { go(stops.firstOrNull()?.step ?: 0) }) {
-                  Text(stringResource(if (stops.isNotEmpty()) R.string.review_next_key else R.string.replay_start))
-                }
+                if (stops.isNotEmpty()) FilledTonalButton(onClick = { go(stops.first().step) }) { Text(stringResource(R.string.review_next_key)) }
+                // After the result: the next hand. Practice's, when this is the hand just played (the review
+                // closes); else the game's next in the records.
+                val practice = vm.practice
+                val practiceNext = practice.stage == Practice.Stage.RESULT && practice.lastRecord == rec.id
+                val nextRecord = rec.group?.let { g -> vm.records.ofGroup(g).firstOrNull { (it.index ?: 0) == (rec.index ?: 0) + 1 } }
+                if (practiceNext || nextRecord != null) Button(
+                  onClick = {
+                    if (practiceNext) {
+                      practice.nextHand()
+                      onBack()
+                    } else if (nextRecord != null) {
+                      vm.reviewId = nextRecord.id
+                      vm.reviewStep = 0
+                    }
+                  },
+                  modifier = Modifier.testTag("replay_next_hand"),
+                ) { Text(stringResource(if (practiceNext && practice.meta?.over == true) R.string.see_totals else R.string.next_hand)) }
               }
             }
           },
         )
-        // A wide window has no title bar: the way back lies over the table's corner, which the table keeps clear.
-        if (side) Box(
-          Modifier.align(Alignment.TopStart).padding(6.dp).size(42.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.3f)).clickable(onClick = onBack)
-            .testTag("replay_back"),
-          contentAlignment = Alignment.Center,
-        ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = LocalTable.current.onFelt) }
       }
     }
 
@@ -613,22 +647,39 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.weight(0.46f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
           verticalArrangement = Arrangement.spacedBy(8.dp)) {
-          IconButton(onClick = onBack, modifier = Modifier.testTag("replay_back")) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
           seatHand()
         }
         Column(Modifier.weight(0.54f).fillMaxHeight().verticalScroll(listScroll).padding(top = 8.dp, bottom = 16.dp)) { panel() }
       } else table(Modifier.weight(1f).fillMaxHeight().background(LocalTable.current.felt).windowInsetsPadding(startInset))
       Column(
         Modifier.fillMaxHeight().background(cs.surfaceContainer).windowInsetsPadding(endInset).width(if (inlinePanel) 420.dp else 208.dp)
-          .let { if (inlinePanel) it else it.verticalScroll(rememberScrollState()) }.padding(horizontal = if (inlinePanel) 12.dp else 8.dp, vertical = 4.dp),
+          .padding(horizontal = if (inlinePanel) 12.dp else 8.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
       ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { topButtons() }
-        summary()
-        // The step buttons before the words, whose height changes from step to step: a button stays under the finger.
-        buttons()
-        info()
-        if (inlinePanel) Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(listScroll).padding(top = 4.dp, bottom = 12.dp)) { panel() }
+        // No title bar beside the table: the way back at the column's top-left, clear of the table.
+        val top = @Composable {
+          Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack, modifier = Modifier.testTag("replay_back")) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+            Spacer(Modifier.weight(1f))
+            topButtons()
+          }
+        }
+        // The step buttons stay in their place whatever the words' height from step to step (a button stays under
+        // the finger): the narrow column has them at its foot; with the list in the column they come before the words.
+        if (inlinePanel) {
+          top()
+          summary()
+          buttons()
+          info()
+          Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(listScroll).padding(top = 4.dp, bottom = 12.dp)) { panel() }
+        } else {
+          Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            top()
+            summary()
+            info()
+          }
+          buttons()
+        }
       }
     } else Column(Modifier.fillMaxSize()) {
       TitleBar(stringResource(R.string.replay_title), onBack) { topButtons() }

@@ -15,6 +15,11 @@
   tap for a tile's line), and in a list of every action one tap away (beside the table on a large window), its rows
   numbers, bars or both (the settings). The list keeps its place from its end over a step when it is scrolled near it
   (the opponents' figures are there, to watch them change). A step can be taken to the analysis screen to try changes.
+  Every step says the player's expected result as the review knows it then: at a decision its best action's, after
+  it the action played's (until the next decision), before the first the first decision's; at the end the result.
+
+  The result's sheet leads on to the next hand: practice's next when this is the hand just played (the review closes),
+  else the next hand of the same game in the records.
 -->
 <script lang="ts">
   import { actionText, fullAction, isTaken } from '../lib/actions';
@@ -23,6 +28,7 @@
   import { t } from '../lib/i18n.svelte';
   import { nav } from '../lib/nav.svelte';
   import { editor } from '../lib/position-editor.svelte';
+  import { practice } from '../lib/practice.svelte';
   import { records } from '../lib/records.svelte';
   import { costOf, efficiencyText, EQUAL, figureItems, gradeOf, GRADE_NAME, isKey, keysOf, levelWord, notableText, pct, pts, readyLevel,
     reasonOf, reviewOf, summarize, tagCost, tileMarks, tilesShort, type TileMark } from '../lib/review';
@@ -153,6 +159,25 @@
   const prevKeyStep = $derived([...stops].reverse().find((k) => k.step < step)?.step ?? -1);
   const mine = $derived(rev?.decisions.find((d) => d.step === step));
   const key = $derived(keys.find((k) => k.step === step));
+  /** The player's expected result at this step, as the review knows it (see the top); at the end the result. */
+  const now = $derived.by((): { label: string; value: number } | null => {
+    if (!rev || !hasNet) return null;
+    if (step >= n) return { label: t('review_result'), value: rev.result };
+    if (mine) return { label: t('review_now'), value: mine.analysis.value ?? 0 };
+    const before = [...rev.decisions].reverse().find((d) => d.step < step);
+    if (!before) return { label: t('review_now'), value: rev.first_value ?? 0 };
+    return { label: t('review_now'), value: before.analysis.actions[before.played]?.q ?? before.analysis.value ?? 0 };
+  });
+
+  /** After the result: the next hand. Practice's, when this is the hand just played; else the game's next in the records. */
+  const practiceNext = $derived(!!rec && practice.stage === 'result' && practice.lastRecord === rec.id);
+  const nextRecord = $derived(rec?.group ? (records.ofGroup(rec.group).find((r) => (r.index ?? 0) === (rec.index ?? 0) + 1) ?? null) : null);
+  function nextHand() {
+    if (practiceNext) {
+      void practice.nextHand();
+      onback();
+    } else if (nextRecord) shared.reviewId = nextRecord.id;
+  }
 
   const deciding = $derived.by(() => {
     if (!rec || step >= n) return null;
@@ -334,6 +359,7 @@
   <div class="info body-medium">
     <div class="where">
       <span class="label-large">{step >= n ? t('replay_over') : t('replay_step', stepNumber, stopList.length)}</span>
+      {#if now}<span class="now"><span class="dim">{now.label}</span> <b>{pts(now.value)}</b></span>{/if}
       {#if deciding && rec}
         <span class="decide">{deciding.seat === rec.me ? t('replay_you_chose', actionText(deciding.action)) : t('replay_seat_chose', names[deciding.seat], actionText(deciding.action))}{decidingNote ? `（${decidingNote}）` : ''}</span>
       {:else if step >= n && outcome}
@@ -359,28 +385,51 @@
   </div>
 {/snippet}
 
-{#snippet buttons()}
-  <div class="buttons">
-    <button class="btn icon tonal" aria-label={t('replay_start')} disabled={step === 0} onclick={() => go(0)}><Icon name="skipPrev" /></button>
+{#snippet nb(kind: string)}
+  {#if kind === 'start'}
+    <button class="btn icon tonal" aria-label={t('replay_start')} title={t('replay_start')} disabled={step === 0} onclick={() => go(0)}><Icon name="skipPrev" /></button>
+  {:else if kind === 'prevKey'}
     <button class="btn icon tonal key" aria-label={t('review_prev_key')} title={t('review_prev_key')} disabled={prevKeyStep < 0} onclick={() => go(prevKeyStep)}>
       <Icon name="prev" size={18} /><b>!</b>
     </button>
+  {:else if kind === 'prevMine'}
     <button class="btn icon tonal" aria-label={t('replay_prev_decision')} title={t('replay_prev_decision')} disabled={step === 0} onclick={prevMine}><Icon name="undo" /></button>
-    <button class="btn icon tonal" aria-label={t('replay_prev')} disabled={step === 0} onclick={prev}><Icon name="prev" /></button>
-    <button class="btn icon filled" aria-label={t('replay_next')} disabled={step >= n} onclick={next}><Icon name="next" /></button>
+  {:else if kind === 'prev'}
+    <button class="btn icon tonal" aria-label={t('replay_prev')} title={t('replay_prev')} disabled={step === 0} onclick={prev}><Icon name="prev" /></button>
+  {:else if kind === 'next'}
+    <button class="btn icon filled" aria-label={t('replay_next')} title={t('replay_next')} disabled={step >= n} onclick={next}><Icon name="next" /></button>
+  {:else if kind === 'nextMine'}
     <button class="btn icon tonal mirror" aria-label={t('replay_next_decision')} title={t('replay_next_decision')} disabled={step >= n} onclick={nextMine}><Icon name="undo" /></button>
+  {:else if kind === 'nextKey'}
     <button class="btn icon tonal key" aria-label={t('review_next_key')} title={t('review_next_key')} disabled={nextKeyStep < 0} onclick={() => go(nextKeyStep)}>
       <b>!</b><Icon name="next" size={18} />
     </button>
+  {:else}
     <button class="btn icon tonal" aria-label={t('replay_last')} title={t('replay_last')} disabled={step >= n} onclick={toEnd}><Icon name="skipNext" /></button>
-  </div>
+  {/if}
+{/snippet}
+
+<!-- The step buttons: one row, back at the left and on at the right; in the narrow column beside the table two such
+     rows at its foot, the big jumps over the small ones (the step on, the one most pressed, lowest). -->
+{#snippet buttons()}
+  {#if side && !inlinePanel}
+    <div class="buttons two">
+      <div class="brow">{@render nb('start')}{@render nb('prevMine')}{@render nb('nextMine')}{@render nb('last')}</div>
+      <div class="brow">{@render nb('prevKey')}{@render nb('prev')}{@render nb('next')}{@render nb('nextKey')}</div>
+    </div>
+  {:else}
+    <div class="buttons">
+      {#each ['start', 'prevKey', 'prevMine', 'prev', 'next', 'nextMine', 'nextKey', 'last'] as k (k)}{@render nb(k)}{/each}
+    </div>
+  {/if}
 {/snippet}
 
 <!-- A decision's list, with the way to the analysis screen. -->
 {#snippet panel()}
   {#if focus}
     <DecisionPanel analysis={focus.analysis} played={focus.played} {unit} mode={settings.listRows} w={inlinePanel ? 34 : Math.max(30, hw * 0.8)}
-      names={names} truth={focus.truth} showTruth={showAll} picked={pickedIndex} brief={focus.seat === rec?.me && !!mine} />
+      names={names} truth={focus.truth} showTruth={showAll} picked={pickedIndex} brief={focus.seat === rec?.me && !!mine}
+      who={focus.seat === rec?.me ? '' : names[focus.seat]} />
     <div class="panel-foot">
       <button class="btn tonal" onclick={toAnalysis}><Icon name="assessment" size={20} />{t('review_to_analysis')}</button>
     </div>
@@ -421,7 +470,6 @@
     {#if listView}
       <div class="list-view" class:halves={ui.wide} bind:this={listEl} onscroll={onListScroll}>
         <div class="seat-hand">
-          {#if side}<button class="btn icon text list-back" aria-label={t('back')} onclick={onback}><Icon name="back" /></button>{/if}
           {#if seatHand && deciding}
             <div class="body-medium dim">{seatHand.head}・{deciding.seat === rec.me ? t('analysis_your_turn') : t('analysis_turn_of', names[deciding.seat])}</div>
             <MyHand tiles={seatHand.tiles} drawn={seatHand.drawn} w={hw} perRow={8} bind:selected tagH={17}
@@ -441,18 +489,19 @@
       </div>
     {:else}
       <div class="table-wrap">
-        <!-- A wide window has no title bar: the way back lies over the table's corner, which the table keeps clear. -->
-        {#if side}<button class="btn icon back-float" aria-label={t('back')} onclick={onback}><Icon name="back" /></button>{/if}
         {#if view}
           <Table {view} me={rec.me} {names} revealed={showAll || step === n ? (view.hands ?? null) : null} interactive={false}
-            maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} clearCorner={side ? 52 : 0}>
+            maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)}>
             {#snippet overlay()}
               {#if step === n && final?.result && showResult}
                 <div class="sheet">
                   <HandResult {final} {names} me={rec.me} rev={rec.rev ?? null} w={ui.wide ? Math.min(36, Math.max(24, ui.w / 30)) : Math.min(34, Math.max(24, ui.w / 13))}>
                     {#snippet actions()}
                       <button class="btn text" onclick={() => (showResult = false)}>{t('result_hands')}</button>
-                      <button class="btn tonal" onclick={() => go(stops[0]?.step ?? 0)}>{stops.length ? t('review_next_key') : t('replay_start')}</button>
+                      {#if stops.length}<button class="btn tonal" onclick={() => go(stops[0].step)}>{t('review_next_key')}</button>{/if}
+                      {#if practiceNext || nextRecord}
+                        <button class="btn filled" onclick={nextHand}>{practiceNext && practice.meta?.over ? t('see_totals') : t('next_hand')}</button>
+                      {/if}
                     {/snippet}
                   </HandResult>
                 </div>
@@ -464,17 +513,23 @@
     {/if}
     <div class="controls" class:with-panel={inlinePanel}>
       {#if side}
+        <!-- No title bar beside the table: the way back at the column's top-left, clear of the table. -->
         <div class="side-top">
+          <button class="btn icon text" aria-label={t('back')} title={t('back')} onclick={onback}><Icon name="back" /></button>
           <span class="spacer"></span>
           {@render topButtons()}
         </div>
       {/if}
       {@render summary()}
-      <!-- Beside the table the step buttons come before the words, whose height changes from step to step: a button
-           stays under the pointer. Under the table the words keep the room of three lines (the table stays put). -->
-      {#if side}
+      <!-- The step buttons stay in their place whatever the words' height from step to step (a button stays under the
+           pointer): beside the table the narrow column has them at its foot; with the list beside the table they come
+           before the words. Under the table the words keep the room of three lines (the table stays put). -->
+      {#if side && inlinePanel}
         <div class="nav-row">{@render buttons()}</div>
         {@render info()}
+      {:else if side}
+        {@render info()}
+        <div class="nav-row foot">{@render buttons()}</div>
       {:else}
         {@render info()}
         <div class="nav-row">{@render buttons()}</div>
@@ -490,10 +545,6 @@
   .pad { padding: 24px; }
   .btn.icon.on { background: var(--secondary-container); color: var(--on-secondary-container); }
   .table-wrap { flex: 1; min-height: 0; min-width: 0; position: relative; }
-  .back-float { position: absolute; left: 6px; top: 6px; z-index: 6; width: 42px; min-height: 42px; border-radius: 21px;
-    background: rgba(0, 0, 0, 0.3); color: var(--on-felt); }
-  .back-float:hover { background: rgba(0, 0, 0, 0.45); }
-  .list-back { align-self: flex-start; margin: -4px 0 -4px -6px; }
   .controls { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 6px 10px 8px; background: var(--surface-container); min-height: 0; }
   .side .controls { width: 208px; padding: 4px 8px 6px; overflow: auto; }
   .side .controls.with-panel { width: 420px; padding: 4px 12px 12px; }
@@ -521,8 +572,11 @@
   .buttons { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 2px; max-width: 480px; }
   .buttons .btn.icon { width: 42px; min-height: 42px; border-radius: 21px; }
   .buttons .key { gap: 0; font-size: 1.05rem; }
-  .side .buttons { display: grid; grid-template-columns: repeat(4, 42px); gap: 6px; justify-content: center; }
-  .with-panel .buttons { display: flex; }
+  .buttons.two { flex-direction: column; gap: 6px; }
+  .brow { display: flex; justify-content: space-between; width: 100%; }
+  .nav-row.foot { margin-top: auto; padding-top: 6px; }
+  .now { font-variant-numeric: tabular-nums; }
+  .now .dim, .sum .dim { color: var(--on-surface-variant); }
   .mirror :global(svg) { transform: scaleX(-1); }
   .inline-panel { flex: 1; min-height: 120px; overflow: auto; margin-top: 4px; padding-right: 2px; }
   .panel-foot { display: flex; justify-content: flex-end; padding: 10px 0 4px; }

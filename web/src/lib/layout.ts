@@ -4,7 +4,9 @@
 //
 // Tiles stay large: the player's own are the ones tapped (40 px or more on a phone, never fewer than 30), and an
 // upright phone wraps the hand after HAND_ROW tiles rather than shrinking them. The others' tiles and the rivers
-// stay large enough to read (22 px and up on a phone).
+// stay large enough to read (22 px and up on a phone). The rivers take what room is left, as large as it allows: on
+// a wide table nothing lies between them (the round and the wall are in the table's top-left corner, the screen's
+// buttons in its top-right one); on a tall one a slim box with the round and the wall.
 import { TILE_RATIO } from '../components/Tile.svelte';
 
 /** Tiles a row of the player's hand on a tall table (the drawn tile apart at the end of the last row). */
@@ -101,9 +103,10 @@ export interface TableSizes {
   sideW: number;
   topH: number;
   meH: number;
-  /** The box in the middle (round, wall, turn). */
+  /** A tall table's box in the middle (round, wall, streak): its width (0: a wide table, which has none). */
   boxW: number;
-  boxH: number;
+  /** The room between the two rivers across: a tall table's box's height, a wide table's gap. */
+  mid: number;
   /** The table's width (wide: no wider than its parts need, so that it keeps together on a large window). */
   tableW: number;
   /** The words' size on the table, px. */
@@ -111,8 +114,14 @@ export interface TableSizes {
 }
 
 const H = (w: number) => w * TILE_RATIO;
-/** A river's room, in tiles (a hand has seldom more discards a player). */
-const RIVER = 20;
+/** A river's room at full size, in tiles: across (8 a row) and at the sides. A hand seldom has more discards a
+ *  player; a longer river's tiles get smaller (River.svelte). */
+const ACROSS = 16;
+const SIDE = 15;
+/** The gap between the two rivers across a wide table, in tile heights. */
+const MID_ROWS = 0.4;
+/** A tall table's box between them (a line of the round and the wall, another of the streak), in tile heights. */
+const BOX_ROWS = 1;
 /** The rivers' tiles on a tall table: no smaller than this while the hand can give room. */
 const MIN_RIVER = 26;
 
@@ -120,7 +129,7 @@ const MIN_RIVER = 26;
 export const SHOWN_RIVER = 20;
 
 /** The height left for the others' strip on a tall table of height `h` when the rivers' tiles are `river` px wide. */
-export const tallTopRoom = (s: TableSizes, h: number, river: number) => h - s.meH - 4 - ((2 * s.acrossRows + 1.3) * H(river) + 14);
+export const tallTopRoom = (s: TableSizes, h: number, river: number) => h - s.meH - 4 - ((2 * s.acrossRows + BOX_ROWS) * H(river) + 14);
 
 /** Sizes for a table of w x h px; `maxHand` caps the hand's tiles (a computer's big window). `top`: a tall table's
  *  others' strip is this high when that is more than it would be (everyone's tiles shown): the rivers give the room. */
@@ -139,24 +148,23 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSi
     const topH = H(opp) + 12;
     const centerH = h - meH - topH - 6;
     const sideMin = Math.max(opp * 3.4 + 16, 128);
-    // The rivers: the largest tile for which a layout fits, wide rivers of 2 rows across (3 when there is room) and
-    // side rivers of 3 to 5 columns, each holding 20 tiles or more (a longer river's tiles get smaller), the box
-    // between the rows 1.3 rows high.
+    // The rivers: the largest tile for which a layout fits, rivers across of 2 rows of 8 (3 rows of 7 when there is
+    // room) and side rivers of 3 to 5 columns (ACROSS and SIDE tiles at full size), a gap of MID_ROWS between the two
+    // across.
     let best: { river: number; acrossCols: number; acrossRows: number; sideCols: number } | null = null;
-    for (let river = Math.min(hand * 0.85, h >= 900 ? 60 : 52); river >= 12 && !best; river -= 0.5) {
+    for (let river = Math.min(hand * 0.9, h >= 900 ? 66 : 56); river >= 12 && !best; river -= 0.5) {
       for (const acrossRows of [3, 2]) {
-        const boxRows = 1.3;
-        if ((2 * acrossRows + boxRows) * H(river) + 14 > centerH) continue;
+        if ((2 * acrossRows + MID_ROWS) * H(river) + 14 > centerH) continue;
         const sideRows = Math.floor((centerH - 4) / H(river));
-        const acrossCols = Math.max(9, Math.ceil(RIVER / acrossRows));
-        const sideCols = [3, 4, 5].find((c) => c * sideRows >= RIVER);
+        const acrossCols = Math.max(7, Math.ceil(ACROSS / acrossRows));
+        const sideCols = [3, 4, 5].find((c) => c * sideRows >= SIDE);
         if (!sideCols) continue;
         if ((acrossCols + 2 * sideCols) * river + 28 > w - 2 * sideMin) continue;
         best = { river, acrossCols, acrossRows, sideCols };
         break;
       }
     }
-    const b = best ?? { river: 12, acrossCols: 11, acrossRows: 2, sideCols: 4 };
+    const b = best ?? { river: 12, acrossCols: 8, acrossRows: 2, sideCols: 4 };
     const river = b.river;
     const riversW = (b.acrossCols + 2 * b.sideCols) * river + 28;
     // The side panels: room for a meld and some flowers a line, no more; the hand's row, then, says how wide the
@@ -165,10 +173,9 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSi
     const tableW = Math.min(w, Math.max(handRowW, riversW + 2 * Math.max(sideMin, opp * 4.6 + 16)));
     const sideW = Math.max(sideMin, (tableW - riversW) / 2);
     const sideRows = Math.max(4, Math.floor((centerH - 4) / H(river)));
-    const boxH = Math.max(H(river) * 1.3, Math.min(H(river) * 1.8, centerH - 2 * b.acrossRows * H(river) - 14));
     return {
       wide, hand, handRow: 0, meld, river, opp, back: Math.max(10, opp * 0.66), acrossCols: b.acrossCols, acrossRows: b.acrossRows,
-      sideCols: b.sideCols, sideRows, sideW, topH, meH, boxW: b.acrossCols * river, boxH, tableW,
+      sideCols: b.sideCols, sideRows, sideW, topH, meH, boxW: 0, mid: MID_ROWS * H(river), tableW,
       font: Math.max(14, Math.min(18, opp * 0.46)),
     };
   }
@@ -184,13 +191,13 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSi
     const meH = meldLine + 4 + H(hand) * (2 + ROW_GAP + LIFT) + 6;
     const topH = Math.max(more, 28 + OPP_LINES * (H(opp) + meldGaps(opp).row) + 4);
     const centerH = h - meH - topH - 4;
-    // The rivers: 3 columns at the sides, 6 across in 3 rows; as wide as the table allows, unless its height says less.
+    // The rivers: 3 columns at the sides, 5 across in 3 rows; as wide as the table allows, unless its height says less.
     let river = Math.min(hand * 0.9, (w - 24) / (acrossCols + 2 * sideCols));
-    while (river > 16 && (2 * acrossRows + 1.3) * H(river) + 14 > centerH) river -= 0.5;
+    while (river > 16 && (2 * acrossRows + BOX_ROWS) * H(river) + 14 > centerH) river -= 0.5;
     return { hand, meld, opp, meH, topH, centerH, river };
   };
   const sideCols = 3;
-  const acrossCols = 6;
+  const acrossCols = 5;
   const acrossRows = 3;
   let fit = tall(Math.max(30, Math.min(maxHand, (w - 10) / (HAND_ROW + DRAWN_GAP + 1))));
   while (fit.river < MIN_RIVER && fit.hand > 30) fit = tall(Math.max(30, fit.hand - 1));
@@ -198,9 +205,9 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSi
   if (top > fit.topH) fit = tall(fit.hand, top);
   const { hand, meld, opp, meH, topH, centerH, river } = fit;
   const sideRows = Math.max(4, Math.floor((centerH - 4) / H(river)));
-  const boxH = Math.max(H(river) * 1.3, Math.min(H(river) * 2, centerH - 2 * acrossRows * H(river) - 14));
+  const mid = Math.max(H(river) * BOX_ROWS, Math.min(H(river) * 2, centerH - 2 * acrossRows * H(river) - 14));
   return {
     wide, hand, handRow: HAND_ROW, meld, river, opp, back: 0, acrossCols, acrossRows, sideCols, sideRows, sideW: (w - 8) / 3,
-    topH, meH, boxW: acrossCols * river, boxH, tableW: w, font: 14,
+    topH, meH, boxW: acrossCols * river, mid, tableW: w, font: 14,
   };
 }

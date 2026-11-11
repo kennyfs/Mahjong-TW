@@ -8,6 +8,8 @@
   `oneClick` (a computer's mouse): a tile rises under the pointer and one click discards it.
   `marks` (a review): by tile, a tag over it (what it costs against the best), whether it was the one played, and its
   danger as a band along its foot; `tagH` px are kept over each row for the tags.
+  `turn`: the player's turn to discard: a frame of the turn's color pulses around the tiles. `apart`: the tile set
+  apart (`drawn`) was not drawn (the dealer's first discard, after a call): it slides aside instead of coming down.
 
   A tile's touch target is its own place, whether the tile is lifted or not, and while it is lifted the room over it
   too: the second tap lands where the first did (a thumb at the tile's foot) or on the tile where it now is. (A
@@ -21,9 +23,10 @@
   import type { TileMark } from '../lib/review';
   import type { Tile as T } from '../lib/tiles';
   let { tiles, drawn = null, w, canDiscard = () => false, ondiscard, selected = $bindable(null), perRow = 0, oneClick = false,
-    marks = null, tagH = 0 }: {
+    marks = null, tagH = 0, turn = false, apart = false }: {
     tiles: T[]; drawn?: T | null; w: number; canDiscard?: (t: T) => boolean; ondiscard?: (t: T) => void;
     selected?: number | null; perRow?: number; oneClick?: boolean; marks?: Map<T, TileMark> | null; tagH?: number;
+    turn?: boolean; apart?: boolean;
   } = $props();
 
   // The drawn tile last, as its own index.
@@ -85,15 +88,16 @@
   }
 </script>
 
-<div class="hand" style="padding-top: {Math.max(h * LIFT, tagH)}px; row-gap: {Math.max(h * ROW_GAP, tagH)}px; --lift: {h * LIFT}px; {blockW ? `width: ${blockW}px` : ''}">
+<div class="hand" class:turn style="padding-top: {Math.max(h * LIFT, tagH)}px; row-gap: {Math.max(h * ROW_GAP, tagH)}px; --lift: {h * LIFT}px;
+  --top: {Math.max(h * LIFT, tagH)}px; {blockW ? `width: ${blockW}px` : ''}">
   {#each rows as row, r (r)}
     <div class="row" style="height: {h}px">
-      {#each row as i (i + '/' + all[i] + (drawn && i === tiles.length ? '/d' : ''))}
+      {#each row as i (i + '/' + all[i] + (drawn && i === tiles.length ? (apart ? '/a' : '/d') : ''))}
         {@const isDrawn = !!drawn && i === tiles.length}
         <button class="slot" class:up={selected === i} class:hover={oneClick && canDiscard(all[i])}
           style="margin-left: {isDrawn && row.length > 1 ? w * DRAWN_GAP : 0}px"
           onpointerdown={(e) => down(e, i)} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}
-          in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0 }}
+          in:fly={isDrawn && apart ? { x: -w * DRAWN_GAP, duration: 220 } : { y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0 }}
           aria-pressed={selected === i}>
           <span class="lifted" style="transform: translateY({drag?.i === i ? drag.dy : selected === i ? -h * LIFT : 0}px)">
             {#if marks?.get(all[i])}
@@ -109,7 +113,17 @@
 </div>
 
 <style>
-  .hand { display: flex; flex-direction: column; align-items: flex-start; touch-action: none; flex: none; }
+  .hand { display: flex; flex-direction: column; align-items: flex-start; touch-action: none; flex: none; position: relative; }
+  /* The player's turn: the frame around the tiles (not the room over them for a lifted tile), pulsing. */
+  .hand.turn::after { content: ''; position: absolute; left: -5px; right: -5px; top: calc(var(--top) - 5px); bottom: -5px;
+    border: 3px solid var(--highlight); border-radius: 10px; pointer-events: none; animation: turn 1.1s ease-in-out infinite alternate; }
+  @keyframes turn {
+    from { opacity: 0.45; box-shadow: 0 0 2px 0 var(--highlight); }
+    to { opacity: 1; box-shadow: 0 0 16px 3px var(--highlight); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hand.turn::after { animation: none; box-shadow: 0 0 10px 2px var(--highlight); }
+  }
   .row { display: flex; align-items: flex-end; }
   .slot { padding: 0; margin: 0; border: none; background: none; cursor: pointer; display: block;
     -webkit-tap-highlight-color: transparent; touch-action: none; position: relative; }

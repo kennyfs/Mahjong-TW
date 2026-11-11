@@ -152,6 +152,10 @@ def rotate(landscape):
   raise RuntimeError(f'the display did not turn to {want}')
 
 
+def rotation_name():
+  return 'land' if rotation() in (1, 3) else 'port'
+
+
 def screen_size():
   m = re.search(r'(\d+)x(\d+)', sh('wm size'))
   w, h = int(m.group(1)), int(m.group(2))
@@ -179,6 +183,11 @@ def play_hand(limit=500):
     nodes = ui()
     if find(nodes, rid='result_next'):
       return True
+    # The pause at the end of the hand (the table as it ended) before the result.
+    if find(nodes, rid='result_skip'):
+      shot(f'play-end-{rotation_name()}')
+      wait_for(lambda ns: find(ns, rid='result_next'), 10)
+      continue
     win = find(nodes, rid='claim_tsumo') or find(nodes, rid='claim_ron')
     if win:
       tap_node(win)
@@ -266,8 +275,15 @@ def practice_result(orient):
   # The list of every action: its own view where there is no room for it beside the table.
   if find(ui(), rid='replay_panel'):
     tap_id('replay_panel')
-    wait_for(lambda ns: find(ns, text='期望') or find(ns, text='最佳'), 20)
+    wait_for(lambda ns: find(ns, text='最佳'), 20)
     shot(f'replay-list-{orient}')
+  # What the list's figures mean: a dialog.
+  n = find(ui(), rid='list_help')
+  if n:
+    tap_node(n)
+    time.sleep(0.6)
+    shot(f'replay-list-help-{orient}')
+    back()
   n = None
   for _ in range(8):
     n = find(ui(), rid='replay_to_analysis')
@@ -281,13 +297,19 @@ def practice_result(orient):
     shot(f'analyze-from-review-{orient}')
     go('練習')
   if find(ui(), rid='replay_panel'):
-    n = find(ui(), rid='replay_to_analysis') or find(ui(), text='期望')
+    n = find(ui(), rid='replay_to_analysis') or find(ui(), text='最佳')
     if n:
       tap_id('replay_panel')
   tap_id('replay_last')
   tap_id('replay_result')
   shot(f'replay-result-{orient}')
-  back()
+  # 下一局: the practice's next hand, from the review's end.
+  if find(ui(), rid='replay_next_hand'):
+    tap_id('replay_next_hand')
+    wait_for(lambda ns: find(ns, rid='hand_drawn') or (hand_tiles(ns) or None), 40)
+    shot(f'replay-next-hand-{orient}')
+  else:
+    back()
 
 
 def analyze(orient):

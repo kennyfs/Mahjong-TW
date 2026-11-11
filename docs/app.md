@@ -26,6 +26,30 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   change shows at once in the words and the tiles; every value (base, dealer, each tai) is the engine's. 導覽, the
   tour, lights the hand, the top of practice and each tab in turn with a few words (`Tour.svelte`, `ui/Tour.kt`). The
   first start shows a welcome card once: the rules explained, the tour, or play.
+- **0.3.0** (the user's requests after 0.2.0, 2026-11-11; app and page alike):
+  - The table: the round, the wall and the dealer's streak sit in the top-left corner and the screen's buttons
+    (rules, new game; a battle's rules and leave) in the top-right; the box in the middle is gone on a wide table
+    (a slim one stays upright), so the rivers are larger: a phone sideways about 31 → 35 px a tile, upright 32 → 35.
+    A river holds 16 tiles at full size across and 15 at the sides (2 rows of 8; 3 columns), a longer one shrinks.
+  - The turn: when the player must discard without a drawn tile (the dealer's first, after a claim) the last tile
+    stands apart like a drawn one and the hand has a pulsing yellow frame (also with a drawn tile).
+  - A claim: the discard to claim is enlarged and pulsing in its river, and lit in the claim buttons (tiles 0.8 of the
+    hand's). A chow shows the claimed tile in the middle.
+  - Sideways, the player's flowers sit above the name plate, and the player's melds shrink when the row is short of
+    room, never the hand (a real phone's screenshot of 0.2.0 showed the drawn tile squeezed small).
+  - The end of a hand: the table stays 2.2 s (everyone's tiles, 胡／自摸, 放槍 over the discarder; also at a draw)
+    before the result; a tap skips. Records are written at once.
+  - The review: the expected value at every step (目前期望: at the player's decision its value; after it, the action
+    taken's; before the first, the starting value; at the end the result); at an opponent's step the list names the
+    opponent; the action taken is first, it and the best are filled, both tags when they are the same; each row's
+    figure is the action's expected value, with the loss against the best before it in small type when it counts; an
+    i button explains the figures. Its end offers 下一局 (practice: the next hand; records: the next of the group).
+    The back button is in the side column's top left (it covered the left player's name on a computer); the app's
+    side column sideways has two rows of buttons at its foot: the big jumps above, the steps below.
+  - The rules page never changes its height (the changed mark keeps its room; reset is greyed); each parameter's i
+    opens a dialog.
+  - No money in any wording (points, 分); separators (．) between figures (連 2 拉 2．3 台).
+  - The app's practice tab has the page's tile icon.
 
 - **The table** is laid out from the room it has (`web/src/lib/layout.ts`, ported as `android/.../ui/TableLayout.kt`,
   the same arithmetic): wide (a phone sideways, a tablet, a computer) or tall (a phone upright). Landscape is the
@@ -147,7 +171,8 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
    screen.
 3. **Nearby**: no backup host (the room dies with the host's phone); no reconnect for a guest who drops.
 4. **Size**: compressing the native libraries in the APK would make the download about 8 MB (from 14.7), but the
-   installed app larger (Android keeps an extracted copy beside the APK); kept uncompressed, as Thirteen does. Below.
+   installed app larger (Android keeps an extracted copy beside the APK); declined by the user (2026-11-11): they
+   stay uncompressed, as Thirteen's. Below.
 5. **The analysis** has the network since 0.1.0 (docs/analysis.md); a better network replaces the file.
 6. **English (US)** strings (`values-en/strings.xml`; the page would need its language picked from the browser).
 7. **Records export and import** (Thirteen's app has export and share): `records_export` is in the strings, unused.

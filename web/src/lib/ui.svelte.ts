@@ -2,6 +2,8 @@
 // and whether it is a computer's (`desk`: a mouse, and room for a side panel).
 export const NAV_BAR = 80;
 export const NAV_RAIL = 88;
+/** A hand's end: how long the table shows how it ended (the hands, the words of the win) before the result, ms. */
+export const END_PAUSE = 2200;
 
 export const ui = $state({ w: 0, h: 0, wide: false, desk: false, showKeys: false });
 
