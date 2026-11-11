@@ -79,7 +79,8 @@
     nav.open('review');
   }
   // At a battle's table, the other screens are out of reach (a tap away from leaving it by mistake).
-  const immersive = $derived(battle.playing && nav.screen === 'BATTLE' && nav.sub === null);
+  // Nor over a hand's review: its Back leads out, and the table takes the room.
+  const immersive = $derived((battle.playing && nav.screen === 'BATTLE' && nav.sub === null) || nav.sub === 'review');
 </script>
 
 <TileDefs />

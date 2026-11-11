@@ -111,7 +111,39 @@ chows; an opponent's next discard and the hand's remaining length are close to u
    use is found: `ready_within` (the speed of the own hand), `opp_hand` summed per suit, `chow` as one more figure
    of a discard. Not `next_discard` or `draws_left` (see above).
 
-## 4. Tools
+## 4. What is built (the web page, branch `analysis`, 2026-11-11)
+
+The page only, to try the candidates on; the app follows when a design is chosen. The engine's requests are in
+docs/gui-engine.md (`analyze` with a model, `review`, `whatif`); the page's logic is `web/src/lib/review.ts`.
+
+- **The network in the page**: `actor.onnx` ships with the engine (ONNX Runtime as WebAssembly); the practice bots
+  are the network by default (`net:model=...`, the action it values most), tile efficiency by choice.
+- **A hand's summary** on the result sheet, in the review and in the records' lines: first value, decisions, luck,
+  and the number of mistakes at the settings' level.
+- **The review** (`Replay.svelte`): the graph of the value over the player's decisions with the decisions worth a
+  look marked, steps to the previous and next of them, the verdict on each decision (grade, loss, the best action,
+  and the reason from the parts of the two values), the opponents' chance of being ready on their name plates, and
+  with "show everyone's tiles" what they really held (tiles from ready, waits).
+- **Three candidate ways to show a decision** (the settings, to compare on real screens): figures on the hand's
+  tiles (each discard's cost over it, its danger as a band along its foot, calls and wins as chips, a tap for a
+  tile's line); a list of every action with numbers; the list with bars of where each action differs from the best
+  (winning, dealing in, others' self-draws). The list is one tap away in every style, beside the table on a large
+  window.
+- **Levels** 入門, 中級, 高手: a mistake is a loss of 1, 0.5, 0.2 points or more, scaled by `unit / 4`; losses under
+  0.05 show as equal.
+- **Best actions that are not the obvious ones** are marked whatever the level, when they are worth at least a
+  questionable move over the obvious one: a win passed up, a discard that gives up a step towards ready (to fold, or
+  for a slower hand worth more), a call left alone; with a star on the graph when the player found it.
+- **The analysis screen**: the figures follow every change at once; a step of a review is taken there with its
+  rules; the tables of draws (what to do after each tile, which ones are kept) and of claims (which discards are
+  worth calling) on request.
+- **Statistics** over the reviewed hands of a records tab: points lost a hand, mistakes a hand, and the loss by kind
+  of decision (tile choice, danger, calls, wins).
+
+Not done: the app; the Docker image of the site with the network; a review of another seat's decisions (they are
+analyzed one at a time when their list is opened).
+
+## 5. Tools
 
 ```bash
 M=$HOME/mahjong_remote/share/s1/models/actor_50.onnx

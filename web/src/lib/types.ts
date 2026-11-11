@@ -30,6 +30,8 @@ export interface Position {
   claim: Claim | null;
   players: PlayerPos[];
   wall_left: number;
+  /** The seat has passed a win this turn (過水): it may not win on a discard until its next draw. */
+  missed?: boolean;
 }
 
 export type EventType = 'draw' | 'flower' | 'discard' | 'chi' | 'pon' | 'kan' | 'ankan' | 'kakan' | 'tsumo' | 'ron' |
@@ -71,9 +73,39 @@ export interface View {
 export interface Pending { phase: Phase; current: number; pending: number[]; actions: number; event_count: number }
 
 export interface Wait { tile: Tile; left: number; ron_tai: number; tsumo_tai: number }
+/** Tile efficiency: the tiles from ready (shanten, -1: a win), the improving tiles left, and when ready the waits. */
 export interface ActionFigures { action: Action; shanten: number; ukeire: number; waits: Wait[]; win_tai: number }
-/** Tile efficiency now (`source` "efficiency"); a network later adds fields per action, which a screen shows when present. */
-export interface Analysis { source: string; actions: (ActionFigures & Record<string, unknown>)[] }
+/** What the network adds for an action: the expected result in points (q), how often it would choose it (policy), the
+ *  chances of winning (by self-draw: tsumo), of dealing in and of another's self-draw, the tai of a win, and the three
+ *  parts of q (winning, dealing in, others' self-draws); for a discard, the chance that it deals in now (danger), per
+ *  opponent (the seats 1, 2, 3 places after the deciding one) with the tai it would pay for. */
+export interface NetFigures {
+  q: number; policy: number; win: number; tsumo: number; deal_in: number; others_tsumo: number; tai: number;
+  parts: [number, number, number]; danger?: number; danger_each?: number[]; danger_tai?: number[];
+}
+export type Figures = ActionFigures & Partial<NetFigures>;
+/** What the network thinks of an opponent: the chances that it is ready, 1, 2, 3 or more tiles away, and per kind
+ *  (tiles.ts KINDS) the chance that a discard of it deals in to it now, with how many tai. */
+export interface Opponent { seat: number; ready: number[]; danger: number[]; danger_tai: number[] }
+/** `source` "efficiency": tile efficiency alone; "network": the network's figures too, the best action and its value. */
+export interface Analysis {
+  source: string; actions: Figures[]; best?: number; value?: number; policy_value?: number; opponents?: Opponent[];
+}
+/** What an opponent really held: the tiles from ready, whether it had passed a win this turn, and its waits. */
+export interface Truth { seat: number; shanten: number; missed: boolean; waits: { tile: Tile; tai: number }[] }
+/** A decision of a reviewed hand: the record's step, the index of the action taken in the analysis' actions, and
+ *  what it lost against the best (points). */
+export interface ReviewDecision { step: number; played: number; analysis: Analysis; truth: Truth[]; loss?: number }
+/** A hand's review for a seat: result = first_value - loss + luck; `unit`: a typical payment under its rules. */
+export interface Review {
+  seat: number; decisions: ReviewDecision[]; result: number; first_value?: number; loss?: number; luck?: number; unit?: number;
+}
+/** After a draw of `tile` (`left` copies unseen): the best action, its figures and value, the second best and how much
+ *  worse it is. */
+export interface WhatIfDraw { tile: Tile; left: number; value: number; figures: Figures; action: Action; next: Action | null; next_loss: number }
+/** On `seat`'s discard of `tile`: the options (a pass among them) and the best one's index. */
+export interface WhatIfClaim { seat: number; tile: Tile; left: number; best: number; options: Figures[] }
+export interface WhatIf { draws: WhatIfDraw[]; claims: WhatIfClaim[] }
 
 export interface RulesInfo {
   spec: string;

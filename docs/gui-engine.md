@@ -110,9 +110,24 @@ and kan is filled in by the engine. `rob_kong` is the same for a 加槓 that som
 
 One entry per legal action of the seat, from what that seat sees: shanten after it (−1 a win), ukeire (unseen tiles
 that lower the shanten), and when it leaves the hand ready, the waits with copies left and the tai by discard and by
-self-draw. After a pung or chow the figures are those after its best discard. This is tile efficiency only; when the
-network exists, `source` becomes `network` and each action gets its probability and expected score as well (the
-fields will be added, none removed), so a screen should show what is present.
+self-draw. After a pung or chow the figures are those after its best discard. This is tile efficiency only.
+
+With `"model": FILE` (a network's `.onnx`, in a build with ONNX Runtime; `{"cmd":"model"}` says whether this one is),
+`source` is `network` and each action also has the network's figures: `q` (the expected result of the hand in
+points), `policy`, the chances `win`, `tsumo`, `deal_in`, `others_tsumo`, the `tai` of a win, `parts` (what winning,
+dealing in and others' self-draws add to `q`), and for a discard its `danger` now, per opponent too. The answer then
+also has `best`, `value`, and `opponents` (per opponent: the chances of being ready or 1, 2, 3+ tiles away, and the
+danger of each of the 34 kinds). Two more requests use the network (cpp/command/guiengine.h has their forms):
+
+- `review`: a finished hand for one seat: every decision that had a choice with its analysis, the action taken,
+  what it lost against the best, and what the three opponents really held then (tiles from ready, waits); the hand's
+  first value, the sum of the losses, and the rest of the result as luck.
+- `whatif`: for a game's seat or a position, the hand as it rests between turns tried with each kind it may draw
+  (the best action and the value then) and with each discard of the others that leaves a choice (the options'
+  figures): some 140 evaluations in one batch, 0.4 s as WebAssembly.
+
+A position has no history of its own: its discards are taken as made in turn order, so the features that depend on
+the order of play (which tiles passed since a seat's last call or discard) are close, not exact. A game's are exact.
 
 The analysis screen (a position set up by hand) sends a POSITION instead of a game:
 

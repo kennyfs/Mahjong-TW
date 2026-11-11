@@ -1,6 +1,7 @@
 <!--
   A tile, standing: its face (or its back), with the edge of its back under it. `w` is its width in px; it is
   w * TILE_RATIO high. A null tile is a back (another player's tile, a concealed kong).
+  `danger` (1 to 3): a band along its foot, how likely a discard of it is to deal in (an analysis' figure).
 -->
 <script lang="ts" module>
   /** Height over width: the face (3:4) and the edge under it. */
@@ -9,8 +10,9 @@
 
 <script lang="ts">
   import { tileName } from '../lib/tiles';
-  let { tile = null, w, selected = false, dim = false, glow = false, mark = false, label = true, cls = '' }: {
+  let { tile = null, w, selected = false, dim = false, glow = false, mark = false, label = true, cls = '', danger = 0 }: {
     tile?: string | null; w: number; selected?: boolean; dim?: boolean; glow?: boolean; mark?: boolean; label?: boolean; cls?: string;
+    danger?: number;
   } = $props();
 </script>
 
@@ -20,6 +22,7 @@
   {#if tile}
     <rect class="face" x="0.6" y="0.6" width="58.8" height="79.4" rx="6.6" />
     <use href="#tile-{tile}" x="3" y="3.2" width="54" height="72" />
+    {#if danger > 0}<path class="danger d{danger}" d="M0 76H60V80A7 7 0 0 1 53 87H7A7 7 0 0 1 0 80Z" />{/if}
   {:else}
     <rect class="back-panel" x="5" y="5" width="50" height="72" rx="4" />
   {/if}
@@ -34,4 +37,7 @@
   .glow .face { stroke: var(--highlight); stroke-width: 4; }
   .mark .face { fill: var(--tile-mark); }
   .dim { opacity: 0.38; }
+  .danger.d1 { fill: var(--danger-1); }
+  .danger.d2 { fill: var(--danger-2); }
+  .danger.d3 { fill: var(--danger-3); }
 </style>

@@ -1,5 +1,7 @@
 <!--
-  The settings: the game (the rules, practice's length, the computer players and their pace), the look, and about.
+  The settings: the game (the rules, practice's length, the computer players and their pace), the analysis (how a
+  reviewed decision is shown, one of the candidates being tried, and from which loss on a decision is a mistake), the
+  look, and about.
   A computer shows the list at the left and the rules beside it.
 -->
 <script lang="ts">
@@ -7,7 +9,7 @@
   import { nav } from '../lib/nav.svelte';
   import { practice } from '../lib/practice.svelte';
   import { flowerLabel, taiLabel } from '../lib/rules';
-  import { BOTS, settings, type Colors, type Dark, type Length, type Speed, type TextSize } from '../lib/settings.svelte';
+  import { BOTS, settings, type Colors, type Dark, type Length, type Level, type ReviewStyle, type Speed, type TextSize } from '../lib/settings.svelte';
   import { ui } from '../lib/ui.svelte';
   import Rules from './Rules.svelte';
   import SettingRow from './SettingRow.svelte';
@@ -19,10 +21,16 @@
   const colors: [Colors, string][] = [['TABLE', t('colors_table')], ['MINIMAL', t('colors_minimal')]];
   const darks: [Dark, string][] = [['SYSTEM', t('dark_system')], ['LIGHT', t('dark_light')], ['DARK', t('dark_dark')]];
   const texts: [TextSize, string][] = [['SMALL', t('text_small')], ['NORMAL', t('text_normal')], ['LARGE', t('text_large')]];
+  const bots: [string, string][] = BOTS.map((b) => [b.spec, t(b.label)]);
+  const styles: [ReviewStyle, string][] = [['tiles', t('review_style_tiles')], ['list', t('review_style_list')], ['bars', t('review_style_bars')]];
+  const levels: [Level, string][] = [['beginner', t('level_beginner')], ['mid', t('level_mid')], ['expert', t('level_expert')]];
   const rulesValue = $derived(t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerLabel(settings.rules.flowers))) +
     (Object.keys(settings.rules.overrides).length ? '・' + t('rules_custom') : ''));
 
   function setLength(v: Length) { settings.length = v; settings.persist(); void practice.settingsChanged(); }
+  function setBot(v: string) { settings.bot = v; settings.persist(); void practice.settingsChanged(); }
+  function setStyle(v: ReviewStyle) { settings.reviewStyle = v; settings.persist(); }
+  function setLevel(v: Level) { settings.level = v; settings.persist(); }
   function setSpeed(v: Speed) { settings.speed = v; settings.persist(); }
   function setColors(v: Colors) { settings.colors = v; settings.persist(); }
   function setDark(v: Dark) { settings.dark = v; settings.persist(); }
@@ -39,10 +47,25 @@
         <div class="body-large">{t('settings_length')}</div>
         <Toggle options={lengths} selected={settings.length} onselect={setLength} />
       </div>
-      <SettingRow title={t('settings_bot')} value={t(BOTS.find((b) => b.spec === settings.bot)?.label ?? 'bot_greedy')} />
+      <div class="block">
+        <div class="body-large">{t('settings_bot')}</div>
+        <Toggle options={bots} selected={settings.bot} onselect={setBot} />
+      </div>
       <div class="block">
         <div class="body-large">{t('settings_speed')}</div>
         <Toggle options={speeds} selected={settings.speed} onselect={setSpeed} />
+      </div>
+
+      <div class="section-header">{t('settings_analysis')}</div>
+      <div class="block">
+        <div class="body-large">{t('settings_review_style')}</div>
+        <Toggle options={styles} selected={settings.reviewStyle} onselect={setStyle} />
+        <div class="body-small dim">{t('review_style_hint')}</div>
+      </div>
+      <div class="block">
+        <div class="body-large">{t('settings_level')}</div>
+        <Toggle options={levels} selected={settings.level} onselect={setLevel} />
+        <div class="body-small dim">{t('level_hint')}</div>
       </div>
 
       <div class="section-header">{t('settings_look')}</div>
@@ -60,7 +83,7 @@
       </div>
 
       <div class="section-header">{t('settings_about')}</div>
-      <p class="about body-medium">{t('about_text')}</p>
+      <p class="about body-medium">{t('about_text_net')}</p>
     </div></div>
   </div>
 {/snippet}

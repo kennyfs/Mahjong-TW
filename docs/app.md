@@ -14,7 +14,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 |---|---|
 | 練習 Practice | Against three bots (the engine's `greedy`, tile efficiency), for one hand, a round or a game; the result of each hand (winner, hand, tai items, payments, next dealer) with its review; the game's totals. No hint or analysis during play. |
 | 對戰 Battles | A table game (1 to 4 people, bots in the empty seats) or a same-tiles contest, on a battle server; the app also with phones nearby. Lobby with a 6-digit PIN, the host's settings, the table with a clock per decision, each hand's result with the standings, the final standings and the player's hands. docs/battle.md. |
-| 分析 Analysis | A position set up by hand, then the engine's figures for each legal action. A finished hand's decisions are analyzed from its review (records). |
+| 分析 Analysis | A position set up by hand, then the engine's figures for each legal action. A finished hand's decisions are analyzed from its review (records). The web page tries the network's analysis first (docs/analysis.md section 4); the app follows when its design is chosen. |
 | 紀錄 Records | Practice hands, table battles and contests (battles as groups of hands); favorites; statistics; each hand opens its review: step by step, everyone's tiles at a tap, each decision's analysis with the action taken marked. |
 | 設定 Settings | Rules (tai preset, flower preset, base, every parameter), practice's length, the bots' pace, text size, colors (table green or minimal), dark mode, about. |
 

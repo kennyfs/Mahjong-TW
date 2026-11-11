@@ -29,7 +29,7 @@
 //          "tiles": [T...], "called": T (the claimed tile), "from": s}
 // DISCARD  {"tile": T, "drawn": bool (the tile just drawn, 摸切), "called": bool (taken by a meld)}
 // POSITION what one seat knows (Position in game.h):
-//          {"setup": SETUP, "me": s, "hand": TILES, "drawn": T|null, "after_call": bool,
+//          {"setup": SETUP, "me": s, "hand": TILES, "drawn": T|null, "after_call": bool, "missed": bool?,
 //           "claim": {"seat": s, "tile": T, "rob_kong": bool}|null,
 //           "players": [{"melds": [MELD], "flowers": TILES, "discards": [DISCARD]} x4], "wall_left": n}
 //          On its own turn (claim null) the hand has 17 tiles less 3 per meld, 16 less 3 per meld otherwise.
@@ -58,16 +58,40 @@
 //   {"cmd": "next", "game": RECORD, "start_dealer": s, "seed": S?}
 //       The next hand of a game (一將) after this one: the dealer and streak from the result, the round wind moving on
 //       when the deal comes back to start_dealer  -> {"game": RECORD, "game_over": bool (after the north round)}
-//   {"cmd": "analyze", "game": RECORD, "seat": s}  or  {"cmd": "analyze", "rules": SPEC, "position": POSITION, "seed": S?}
-//       Every legal action of the seat  -> {"source": "efficiency", "actions": [{"action": ACTION, "shanten": n
-//       (-1 a win), "ukeire": n, "waits": [{"tile", "left", "ron_tai", "tsumo_tai"}], "win_tai": n}]}
+//   {"cmd": "analyze", "game": RECORD, "seat": s, "model": FILE?}
+//   or  {"cmd": "analyze", "rules": SPEC, "position": POSITION, "seed": S?, "model": FILE?}
+//       Every legal action of the seat  -> ANALYSIS: {"source": "efficiency", "actions": [FIGURES]}, FIGURES being
+//       {"action": ACTION, "shanten": n (-1 a win), "ukeire": n, "waits": [{"tile", "left", "ron_tai", "tsumo_tai"}],
+//        "win_tai": n}.
+//       With a model (a network's .onnx; a build with ONNX Runtime): "source": "network", and each FIGURES also has
+//       "q" (the expected result of the hand, in points), "policy" (how often the network chooses it), "win", "tsumo",
+//       "deal_in", "others_tsumo" (the chances of those ends), "tai" (of a win), "parts": [3] (what winning, dealing in
+//       and others' self-draws add to q), and for a discard "danger" (the chance that it deals in now),
+//       "danger_each": [3] and "danger_tai": [3] (per opponent: the seats 1, 2, 3 places after the deciding one); the
+//       answer also has "best" (an index into actions), "value" (its q), "policy_value", and "opponents":
+//       [{"seat", "ready": [4] (the chances of being ready, 1, 2, 3 or more tiles away), "danger": [34 kinds],
+//         "danger_tai": [34]} x3].
+//   {"cmd": "model", "model": FILE?}   -> {"available": bool (this build runs networks), "features": version
+//       (when the file loads)}
+//   {"cmd": "review", "game": RECORD (a finished hand), "seat": s, "model": FILE?}
+//       Every decision of the seat that had a choice  -> {"seat", "decisions": [{"step": the record's action index,
+//       "played": index into the analysis' actions, "analysis": ANALYSIS, "truth": [{"seat", "shanten", "missed":
+//       bool (it passed a win this turn), "waits": [{"tile", "tai"}]} x3 opponents], "loss": best q - played q}],
+//       "result": the seat's points, and with a model "first_value" (the value at the first decision), "loss" (the
+//       decisions' sum), "luck" (result - first_value + loss), "unit" (a typical payment under the rules)}
+//   {"cmd": "whatif", "model": FILE, "seed": S?, and "game": RECORD, "seat": s  or  "rules": SPEC, "position": POSITION}
+//       The seat's hand as it rests between turns (without the tile just drawn), tried with every kind it has not
+//       seen  -> {"draws": [{"tile", "left", "value", "action": the best ACTION after drawing it, "figures": its
+//       FIGURES, "next": the second best ACTION|null, "next_loss"}], "claims": [{"seat", "tile", "left", "best":
+//       index, "options": [FIGURES]} for each discard of another seat that leaves a choice]}
 //   {"cmd": "tai", "rules": SPEC, "hand": TILES, "melds": [MELD], "win": T, "tsumo", "robbed", "last",
 //    "replacement", "heavenly", "earthly", "human": bool?, "seat_wind", "round_wind": wind?, "flowers": TILES?}
 //       -> {"total": n, "items": [...], "waits": TILES (before the winning tile)}
 //   {"cmd": "rules", "rules": SPEC?}
 //       -> {"spec": full spec, "values": {param: value}, "tai_presets": [...], "flower_presets": [...],
 //           "items": [{"param", "name"}]}
-// Player SPECs as in players.h (random, greedy). Seeds are strings; without one, a random seed.
+// Player SPECs as in players.h (random, greedy, net:model=FILE[,mode=q|policy|sample]). Seeds are strings; without
+// one, a random seed.
 class GuiEngine {
  public:
   // Throws StringError on a bad request.

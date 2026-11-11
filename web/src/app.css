@@ -13,6 +13,8 @@
   /* The tiles: an ivory face, a blue back (it shows on the felt), the selected one warm. */
   --tile-face: #fdfbf3; --tile-edge: #cfc8b4; --tile-back: #28559b; --tile-back-light: #3b6db5; --tile-selected: #fff3c4;
   --tile-mark: #e3f2fd;
+  /* An analysis' levels: danger and grades (1 mild, 3 severe), and a good find. */
+  --danger-1: #f2c94c; --danger-2: #f2884a; --danger-3: #e5484d; --on-danger: #2b1700; --found: #2f9e6b;
   color-scheme: light;
 }
 :root.dark {

@@ -50,7 +50,7 @@ const reqs = [
   { cmd: 'view', game: mid, seat: 1, since: 0, reveal: false },
   { cmd: 'view', game: played, seat: 0, since: 0, reveal: true },
   { cmd: 'analyze', game: mid, seat: mid.actions.length ? mid.actions[mid.actions.length - 1][0] : 0 },
-  { cmd: 'analyze', rules: 'simple,none', position, seed: 'p' },
+  { cmd: 'analyze', rules: 'simple1,none', position, seed: 'p' },
   { cmd: 'next', game: played, start_dealer: 0, seed: 'n' },
   { cmd: 'tai', rules: 'standard,none', hand: '123m456m789m123p55p', melds: [{ type: 'pon', tile: '7z' }], win: '5p', tsumo: true },
   { cmd: 'act', game: dealt, seat: 0, action: { type: 'discard', tile: 'xx' } },

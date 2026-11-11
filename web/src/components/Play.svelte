@@ -96,7 +96,7 @@
         {#snippet overlay()}
           {#if stage === 'result' && final?.result && !hideResult}
             <div class="sheet">
-              <HandResult {final} {names} me={ME} w={ui.wide ? Math.min(40, Math.max(26, ui.w / 27)) : Math.min(36, Math.max(26, ui.w / 13))}>
+              <HandResult {final} {names} me={ME} rev={practice.lastRecord ? records.get(practice.lastRecord)?.rev ?? null : null} w={ui.wide ? Math.min(40, Math.max(26, ui.w / 27)) : Math.min(36, Math.max(26, ui.w / 13))}>
                 {#snippet actions()}
                   <button class="btn icon" aria-label={t('favorite')} onclick={() => practice.lastRecord && records.setFav(practice.lastRecord, !lastFav)}>
                     <Icon name={lastFav ? 'star' : 'starBorder'} />

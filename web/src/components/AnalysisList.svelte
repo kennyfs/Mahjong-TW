@@ -1,7 +1,7 @@
 <!--
-  An analysis: each legal action with the engine's figures (tile efficiency now: shanten, the tiles that help, and
-  when ready the waits with copies left and their tai), the best ones and the one chosen marked. Fields the network
-  adds later are shown when present (docs/app.md).
+  An analysis by tile efficiency alone (the network's is DecisionPanel's; this is what is left when it does not
+  load): each legal action with its shanten, the tiles that help, and when ready the waits with copies left and their
+  tai, the best ones and the one chosen marked.
 -->
 <script lang="ts">
   import { actionText, actionTiles, bestOf, isTaken, rank } from '../lib/actions';
@@ -15,8 +15,6 @@
     return x[0] - y[0] || x[1] - y[1] || a.i - b.i;
   }));
   const best = $derived(bestOf(analysis.actions));
-  const extra = (f: Record<string, unknown>) =>
-    Object.entries(f).filter(([k, v]) => !['action', 'shanten', 'ukeire', 'waits', 'win_tai'].includes(k) && typeof v === 'number');
 </script>
 
 <div class="list">
@@ -43,7 +41,6 @@
           <span class="fig">{t('analysis_shanten', f.shanten)}</span>
           <span class="fig">{t('analysis_ukeire', f.ukeire)}</span>
         {/if}
-        {#each extra(f) as [k, v] (k)}<span class="fig">{k} {Number(v).toFixed(3)}</span>{/each}
       </div>
       {#if f.waits.length}
         <div class="waits">

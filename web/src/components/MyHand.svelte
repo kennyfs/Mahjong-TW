@@ -6,15 +6,19 @@
   `perRow`: tiles a row (an upright phone, so that they stay large enough to tap); the rows start at the same left
   edge, the drawn tile after the last one. 0: one row.
   `oneClick` (a computer's mouse): a tile rises under the pointer and one click discards it.
+  `marks` (a review): by tile, a tag over it (what it costs against the best), whether it was the one played, and its
+  danger as a band along its foot; `tagH` px are kept over each row for the tags.
 -->
 <script lang="ts">
   import Tile, { TILE_RATIO } from './Tile.svelte';
   import { fly } from 'svelte/transition';
   import { DRAWN_GAP, LIFT, ROW_GAP } from '../lib/layout';
+  import type { TileMark } from '../lib/review';
   import type { Tile as T } from '../lib/tiles';
-  let { tiles, drawn = null, w, canDiscard = () => false, ondiscard, selected = $bindable(null), perRow = 0, oneClick = false }: {
+  let { tiles, drawn = null, w, canDiscard = () => false, ondiscard, selected = $bindable(null), perRow = 0, oneClick = false,
+    marks = null, tagH = 0 }: {
     tiles: T[]; drawn?: T | null; w: number; canDiscard?: (t: T) => boolean; ondiscard?: (t: T) => void;
-    selected?: number | null; perRow?: number; oneClick?: boolean;
+    selected?: number | null; perRow?: number; oneClick?: boolean; marks?: Map<T, TileMark> | null; tagH?: number;
   } = $props();
 
   // The drawn tile last, as its own index.
@@ -76,7 +80,7 @@
   }
 </script>
 
-<div class="hand" style="padding-top: {h * LIFT}px; row-gap: {h * ROW_GAP}px; --lift: {h * LIFT}px; {blockW ? `width: ${blockW}px` : ''}">
+<div class="hand" style="padding-top: {Math.max(h * LIFT, tagH)}px; row-gap: {Math.max(h * ROW_GAP, tagH)}px; --lift: {h * LIFT}px; {blockW ? `width: ${blockW}px` : ''}">
   {#each rows as row, r (r)}
     <div class="row" style="height: {h}px">
       {#each row as i (i + '/' + all[i] + (drawn && i === tiles.length ? '/d' : ''))}
@@ -86,7 +90,11 @@
           onpointerdown={(e) => down(e, i)} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}
           in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0 }}
           aria-pressed={selected === i}>
-          <Tile tile={all[i]} {w} selected={selected === i} />
+          {#if marks?.get(all[i])}
+            {@const m = marks.get(all[i])!}
+            <span class="tag {m.tone}" class:played={m.played} style="font-size: {Math.min(13, Math.max(10, w * 0.27))}px; height: {tagH - 2}px">{m.tag}</span>
+          {/if}
+          <Tile tile={all[i]} {w} selected={selected === i} glow={!!marks?.get(all[i])?.played} danger={marks?.get(all[i])?.danger ?? 0} />
         </button>
       {/each}
     </div>
@@ -97,7 +105,15 @@
   .hand { display: flex; flex-direction: column; align-items: flex-start; touch-action: none; flex: none; }
   .row { display: flex; align-items: flex-end; }
   .slot { padding: 0; margin: 0; border: none; background: none; cursor: pointer; display: block; transition: transform 0.08s;
-    -webkit-tap-highlight-color: transparent; touch-action: none; }
+    -webkit-tap-highlight-color: transparent; touch-action: none; position: relative; }
+  .tag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 1px; padding: 0 3px; border-radius: 5px;
+    display: flex; align-items: center; font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none;
+    background: rgba(0, 0, 0, 0.42); color: #fff; font-variant-numeric: tabular-nums; }
+  .tag.best { background: var(--found); color: #fff; }
+  .tag.g1 { background: var(--danger-1); color: var(--on-danger); }
+  .tag.g2 { background: var(--danger-2); color: var(--on-danger); }
+  .tag.g3 { background: var(--danger-3); color: #fff; }
+  .tag.played { outline: 2px solid var(--highlight); outline-offset: 0; }
   .slot:focus-visible { outline: 2px solid var(--highlight); outline-offset: 1px; border-radius: 4px; }
   @media (hover: hover) {
     .slot.hover:hover { transform: translateY(calc(var(--lift) * -1)) !important; }

@@ -7,14 +7,14 @@ declare const process: { env: Record<string, string | undefined> };
 const battle = process.env.BATTLE_SERVER ?? 'ws://127.0.0.1:8091';
 
 /**
- * `virtual:engine-files`: the engine (engine-files/engine.js and engine.wasm, from build-engine.sh) as assets, so
- * that the build puts them in /assets under names with their hashes, kept for good by the server and always of one
- * build, and the WebAssembly's size, to check a download is whole (src/lib/stored.ts). A network, later, joins them
- * here as Thirteen's does.
+ * `virtual:engine-files`: the engine (engine-files/engine.js and engine.wasm, from build-engine.sh) and the network
+ * (engine-files/actor.onnx) as assets, so that the build puts them in /assets under names with their hashes, kept for
+ * good by the server and always of one build, and the sizes of the large ones, to check a download is whole
+ * (src/lib/stored.ts).
  */
 function engineFiles(): Plugin {
   const id = 'virtual:engine-files';
-  const files = { js: 'engine.js', wasm: 'engine.wasm' };
+  const files = { js: 'engine.js', wasm: 'engine.wasm', model: 'actor.onnx' };
   return {
     name: 'engine-files',
     resolveId: (s) => (s === id ? '\0' + id : undefined),
@@ -27,7 +27,7 @@ function engineFiles(): Plugin {
       };
       const names = Object.entries(files);
       return names.map(([k, f]) => `import ${k} from '/engine-files/${f}?url';\n`).join('') +
-        `export default { ${names.map(([k]) => k).join(', ')}, wasmSize: ${size(files.wasm)} };\n`;
+        `export default { ${names.map(([k]) => k).join(', ')}, wasmSize: ${size(files.wasm)}, modelSize: ${size(files.model)} };\n`;
     },
   };
 }

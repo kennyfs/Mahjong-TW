@@ -3,8 +3,8 @@ declare module 'node:fs' {
   export function statSync(path: string | URL): { size: number };
 }
 
-// vite.config.ts's engineFiles: the engine's URLs (hashed, in /assets) and the size of its WebAssembly.
+// vite.config.ts's engineFiles: the engine's and the network's URLs (hashed, in /assets) and their sizes.
 declare module 'virtual:engine-files' {
-  const files: { js: string; wasm: string; wasmSize: number };
+  const files: { js: string; wasm: string; model: string; wasmSize: number; modelSize: number };
   export default files;
 }

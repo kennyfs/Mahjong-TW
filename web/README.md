@@ -34,13 +34,23 @@ cd web
 npm ci
 # The engine as WebAssembly (once, and after every change in cpp/): engine-files/.
 source $THIRTEEN_WORK/emsdk/emsdk_env.sh
-TMPDIR=$WORK/tmp JOBS=16 ./build-engine.sh 2>&1 | tee $WORK/logs/web-engine-build.log
-node tests/engine-native.mjs engine-files/engine.js ../cpp/build/mahjong   # the same answers as the native engine
+# It links a reduced ONNX Runtime for WebAssembly (ORT_WASM_DIR; Thirteen's build covers this network's operators)
+# and copies the network the page ships (MODEL) to engine-files/actor.onnx.
+TMPDIR=$WORK/tmp JOBS=16 ORT_WASM_DIR=$THIRTEEN_WORK/ort-wasm \
+  MODEL=$HOME/mahjong_remote/share/s1/models/actor_50.onnx ./build-engine.sh 2>&1 | tee $WORK/logs/web-engine-build.log
+# The same answers as the native engine (built with ONNX Runtime), the network's figures to 0.002.
+node tests/engine-native.mjs engine-files/engine.js ../cpp/build/mahjong
 # The dev server (http://127.0.0.1:5180/; /ws goes to BATTLE_SERVER, default ws://127.0.0.1:8091).
 npm run dev -- --host 127.0.0.1 --port 5180 > $WORK/logs/vite-dev.log 2>&1 &
 # The site: strings, type check (svelte-check), dist/.
 npm run build 2>&1 | tee $WORK/logs/web-build.log
 ```
+
+The network: the page fetches `actor.onnx` when a request first names it (a network bot, a review, the analysis
+screen), writes it into the engine's file system (`MODEL` in `src/lib/engine.ts`) and keeps it in Cache Storage; a
+review of a hand takes about 0.1 s after that. `scripts/shots-review.py` plays a hand and takes the review's and the
+analysis screen's screenshots in each candidate style. `server/Dockerfile` does not build the engine with the network
+yet (its `web-engine` stage needs ONNX Runtime for WebAssembly and a model stage, as Thirteen's has).
 
 `server/Dockerfile`'s `site` target builds the same in Docker (the engine with the `emscripten/emsdk:6.0.13` image)
 and serves it with Caddy beside the battle server (docs/battle.md).

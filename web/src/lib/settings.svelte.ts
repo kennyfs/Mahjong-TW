@@ -12,8 +12,18 @@ export const TEXT_SCALE: Record<TextSize, number> = { SMALL: 0.88, NORMAL: 1, LA
 /** A bot's pause before it plays, and before the next turn after a discard, in ms. */
 export const PACE: Record<Speed, number> = { slow: 1100, normal: 650, fast: 250 };
 
-/** The bots: one now (tile efficiency); a network later, as a spec "net:..." (docs/app.md). */
-export const BOTS = [{ spec: 'greedy', label: 'bot_greedy' }];
+/** The bots: the network (the engine's built-in one, playing the action it values most) and tile efficiency. */
+export const NET_BOT = 'net:model=/models/actor.onnx';
+export const BOTS = [{ spec: NET_BOT, label: 'bot_net' }, { spec: 'greedy', label: 'bot_greedy' }];
+
+/** How a reviewed decision is shown, candidates to choose among: the figures on the hand's tiles, a list of numbers,
+ *  or bars of what each action's value is made of. */
+export type ReviewStyle = 'tiles' | 'list' | 'bars';
+export const REVIEW_STYLES: ReviewStyle[] = ['tiles', 'list', 'bars'];
+/** Which losses the review counts as mistakes and stops at: a beginner's only the large ones, an expert's the small
+ *  ones too (lib/review.ts). */
+export type Level = 'beginner' | 'mid' | 'expert';
+export const LEVELS: Level[] = ['beginner', 'mid', 'expert'];
 
 interface Stored {
   rules: RuleChoice;
@@ -25,35 +35,41 @@ interface Stored {
   text: TextSize;
   name: string;
   server: string;
+  reviewStyle: ReviewStyle;
+  level: Level;
 }
 
 const DEFAULTS: Stored = {
-  rules: DEFAULT_RULES, length: 'game', bot: 'greedy', speed: 'normal', colors: 'TABLE', dark: 'SYSTEM', text: 'NORMAL',
-  name: '', server: '',
+  rules: DEFAULT_RULES, length: 'game', bot: NET_BOT, speed: 'normal', colors: 'TABLE', dark: 'SYSTEM', text: 'NORMAL',
+  name: '', server: '', reviewStyle: 'tiles', level: 'mid',
 };
 
 class Settings {
   rules = $state<RuleChoice>(DEFAULT_RULES);
   length = $state<Length>('game');
-  bot = $state('greedy');
+  bot = $state(NET_BOT);
   speed = $state<Speed>('normal');
   colors = $state<Colors>('TABLE');
   dark = $state<Dark>('SYSTEM');
   text = $state<TextSize>('NORMAL');
   name = $state('');
   server = $state('');
+  reviewStyle = $state<ReviewStyle>('tiles');
+  level = $state<Level>('mid');
 
   constructor() {
     const s = { ...DEFAULTS, ...load<Partial<Stored>>(KEYS.settings, {}) };
     this.rules = parseChoice(s.rules);
     this.length = (['hand', 'round', 'game'] as Length[]).includes(s.length) ? s.length : 'game';
-    this.bot = BOTS.some((b) => b.spec === s.bot) ? s.bot : 'greedy';
+    this.bot = BOTS.some((b) => b.spec === s.bot) ? s.bot : NET_BOT;
     this.speed = (['slow', 'normal', 'fast'] as Speed[]).includes(s.speed) ? s.speed : 'normal';
     this.colors = s.colors === 'MINIMAL' ? 'MINIMAL' : 'TABLE';
     this.dark = (['SYSTEM', 'LIGHT', 'DARK'] as Dark[]).includes(s.dark) ? s.dark : 'SYSTEM';
     this.text = (['SMALL', 'NORMAL', 'LARGE'] as TextSize[]).includes(s.text) ? s.text : 'NORMAL';
     this.name = typeof s.name === 'string' ? s.name : '';
     this.server = typeof s.server === 'string' ? s.server : '';
+    this.reviewStyle = REVIEW_STYLES.includes(s.reviewStyle) ? s.reviewStyle : 'tiles';
+    this.level = LEVELS.includes(s.level) ? s.level : 'mid';
   }
 
   get spec(): string { return ruleSpec(this.rules); }
@@ -61,7 +77,7 @@ class Settings {
   persist() {
     save(KEYS.settings, {
       rules: this.rules, length: this.length, bot: this.bot, speed: this.speed, colors: this.colors, dark: this.dark,
-      text: this.text, name: this.name, server: this.server,
+      text: this.text, name: this.name, server: this.server, reviewStyle: this.reviewStyle, level: this.level,
     } satisfies Stored);
   }
 }

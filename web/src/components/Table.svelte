@@ -7,14 +7,17 @@
   `revealed`: every seat's concealed tiles, to show (a finished hand, a replay showing all).
   `keys`: a computer's: a click discards, and the keyboard plays (← → choose a tile, Enter discards it, Esc lets go;
   H wins, G kongs, P pungs, C chows, 1 2 3 a chow's way, Space passes).
-  `aside`: a panel at the right, shown when the window has room for it beside the table (a computer's).
+  `aside`: a panel at the right (`asideW` px wide), shown when the window has room for it beside the table (a computer's).
+  A review's: `marks` (tags and danger on the hand's tiles, lib/review.ts), `notes` (a few words on each name plate),
+  `strip` (a line over the hand: the options that are not discards, a tile's figures), `onpick` (the tile tapped).
 -->
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte';
   import { t } from '../lib/i18n.svelte';
   import { fitMelds, OPP_LINES, tableSizes } from '../lib/layout';
   import { concealedCount, meldTiles, seatAt, sideOf, flowersOf, type Side } from '../lib/seats';
-  import { parseTiles, sortTiles, windName, without } from '../lib/tiles';
+  import type { TileMark } from '../lib/review';
+  import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
   import ClaimBar from './ClaimBar.svelte';
   import Melds from './Melds.svelte';
@@ -25,19 +28,33 @@
 
   let {
     view, me, names, scores = null, revealed = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
-    away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null),
+    away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
+    marks = null, notes = null, strip, onpick,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
     onact?: (a: Action) => void; handLabel?: string; maxHand?: number; keys?: boolean; away?: boolean[];
-    status?: Snippet; overlay?: Snippet; corner?: Snippet; aside?: Snippet; selected?: number | null;
+    status?: Snippet; overlay?: Snippet; corner?: Snippet; aside?: Snippet; selected?: number | null; asideW?: number;
+    marks?: Map<T, TileMark> | null; notes?: ({ text: string; level: number } | null)[] | null; strip?: Snippet;
+    onpick?: (tile: T | null) => void;
   } = $props();
 
-  const ASIDE_W = 300;
+  /** The room kept over each row of the hand for the tiles' tags, when there may be some. */
+  const TAG_H = 17;
+  const tagH = $derived(marks ? TAG_H : 0);
   let W = $state(0);
   let H = $state(0);
-  const full = $derived(tableSizes(W, H, maxHand));
-  const withAside = $derived(!!aside && full.wide && W - full.tableW >= ASIDE_W + 24);
-  const s = $derived(withAside ? tableSizes(W - ASIDE_W - 16, H, maxHand) : full);
+  // The tags' room comes off the table's height: what the hand's own lift does not already leave them.
+  function sizes(w: number, h: number) {
+    const s0 = tableSizes(w, h, maxHand);
+    if (!tagH) return { s: s0, extra: 0 };
+    const extra = (s0.wide ? 1 : 2) * Math.max(0, tagH - s0.hand * TILE_RATIO * 0.2);
+    return { s: extra > 0 ? tableSizes(w, h - extra, maxHand) : s0, extra };
+  }
+  const full = $derived(sizes(W, H));
+  const withAside = $derived(!!aside && full.s.wide && W - full.s.tableW >= asideW + 24);
+  const fit = $derived(withAside ? sizes(W - asideW - 16, H) : full);
+  const s = $derived(fit.s);
+  const meH = $derived(s.meH + fit.extra);
   const pos = $derived(view.position);
   const setup = $derived(pos.setup);
 
@@ -46,6 +63,10 @@
     const all = revealed ? parseTiles(revealed[me]) : parseTiles(pos.hand);
     const drawn = !revealed && pos.drawn && view.phase === 'self' && view.current === me ? pos.drawn : null;
     return { tiles: sortTiles(drawn ? without(all, [drawn]) : all), drawn };
+  });
+  $effect(() => {
+    const i = selected;
+    onpick?.(i === null ? null : i < mine.tiles.length ? mine.tiles[i] : mine.drawn);
   });
   const discardable = $derived(new Set(view.my_turn ? view.legal.filter((a) => a.type === 'discard').map((a) => a.tile) : []));
   const canDiscard = (tile: string) => interactive && discardable.has(tile);
@@ -123,6 +144,8 @@
       }
       const fresh = evs.slice(evs.length - (count - seen));
       seen = count;
+      // A jump over many events (a review going to another decision) says none of them.
+      if (fresh.length > 8) return;
       let flowersShown = new Set<number>();
       for (const e of fresh) {
         const word = WORDS[e.type];
@@ -157,7 +180,7 @@
 <svelte:window onkeydown={onkey} />
 <div class="felt-bg" bind:clientWidth={W} bind:clientHeight={H}>
 <div class="table" class:wide={s.wide} style="max-width: {s.tableW}px; font-size: {s.font}px;
-  --side-w: {s.sideW}px; --top-h: {s.topH}px; --me-h: {s.meH}px">
+  --side-w: {s.sideW}px; --top-h: {s.topH}px; --me-h: {meH}px">
   {#if W > 0}
     <!-- The others: the player opposite on top, the next at the right, the previous at the left (on a tall table, the
          three along the top, each over their river). -->
@@ -168,7 +191,7 @@
       <div class="seat {side}">
         <SeatBadge wind={winds[seat]} name={names[seat]} score={scores ? scores[seat] : null} dealer={setup.dealer === seat}
           streak={setup.streak} turn={turnSeat === seat} count={s.back === 0 && !revealed ? hidden : null} compact={!s.wide}
-          away={away[seat]} />
+          away={away[seat]} note={notes?.[seat] ?? null} />
         <div class="seat-tiles">
           <Melds melds={p.melds} flowers={flowersOf(p)} w={oppW(seat)} />
           {#if revealed}
@@ -206,13 +229,13 @@
         turn={turnSeat === me} compact={!s.wide} />
     {/snippet}
     {#if s.wide}
-      <div class="me-corner" style="bottom: {s.meH + 2}px">
+      <div class="me-corner" style="bottom: {meH + 2}px">
         {#if status}<div class="status">{@render status()}</div>{/if}
         {@render myBadge()}
       </div>
       <div class="me">
         <Melds melds={pos.players[me].melds} flowers={flowersOf(pos.players[me])} w={s.meld} wrap={false} />
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} w={s.hand} {canDiscard} ondiscard={discard} bind:selected oneClick={keys} />
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} w={s.hand} {canDiscard} ondiscard={discard} bind:selected oneClick={keys} {marks} {tagH} />
       </div>
     {:else}
       <div class="me tall">
@@ -220,21 +243,22 @@
           {@render myBadge()}
           <Melds melds={pos.players[me].melds} flowers={flowersOf(pos.players[me])} w={s.meld} />
         </div>
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} w={s.hand} {canDiscard} ondiscard={discard} bind:selected perRow={s.handRow} />
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} w={s.hand} {canDiscard} ondiscard={discard} bind:selected perRow={s.handRow} {marks} {tagH} />
       </div>
-      {#if status}<div class="status tall" style="bottom: {s.meH + 4}px">{@render status()}</div>{/if}
+      {#if status}<div class="status tall" style="bottom: {meH + 4}px">{@render status()}</div>{/if}
     {/if}
 
     <!-- Choices, and words over the players. -->
     {#if claims.length && onact}
-      <div class="claims" style="bottom: {s.meH + 4}px"><ClaimBar actions={claims} w={s.hand} {onact} {keys} /></div>
+      <div class="claims" style="bottom: {meH + 4}px"><ClaimBar actions={claims} w={s.hand} {onact} {keys} /></div>
     {/if}
+    {#if strip}<div class="strip" style="bottom: {meH + 4}px">{@render strip()}</div>{/if}
     {#each callouts as c (c.id)}
       <div class="callout {c.side}" class:big={c.big}>{c.text}</div>
     {/each}
   {/if}
 </div>
-{#if withAside && aside}<div class="aside" style="width: {ASIDE_W}px">{@render aside()}</div>{/if}
+{#if withAside && aside}<div class="aside" style="width: {asideW}px">{@render aside()}</div>{/if}
 {#if W > 0 && overlay}{@render overlay()}{/if}
 </div>
 
@@ -290,6 +314,9 @@
     max-width: calc(var(--side-w) - 12px); }
 
   .claims { position: absolute; right: 8px; left: 8px; display: flex; justify-content: flex-end; z-index: 3; pointer-events: none; }
+  .strip { position: absolute; right: 8px; left: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; z-index: 3;
+    pointer-events: none; }
+  .strip > :global(*) { pointer-events: auto; }
   .status { pointer-events: none; }
   .status.tall { position: absolute; left: 8px; z-index: 2; }
   .callout { position: absolute; z-index: 4; pointer-events: none; font-weight: 900; font-size: 2.2rem; color: #fff;
