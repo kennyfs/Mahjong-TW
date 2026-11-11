@@ -17,6 +17,7 @@ static void printHelp(const string& program) {
   cout << "  gui        The GUIs' engine: JSON requests on stdin, answers on stdout (cpp/command/guiengine.h)." << endl;
   cout << "  gen0       Write stage 0 training data: greedy hands with every action's outcome (docs/plan.md 3.4)." << endl;
   cout << "  selfplay   Write stage 1 training data: the network's hands with marked decisions and forks." << endl;
+  cout << "  review     Write what a network says about every decision of some players' hands (docs/analysis.md)." << endl;
   cout << endl;
   cout << "Run '" << program << " SUBCOMMAND -h' for a subcommand's arguments." << endl;
 }
@@ -49,6 +50,8 @@ int main(int argc, const char* argv[]) {
       return Commands::gen0(subArgs);
     if(sub == "selfplay")
       return Commands::selfplay(subArgs);
+    if(sub == "review")
+      return Commands::review(subArgs);
   }
   catch(const StringError& e) {
     cerr << "Error: " << e.what() << endl;
