@@ -169,6 +169,9 @@ static void testTai() {
   out << Tai::compute(Rules::parse("simple2,seat"), b).toString() << endl;  // east: 1f counts, 6f does not
   b.flowers = 0x1F;  // 1f-4f, 5f
   out << Tai::compute(Rules::parse("simple2,seat"), b).toString() << endl;  // 1f, 5f and the seasons
+  // simple2 counts every pung of a wind and of a dragon (not the winds of the round and the seat, nor 小三元).
+  Tai::WinInfo honors = win("111z555z666z123m456p77z", "7z", false);
+  out << Tai::compute(simple, honors).toString() << endl;
   // All chows: two-sided wait, discard, no honors.
   Tai::WinInfo c = win("123m456m99m789p234s567s", "2s", false);
   out << Tai::compute(standard, c).toString() << endl;
@@ -210,6 +213,7 @@ static void testTai() {
 門清1 獨聽1 花牌2 = 4
 門清1 獨聽1 花牌1 = 3
 門清1 獨聽1 花牌2 花槓2 = 6
+門清1 獨聽1 見風見台1 三元牌2 = 5
 門清1 平胡2 = 3
 門清1 自摸1 不求人1 = 3
 獨聽1 三元牌1 碰碰胡4 四暗刻5 = 11

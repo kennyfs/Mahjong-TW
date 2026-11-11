@@ -109,9 +109,11 @@ void Rules::applyPreset(const string& name) {
     }
     menqing = menqingZimo = duting = 1;
     if(name == "simple2") {
-      // The family rules: 門清一摸三, strict single wait, pure suit 1; 一炮多響.
+      // The family rules: 門清一摸三, strict single wait, pure suit 1, every pung of a wind (見風見台) or of a dragon
+      // 1; 一炮多響.
       streak = 1;
       qingyise = 1;
+      anyWind = dragon = 1;
       base = 1;
       multiRon = 1;
       return;

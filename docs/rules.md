@@ -126,7 +126,8 @@ The columns are the tai presets (section 11), listed in this order:
 - `simple1` (簡單1, the default; southern Taiwan, usually without flowers; confirmed 2026-11-10): only dealer,
   streak (1 + N) and self-draw. Base 2 tai (底:台 = 2:1), 截胡.
 - `simple2` (簡單2; the user's family rules, confirmed 2026-11-10): dealer, streak (1 + N), concealed, self-draw (a
-  concealed self-draw is 3: 門清一摸三), single wait (strict) and pure suit (1). Base 1 tai, 一炮多響.
+  concealed self-draw is 3: 門清一摸三), single wait (strict), pure suit (1), and one tai for every pung of a wind
+  (見風見台: any wind, whatever the round and the seat) and of a dragon (changed 2026-11-11). Base 1 tai, 一炮多響.
 - Neither has flower wins or tai for a win on a replacement (槓上開花: only its self-draw counts), robbing a kong
   (allowed, no tai) and so on; with `see` each flower is one tai.
 - `standard` (MJ888 and Wikibooks, majority where they differ) and `masters` (Mahjong Masters 2025).
@@ -145,7 +146,7 @@ The columns are the tai presets (section 11), listed in this order:
 | 半求 All melded, self-drawn | `banqiu` | 0 | 0 | 0 | 1 | As 全求人 but self-drawn (it also scores self-draw and single wait). |
 | 圈風 Round wind | `round_wind` | 0 | 0 | 1 | 1 | A pung of the round wind. |
 | 門風 Seat wind | `seat_wind` | 0 | 0 | 1 | 1 | A pung of one's seat wind (both when they are the same wind). |
-| 三元 Dragon pung | `dragon` | 0 | 0 | 1 | 1 | Per pung of a dragon. |
+| 三元 Dragon pung | `dragon` | 0 | 1 | 1 | 1 | Per pung of a dragon. |
 | 小三元 Little dragons | `xiaosanyuan` | 0 | 0 | 4 | 4 | Two dragon pungs and a dragon pair; replaces their 三元. |
 | 大三元 Big dragons | `dasanyuan` | 0 | 0 | 8 | 8 | Three dragon pungs; replaces their 三元. |
 | 小四喜 Little winds | `xiaosixi` | 0 | 0 | 8 | 8 | Three wind pungs and a wind pair; the wind items still count. |
@@ -165,7 +166,7 @@ The columns are the tai presets (section 11), listed in this order:
 | 天胡 Heavenly hand | `tianhu` | 0 | 0 | 24 | 16 | The dealer wins before their first discard (without a kong). Replaces concealed and self-draw. |
 | 地胡 Earthly hand | `dihu` | 0 | 0 | 16 | 16 | Another player self-draws on their first draw, with no chow, pung or kong so far. Replaces concealed and self-draw. |
 | 人胡 Human hand | `renhu` | 0 | 0 | 0 | 16 | Another player wins on a discard before their first discard, with no chow, pung or kong so far. Replaces concealed. |
-| 見風見台 Any wind pung | `any_wind` | 0 | 0 | 0 | 0 | Per wind pung, instead of 圈風 and 門風 (明星3缺1's 見花見字 option). |
+| 見風見台 Any wind pung | `any_wind` | 0 | 1 | 0 | 0 | Per wind pung, instead of 圈風 and 門風 (明星3缺1's 見花見字 option). |
 | 無字無花 No honors, no flowers | `no_honor_flower` | 0 | 0 | 0 | 0 | (見花見字 option.) |
 | 明槓 Kong | `kong_tai` | 0 | 0 | 0 | 0 | Per exposed or added kong (見花見字 option). |
 | 暗槓 Concealed kong | `ankong_tai` | 0 | 0 | 0 | 0 | Per concealed kong (見花見字 option). |
