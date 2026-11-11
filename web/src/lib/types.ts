@@ -11,14 +11,15 @@ export interface GameRecord {
   actions: (number | string)[][];
 }
 
-export type ActionType = 'discard' | 'tsumo' | 'ankan' | 'kakan' | 'pass' | 'ron' | 'pon' | 'kan' | 'chi';
+export type ActionType = 'discard' | 'tsumo' | 'ankan' | 'kakan' | 'pass' | 'ron' | 'pon' | 'kan' | 'chi' | 'declare';
 export interface Action { type: ActionType; tile?: Tile | null; tiles?: Tile[] }
 
 export type MeldType = 'chi' | 'pon' | 'kan' | 'ankan' | 'kakan';
 /** tile null: another player's concealed kong. */
 export interface Meld { type: MeldType; tile: Tile | null; tiles?: Tile[]; called?: Tile; from?: number }
 export interface Discard { tile: Tile; drawn: boolean; called: boolean }
-export interface PlayerPos { melds: Meld[]; flowers: string; discards: Discard[] }
+/** `declared`: a ready hand declared on the first turn (docs/rules.md 5.1); the hand is locked from then on. */
+export interface PlayerPos { melds: Meld[]; flowers: string; discards: Discard[]; declared?: 'tianting' | 'diting' }
 export interface Claim { seat: number; tile: Tile | null; rob_kong: boolean }
 
 export interface Position {
@@ -35,8 +36,9 @@ export interface Position {
 }
 
 export type EventType = 'draw' | 'flower' | 'discard' | 'chi' | 'pon' | 'kan' | 'ankan' | 'kakan' | 'tsumo' | 'ron' |
-  'flower_win' | 'exhausted';
-export interface GameEvent { seat: number; type: EventType; tile: Tile | null; replacement?: boolean; drawn?: boolean; tiles?: Tile[] }
+  'flower_win' | 'exhausted' | 'declare';
+export interface GameEvent { seat: number; type: EventType; tile: Tile | null; replacement?: boolean; drawn?: boolean; tiles?: Tile[];
+  declared?: 'tianting' | 'diting' }
 
 export interface TaiItem { item: string; name: string; tai: number }
 export interface Winner { seat: number; tai: number; items: TaiItem[] }

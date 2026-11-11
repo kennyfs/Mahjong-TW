@@ -22,4 +22,5 @@ val RULE_HELP: Map<String, Int> = mapOf(
   "gangshang" to R.string.help_gangshang, "haidi" to R.string.help_haidi, "hedi" to R.string.help_hedi, "tianhu" to R.string.help_tianhu,
   "dihu" to R.string.help_dihu, "renhu" to R.string.help_renhu, "any_wind" to R.string.help_any_wind,
   "no_honor_flower" to R.string.help_no_honor_flower, "kong_tai" to R.string.help_kong_tai, "ankong_tai" to R.string.help_ankong_tai,
+  "tianting" to R.string.help_tianting, "diting" to R.string.help_diting,
 )

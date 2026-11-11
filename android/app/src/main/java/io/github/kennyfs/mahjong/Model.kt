@@ -36,8 +36,11 @@ data class Meld(val type: String, val tile: String? = null, val tiles: List<Stri
 @Serializable
 data class Discard(val tile: String, val drawn: Boolean = false, val called: Boolean = false)
 
+/** `declared`: "tianting" or "diting", a ready hand declared on the first turn (docs/rules.md 5.1). */
 @Serializable
-data class PlayerPos(val melds: List<Meld> = emptyList(), val flowers: String = "", val discards: List<Discard> = emptyList())
+data class PlayerPos(
+  val melds: List<Meld> = emptyList(), val flowers: String = "", val discards: List<Discard> = emptyList(), val declared: String? = null,
+)
 
 @Serializable
 data class Claim(val seat: Int, val tile: String? = null, @SerialName("rob_kong") val robKong: Boolean = false)
@@ -60,7 +63,7 @@ data class Position(
 @Serializable
 data class GameEvent(
   val seat: Int = -1, val type: String, val tile: String? = null, val replacement: Boolean = false, val drawn: Boolean = false,
-  val tiles: List<String>? = null,
+  val tiles: List<String>? = null, val declared: String? = null,
 )
 
 @Serializable

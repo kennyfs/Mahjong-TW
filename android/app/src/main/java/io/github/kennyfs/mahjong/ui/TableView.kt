@@ -251,7 +251,10 @@ fun TableView(
     @Composable
     fun badge(seat: Int, count: Int?) = SeatBadge(
       Tiles.wind(winds[seat]), names[seat], scores?.get(seat), setup.dealer == seat, setup.streak, turnSeat == seat, count,
-      compact = !s.wide, away = away[seat], font = s.font, note = if (seat == me) null else notes?.getOrNull(seat),
+      compact = !s.wide, away = away[seat], font = s.font,
+      // A review's words; in play, a declared ready hand (天聽, 地聽).
+      note = (if (seat == me) null else notes?.getOrNull(seat))
+        ?: pos.players.getOrNull(seat)?.declared?.let { SeatNote(stringResource(if (it == "diting") R.string.call_diting else R.string.call_tianting), 0) },
     )
 
     @Composable
@@ -694,7 +697,7 @@ fun TileTag(mark: TileMark, w: Float, tagH: Float, modifier: Modifier = Modifier
   }
 }
 
-private val ORDER = listOf("ron", "tsumo", "kan", "ankan", "kakan", "pon", "chi", "pass")
+private val ORDER = listOf("ron", "tsumo", "declare", "kan", "ankan", "kakan", "pon", "chi", "pass")
 
 fun actionLabel(type: String) = when (type) {
   "ron" -> R.string.act_ron
@@ -705,6 +708,7 @@ fun actionLabel(type: String) = when (type) {
   "pon" -> R.string.act_pon
   "chi" -> R.string.act_chi
   "discard" -> R.string.act_discard
+  "declare" -> R.string.act_declare
   else -> R.string.act_pass
 }
 
@@ -751,7 +755,7 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes) {
   val words = mapOf(
     "chi" to R.string.act_chi, "pon" to R.string.act_pon, "kan" to R.string.act_kan, "ankan" to R.string.act_ankan, "kakan" to R.string.act_kakan,
     "tsumo" to R.string.act_tsumo, "ron" to R.string.act_ron, "flower" to R.string.call_flower, "flower_win" to R.string.call_flower_win,
-    "exhausted" to R.string.call_exhausted,
+    "exhausted" to R.string.call_exhausted, "declare:tianting" to R.string.call_tianting, "declare:diting" to R.string.call_diting,
   )
   val texts = words.mapValues { stringResource(it.value) }
   val dealtIn = stringResource(R.string.call_deal_in)
@@ -768,7 +772,7 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes) {
     val flowers = HashSet<Int>()
     var said = false
     for (e in fresh) {
-      val text = texts[e.type] ?: continue
+      val text = texts[if (e.type == "declare") "declare:${e.declared ?: "tianting"}" else e.type] ?: continue
       if (e.type == "flower" && !flowers.add(e.seat)) continue
       list += Callout(next++, if (e.type == "exhausted") Side.TOP else sideOf(e.seat, me), text, e.type in setOf("tsumo", "ron", "flower_win"))
       // Who dealt in: the discard (or the added kong's tile) the win was on. Once, however many won on it.

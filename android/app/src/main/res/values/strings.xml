@@ -47,10 +47,13 @@
   <string name="act_kakan">加槓</string>
   <string name="act_chi">吃</string>
   <string name="act_pass">過</string>
+  <string name="act_declare">宣告聽牌</string>
   <string name="call_flower">補花</string>
   <string name="call_flower_win">花胡</string>
   <string name="call_exhausted">流局</string>
   <string name="call_deal_in">放槍</string>
+  <string name="call_tianting">天聽</string>
+  <string name="call_diting">地聽</string>
   <string name="rules_chip">%1$s・%2$s</string>
   <string name="hand_cards">%1$d 張</string>
   <string name="last_hand">上一局</string>
@@ -103,7 +106,7 @@
   <string name="tai_standard">標準</string>
   <string name="tai_masters">大師</string>
   <string name="tai_simple1_desc">台灣南部常見的打法：只算莊家、連莊拉莊與自摸；底 2 台；截胡。</string>
-  <string name="tai_simple2_desc">只算莊家、連莊拉莊、門清、自摸（門清自摸共 3 台）、獨聽與清一色（1 台）；一炮多響。</string>
+  <string name="tai_simple2_desc">只算莊家、連莊拉莊、門清、自摸（門清自摸共 3 台）、獨聽、清一色（1 台），以及每一組風牌或三元牌的刻子各 1 台（見風見台）；一炮多響。</string>
   <string name="tai_standard_desc">常見的完整台數表（MJ888、維基教科書）。</string>
   <string name="tai_masters_desc">2025 麻將大師賽的台數表。</string>
   <string name="rules_base">底</string>
@@ -499,6 +502,8 @@
   <string name="help_tianhu">天胡：莊家起手、還沒打出第一張牌（也沒有槓）就胡。不再算門清和自摸。</string>
   <string name="help_dihu">地胡：閒家第一次摸牌就自摸，而且在那之前沒有人吃、碰、槓。不再算門清和自摸。</string>
   <string name="help_renhu">人胡：閒家在自己打出第一張牌之前，就胡了別人打的牌，而且在那之前沒有人吃、碰、槓。不再算門清。</string>
+  <string name="help_tianting">天聽：第一次出牌前就聽牌並宣告，而且之前沒有人吃、碰、槓。莊家，或起手 16 張就聽牌的閒家，算天聽。宣告後手牌鎖住：只能摸什麼打什麼，或胡牌。胡牌時加這個台數。設為 0 就不能宣告。</string>
+  <string name="help_diting">地聽：閒家第一次摸牌、打出一張後才聽牌並宣告，而且之前沒有人吃、碰、槓。宣告後手牌鎖住：只能摸什麼打什麼，或胡牌。胡牌時加這個台數。設為 0 就不能宣告。</string>
   <string name="help_any_wind">見風見台：每一組風牌的刻子都算台，取代圈風和門風（「見花見字」打法的選項）。</string>
   <string name="help_no_honor_flower">無字無花：整手沒有字牌，也沒有花牌（「見花見字」打法的選項）。</string>
   <string name="help_kong_tai">明槓：每一組明槓或加槓都算台（「見花見字」打法的選項）。</string>

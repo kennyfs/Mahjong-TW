@@ -142,6 +142,7 @@
     switch (key) {
       case 'h': return of('ron', 'tsumo');
       case 'g': return of('kan', 'ankan', 'kakan');
+      case 't': return of('declare');
       case 'p': return of('pon');
       case 'c': return chis[0];
       case '1': case '2': case '3': return chis[Number(key) - 1];
@@ -214,7 +215,7 @@
         setTimeout(() => { callouts = callouts.filter((c) => c.id !== id); }, big ? 2000 : 900);
       };
       for (const e of fresh) {
-        const word = WORDS[e.type];
+        const word = e.type === 'declare' ? `call_${e.declared ?? 'tianting'}` : WORDS[e.type];
         if (!word) continue;
         // One 補花 for a run of flowers.
         if (e.type === 'flower') {
@@ -304,7 +305,7 @@
         <div class="plate" bind:clientWidth={plate[side].w} bind:clientHeight={plate[side].h}>
           <SeatBadge wind={winds[seat]} name={names[seat]} score={scores ? scores[seat] : null} dealer={setup.dealer === seat}
             streak={setup.streak} turn={turnSeat === seat} count={s.back === 0 && !revealed ? hidden : null} compact={!s.wide}
-            away={away[seat]} note={notes?.[seat] ?? null} />
+            away={away[seat]} note={notes?.[seat] ?? (p.declared ? { text: t(`call_${p.declared}`), level: 0 } : null)} />
         </div>
         <div class="seat-tiles">
           <Melds melds={p.melds} flowers={flowersOf(p)} w={ow} wrap={!(s.wide && side === 'top')} />
@@ -342,7 +343,7 @@
     <!-- The player: the name plate (wide: over the hand, at the left, their flowers over it), the melds, the hand. -->
     {#snippet myBadge()}
       <SeatBadge wind={winds[me]} name={names[me]} score={scores ? scores[me] : null} dealer={setup.dealer === me} streak={setup.streak}
-        turn={turnSeat === me} compact={!s.wide} />
+        turn={turnSeat === me} compact={!s.wide} note={pos.players[me].declared ? { text: t(`call_${pos.players[me].declared}`), level: 0 } : null} />
     {/snippet}
     {#if s.wide}
       <div class="me-corner" style="bottom: {meH + 2}px" bind:clientHeight={meCorner}>

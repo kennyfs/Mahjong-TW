@@ -5,7 +5,7 @@ import type { Action, ActionFigures } from './types';
 
 const WORD: Record<string, string> = {
   discard: 'act_discard', tsumo: 'act_tsumo', ron: 'act_ron', pon: 'act_pon', kan: 'act_kan', ankan: 'act_ankan',
-  kakan: 'act_kakan', chi: 'act_chi', pass: 'act_pass',
+  kakan: 'act_kakan', chi: 'act_chi', pass: 'act_pass', declare: 'act_declare',
 };
 
 /** The tiles an action shows: a chow's three, a discard's or a kong's one. */

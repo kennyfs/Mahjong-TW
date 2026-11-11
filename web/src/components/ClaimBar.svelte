@@ -1,5 +1,5 @@
 <!--
-  The player's choices other than discarding: win (胡, 自摸), kongs, pung, each way of a chow (its three tiles), and
+  The player's choices other than discarding: win (胡, 自摸), declaring a ready hand (聽), kongs, pung, each way of a chow (its three tiles), and
   pass. The player's own legal actions, not advice. A computer shows each one's key. The tiles are large (`w` is the
   hand's tile), and `claimed`, the discard (or added tile) being claimed, is lit in each choice.
 -->
@@ -12,12 +12,13 @@
   } = $props();
   const tw = $derived(w * 0.8);
 
-  const ORDER = ['ron', 'tsumo', 'kan', 'ankan', 'kakan', 'pon', 'chi', 'pass'];
+  const ORDER = ['ron', 'tsumo', 'declare', 'kan', 'ankan', 'kakan', 'pon', 'chi', 'pass'];
   const LABEL: Record<string, string> = {
     ron: 'act_ron', tsumo: 'act_tsumo', kan: 'act_kan', ankan: 'act_ankan', kakan: 'act_kakan', pon: 'act_pon', chi: 'act_chi', pass: 'act_pass',
+    declare: 'act_declare',
   };
   /** The keys of a computer (Table.svelte): H wins, G kongs, P pungs, C chows (1 2 3 its ways), Space passes. */
-  const KEY: Record<string, string> = { ron: 'H', tsumo: 'H', kan: 'G', ankan: 'G', kakan: 'G', pon: 'P', chi: 'C', pass: 'Space' };
+  const KEY: Record<string, string> = { ron: 'H', tsumo: 'H', kan: 'G', ankan: 'G', kakan: 'G', pon: 'P', chi: 'C', pass: 'Space', declare: 'T' };
   const shown = $derived(
     actions.filter((a) => a.type !== 'discard').sort((a, b) => ORDER.indexOf(a.type) - ORDER.indexOf(b.type)),
   );

@@ -63,9 +63,20 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   layout arithmetic, the records' JSON form, the battle protocol (Kotlin in `protocol/`, a TypeScript port in
   `web/src/lib/battle.svelte.ts`).
 
+- **0.3.1** (2026-11-12; `analysis` merged into `master`, and what `master` had changed since): `simple2` counts
+  every pung of a wind or of a dragon (the preset's description says so); declared ready hands (天聽, 地聽,
+  docs/rules.md 5.1) under `standard` and `masters`: the action 宣告聽牌 among the player's choices on the first turn
+  (`ClaimBar`, key T on a computer), after which only the discards that keep the hand ready can be made and later
+  only the tile drawn; 天聽 or 地聽 is called out over the player and stays on the name plate; the two items have
+  their help texts in the rules. The position editor does not set a declared hand.
+
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.3.1.apk` (`master` after the merge of `analysis`, 2026-11-12; `bin/android-main.sh release`): the
+    engine of features version 2 with the network of iteration 50 taken over to it
+    (`models/actor_50_v2.fp16.onnx`, `python/upgrade_features.py`). Built and type-checked (the page too), not
+    walked through on the emulator: a declaration has not been seen on a screen yet.
   - `apk/mahjong-0.3.0.apk` (branch `analysis`, 2026-11-12): the requests after 0.2.0 (above); arm64-v8a, 15 MB.
     The debug build went through `shots.py` sideways and upright (`shots/android-030/`), the page through
     `scratch/ui-analysis/web_review_check.py` at five sizes (`shots/web-030-review/`).
