@@ -76,8 +76,10 @@ status_run() {
   elif pgrep -f "cpp/build/mahjong selfplay .*$R/" > /dev/null; then
     echo "now: SELF-PLAY of iteration $((played + 1)) (this run's engine writes no progress file)"
   elif pgrep -f "cpp/build/mahjong match .*$R/" > /dev/null; then
-    local m=$(grep -c '^==' $R/logs/eval_$newest.log.part 2>/dev/null)
-    echo "now: MATCHES of network $newest (${m:-0} of 8 started)"
+    # The network of the matches is the one the log's line names (a newer one may have arrived since).
+    local k=$(tail -n 1 $R/loop.log | sed -n 's/.*matches of network \([0-9]*\).*/\1/p')
+    local m=$(grep -c '^==' $R/logs/eval_${k:-$newest}.log.part 2>/dev/null)
+    echo "now: MATCHES of network ${k:-$newest} (${m:-0} of 8 done)"
   else
     echo "now: WAITING for network $((newest + 1)) from the training machine (self-play may be 2 iterations ahead)"
   fi
