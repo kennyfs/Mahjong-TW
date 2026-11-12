@@ -104,13 +104,15 @@ object Engine {
   suspend fun act(game: GameRecord, seat: Int, action: Action): GameRecord =
     request(buildJsonObject { put("cmd", "act"); put("game", json(game)); put("seat", seat); put("action", json(action)) }).field("game")
 
-  /** The bots decide (`players`: per seat a bot, NET_BOT among them, or null for a person). */
+  /** The bots decide (`players`: per seat a bot, NET_BOT among them, or null for a person). The network's bots play
+   *  the action the policy head likes best: it played stronger than the best composed Q (docs/training.md,
+   *  2026-11-12: +0.04 to +0.08 a hand), at the user's word whatever the analysis shows as best. */
   suspend fun advance(game: GameRecord, players: List<String?>, seed: String? = null, steps: Int? = null): GameRecord {
     fun req(specs: List<String?>) = buildJsonObject {
       put("cmd", "advance"); put("game", json(game)); put("players", json(specs)); seed?.let { put("seed", it) }
       steps?.let { put("steps", it) }
     }
-    val a = if (NET_BOT in players) withModel { path -> req(players.map { if (it == NET_BOT) "net:model=$path" else it }) } else request(req(players))
+    val a = if (NET_BOT in players) withModel { path -> req(players.map { if (it == NET_BOT) "net:model=$path,mode=policy" else it }) } else request(req(players))
     return a.field("game")
   }
 

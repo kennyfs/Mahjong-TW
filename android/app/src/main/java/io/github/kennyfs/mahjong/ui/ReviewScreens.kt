@@ -92,7 +92,9 @@ import io.github.kennyfs.mahjong.View
 import io.github.kennyfs.mahjong.actionText
 import io.github.kennyfs.mahjong.costOf
 import io.github.kennyfs.mahjong.efficiencyText
-import io.github.kennyfs.mahjong.figureItems
+import io.github.kennyfs.mahjong.FigureKey
+import io.github.kennyfs.mahjong.TableMarks
+import io.github.kennyfs.mahjong.figureCells
 import io.github.kennyfs.mahjong.flowersOf
 import io.github.kennyfs.mahjong.fullAction
 import io.github.kennyfs.mahjong.gradeOf
@@ -287,7 +289,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     }
 
     // On the table: the tiles' marks, the name plates' notes, the options that are not discards, the tile tapped.
-    val marks: Map<String, TileMark>? = if (!hasNet) null else if (mine != null) tileMarks(res, mine.analysis, mine.played, unit) else emptyMap()
+    val marks: Map<String, TileMark>? = if (!hasNet) null else if (mine != null) tileMarks(res, mine.analysis, mine.played, unit, vm.settings.tableMarks) else emptyMap()
     val notes: List<SeatNote?>? = mine?.analysis?.opponents?.let { opponents ->
       val out = arrayOfNulls<SeatNote>(4)
       for (o in opponents) {
@@ -536,6 +538,15 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     // list beside the table its row there is lit instead, and comes into sight).
     val highlight = LocalTable.current.highlight
     val detail = pickedIndex >= 0 && !inlinePanel
+    // The figures of every discard of the decision in fixed columns, so that the line over the hand keeps each figure
+    // in its place from one tile to the next (Figures.kt).
+    val discardLines = remember(mine, oppNames, res) {
+      val a = mine?.analysis ?: return@remember emptyMap()
+      val best = a.best?.let { a.actions[it] }
+      a.actions.indices.filter { a.actions[it].action.type == "discard" }.associateWith { figureCells(res, a.actions[it], costOf(a, it), oppNames, best) }
+    }
+    val detailStyle = MaterialTheme.typography.bodySmall.tabular()
+    val detailWidths = rememberFigureWidths(discardLines.values.toList(), FigureKey.entries, detailStyle)
     val strip: (@Composable () -> Unit)? = if (mine != null && (options.isNotEmpty() || detail)) ({
       val a = mine.analysis
       if (options.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -557,19 +568,17 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         }
       }
       if (detail && pickedTile != null) {
-        val f = a.actions[pickedIndex]
         val small = MaterialTheme.typography.bodySmall
         val soft = Color.White.copy(alpha = 0.72f)
         FlowRow(
           Modifier.testTag("replay_detail").background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 5.dp),
           horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
-          Text("${stringResource(R.string.act_discard)} ${Tiles.name(pickedTile)}", style = small, color = Color.White, fontWeight = FontWeight.Bold)
-          for ((label, value) in figureItems(res, f, costOf(a, pickedIndex), oppNames)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(label, style = small, color = soft)
-            Text(value, style = small, color = Color.White)
-          }
-          Text(efficiencyText(res, f), style = small, color = soft)
+          // As wide for every tile (二萬 or 東).
+          Text("${stringResource(R.string.act_discard)} ${Tiles.name(pickedTile)}", Modifier.widthIn(min = with(LocalDensity.current) { (small.fontSize * 5.2f).toDp() }),
+            style = small, color = Color.White, fontWeight = FontWeight.Bold)
+          FigureCells(discardLines[pickedIndex] ?: emptyList(), FigureKey.entries, detailWidths, detailStyle, Color.White, soft,
+            Color(0xFFA8E6B0), Color(0xFFFFB4AB))
         }
       }
     }) else null
@@ -627,7 +636,8 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         )
         var selected by remember(stepKey) { mutableStateOf<Int?>(null) }
         MyHand(tiles, drawn, hw, HAND_ROW, emptySet(), {}, selected, { i -> selected = i; picked = i?.let { tiles.getOrNull(it) ?: drawn } },
-          marks = focus?.let { tileMarks(res, it.analysis, it.played, unit) } ?: emptyMap(), tagH = 17f)
+          marks = focus?.let { tileMarks(res, it.analysis, it.played, unit, vm.settings.tableMarks) } ?: emptyMap(),
+          tagH = if (vm.settings.tableMarks == TableMarks.none) 0f else 17f)
         val claim = pos.claim
         if (claim?.tile != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           Text("${names[claim.seat]} ${stringResource(R.string.act_discard)}", style = MaterialTheme.typography.bodyMedium)

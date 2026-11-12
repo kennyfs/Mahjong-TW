@@ -2,10 +2,15 @@
 // computer players of a practice game wait for a call's words before they go on, so that it can be followed; a tap
 // anywhere (or a key) lets the words go at once, and whoever waited goes on.
 
-/** A call's, a declaration's or a win's words, ms. */
-export const CALL_MS = 2000;
+import { settings, type Speed } from './settings.svelte';
+
+/** A call's, a declaration's or a win's words, ms, by the pace of the settings (the manual pace keeps them until the
+ *  next tap; this is how long they stay where nothing waits for the player). */
+const CALL: Record<Speed, number> = { slow: 2000, normal: 1500, fast: 1000, manual: 1500 };
 /** A flower's (there are many, and nothing is decided): brief, and nothing waits for them. */
-export const FLOWER_MS = 900;
+const FLOWER: Record<Speed, number> = { slow: 900, normal: 700, fast: 500, manual: 700 };
+export const callMs = () => CALL[settings.speed] ?? 1500;
+export const flowerMs = () => FLOWER[settings.speed] ?? 700;
 
 let until = 0;
 let waiting: (() => void)[] = [];

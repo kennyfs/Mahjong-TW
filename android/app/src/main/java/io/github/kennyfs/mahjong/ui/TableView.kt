@@ -174,7 +174,8 @@ fun TableView(
       val p = pos.players[seat]
       return Shown(p.melds.map { meldTiles(it).size }, flowersOf(p).size, if (revealed != null) Tiles.parse(revealed[seat]).size else 0)
     }
-    val tagH = if (marks != null) TAG_H else 0f
+    // Room over the hand's tiles for their tags, where they have any (the settings may show none).
+    val tagH = if (marks != null && marks.values.any { it.tag.isNotEmpty() }) TAG_H else 0f
 
     // The sizes. The tags' room comes off the table's height: what the hand's own lift does not already leave them.
     // A tall table's others' strip with everyone's tiles shown: as high as the three need at the largest tiles (20 dp
@@ -676,6 +677,7 @@ fun MyHand(
                 layout(p.width, p.height - up) { p.place(0, -up) }
               }
               .pointerInput(all[i], i, selected, discardable) { detectTapGestures { tap(i) } }
+              // Only a tile that may be discarded follows the finger up (a review's tiles are only tapped).
               .pointerInput(all[i], i, discardable) {
                 detectVerticalDragGestures(
                   onDragStart = { dragging = i; dy = 0f },
@@ -689,7 +691,7 @@ fun MyHand(
                     dy = 0f
                   },
                   onDragCancel = { dragging = -1; dy = 0f },
-                ) { _, d -> dy = minOf(0f, dy + d) }
+                ) { _, d -> if (all.getOrNull(i) in discardable) dy = minOf(0f, dy + d) }
               }
               .padding(top = reach.d),
           ) {
@@ -703,7 +705,7 @@ fun MyHand(
               }
             Box(Modifier.offset { IntOffset(0, lift.roundToInt()) }.then(dim)) {
               TileView(all[i], w.d, selected = selected == i, glow = mark?.played == true, danger = mark?.danger ?: 0)
-              if (mark != null) TileTag(mark, w, if (tagH > 0) tagH else TAG_H, Modifier.align(Alignment.TopCenter))
+              if (mark != null && mark.tag.isNotEmpty()) TileTag(mark, w, if (tagH > 0) tagH else TAG_H, Modifier.align(Alignment.TopCenter))
             }
           }
         }
@@ -874,7 +876,7 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<St
     val co = Callout(id, side, text, kind, ms, who)
     list.removeAll { it.side == side && it.at == co.at }
     list += co
-    if (ms >= CalloutClock.CALL_MS) CalloutClock.shown(ms)
+    if (kind != CalloutKind.FLOWER) CalloutClock.shown(ms)
   }
   var seen by remember { mutableIntStateOf(-1) }
   var next by remember { mutableIntStateOf(0) }
@@ -915,13 +917,13 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<St
         else -> CalloutKind.CALL
       }
       say(if (e.type == "exhausted") Side.TOP else sideOf(e.seat, me), text, kind,
-        if (e.type == "flower") CalloutClock.FLOWER_MS else CalloutClock.CALL_MS, next++,
+        if (e.type == "flower") CalloutClock.flowerMs() else CalloutClock.callMs(), next++,
         if (kind == CalloutKind.WIN) names.getOrElse(e.seat) { "" } else "")
       // Who dealt in: the discard (or the added kong's tile) the win was on. Once, however many won on it.
       if (e.type == "ron" && !said) {
         said = true
         val from = view.result?.loser?.takeIf { it >= 0 } ?: view.events.lastOrNull { it.type == "discard" || it.type == "kakan" }?.seat ?: -1
-        if (from >= 0 && from != e.seat) say(sideOf(from, me), dealtIn, CalloutKind.DEALIN, CalloutClock.CALL_MS, next++, names.getOrElse(from) { "" })
+        if (from >= 0 && from != e.seat) say(sideOf(from, me), dealtIn, CalloutKind.DEALIN, CalloutClock.callMs(), next++, names.getOrElse(from) { "" })
       }
     }
   }
@@ -932,7 +934,7 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<St
       val a = remember { Animatable(0f) }
       LaunchedEffect(Unit) {
         a.animateTo(1f, tween(CALLOUT_IN, easing = LinearEasing))
-        if (stay && co.ms >= CalloutClock.CALL_MS) return@LaunchedEffect
+        if (stay && co.kind != CalloutKind.FLOWER) return@LaunchedEffect
         delay(co.ms - CALLOUT_IN)
         a.animateTo(2f, tween(CALLOUT_OUT, easing = LinearEasing))
         list.remove(co)

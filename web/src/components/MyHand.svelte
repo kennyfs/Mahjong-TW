@@ -74,7 +74,8 @@
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function move(e: PointerEvent) {
-    if (drag && e.pointerId === drag.id) drag.dy = Math.min(0, e.clientY - drag.y0);
+    // Only a tile that may be discarded follows the finger up (a review's tiles are only tapped, to see their figures).
+    if (drag && e.pointerId === drag.id && canDiscard(all[drag.i])) drag.dy = Math.min(0, e.clientY - drag.y0);
   }
   function up(e: PointerEvent) {
     if (!drag || e.pointerId !== drag.id) return;
@@ -104,7 +105,7 @@
           in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0 }}
           aria-pressed={selected === i}>
           <span class="lifted" style="transform: translateY({drag?.i === i ? drag.dy : selected === i ? -lift : 0}px)">
-            {#if marks?.get(all[i])}
+            {#if marks?.get(all[i])?.tag}
               {@const m = marks.get(all[i])!}
               <span class="tag {m.tone}" class:played={m.played} style="font-size: {Math.min(13, Math.max(10, w * 0.27))}px; height: {tagH - 2}px">{m.tag}</span>
             {/if}

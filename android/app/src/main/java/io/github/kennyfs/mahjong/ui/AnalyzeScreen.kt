@@ -184,7 +184,7 @@ fun AnalyzeScreen(vm: AppModel) {
       if (mine == asked[0]) running = false
     }
   }
-  val marks: Map<String, TileMark>? = result?.takeIf { it.net }?.let { tileMarks(res, it, -1, null) }
+  val marks: Map<String, TileMark>? = result?.takeIf { it.net }?.let { tileMarks(res, it, -1, null, vm.settings.tableMarks) }
 
   fun pick(t: String) {
     if (ed.section.kind == Section.Kind.MELDS) {

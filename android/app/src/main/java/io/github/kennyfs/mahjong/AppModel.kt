@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 enum class Screen { PLAY, BATTLE, ANALYZE, RECORDS, SETTINGS }
 
 /** A page opened from a screen: Back returns to what was under it. GUIDE: the rules explained (ui/GuideScreen.kt). */
-enum class Page { RULES, REVIEW, GUIDE }
+enum class Page { RULES, REVIEW, GUIDE, ADVANCED }
 
 /**
  * What the screens share, for as long as the app runs: the settings, the records, practice, battles, the pages opened
@@ -26,7 +26,7 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
     Engine.setup(app)
   }
 
-  val settings = Settings(app)
+  val settings = Settings(app).also { s -> CalloutClock.speedOf = { s.speed } }
   val records = Records(app)
   var error by mutableStateOf<String?>(null)
 

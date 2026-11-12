@@ -176,3 +176,31 @@ python/review.py aux $HOME/mahjong_remote/share/s1/selfplay/iter_50
 
 `mahjong review` writes one JSON line per decision (cpp/command/review.cpp lists the fields): it is the data a
 network-backed `analyze` of the GUI engine would return.
+
+## 6. The colors and the grades (network 211 of s2, 2026-11-12)
+
+`python/thresholds.py` on `mahjong review` lines (3,000 hands of the network sampling, reviewed by itself with
+`--full`; 20,000 hands of `greedy` among three copies of the network; 4,000 hands of four `greedy` players reviewed by
+networks 201 and 211 with the same seed), under `simple1,none` and `simple2,see`. The `.jsonl` files (2 GB) were
+deleted after; the output is `mahjong-files/exp1112b/thresholds.log`.
+
+**The colors of a list's figures** (as Thirteen's NOTABLE_GAP): the 75th percentile of |best − k-th| for the 2nd to
+6th action by Q. Both rules alike:
+
+| Figure | p50 | p75 (the gap that is colored) |
+|---|---:|---:|
+| 胡 (win) | 0.024 | 0.080 |
+| 自摸 (self-draw) | 0.009 | 0.032 |
+| 放槍 (deal in) | 0.010 | 0.027–0.029 |
+| 被自摸 (another's self-draw) | 0.012 | 0.030–0.031 |
+| 當下危險 (danger now) | 0.005 | 0.027 |
+
+An action more than that better than the best one is green, worse red (8% for 胡, 3% for the others).
+
+**The grades**: the networks' own noise, |loss by 201 − loss by 211| of the same action in the same position: for
+the action played p90 0.03–0.05, p95 0.05–0.07; over every action p75 0.07–0.09. `greedy`'s losses (simple1; simple2
+in brackets), decisions a hand above each step: 0.1: 0.77 (1.04), 0.25: 0.33 (0.48), 0.5: 0.12 (0.21), 1: 0.02
+(0.06). The network sampling, by itself: 0.1: 0.96, 0.25: 0.11, 0.5: 0.015. The steps were 0.2, 0.5, 1 (questionable,
+mistake, blunder, for a payment of 4); the user found them too large, and they are halved to **0.1, 0.25, 0.5**: the
+lowest is still above the noise of the action played (its p95), and `greedy` then has about one questionable decision
+a hand and one mistake in three hands.

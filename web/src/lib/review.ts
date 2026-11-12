@@ -2,21 +2,24 @@
 // show for it (docs/analysis.md).
 //
 // A decision loses the best action's expected result less the played one's, in points (台). Losses under EQUAL are
-// the network's own noise and count as nothing; the grades start at 0.2, 0.5 and 1 point for a typical payment of 4
+// the network's own noise and count as nothing; the grades start at 0.1, 0.25 and 0.5 point for a typical payment of 4
 // (the review's `unit` scales them to the hand's rules). The level of the settings says from which grade on a
 // decision counts as a mistake.
 import { actionText } from './actions';
 import * as engine from './engine';
 import { t } from './i18n.svelte';
 import { records, type HandRecord, type ReviewSummary } from './records.svelte';
-import type { Level } from './settings.svelte';
+import { settings, type Level } from './settings.svelte';
 import { tileName, type Tile } from './tiles';
 import type { Action, Analysis, Figures, Review, ReviewDecision } from './types';
 
 export const EQUAL = 0.05;
 /** 0: fine; 1: questionable; 2: a mistake; 3: a blunder. */
 export type Grade = 0 | 1 | 2 | 3;
-const STEPS = [0.2, 0.5, 1];
+// The grades' steps for a typical payment of 4: halved on 2026-11-12 (python/thresholds.py: greedy loses more than 0.1
+// in 0.8 decisions a hand, more than 0.5 in 0.1; two networks' losses of the action played differ by more than 0.05
+// in 5% of decisions, so 0.1 is clear of the networks' own noise).
+const STEPS = [0.1, 0.25, 0.5];
 const scale = (unit?: number) => (unit && unit > 0 ? unit / 4 : 1);
 
 export function gradeOf(loss: number, unit?: number): Grade {
@@ -208,8 +211,10 @@ export async function keepSummary(rec: HandRecord): Promise<void> {
 /** What a tile of the hand shows at a decision: a tag over it, its tone, whether it is the tile played, its danger. */
 export interface TileMark { tag: string; tone: 'best' | 'plain' | 'g1' | 'g2' | 'g3'; played: boolean; danger: 0 | 1 | 2 | 3 }
 
-/** The marks of a decision's discards by tile: what each costs against the best, and its danger. */
+/** The marks of a decision's discards by tile: what each costs against the best, and its danger; as much of them as
+ *  the settings' `tableMarks` says (none: no tag, and the hand keeps no room for one). */
 export function tileMarks(a: Analysis, played: number, unit: number | undefined): Map<Tile, TileMark> {
+  const show = settings.tableMarks;
   const out = new Map<Tile, TileMark>();
   if (a.best === undefined) return out;
   a.actions.forEach((f, i) => {
@@ -219,8 +224,9 @@ export function tileMarks(a: Analysis, played: number, unit: number | undefined)
     const best = i === a.best;
     const g = gradeOf(c, unit);
     out.set(f.action.tile, {
-      tag: best ? t('grade_best') : c < EQUAL ? '≈' : tagCost(c), tone: best ? 'best' : mine && g ? (`g${g}` as TileMark['tone']) : 'plain',
-      played: mine, danger: dangerLevel(f.danger),
+      tag: show === 'none' ? '' : best ? t('grade_best') : c < EQUAL ? '≈' : tagCost(c),
+      tone: show === 'none' ? 'plain' : best ? 'best' : mine && g ? (`g${g}` as TileMark['tone']) : 'plain',
+      played: mine, danger: show === 'both' ? dangerLevel(f.danger) : 0,
     });
   });
   return out;
@@ -243,6 +249,54 @@ export function figureItems(f: Figures, c: number | null, names: string[] | null
     }
     out.push([t('fig_danger'), pct(f.danger) + who]);
   }
+  return out;
+}
+
+/**
+ * An action's figures as cells of fixed columns (FIGURE_KEYS), so that a list's rows, and the figures of each tile
+ * over the hand, line up whatever an action has: a cell an action has not is empty and keeps its room (Figures.svelte
+ * makes each column as wide as its widest cell). `tone`: 1 (green) where the action is better than the best one by
+ * more than NOTABLE (more wins, fewer deal-ins...), -1 (red) where it is worse by more.
+ */
+export interface FigureCell { key: FigureKey; label: string; value: string; tone: -1 | 0 | 1 }
+export const FIGURE_KEYS = ['q', 'cost', 'win', 'tsumo', 'deal', 'others', 'danger', 'who', 'eff'] as const;
+export type FigureKey = (typeof FIGURE_KEYS)[number];
+/** The gap to the best action worth a color, by figure: the 75th percentile of |best - k-th| for the 2nd to 6th action
+ *  (python/thresholds.py gaps; network 211 of s2, 3,000 hands under simple1 and simple2, alike). */
+const NOTABLE: Partial<Record<FigureKey, number>> = { win: 0.08, tsumo: 0.03, deal: 0.03, others: 0.03, danger: 0.03 };
+/** Whether more is better. */
+const MORE_IS_BETTER: Partial<Record<FigureKey, boolean>> = { win: true, tsumo: true, deal: false, others: false, danger: false };
+
+function toneOf(key: FigureKey, x: number | undefined, b: number | undefined): -1 | 0 | 1 {
+  const gap = NOTABLE[key];
+  if (gap === undefined || x === undefined || b === undefined) return 0;
+  const d = (x - b) * (MORE_IS_BETTER[key] ? 1 : -1);
+  return d > gap ? 1 : d < -gap ? -1 : 0;
+}
+
+/** `c`: the action's cost (null: no 差 cell); `best`: the best action's figures, to color against. */
+export function figureCells(f: Figures, c: number | null, names: string[] | null, best: Figures | null): FigureCell[] {
+  const cell = (key: FigureKey, label: string, value: string, x?: number, b?: number): FigureCell =>
+    ({ key, label, value, tone: best && best !== f ? toneOf(key, x, b) : 0 });
+  const out: FigureCell[] = [];
+  if (f.q !== undefined) {
+    out.push(cell('q', t('fig_value'), pts(f.q)));
+    out.push(cell('cost', c !== null && c >= EQUAL ? t('fig_cost') : '', c !== null && c >= EQUAL ? pts(-c) : ''));
+    const win = f.win ?? 0;
+    out.push(cell('win', t('fig_win'), pct(win), win, best?.win));
+    out.push(cell('tsumo', '', win >= 0.005 ? `（${t('fig_tsumo')} ${pct(f.tsumo ?? 0)}・${t('fig_tai', (f.tai ?? 0).toFixed(1))}）` : '',
+      f.tsumo, best?.tsumo));
+    out.push(cell('deal', t('fig_deal_in'), pct(f.deal_in ?? 0), f.deal_in, best?.deal_in));
+    out.push(cell('others', t('fig_others_tsumo'), pct(f.others_tsumo ?? 0), f.others_tsumo, best?.others_tsumo));
+    out.push(cell('danger', f.danger !== undefined ? t('fig_danger') : '', f.danger !== undefined ? pct(f.danger) : '', f.danger, best?.danger));
+    let who = '';
+    if (names && f.danger !== undefined && f.danger >= 0.01 && f.danger_each) {
+      const top = f.danger_each.indexOf(Math.max(...f.danger_each));
+      who = `（${names[top]} ${pct(f.danger_each[top])}・${t('fig_tai', (f.danger_tai?.[top] ?? 0).toFixed(1))}）`;
+    }
+    out.push(cell('who', '', who));
+  }
+  out.push(cell('eff', '', efficiencyText(f)));
   return out;
 }
 

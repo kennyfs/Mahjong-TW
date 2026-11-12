@@ -10,12 +10,14 @@ import kotlin.math.max
 // show for it (docs/analysis.md). The web page's lib/review.ts: change both.
 //
 // A decision loses the best action's expected result less the played one's, in points (台). Losses under EQUAL are
-// the network's own noise and count as nothing; the grades start at 0.2, 0.5 and 1 point for a typical payment of 4
+// the network's own noise and count as nothing; the grades start at 0.1, 0.25 and 0.5 point for a typical payment of 4
 // (the review's `unit` scales them to the hand's rules). The level of the settings says from which grade on a
 // decision counts as a mistake.
 
 const val EQUAL = 0.05
-private val GRADE_STEPS = doubleArrayOf(0.2, 0.5, 1.0)
+// Halved on 2026-11-12 (python/thresholds.py: greedy loses more than 0.1 in 0.8 decisions a hand, more than 0.5 in 0.1;
+// two networks' losses of the action played differ by more than 0.05 in 5% of decisions, so 0.1 is clear of the noise).
+private val GRADE_STEPS = doubleArrayOf(0.1, 0.25, 0.5)
 private fun scale(unit: Double?) = if (unit != null && unit > 0) unit / 4 else 1.0
 
 /** 0: fine; 1: questionable; 2: a mistake; 3: a blunder. */
@@ -241,8 +243,9 @@ data class TileMark(val tag: String, val tone: Tone, val played: Boolean, val da
   enum class Tone { BEST, PLAIN, G1, G2, G3 }
 }
 
-/** The marks of a decision's discards by tile: what each costs against the best, and its danger. */
-fun tileMarks(res: Resources, a: Analysis, played: Int, unit: Double?): Map<String, TileMark> {
+/** The marks of a decision's discards by tile: what each costs against the best, and its danger; as much of them as
+ *  `show` says (none: no tag, and the hand keeps no room for one). */
+fun tileMarks(res: Resources, a: Analysis, played: Int, unit: Double?, show: TableMarks = TableMarks.both): Map<String, TileMark> {
   val out = HashMap<String, TileMark>()
   val bi = a.best ?: return out
   a.actions.forEachIndexed { i, f ->
@@ -252,9 +255,9 @@ fun tileMarks(res: Resources, a: Analysis, played: Int, unit: Double?): Map<Stri
     val mine = i == played
     val g = gradeOf(c, unit)
     out[tile] = TileMark(
-      if (i == bi) res.getString(R.string.grade_best) else if (c < EQUAL) "≈" else tagCost(c),
-      if (i == bi) TileMark.Tone.BEST else if (mine && g > 0) TileMark.Tone.entries[1 + g] else TileMark.Tone.PLAIN,
-      mine, dangerLevel(f.danger),
+      if (show == TableMarks.none) "" else if (i == bi) res.getString(R.string.grade_best) else if (c < EQUAL) "≈" else tagCost(c),
+      if (show == TableMarks.none) TileMark.Tone.PLAIN else if (i == bi) TileMark.Tone.BEST else if (mine && g > 0) TileMark.Tone.entries[1 + g] else TileMark.Tone.PLAIN,
+      mine, if (show == TableMarks.both) dangerLevel(f.danger) else 0,
     )
   }
   return out
@@ -281,6 +284,59 @@ fun figureItems(res: Resources, f: ActionFigures, c: Double?, names: List<String
     }
     out += res.getString(R.string.fig_danger) to pct(danger) + who
   }
+  return out
+}
+
+/**
+ * An action's figures as cells of fixed columns (FigureKey), so that a list's rows, and the figures of each tile over
+ * the hand, line up whatever an action has: a cell an action has not is empty and keeps its room (ui/Figures.kt makes
+ * each column as wide as its widest cell). `tone`: 1 (green) where the action is better than the best one by more than
+ * the figure's notable gap (more wins, fewer deal-ins...), -1 (red) where it is worse by more.
+ */
+enum class FigureKey(val notable: Double?, val moreIsBetter: Boolean) {
+  // The notable gaps: the 75th percentile of |best - k-th| for the 2nd to 6th action (python/thresholds.py gaps;
+  // network 211 of s2, 3,000 hands under simple1 and simple2, alike). Thirteen's NOTABLE_GAP, the same way.
+  Q(null, true), COST(null, true), WIN(0.08, true), TSUMO(0.03, true), DEAL(0.03, false), OTHERS(0.03, false),
+  DANGER(0.03, false), WHO(null, true), EFF(null, true),
+}
+
+data class FigureCell(val key: FigureKey, val label: String, val value: String, val tone: Int)
+
+private fun toneOf(key: FigureKey, x: Double?, b: Double?): Int {
+  val gap = key.notable ?: return 0
+  if (x == null || b == null) return 0
+  val d = (x - b) * if (key.moreIsBetter) 1 else -1
+  return if (d > gap) 1 else if (d < -gap) -1 else 0
+}
+
+/** `c`: the action's cost (null: no 差 cell); `best`: the best action's figures, to color against. */
+fun figureCells(res: Resources, f: ActionFigures, c: Double?, names: List<String>?, best: ActionFigures?): List<FigureCell> {
+  fun cell(key: FigureKey, label: String, value: String, x: Double? = null, b: Double? = null) =
+    FigureCell(key, label, value, if (best != null && best !== f) toneOf(key, x, b) else 0)
+  val out = ArrayList<FigureCell>()
+  val q = f.q
+  if (q != null) {
+    out += cell(FigureKey.Q, res.getString(R.string.fig_value), pts(q))
+    val costly = c != null && c >= EQUAL
+    out += cell(FigureKey.COST, if (costly) res.getString(R.string.fig_cost) else "", if (costly) pts(-c!!) else "")
+    val win = f.win ?: 0.0
+    out += cell(FigureKey.WIN, res.getString(R.string.fig_win), pct(win), win, best?.win)
+    out += cell(FigureKey.TSUMO, "",
+      if (win >= 0.005) "（${res.getString(R.string.fig_tsumo)} ${pct(f.tsumo ?: 0.0)}・${res.getString(R.string.fig_tai, fixed(f.tai ?: 0.0, 1))}）" else "",
+      f.tsumo, best?.tsumo)
+    out += cell(FigureKey.DEAL, res.getString(R.string.fig_deal_in), pct(f.dealIn ?: 0.0), f.dealIn, best?.dealIn)
+    out += cell(FigureKey.OTHERS, res.getString(R.string.fig_others_tsumo), pct(f.othersTsumo ?: 0.0), f.othersTsumo, best?.othersTsumo)
+    val danger = f.danger
+    out += cell(FigureKey.DANGER, if (danger != null) res.getString(R.string.fig_danger) else "", if (danger != null) pct(danger) else "", danger, best?.danger)
+    var who = ""
+    val each = f.dangerEach
+    if (names != null && danger != null && danger >= 0.01 && !each.isNullOrEmpty()) {
+      val top = each.indices.maxBy { each[it] }
+      who = "（${names.getOrElse(top) { "" }} ${pct(each[top])}・${res.getString(R.string.fig_tai, fixed(f.dangerTai?.getOrNull(top) ?: 0.0, 1))}）"
+    }
+    out += cell(FigureKey.WHO, "", who)
+  }
+  out += cell(FigureKey.EFF, "", efficiencyText(res, f))
   return out
 }
 

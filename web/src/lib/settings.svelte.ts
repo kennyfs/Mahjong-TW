@@ -24,6 +24,10 @@ export const BOTS = [{ spec: NET_BOT, label: 'bot_net' }, { spec: 'greedy', labe
 export type ListRows = 'numbers' | 'bars' | 'both';
 export const LIST_ROWS: ListRows[] = ['numbers', 'bars', 'both'];
 const defaultRows = (): ListRows => (typeof window !== 'undefined' && window.innerWidth >= 900 ? 'both' : 'bars');
+/** What a review's hand shows on its tiles (the advanced settings): each discard's cost over it and its danger along
+ *  its foot, the cost alone, or nothing (the list beside or under the table says it all the same). */
+export type TableMarks = 'both' | 'loss' | 'none';
+export const TABLE_MARKS: TableMarks[] = ['both', 'loss', 'none'];
 /** Which losses the review counts as mistakes and stops at: a beginner's only the large ones, an expert's the small
  *  ones too (lib/review.ts). */
 export type Level = 'beginner' | 'mid' | 'expert';
@@ -41,6 +45,7 @@ interface Stored {
   server: string;
   listRows?: ListRows;
   level: Level;
+  tableMarks?: TableMarks;
 }
 
 const DEFAULTS: Stored = {
@@ -60,6 +65,7 @@ class Settings {
   server = $state('');
   listRows = $state<ListRows>('bars');
   level = $state<Level>('mid');
+  tableMarks = $state<TableMarks>('both');
 
   constructor() {
     const s = { ...DEFAULTS, ...load<Partial<Stored>>(KEYS.settings, {}) };
@@ -74,6 +80,7 @@ class Settings {
     this.server = typeof s.server === 'string' ? s.server : '';
     this.listRows = s.listRows && LIST_ROWS.includes(s.listRows) ? s.listRows : defaultRows();
     this.level = LEVELS.includes(s.level) ? s.level : 'mid';
+    this.tableMarks = s.tableMarks && TABLE_MARKS.includes(s.tableMarks) ? s.tableMarks : 'both';
   }
 
   get spec(): string { return ruleSpec(this.rules); }
@@ -82,6 +89,7 @@ class Settings {
     save(KEYS.settings, {
       rules: this.rules, length: this.length, bot: this.bot, speed: this.speed, colors: this.colors, dark: this.dark,
       text: this.text, name: this.name, server: this.server, listRows: this.listRows, level: this.level,
+      tableMarks: this.tableMarks,
     } satisfies Stored);
   }
 }

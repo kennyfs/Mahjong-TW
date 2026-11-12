@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,7 +58,8 @@ import io.github.kennyfs.mahjong.actionText
 import io.github.kennyfs.mahjong.actionTiles
 import io.github.kennyfs.mahjong.costOf
 import io.github.kennyfs.mahjong.efficiencyText
-import io.github.kennyfs.mahjong.figureItems
+import io.github.kennyfs.mahjong.FigureKey
+import io.github.kennyfs.mahjong.figureCells
 import io.github.kennyfs.mahjong.gradeOf
 import io.github.kennyfs.mahjong.isTaken
 import io.github.kennyfs.mahjong.notableOf
@@ -162,6 +164,13 @@ fun DecisionPanel(
   }
   val perPoint = min(ZERO / worse, (100 - ZERO) / better)
   val partColors = listOf(Marks.found, Marks.danger3, Marks.danger2)
+  // The figures of each row in fixed columns (Figures.kt): the bars' rows a few of them.
+  val figKeys = if (mode == ListRows.bars) listOf(FigureKey.WIN, FigureKey.DEAL, FigureKey.DANGER, FigureKey.EFF)
+    else listOf(FigureKey.WIN, FigureKey.TSUMO, FigureKey.DEAL, FigureKey.OTHERS, FigureKey.DANGER, FigureKey.WHO, FigureKey.EFF)
+  val figLines = remember(analysis, oppNames, res) { analysis.actions.map { figureCells(res, it, null, oppNames, analysis.actions[best]) } }
+  val figStyle = small.tabular()
+  val figWidths = rememberFigureWidths(figLines, figKeys, figStyle)
+  val outcome = LocalOutcome.current
 
   Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
     if (played >= 0 && !brief) {
@@ -271,20 +280,7 @@ fun DecisionPanel(
               drawRect(line, Offset(x - 1.dp.toPx(), 0f), Size(2.dp.toPx(), size.height))
             }
           }
-          FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            if (mode == ListRows.bars) {
-              Text("${stringResource(R.string.fig_win)} ${pct(f.win ?: 0.0)}", style = small)
-              Text("${stringResource(R.string.fig_deal_in)} ${pct(f.dealIn ?: 0.0)}", style = small)
-              val danger = f.danger
-              if (danger != null && danger >= 0.01) Text("${stringResource(R.string.fig_danger)} ${pct(danger)}", style = small)
-            } else {
-              for ((label, value) in figureItems(res, f, null, oppNames).drop(1)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(label, style = small, color = soft)
-                Text(value, style = small)
-              }
-            }
-            Text(efficiencyText(res, f), style = small, color = soft)
-          }
+          FigureLine(figLines[i], figKeys, figWidths, figStyle, LocalContentColor.current, soft, outcome.good, outcome.bad)
           if (f.waits.isNotEmpty() && f.shanten == 0) FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
             itemVerticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.analysis_waits), style = small, color = soft)

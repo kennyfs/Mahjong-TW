@@ -30,7 +30,7 @@
   import { editor } from '../lib/position-editor.svelte';
   import { practice } from '../lib/practice.svelte';
   import { records } from '../lib/records.svelte';
-  import { costOf, efficiencyText, EQUAL, figureItems, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pct, pts, readyLevel,
+  import { costOf, efficiencyText, EQUAL, FIGURE_KEYS, figureCells, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pct, pts, readyLevel,
     reasonOf, reviewOf, summarize, tagCost, tileMarks, tilesShort, type TileMark } from '../lib/review';
   import { flowersOf, meldTiles } from '../lib/seats';
   import { settings } from '../lib/settings.svelte';
@@ -38,6 +38,8 @@
   import { recordAction, type Analysis, type Review, type Steps, type Truth, type View } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
   import DecisionPanel from './DecisionPanel.svelte';
+  import FigureLine from './FigureLine.svelte';
+  import FigureRuler from './FigureRuler.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
   import MyHand from './MyHand.svelte';
@@ -244,6 +246,15 @@
   $effect(() => { void step; selected = null; picked = null; });
   const pickedIndex = $derived(focus && picked ? focus.analysis.actions.findIndex((f) => f.action.type === 'discard' && f.action.tile === picked) : -1);
   const oppNames = $derived(focus ? [1, 2, 3].map((r) => names[(focus.seat + r) % 4]) : []);
+  // The figures of every discard of the decision in fixed columns, so that the line over the hand keeps each figure in
+  // its place from one tile to the next (FigureRuler).
+  const discardLines = $derived.by(() => {
+    if (!mine) return new Map<number, ReturnType<typeof figureCells>>();
+    const a = mine.analysis;
+    const best = a.best !== undefined ? a.actions[a.best] : null;
+    return new Map(a.actions.flatMap((f, i) => (f.action.type === 'discard' ? [[i, figureCells(f, costOf(a, i), oppNames, best)] as const] : [])));
+  });
+  let detailWidths = $state<Partial<Record<(typeof FIGURE_KEYS)[number], number>>>({});
 
   // The list in place of the table (a phone): the deciding seat's own tiles over it.
   const listView = $derived(panelOpen && !inlinePanel && !!deciding);
@@ -454,11 +465,10 @@
     </div>
   {/if}
   {#if mine && pickedIndex >= 0 && !inlinePanel}
-    {@const f = mine.analysis.actions[pickedIndex]}
     <div class="detail body-small">
-      <b>{t('act_discard')} {tileName(picked ?? '')}</b>
-      {#each figureItems(f, costOf(mine.analysis, pickedIndex), oppNames) as [label, value] (label)}<span><span class="lbl">{label}</span> {value}</span>{/each}
-      <span class="lbl">{efficiencyText(f)}</span>
+      <FigureRuler lines={[...discardLines.values()]} keys={FIGURE_KEYS} bind:widths={detailWidths} />
+      <b class="what">{t('act_discard')} {tileName(picked ?? '')}</b>
+      <FigureLine cells={discardLines.get(pickedIndex) ?? []} keys={FIGURE_KEYS} widths={detailWidths} />
     </div>
   {/if}
 {/snippet}
@@ -603,9 +613,11 @@
   .opt b.g1 { color: var(--danger-1); }
   .opt b.g2 { color: var(--danger-2); }
   .opt b.g3 { color: #ff8f8f; }
-  .detail { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px 12px; padding: 5px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.72);
-    color: #fff; max-width: 100%; font-variant-numeric: tabular-nums; }
-  .detail .lbl { opacity: 0.72; }
+  .detail { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 1px 12px; padding: 5px 12px; border-radius: 12px;
+    background: rgba(0, 0, 0, 0.72); color: #fff; max-width: 100%; font-variant-numeric: tabular-nums; --fig-good: var(--felt-good); --fig-bad: var(--felt-bad); }
+  /* As wide for every tile (二萬 or 東). */
+  .detail .what { min-width: 5.2em; }
+  .detail :global(.line) { display: contents; }
   .loading { display: flex; justify-content: center; padding: 32px; }
   .spinner { width: 36px; height: 36px; border-radius: 50%; border: 4px solid transparent; border-top-color: var(--primary); animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }

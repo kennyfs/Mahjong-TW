@@ -96,6 +96,7 @@ import io.github.kennyfs.mahjong.RuleChoice
 import io.github.kennyfs.mahjong.Rules
 import io.github.kennyfs.mahjong.RulesInfo
 import io.github.kennyfs.mahjong.Speed
+import io.github.kennyfs.mahjong.TableMarks
 import io.github.kennyfs.mahjong.TextSize
 import io.github.kennyfs.mahjong.levelOrWorse
 import io.github.kennyfs.mahjong.mistakesOf
@@ -557,6 +558,36 @@ fun SettingsScreen(vm: AppModel) {
 
 }
 
+/** The advanced settings (設定 > 進階): ways of showing the analysis that are a matter of taste, each on its own: what a
+ *  row of a decision's list shows, and what a review's hand shows on its tiles. The web page's Advanced.svelte. */
+@Composable
+fun AdvancedScreen(vm: AppModel, onBack: () -> Unit) {
+  val s = vm.settings
+  Column(Modifier.fillMaxSize()) {
+    TitleBar(stringResource(R.string.advanced_title), onBack)
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+      Column(Modifier.readable().fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+        Block(stringResource(R.string.settings_list_rows)) {
+          ToggleGroup(
+            listOf(ListRows.numbers to stringResource(R.string.list_rows_numbers), ListRows.bars to stringResource(R.string.list_rows_bars),
+              ListRows.both to stringResource(R.string.list_rows_both)),
+            s.listRows, { s.listRows = it; s.persist() }, Modifier.fillMaxWidth().testTag("settings_list_rows"),
+          )
+          Text(stringResource(R.string.list_rows_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Block(stringResource(R.string.settings_table_marks)) {
+          ToggleGroup(
+            listOf(TableMarks.both to stringResource(R.string.table_marks_both), TableMarks.loss to stringResource(R.string.table_marks_loss),
+              TableMarks.none to stringResource(R.string.table_marks_none)),
+            s.tableMarks, { s.tableMarks = it; s.persist() }, Modifier.fillMaxWidth().testTag("settings_table_marks"),
+          )
+          Text(stringResource(R.string.table_marks_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+      }
+    }
+  }
+}
+
 @Composable
 private fun SettingsList(vm: AppModel, desk: Boolean) {
   val s = vm.settings
@@ -591,14 +622,6 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
           Text(stringResource(R.string.speed_manual_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         SectionHeader(stringResource(R.string.settings_analysis))
-        Block(stringResource(R.string.settings_list_rows)) {
-          ToggleGroup(
-            listOf(ListRows.numbers to stringResource(R.string.list_rows_numbers), ListRows.bars to stringResource(R.string.list_rows_bars),
-              ListRows.both to stringResource(R.string.list_rows_both)),
-            s.listRows, { s.listRows = it; save() }, Modifier.fillMaxWidth().testTag("settings_list_rows"),
-          )
-          Text(stringResource(R.string.list_rows_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
         Block(stringResource(R.string.settings_level)) {
           ToggleGroup(
             listOf(Level.beginner to stringResource(R.string.level_beginner), Level.mid to stringResource(R.string.level_mid),
@@ -606,6 +629,9 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
             s.level, { s.level = it; save() }, Modifier.fillMaxWidth().testTag("settings_level"),
           )
           Text(stringResource(R.string.level_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        SettingRow(stringResource(R.string.settings_advanced), stringResource(R.string.settings_advanced_row), Modifier.testTag("settings_advanced")) {
+          vm.open(Page.ADVANCED)
         }
         SectionHeader(stringResource(R.string.settings_look))
         Block(stringResource(R.string.settings_text)) {

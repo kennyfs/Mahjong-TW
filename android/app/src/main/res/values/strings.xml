@@ -366,7 +366,15 @@
   <string name="list_rows_numbers">數字</string>
   <string name="list_rows_bars">長條</string>
   <string name="list_rows_both">兩者</string>
-  <string name="list_rows_hint">數字：每個選擇的期望、胡牌、放槍等機率；長條：和最佳選擇相比，差在胡牌、放槍還是被自摸；兩者：都顯示（每一列比較高）。手牌上一律會標出每張牌的損失與危險。</string>
+  <string name="list_rows_hint">數字：每個選擇的期望、胡牌、放槍等機率；長條：和最佳選擇相比，差在胡牌、放槍還是被自摸；兩者：都顯示（每一列比較高）。數字比最佳選擇明顯好的是綠色、明顯差的是紅色。</string>
+  <string name="settings_advanced">進階</string>
+  <string name="settings_advanced_row">清單與手牌標示的顯示方式</string>
+  <string name="advanced_title">進階設定</string>
+  <string name="settings_table_marks">回顧時手牌上的標示</string>
+  <string name="table_marks_both">損失與危險</string>
+  <string name="table_marks_loss">只有損失</string>
+  <string name="table_marks_none">不標示</string>
+  <string name="table_marks_hint">損失：每張牌上方標出打它比最佳選擇差多少；危險：牌底部的色條，越紅越可能馬上放槍。點一下牌仍會顯示它的數字。</string>
   <string name="settings_level">失誤門檻</string>
   <string name="level_beginner">入門</string>
   <string name="level_mid">中級</string>

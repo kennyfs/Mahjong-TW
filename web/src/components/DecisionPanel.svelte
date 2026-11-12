@@ -18,11 +18,14 @@
   import { tick } from 'svelte';
   import { actionText, actionTiles } from '../lib/actions';
   import { t } from '../lib/i18n.svelte';
-  import { costOf, efficiencyText, EQUAL, figureItems, gradeOf, GRADE_NAME, notableOf, notableText, pct, pts, readyLevel, reasonOf,
+  import { costOf, efficiencyText, EQUAL, figureCells, gradeOf, GRADE_NAME, notableOf, notableText, pct, pts, readyLevel, reasonOf,
     tilesShort } from '../lib/review';
   import { KINDS } from '../lib/tiles';
   import type { Analysis, Truth } from '../lib/types';
+  import type { FigureKey } from '../lib/review';
   import AnalysisList from './AnalysisList.svelte';
+  import FigureLine from './FigureLine.svelte';
+  import FigureRuler from './FigureRuler.svelte';
   import Dialog from './Dialog.svelte';
   import Icon from './Icon.svelte';
   import Tile from './Tile.svelte';
@@ -48,6 +51,10 @@
   const notable = $derived(net ? notableOf(analysis, unit) : null);
   const playedCost = $derived(net && played >= 0 ? costOf(analysis, played) : 0);
   const grade = $derived(gradeOf(playedCost, unit));
+  // The figures of each row in fixed columns (FigureRuler): the bars' rows a few of them.
+  const figKeys = $derived(mode === 'bars' ? (['win', 'deal', 'danger', 'eff'] as const) : (['win', 'tsumo', 'deal', 'others', 'danger', 'who', 'eff'] as const));
+  const figLines = $derived(net ? rows.map(({ f }) => figureCells(f, null, oppNames, analysis.actions[best])) : []);
+  let figWidths = $state<Partial<Record<FigureKey, number>>>({});
   const oppNames = $derived((analysis.opponents ?? []).map((o, r) => names?.[o.seat] ?? [t('rel_next'), t('rel_opposite'), t('rel_prev')][r]));
 
   // The bars: an action's three parts against the best's, drawn to one scale from a line two thirds along.
@@ -84,6 +91,7 @@
   <AnalysisList {analysis} chosen={played >= 0 ? analysis.actions[played]?.action ?? null : null} {w} />
 {:else}
   <div class="panel" bind:this={panelEl}>
+    <div class="body-small"><FigureRuler lines={figLines} keys={figKeys} bind:widths={figWidths} /></div>
     {#if played >= 0 && !brief}
       <div class="verdict g{grade}">
         <span class="badge-g">{played === best ? t('grade_best') : playedCost < EQUAL ? t('grade_equal') : t(GRADE_NAME[grade])}</span>
@@ -133,18 +141,7 @@
             {#each segments(diffs[k]) as sg}<span class="seg {sg.cls}" style="left: {sg.left}%; width: {sg.width}%"></span>{/each}
           </div>
         {/if}
-        {#if mode === 'bars'}
-          <div class="figs body-small">
-            <span>{t('fig_win')} {pct(f.win ?? 0)}</span><span>{t('fig_deal_in')} {pct(f.deal_in ?? 0)}</span>
-            {#if f.danger !== undefined && f.danger >= 0.01}<span>{t('fig_danger')} {pct(f.danger)}</span>{/if}
-            <span class="dim">{efficiencyText(f)}</span>
-          </div>
-        {:else}
-          <div class="figs body-small">
-            {#each figureItems(f, null, oppNames).slice(1) as [label, value] (label)}<span><span class="dim">{label}</span> {value}</span>{/each}
-            <span class="dim">{efficiencyText(f)}</span>
-          </div>
-        {/if}
+        <div class="figs body-small"><FigureLine cells={figLines[k]} keys={figKeys} widths={figWidths} /></div>
         {#if f.waits.length && f.shanten === 0}
           <div class="waits body-small">
             <span class="dim">{t('analysis_waits')}</span>
@@ -188,7 +185,7 @@
 {/if}
 
 <style>
-  .panel { display: flex; flex-direction: column; gap: 6px; }
+  .panel { display: flex; flex-direction: column; gap: 6px; position: relative; }
   .verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 8px 12px; border-radius: 12px; background: var(--surface-container-high); }
   .badge-g { padding: 1px 8px; border-radius: 8px; font-weight: 700; font-size: 0.8125rem; background: var(--found); color: #fff; }
   .g1 .badge-g { background: var(--danger-1); color: var(--on-danger); }

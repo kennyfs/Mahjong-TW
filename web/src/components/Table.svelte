@@ -33,7 +33,7 @@
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte';
   import { fade } from 'svelte/transition';
-  import { CALL_MS, FLOWER_MS, calloutShown, calloutsSkipped } from '../lib/callouts';
+  import { callMs, flowerMs, calloutShown, calloutsSkipped } from '../lib/callouts';
   import { t } from '../lib/i18n.svelte';
   import {
     DRAWN_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, OPP_LINES, runLines, SHOWN_RIVER, shownHeight, tableSizes, tallTopRoom, type TableSizes,
@@ -75,7 +75,8 @@
 
   /** The room kept over each row of the hand for the tiles' tags, when there may be some. */
   const TAG_H = 17;
-  const tagH = $derived(marks ? TAG_H : 0);
+  // Room over the hand's tiles for their tags, where they have any (the settings may show none).
+  const tagH = $derived(marks && [...marks.values()].some((m) => m.tag) ? TAG_H : 0);
   let W = $state(0);
   let H = $state(0);
   /** A tall table's others' strip with everyone's tiles shown: as high as the three need at the largest tiles (20 px
@@ -239,8 +240,8 @@
         const id = nextId++;
         const at: CalloutAt = kind === 'drawn' ? 'center' : kind === 'dealin' ? 'own' : 'river';
         callouts = [...callouts.filter((c) => c.side !== side || c.at !== at), { id, side, text, kind, at, who }];
-        if (!stay || ms < CALL_MS) setTimeout(() => { callouts = callouts.filter((c) => c.id !== id); }, ms);
-        if (ms >= CALL_MS) calloutShown(ms);
+        if (!stay || kind === 'flower') setTimeout(() => { callouts = callouts.filter((c) => c.id !== id); }, ms);
+        if (kind !== 'flower') calloutShown(ms);
       };
       for (const e of fresh) {
         // A player's discard lands in their river: their words over it go.
@@ -258,13 +259,13 @@
         }
         const kind: CalloutKind = e.type === 'tsumo' || e.type === 'ron' || e.type === 'flower_win' ? 'win'
           : e.type === 'flower' ? 'flower' : e.type === 'exhausted' ? 'drawn' : 'call';
-        say(e.type === 'exhausted' ? 'top' : sideOf(e.seat, me), t(word), kind, e.type === 'flower' ? FLOWER_MS : CALL_MS,
+        say(e.type === 'exhausted' ? 'top' : sideOf(e.seat, me), t(word), kind, e.type === 'flower' ? flowerMs() : callMs(),
           kind === 'win' ? names[e.seat] : '');
         // Who dealt in: the discard (or the added kong's tile) the win was on. Once, however many won on it.
         if (e.type === 'ron' && !dealtIn) {
           dealtIn = true;
           const from = view.result?.loser ?? [...evs].reverse().find((x) => x.type === 'discard' || x.type === 'kakan')?.seat ?? -1;
-          if (from >= 0 && from !== e.seat) say(sideOf(from, me), t('call_deal_in'), 'dealin', CALL_MS, names[from]);
+          if (from >= 0 && from !== e.seat) say(sideOf(from, me), t('call_deal_in'), 'dealin', callMs(), names[from]);
         }
       }
     });

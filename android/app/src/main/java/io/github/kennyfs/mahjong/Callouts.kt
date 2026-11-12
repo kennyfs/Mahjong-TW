@@ -11,11 +11,15 @@ import kotlinx.coroutines.withTimeoutOrNull
  * touch anywhere (MainActivity) lets the words go at once, and whoever waited goes on. The web page's lib/callouts.ts.
  */
 object CalloutClock {
-  /** A call's, a declaration's or a win's words, ms. */
-  const val CALL_MS = 2000L
+  /** The pace of the settings (AppModel sets it): the words' times follow it. */
+  var speedOf: () -> Speed = { Speed.NORMAL }
+
+  /** A call's, a declaration's or a win's words, ms (the manual pace keeps them until the next touch; this is how long
+   *  they stay where nothing waits for the player). */
+  fun callMs(): Long = when (speedOf()) { Speed.SLOW -> 2000L; Speed.FAST -> 1000L; else -> 1500L }
 
   /** A flower's (there are many, and nothing is decided): brief, and nothing waits for them. */
-  const val FLOWER_MS = 900L
+  fun flowerMs(): Long = when (speedOf()) { Speed.SLOW -> 900L; Speed.FAST -> 500L; else -> 700L }
 
   /** When the words that are waited for end (SystemClock.uptimeMillis), 0 when none are up. */
   private val until = MutableStateFlow(0L)
