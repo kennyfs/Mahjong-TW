@@ -187,8 +187,8 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     the gap between the caller's own tiles, and the meld flies to its exact place among the caller's melds, scaled
     to their size (kept out of sight there till it lands). A win: the winner's hand with the winning tile dropping
     into the gap at its end (from the river of who dealt in; a self-draw from above, lit), a light over it, and
-    who dealt in under the name. It lasts the words' time of the pace (slow 2.0 s, normal 1.5, fast 1.0); a tap lets
-    it go. The table's own words for it are not shown under it (at the manual pace they stay for after it). A
+    who dealt in under the name. It lasts the words' time of the pace (slow 2.0 s, normal 1.5, fast 1.0; 0.6.1:
+    three and a half times that, 7.0 / 5.25 / 3.5 s, the user finding it too short); a tap lets it go. The table's own words for it are not shown under it (at the manual pace they stay for after it). A
     hand's result waits for it, and the table holds 1.2 s after it (2.2 s without one). The app draws it over every
     screen and bar (in the table alone it left the felt's cutout margin and the controls beside it uncovered).
   - **Claims taken first**: when the player could claim another's tile, the computer players that may claim it

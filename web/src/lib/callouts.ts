@@ -11,6 +11,9 @@ const CALL: Record<Speed, number> = { slow: 2000, normal: 1500, fast: 1000, manu
 const FLOWER: Record<Speed, number> = { slow: 900, normal: 700, fast: 500, manual: 700 };
 export const callMs = () => CALL[settings.speed] ?? 1500;
 export const flowerMs = () => FLOWER[settings.speed] ?? 700;
+/** A chow's, a pung's or a win's moment (CallFx.svelte): three and a half times the words' (the user found the words'
+ *  time too short for it), and waited for as they are. */
+export const fxMs = () => Math.round(callMs() * 3.5);
 
 let until = 0;
 let waiting: (() => void)[] = [];

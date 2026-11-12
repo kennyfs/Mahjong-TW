@@ -33,7 +33,7 @@
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte';
   import { fade } from 'svelte/transition';
-  import { callMs, flowerMs, calloutShown, calloutsSkipped } from '../lib/callouts';
+  import { callMs, flowerMs, fxMs, calloutShown, calloutsSkipped } from '../lib/callouts';
   import { t } from '../lib/i18n.svelte';
   import {
     DRAWN_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, OPP_LINES, runLines, SHOWN_RIVER, shownHeight, tableSizes, tallTopRoom, type TableSizes,
@@ -241,7 +241,9 @@
   function startFx(e: GameEvent, word: string, who: string, note: string, from: number, river = true) {
     if (settings.callFx !== 'anim' || reduceMotion || !e.tile) return;
     const id = nextId++;
-    const ms = callMs();
+    const ms = fxMs();
+    // The computer players of a practice game wait for it, as for the words.
+    calloutShown(ms);
     let tiles: T[] = [];
     if (e.type === 'chi') tiles = without(sortTiles(e.tiles ?? []), [e.tile]);
     else if (e.type === 'pon') tiles = [e.tile, e.tile];

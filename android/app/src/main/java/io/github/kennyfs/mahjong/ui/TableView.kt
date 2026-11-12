@@ -963,7 +963,7 @@ private fun BoxScope.Callouts(
       // A chow's, a pung's or a win's moment (CallFx) says it (and who dealt in): no words under it, only their time
       // (that the game waits for). At the manual pace the words stay for after it.
       if (!stay && e.tile != null && e.type in FX_TYPES && FxClock.enabled()) {
-        CalloutClock.shown(CalloutClock.callMs())
+        CalloutClock.shown(CalloutClock.fxMs())
         continue
       }
       val kind = when (e.type) {

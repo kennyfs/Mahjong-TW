@@ -190,8 +190,10 @@ fun FxTrigger(host: FxHost, view: View, me: Int, names: List<String>, robbed: In
         host.nextId(), !call, word, names.getOrElse(e.seat) { "" },
         if (e.type == "ron" && from >= 0) "${names.getOrElse(from) { "" }} $dealtIn" else "",
         e.seat, from, if (river && from >= 0) from else -1, tile, tiles, if (call) 1 else 0,
-        if (call) view.position.players[e.seat].melds.size - 1 else -1, CalloutClock.callMs(),
+        if (call) view.position.players[e.seat].melds.size - 1 else -1, CalloutClock.fxMs(),
       )
+      // The computer players of a practice game wait for it, as for the words.
+      CalloutClock.shown(CalloutClock.fxMs())
     }
   }
 }

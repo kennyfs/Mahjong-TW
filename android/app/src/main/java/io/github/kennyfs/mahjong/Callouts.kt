@@ -21,6 +21,10 @@ object CalloutClock {
   /** A flower's (there are many, and nothing is decided): brief, and nothing waits for them. */
   fun flowerMs(): Long = when (speedOf()) { Speed.SLOW -> 900L; Speed.FAST -> 500L; else -> 700L }
 
+  /** A chow's, a pung's or a win's moment (ui/CallFx.kt): three and a half times the words' (the user found the
+   *  words' time too short for it), and waited for as they are. */
+  fun fxMs(): Long = callMs() * 7 / 2
+
   /** When the words that are waited for end (SystemClock.uptimeMillis), 0 when none are up. */
   private val until = MutableStateFlow(0L)
 
