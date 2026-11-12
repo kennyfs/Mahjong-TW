@@ -15,8 +15,10 @@
   import type { View } from '../lib/types';
   import { signed } from '../lib/ui.svelte';
   import Tile from './Tile.svelte';
-  let { final, names, me, w = 30, actions, compact = false, rev = null }: {
+  let { final, names, me, w = 30, actions, compact = false, rev = null, next = true }: {
     final: View; names: string[]; me: number; w?: number; actions?: Snippet; compact?: boolean; rev?: ReviewSummary | null;
+    /** The line on the next hand's dealer (not for a review's branch: there is no next hand). */
+    next?: boolean;
   } = $props();
   const mistakes = $derived(rev ? mistakesOf(rev, settings.level) : 0);
 
@@ -85,9 +87,11 @@
       </div>
     {/each}
   </div>
-  <div class="next body-medium dim">
-    {r.next_streak > 0 ? t('result_next_streak', names[r.next_dealer], r.next_streak) : t('result_next_dealer', names[r.next_dealer])}
-  </div>
+  {#if next}
+    <div class="next body-medium dim">
+      {r.next_streak > 0 ? t('result_next_streak', names[r.next_dealer], r.next_streak) : t('result_next_dealer', names[r.next_dealer])}
+    </div>
+  {/if}
   {#if rev}
     <div class="rev body-medium">
       <span>{t('review_line', pts(rev.first), pts(-rev.loss), pts(rev.luck))}</span>

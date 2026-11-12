@@ -5,7 +5,7 @@
   review (and each decision's analysis) is a button on the result.
 -->
 <script lang="ts">
-  import { fxOn } from '../lib/fx.svelte';
+  import { fxDone, fxOn } from '../lib/fx.svelte';
   import { onMount } from 'svelte';
   import { t } from '../lib/i18n.svelte';
   import { nav } from '../lib/nav.svelte';
@@ -15,7 +15,7 @@
   import { settings } from '../lib/settings.svelte';
   import { windName } from '../lib/tiles';
   import type { Action } from '../lib/types';
-  import { END_PAUSE, signed, ui } from '../lib/ui.svelte';
+  import { END_AFTER_FX, END_PAUSE, signed, ui } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
@@ -51,8 +51,11 @@
     inPlay = false;
     held = true;
     if (settings.speed === 'manual') return;
-    const id = setTimeout(() => (held = false), END_PAUSE);
-    return () => clearTimeout(id);
+    // After a moment of the win, counted from its end (it showed the hand already); without one, from now.
+    let alive = true;
+    let id: ReturnType<typeof setTimeout> | undefined;
+    void fxDone().then((was) => { if (alive) id = setTimeout(() => (held = false), was ? END_AFTER_FX : END_PAUSE); });
+    return () => { alive = false; clearTimeout(id); };
   });
 
   function act(a: Action) { void practice.act(a); }

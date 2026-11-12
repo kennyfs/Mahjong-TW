@@ -6,7 +6,7 @@
   final standings with the player's hands (their review and analysis come from the records).
 -->
 <script lang="ts">
-  import { fxOn } from '../lib/fx.svelte';
+  import { fxDone, fxOn } from '../lib/fx.svelte';
   import { onDestroy, onMount } from 'svelte';
   import {
     battle, HAND_CHOICES, LENGTHS, NAME_LENGTH, nameOf, rankOf, standings, TIME_LIMITS, type HandOutcome, type Length,
@@ -18,7 +18,7 @@
   import { FLOWER_PRESETS, flowerLabel, TAI_PRESETS, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import { windName } from '../lib/tiles';
-  import { END_PAUSE, localTime, signed, ui } from '../lib/ui.svelte';
+  import { END_AFTER_FX, END_PAUSE, localTime, signed, ui } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
@@ -60,8 +60,11 @@
     if (!inPlay) return;
     inPlay = false;
     held = true;
-    const id = setTimeout(() => (held = false), END_PAUSE);
-    return () => clearTimeout(id);
+    // After a moment of the win, counted from its end (it showed the hand already); without one, from now.
+    let alive = true;
+    let id: ReturnType<typeof setTimeout> | undefined;
+    void fxDone().then((was) => { if (alive) id = setTimeout(() => (held = false), was ? END_AFTER_FX : END_PAUSE); });
+    return () => { alive = false; clearTimeout(id); };
   });
 
   // A shared link (#/battle/123456): its PIN, ready to join.

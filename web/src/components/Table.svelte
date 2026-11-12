@@ -42,7 +42,7 @@
   import type { TileMark } from '../lib/review';
   import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
-  import { fxOn } from '../lib/fx.svelte';
+  import { setFx } from '../lib/fx.svelte';
   import CallFx, { type Fx } from './CallFx.svelte';
   import ClaimBar from './ClaimBar.svelte';
   import { settings } from '../lib/settings.svelte';
@@ -224,8 +224,8 @@
   let fx = $state<(Omit<Fx, 'tiles' | 'gap'> & { seat: number; tiles: T[]; gap: number; meld: number }) | null>(null);
   /** The meld a call's moment is bringing: out of sight at its place till it lands. */
   $effect(() => {
-    fxOn.on = !!fx;
-    return () => { fxOn.on = false; };
+    setFx(!!fx);
+    return () => setFx(false);
   });
   const hideMeld = (seat: number) => (fx && fx.kind === 'call' && fx.seat === seat ? fx.meld : -1);
   const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;

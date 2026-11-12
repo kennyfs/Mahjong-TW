@@ -15,7 +15,8 @@
   at the step the branch was taken from.
 -->
 <script lang="ts">
-  import { fxOn } from '../lib/fx.svelte';
+  import { fxDone, fxOn } from '../lib/fx.svelte';
+  import { END_AFTER_FX } from '../lib/ui.svelte';
   import { untrack } from 'svelte';
   import { calloutsDone } from '../lib/callouts';
   import { preclaim, robbedEvent, robPause } from '../lib/claims';
@@ -48,6 +49,20 @@
   let showResult = $state(true);
   /** The computer players deciding first on a tile the player could claim (lib/claims.ts): no buttons meanwhile. */
   let deciding = $state(false);
+  /** The end: the table as it ended for a moment after the win's moment, before the result. */
+  let held = $state(false);
+  const over = $derived(view?.phase === 'over');
+  $effect(() => {
+    if (!over) {
+      held = false;
+      return;
+    }
+    held = true;
+    let alive = true;
+    let id: ReturnType<typeof setTimeout> | undefined;
+    void fxDone().then((was) => { if (alive) id = setTimeout(() => (held = false), was ? END_AFTER_FX : 0); });
+    return () => { alive = false; clearTimeout(id); };
+  });
   /** A claim taken from the player: its event (Table's `robbed`). */
   let robbed = $state<number | null>(null);
   /** Changes when the branch starts again or the player goes back: a run of the computer players' turns stops. */
@@ -190,6 +205,7 @@
   }
   /** Another seed (the effect above starts again). */
   function newBranch() { seed = newSeed(); }
+  const sheet = $derived(view?.phase === 'over' && !!final?.result && showResult && !fxOn.on && !held);
   const atHead = $derived(!!game && cursor === game.actions.length);
   const steps = $derived(game ? game.actions.slice(start, cursor).filter((_, i) => isStop(start + i)).length : 0);
 </script>
@@ -207,9 +223,9 @@
       <Table {view} {me} {names} revealed={view.phase === 'over' ? (final?.hands ?? null) : null} interactive={!!view.my_turn && !deciding} {robbed}
         onact={act} maxHand={ui.desk ? 64 : 56}>
         {#snippet overlay()}
-          {#if view?.phase === 'over' && final?.result && showResult && !fxOn.on}
+          {#if sheet && final}
             <div class="sheet">
-              <HandResult {final} {names} {me} rev={null} w={ui.wide ? Math.min(36, Math.max(24, ui.w / 30)) : Math.min(34, Math.max(24, ui.w / 13))}>
+              <HandResult {final} {names} {me} rev={null} next={false} w={ui.wide ? Math.min(36, Math.max(24, ui.w / 30)) : Math.min(34, Math.max(24, ui.w / 13))}>
                 {#snippet actions()}
                   <button class="btn text" onclick={() => (showResult = false)}>{t('result_hands')}</button>
                   <button class="btn tonal" onclick={restart}>{t('branch_again')}</button>
@@ -222,7 +238,8 @@
       </Table>
     {/if}
   </div>
-  <div class="controls">
+  <!-- (Not under the result: on a low window it takes the room the result needs.) -->
+  {#if !sheet}<div class="controls">
     <div class="info body-medium">
       <span class="label-large">{t('branch_step', steps)}</span>
       <span class="dim">{error ? error : view?.phase === 'over' ? t('branch_over') : view?.my_turn ? t('branch_your_turn') : atHead ? t('branch_others') : t('branch_back_note')}</span>
@@ -231,11 +248,11 @@
     <div class="buttons">
       <button class="btn icon tonal" aria-label={t('branch_to_start')} title={t('branch_to_start')} disabled={cursor <= start} onclick={() => go(start)}><Icon name="skipPrev" /></button>
       <button class="btn icon tonal" aria-label={t('replay_prev')} title={t('replay_prev')} disabled={cursor <= start} onclick={prev}><Icon name="prev" /></button>
-      <button class="btn icon filled" aria-label={t('replay_next')} title={t('replay_next')} disabled={atHead} onclick={next}><Icon name="next" /></button>
+      <button class="btn icon {atHead ? 'tonal' : 'filled'}" aria-label={t('replay_next')} title={t('replay_next')} disabled={atHead} onclick={next}><Icon name="next" /></button>
       <button class="btn icon tonal" aria-label={t('branch_to_newest')} title={t('branch_to_newest')} disabled={atHead} onclick={() => game && go(game.actions.length)}><Icon name="skipNext" /></button>
       <button class="btn tonal" onclick={newBranch}>{t('branch_new')}</button>
     </div>
-  </div>
+  </div>{/if}
 </div>
 
 <style>
@@ -247,5 +264,5 @@
   .buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .shuffle { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; cursor: pointer; white-space: nowrap; }
   .shuffle input { width: 18px; height: 18px; accent-color: var(--primary); }
-  .sheet { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(0, 0, 0, 0.35); }
+  .sheet { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(0, 0, 0, 0.35); }
 </style>

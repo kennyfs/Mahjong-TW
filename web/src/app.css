@@ -8,6 +8,8 @@
   --surface: #f5fbf6; --on-surface: #171d1a; --on-surface-variant: #404943; --outline: #707973; --outline-variant: #bfc9c2;
   --surface-container-low: #eff5f0; --surface-container: #e9efea; --surface-container-high: #e4eae5; --surface-container-highest: #dee4df;
   --good: #2e7d32; --bad: #c62828;
+  /* The figures' green and red (FigureLine.svelte): darker, to read on the lists' tinted rows. */
+  --fig-good: #1b6e23; --fig-bad: #a3191a;
   --felt: #1f6f54; --slot: #27795c; --target: #2e8665; --on-felt: #eef7f2; --on-felt-dim: #b9d9c8; --highlight: #f0c058; --mark: #1a73e8;
   --felt-good: #a8e6b0; --felt-bad: #ffb4ab; --action: #eef7f2; --on-action: #1f6f54;
   /* The tiles: an ivory face, a blue back (it shows on the felt), the selected one warm. */
@@ -25,6 +27,7 @@
   --surface: #0f1512; --on-surface: #dee4df; --on-surface-variant: #bfc9c2; --outline: #8a938c; --outline-variant: #404943;
   --surface-container-low: #171d1a; --surface-container: #1b211e; --surface-container-high: #252b28; --surface-container-highest: #303633;
   --good: #81c784; --bad: #ef9a9a;
+  --fig-good: var(--good); --fig-bad: var(--bad);
   --felt: #164f3d; --slot: #1d5c47; --target: #256a52; --on-felt: #e3f0e9; --on-felt-dim: #a3c4b3; --highlight: #e8b954; --mark: #6ab0ff;
   --action: #e3f0e9; --on-action: #164f3d;
   --tile-face: #f3efe3; --tile-edge: #b9b29c; --tile-back: #234b88; --tile-back-light: #315ea3; --tile-selected: #ffe9a8;

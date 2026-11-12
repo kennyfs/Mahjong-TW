@@ -108,7 +108,8 @@
   <div class="wedge br"></div>
   <div class="stage">
     <div class="plaque">
-      <span class="word"><span class="face">{fx.word}</span></span>
+      <!-- 搶碰, 搶胡 (a claim taken from the player): the 搶 in another color. -->
+      <span class="word"><span class="face">{#if fx.word.startsWith('搶')}<span class="rob">搶</span>{fx.word.slice(1)}{:else}{fx.word}{/if}</span></span>
       {#if fx.who}<span class="who">{fx.who}</span>{/if}
       {#if fx.note}<span class="note">{fx.note}</span>{/if}
     </div>
@@ -163,7 +164,7 @@
   @keyframes run { from { transform: translateX(-110%); } to { transform: translateX(380%); } }
 
   /* The word and the tiles, upright on the band. */
-  .stage { position: relative; display: flex; flex-direction: column; align-items: center; gap: clamp(14px, 4vh, 36px); }
+  .stage { position: relative; display: flex; flex-direction: column; align-items: center; gap: clamp(26px, 6vh, 48px); }
   .plaque { display: flex; flex-direction: column; align-items: center; font-size: clamp(3rem, 15vmin, 7.5rem);
     animation: plaque var(--ms) cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
   @keyframes plaque { 0% { transform: scale(1.6); opacity: 0; } 10% { transform: scale(1); opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(0.94); } }
@@ -178,7 +179,10 @@
     font-weight: 900; letter-spacing: 0.04em; font-family: 'Noto Serif CJK TC', 'Noto Serif TC', 'Source Han Serif TC', 'Songti TC', 'PMingLiU', serif; }
   .who { margin-top: -0.12em; z-index: 1; padding: 0.05em 0.6em; border-radius: 0.3em; background: #10140f; color: #fff; font-size: 0.22em;
     font-weight: 700; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
-  .note { margin-top: 0.3em; color: #ffd2c8; font-size: 0.17em; font-weight: 700; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }
+  .note { margin-top: 0.3em; padding: 0.1em 0.7em; border-radius: 999px; background: rgba(16, 20, 15, 0.92); color: #ffd2c8;
+    font-size: 0.17em; font-weight: 700; }
+  .face .rob { color: #a3150c; }
+  .win .face .rob { color: #ffd56b; }
 
   /* The tiles. `.place` keeps the meld's untransformed place (what the moves are measured from). */
   .meld { position: relative; display: flex; align-items: flex-end; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55)); }
@@ -205,7 +209,7 @@
   @keyframes drop {
     0% { transform: translate(var(--fx), var(--fy)) rotate(var(--fr)) scale(var(--fk)); opacity: var(--fo); animation-timing-function: cubic-bezier(0.3, 0.6, 0.3, 1); }
     6% { opacity: 1; }
-    30% { transform: translate(0, -125%) rotate(-4deg) scale(1.08); animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.5); }
+    30% { transform: translate(0, -55%) rotate(-4deg) scale(1.08); animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.5); }
     44% { transform: translate(0, 0); animation-timing-function: ease-out; }
     49% { transform: translate(0, -9%); animation-timing-function: ease-in; }
     54%, 100% { transform: none; opacity: 1; }

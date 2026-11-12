@@ -27,4 +27,6 @@
   .ruler { position: absolute; visibility: hidden; pointer-events: none; height: 0; overflow: hidden; white-space: nowrap; left: 0; top: 0; }
   .col { display: inline-grid; }
   .cell { grid-area: 1 / 1; display: inline-flex; gap: 0.3em; font-variant-numeric: tabular-nums; }
+  /* (A green or red figure is bold: measured so, every one.) */
+  .cell :global(.val) { font-weight: 700; }
 </style>

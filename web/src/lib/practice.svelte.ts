@@ -15,6 +15,7 @@ import { handRecord, newId, records } from './records.svelte';
 import { keepSummary } from './review';
 import { calloutsDone } from './callouts';
 import { preclaim, robbedEvent, robPause } from './claims';
+import { fxDone } from './fx.svelte';
 import { PACE, settings, type Length } from './settings.svelte';
 import { KEYS, load, save } from './store';
 import type { Action, GameEvent, GameRecord, View } from './types';
@@ -104,6 +105,12 @@ class Practice {
     this.claimed = null;
     this.robbed = null;
     this.say(null);
+  }
+
+  /** The words once the moment that shows the same is over (they would be under its veil). */
+  private sayAfterFx(text: string) {
+    const e = this.epoch;
+    void fxDone().then(() => { if (e === this.epoch) this.say(text); });
   }
 
   private say(text: string | null) {
@@ -197,7 +204,7 @@ class Practice {
           this.robbed = robbed;
           this.game = pc.game;
           this.view = view;
-          this.say(say);
+          this.sayAfterFx(say);
           this.persist();
           continue;
         }
@@ -216,7 +223,7 @@ class Practice {
             this.waiting = true;
             break;
           }
-          if (over) this.say(t('claim_overridden', t('act_' + this.claimed), this.names()[over.seat], t('act_' + over.type)));
+          if (over) this.sayAfterFx(t('claim_overridden', t('act_' + this.claimed), this.names()[over.seat], t('act_' + over.type)));
           this.claimed = null;
           this.game = game;
           this.view = view;
@@ -238,7 +245,7 @@ class Practice {
           const v = this.view;
           const fresh = v.events.slice(Math.max(0, v.events.length - (v.event_count - before))).filter((e) => SHOWN.has(e.type));
           const over = fresh.some((e) => e.seat === ME) ? undefined : fresh.find((e) => e.seat !== ME && e.type !== 'discard');
-          if (over) this.say(t('claim_overridden', t('act_' + this.claimed), this.names()[over.seat], t('act_' + over.type)));
+          if (over) this.sayAfterFx(t('claim_overridden', t('act_' + this.claimed), this.names()[over.seat], t('act_' + over.type)));
           this.claimed = null;
         }
       }
@@ -259,7 +266,7 @@ class Practice {
     if (a.robbed !== undefined) this.robbed = a.robbed;
     this.game = a.game;
     this.view = a.view;
-    if (a.say) this.say(a.say);
+    if (a.say) this.sayAfterFx(a.say);
     this.persist();
     void this.run();
   }
@@ -290,7 +297,7 @@ class Practice {
         const over = fresh.some((e) => e.seat === ME) ? undefined : fresh.find((e) => e.seat !== ME && e.type !== 'discard');
         if (over) {
           this.robbed = v.events.indexOf(over);
-          this.say(t('claim_overridden', t('act_' + this.claimed), this.names()[over.seat], t('act_' + over.type)));
+          this.sayAfterFx(t('claim_overridden', t('act_' + this.claimed), this.names()[over.seat], t('act_' + over.type)));
           this.claimed = null;
         }
       }

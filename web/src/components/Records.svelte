@@ -237,7 +237,8 @@
   .kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-variant-numeric: tabular-nums; }
   .kind { display: inline-flex; align-items: center; gap: 6px; }
   .kind-bar { width: 48px; height: 8px; border-radius: 4px; background: var(--surface-container-highest); overflow: hidden; display: inline-block; }
-  .kind-bar i { display: block; height: 100%; background: var(--primary); }
+  /* A loss's share: in a loss's color, not the brand's green. */
+  .kind-bar i { display: block; height: 100%; background: var(--danger-2); }
   .dev { display: flex; flex-direction: column; gap: 10px; padding: 20px 16px 0; }
   .dev h2 { margin: 0; color: var(--primary); }
   .dev p { margin: 0; }

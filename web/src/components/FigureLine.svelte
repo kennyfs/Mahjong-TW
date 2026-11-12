@@ -21,6 +21,6 @@
   .line { display: flex; flex-wrap: wrap; column-gap: 12px; row-gap: 1px; }
   .cell { display: inline-flex; justify-content: space-between; gap: 0.3em; white-space: nowrap; font-variant-numeric: tabular-nums; flex: none; }
   .lbl, .aft { opacity: 0.72; }
-  .cell.good .val { color: var(--fig-good, var(--good)); }
-  .cell.bad .val { color: var(--fig-bad, var(--bad)); }
+  .cell.good .val { color: var(--fig-good, var(--good)); font-weight: 700; }
+  .cell.bad .val { color: var(--fig-bad, var(--bad)); font-weight: 700; }
 </style>
