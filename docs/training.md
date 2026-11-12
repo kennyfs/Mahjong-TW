@@ -328,3 +328,23 @@ fell by 0.28%, the result's squared error by 0.1%, a tenth of what the first 60 
 parameters, the full state) on the same decisions, with a fork's second action: `events` 1.6700 at network 60,
 1.6540 at 100, 1.6437 at 180, 1.6371 at 211 (± 0.0006), `q_mse` 0.9930 to 0.9765 (± 0.0009): 2% and 1.7%, and
 still falling.
+
+And a larger actor? `python/capacity.py` trained two from scratch at once on the same stream (iterations 196 to
+211, 9.2 million decisions read once, the action played and the other heads' labels, no critic), held out the first
+100,000 decisions of iteration 212:
+
+| Actor | Parameters | GPU seconds | `events` | `q_mse` | `ready` | `danger` | `win_tile` | `final_hand` |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 128 wide, 5 layers, after 4.1M | 1.07M | 146 | 2.1079 | 1.2227 | 0.8713 | 1.0956 | 1.1392 | 11.705 |
+| 256 wide, 8 layers, after 4.1M | 6.06M | 363 | 2.1062 | 1.2194 | 0.8683 | 1.0901 | 1.1346 | 11.639 |
+| 128 wide, 5 layers, after 9.2M | | 328 | 2.1032 | 1.2214 | 0.8647 | 1.0789 | 1.1328 | 11.628 |
+| 256 wide, 8 layers, after 9.2M | | 812 | 2.1017 | 1.2188 | 0.8625 | 1.0733 | 1.1291 | 11.567 |
+| The run's network 211 | 1.07M | | 2.0900 | 1.2139 | 0.8489 | 1.0468 | 1.1204 | 11.443 |
+
+The larger one is ahead at every one of nine reports and on every head, by little: 0.07% of the events' loss at
+the end (0.13% early), 0.5% of `danger` and `final_hand`, for 5.7 times the parameters and 2.5 times the time. That
+is a quarter to a half of what the run's last 150 iterations gained, and far less than what the run's network has
+over both (it has read twenty times as many hands, and the critic's outcomes of every action). So the size is not
+what holds the predictions where they are: nearly all of these losses is what cannot be known from a seat (a hand's
+result varies by more than a typical payment, `q_mse` 1.21, whatever is discarded), and the part a network can
+still take off is within a percent.
