@@ -200,7 +200,7 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
             if (v.phase == "over") final = Engine.view(pc.game, me, 0, reveal = true)
             continue
           }
-          delay(if (p.phase == "self") pace.ms else minOf(250L, pace.ms / 2))
+          delay(if (p.phase != "self") minOf(250L, pace.ms / 2) else if (Claims.justCalled(g, p.current)) 0L else pace.ms)
           CalloutClock.done()
           if (e != epoch) break
           val next = Engine.advance(g, bots, seedNow, 1)

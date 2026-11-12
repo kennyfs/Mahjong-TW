@@ -191,6 +191,8 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     three and a half times that, 7.0 / 5.25 / 3.5 s, the user finding it too short); a tap lets it go. The table's own words for it are not shown under it (at the manual pace they stay for after it). A
     hand's result waits for it, and the table holds 1.2 s after it (2.2 s without one). The app draws it over every
     screen and bar (in the table alone it left the felt's cutout margin and the controls beside it uncovered).
+    A computer player's discard after its own chow or pung follows the moment (or the words) at once, without
+    the pace of a turn (the user: the moment already shows what was taken; Claims.justCalled, lib/claims.ts).
   - **Claims taken first**: when the player could claim another's tile, the computer players that may claim it
     decide first (lib/claims.ts, Claims.kt); when one of their claims comes before every one the player could
     make, it is made at once without the player's buttons, after the discard has stayed a while (slow 2.4 s,

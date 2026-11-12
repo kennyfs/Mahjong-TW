@@ -24,6 +24,18 @@ object Claims {
    *  pace: until the player's tap; a branch, which has none, takes the middle one). */
   fun pauseMs(speed: Speed): Long = when (speed) { Speed.SLOW -> 2400L; Speed.FAST -> 900L; else -> 1600L }
 
+  /** Whether `seat`, to play now, came to it by a chow or a pung (since the last discard): its discard then follows the
+   *  call's moment (or words) at once, without the pace of a turn of its own; the moment already showed what it took. */
+  fun justCalled(game: GameRecord, seat: Int): Boolean {
+    for (k in game.actions.indices.reversed()) {
+      val a = game.actions[k]
+      val type = a[1].jsonPrimitive.content
+      if (type == "discard" || type == "kakan") return false
+      if ((type == "chi" || type == "pon") && a[0].jsonPrimitive.int == seat) return true
+    }
+    return false
+  }
+
   /** null: nothing to decide first (the player's own turn, or the player is not to decide). */
   suspend fun preclaim(game: GameRecord, me: Int, bots: List<String?>, seed: String): Preclaim? {
     val p = Engine.pending(game)

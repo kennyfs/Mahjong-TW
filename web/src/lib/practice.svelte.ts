@@ -14,7 +14,7 @@ import { t } from './i18n.svelte';
 import { handRecord, newId, records } from './records.svelte';
 import { keepSummary } from './review';
 import { calloutsDone } from './callouts';
-import { preclaim, robbedEvent, robPause } from './claims';
+import { justCalled, preclaim, robbedEvent, robPause } from './claims';
 import { fxDone } from './fx.svelte';
 import { PACE, settings, type Length } from './settings.svelte';
 import { KEYS, load, save } from './store';
@@ -231,9 +231,10 @@ class Practice {
           continue;
         }
         this.busy = true;
-        // A bot's own turn takes the pace; deciding on a discard (nobody else may) takes a short beat.
+        // A bot's own turn takes the pace (but not the discard after its chow or pung: the moment showed it); deciding
+        // on a discard (nobody else may) takes a short beat.
         const pace = PACE[settings.speed];
-        await sleep(p.phase === 'self' ? pace : Math.min(250, pace / 2));
+        await sleep(p.phase !== 'self' ? Math.min(250, pace / 2) : justCalled(this.game, p.current) ? 0 : pace);
         // A call's words (碰, 槓, 天聽) stay their time before the game goes on; a tap anywhere lets them go.
         await calloutsDone();
         if (epoch !== this.epoch || !this.game) break;

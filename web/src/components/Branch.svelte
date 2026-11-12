@@ -19,7 +19,7 @@
   import { END_AFTER_FX } from '../lib/ui.svelte';
   import { untrack } from 'svelte';
   import { calloutsDone } from '../lib/callouts';
-  import { preclaim, robbedEvent, robPause } from '../lib/claims';
+  import { justCalled, preclaim, robbedEvent, robPause } from '../lib/claims';
   import * as engine from '../lib/engine';
   import { t } from '../lib/i18n.svelte';
   import { PACE, settings } from '../lib/settings.svelte';
@@ -141,7 +141,7 @@
           if (v.phase === 'over') final = await engine.view(game, me, 0, true);
           continue;
         }
-        await sleep(p.phase === 'self' ? pace : Math.min(250, pace / 2));
+        await sleep(p.phase !== 'self' ? Math.min(250, pace / 2) : justCalled(game, p.current) ? 0 : pace);
         await calloutsDone();
         if (e !== epoch || !game) break;
         const g = await engine.advance(game, bots, `${seed}/${game.actions.length}`, 1);

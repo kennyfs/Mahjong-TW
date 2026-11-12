@@ -23,6 +23,17 @@ export interface Preclaim {
 const ROB_SHOW: Record<Speed, number> = { slow: 2400, normal: 1600, fast: 900, manual: 1600 };
 export const robPause = () => ROB_SHOW[settings.speed] ?? 1600;
 
+/** Whether `seat`, to play now, came to it by a chow or a pung (since the last discard): its discard then follows the
+ *  call's moment (or words) at once, without the pace of a turn of its own; the moment already showed what it took. */
+export function justCalled(game: GameRecord, seat: number): boolean {
+  for (let k = game.actions.length - 1; k >= 0; k--) {
+    const [s, type] = game.actions[k];
+    if (type === 'discard' || type === 'kakan') return false;
+    if ((type === 'chi' || type === 'pon') && s === seat) return true;
+  }
+  return false;
+}
+
 /** null: nothing to decide first (the player's own turn, or the player is not to decide). */
 export async function preclaim(game: GameRecord, me: number, bots: (string | null)[], seed: string): Promise<Preclaim | null> {
   const p = await engine.pending(game);

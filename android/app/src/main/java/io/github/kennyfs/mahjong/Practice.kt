@@ -243,8 +243,9 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
             continue
           }
           busy = true
-          // A bot's own turn takes the pace; deciding on a discard (nobody else may) takes a short beat.
-          delay(if (p.phase == "self") settings.speed.ms else minOf(250L, settings.speed.ms / 2))
+          // A bot's own turn takes the pace (but not the discard after its chow or pung: the moment showed it); deciding
+          // on a discard (nobody else may) takes a short beat.
+          delay(if (p.phase != "self") minOf(250L, settings.speed.ms / 2) else if (Claims.justCalled(g, p.current)) 0L else settings.speed.ms)
           // A call's words (碰, 槓, 天聽) stay their time before the game goes on; a touch anywhere lets them go.
           CalloutClock.done()
           if (e != epoch || game == null) break
