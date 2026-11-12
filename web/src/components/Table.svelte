@@ -42,7 +42,10 @@
   import type { TileMark } from '../lib/review';
   import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
+  import { fxOn } from '../lib/fx.svelte';
+  import CallFx, { type Fx } from './CallFx.svelte';
   import ClaimBar from './ClaimBar.svelte';
+  import { settings } from '../lib/settings.svelte';
   import Melds from './Melds.svelte';
   import MyHand from './MyHand.svelte';
   import River from './River.svelte';
@@ -52,13 +55,16 @@
   let {
     view, me, names, scores = null, revealed = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
-    marks = null, notes = null, strip, onpick, onnext, stay = false,
+    marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
     onact?: (a: Action) => void; handLabel?: string; maxHand?: number; keys?: boolean; away?: boolean[];
     status?: Snippet; overlay?: Snippet; corner?: Snippet; aside?: Snippet; selected?: number | null; asideW?: number;
     marks?: Map<T, TileMark> | null; notes?: ({ text: string; level: number } | null)[] | null; strip?: Snippet;
     onpick?: (tile: T | null) => void; onnext?: (() => void) | null; stay?: boolean;
+    /** The event (an index into view.events) that was a claim taken from the player (lib/claims.ts): its words are
+     *  搶碰, 搶胡 instead of 碰, 胡. */
+    robbed?: number | null;
   } = $props();
 
   const others: Side[] = ['right', 'top', 'left'];
@@ -213,6 +219,43 @@
   let callouts = $state<{ id: number; side: Side; text: string; kind: CalloutKind; at: CalloutAt; who: string }[]>([]);
   let seen = -1;
   let nextId = 0;
+  /** A chow's, a pung's or a win's moment over the whole screen (CallFx.svelte), unless the settings keep to the words.
+   *  `seat`: whose; a win's tiles are the winner's hand once it is shown (it may come a moment after the win). */
+  let fx = $state<(Omit<Fx, 'tiles' | 'gap'> & { seat: number; tiles: T[]; gap: number; meld: number }) | null>(null);
+  /** The meld a call's moment is bringing: out of sight at its place till it lands. */
+  $effect(() => {
+    fxOn.on = !!fx;
+    return () => { fxOn.on = false; };
+  });
+  const hideMeld = (seat: number) => (fx && fx.kind === 'call' && fx.seat === seat ? fx.meld : -1);
+  const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fxShown = $derived.by((): Fx | null => {
+    if (!fx) return null;
+    if (fx.kind !== 'win') return fx;
+    const hand = (revealed ?? view.hands)?.[fx.seat];
+    if (!hand) return { ...fx, tiles: [], gap: 0 };
+    const tiles = sortTiles(without(parseTiles(hand), [fx.tile]));
+    return { ...fx, tiles, gap: tiles.length };
+  });
+  /** `river`: the tile lies at the end of `from`'s river (not a robbed kong's). */
+  function startFx(e: GameEvent, word: string, who: string, note: string, from: number, river = true) {
+    if (settings.callFx !== 'anim' || reduceMotion || !e.tile) return;
+    const id = nextId++;
+    const ms = callMs();
+    let tiles: T[] = [];
+    if (e.type === 'chi') tiles = without(sortTiles(e.tiles ?? []), [e.tile]);
+    else if (e.type === 'pon') tiles = [e.tile, e.tile];
+    const call = e.type === 'chi' || e.type === 'pon';
+    const meld = call ? pos.players[e.seat].melds.length - 1 : -1;
+    // The tile lifts off the river it lies in (the last of the one who discarded it), and a call's meld lands as its
+    // seat's newest; a robbed kong's tile comes from that side.
+    const src = river && from >= 0 && from !== e.seat ? `[data-river="${from}"] > :last-child` : null;
+    fx = { id, kind: call ? 'call' : 'win', word, who, note, side: sideOf(e.seat, me),
+      from: from >= 0 && from !== e.seat ? sideOf(from, me) : null, tiles, gap: call ? 1 : 0, tile: e.tile, ms, seat: e.seat, meld,
+      src, dst: call ? `[data-meld="${e.seat}-${meld}"]` : null };
+    // (`holdFx` on the window: the screenshot scripts keep the moment up to step through it.)
+    if (!('holdFx' in window)) setTimeout(() => { if (fx?.id === id) fx = null; }, ms);
+  }
   const WORDS: Partial<Record<GameEvent['type'], string>> = {
     chi: 'act_chi', pon: 'act_pon', kan: 'act_kan', ankan: 'act_ankan', kakan: 'act_kakan', tsumo: 'act_tsumo', ron: 'act_ron',
     flower: 'call_flower', flower_win: 'call_flower_win', exhausted: 'call_exhausted',
@@ -243,14 +286,16 @@
         if (!stay || kind === 'flower') setTimeout(() => { callouts = callouts.filter((c) => c.id !== id); }, ms);
         if (kind !== 'flower') calloutShown(ms);
       };
-      for (const e of fresh) {
+      const base = evs.length - fresh.length;
+      for (const [i, e] of fresh.entries()) {
         // A player's discard lands in their river: their words over it go.
         if (e.type === 'discard') {
           const side = sideOf(e.seat, me);
           if (callouts.some((c) => c.side === side && c.at === 'river')) callouts = callouts.filter((c) => c.side !== side || c.at !== 'river');
           continue;
         }
-        const word = e.type === 'declare' ? `call_${e.declared ?? 'tianting'}` : WORDS[e.type];
+        const taken = base + i === robbed && ['chi', 'pon', 'kan', 'ron'].includes(e.type);
+        const word = e.type === 'declare' ? `call_${e.declared ?? 'tianting'}` : taken ? `rob_${e.type}` : WORDS[e.type];
         if (!word) continue;
         // One 補花 for a run of flowers.
         if (e.type === 'flower') {
@@ -266,6 +311,14 @@
           dealtIn = true;
           const from = view.result?.loser ?? [...evs].reverse().find((x) => x.type === 'discard' || x.type === 'kakan')?.seat ?? -1;
           if (from >= 0 && from !== e.seat) say(sideOf(from, me), t('call_deal_in'), 'dealin', callMs(), names[from]);
+          const robbed = [...evs].reverse().find((x) => x.type === 'discard' || x.type === 'kakan')?.type === 'kakan';
+          startFx(e, t(word), names[e.seat], from >= 0 && from !== e.seat ? `${names[from]} ${t('call_deal_in')}` : '', from, !robbed);
+        } else if (e.type === 'tsumo') startFx(e, t(word), names[e.seat], '', -1);
+        else if (e.type === 'chi' || e.type === 'pon') {
+          // The discard it was called on: the last one before it.
+          const at = evs.indexOf(e);
+          const from = [...evs.slice(0, at < 0 ? evs.length : at)].reverse().find((x) => x.type === 'discard')?.seat ?? -1;
+          startFx(e, t(word), names[e.seat], '', from);
         }
       }
     });
@@ -279,6 +332,7 @@
    *  was for. */
   function skipCallouts() {
     if (callouts.length) callouts = [];
+    fx = null;
     calloutsSkipped();
   }
   $effect(() => {
@@ -372,7 +426,7 @@
             away={away[seat]} note={notes?.[seat] ?? (p.declared ? { text: t(`call_${p.declared}`), level: 0 } : null)} />
         </div>
         <div class="seat-tiles">
-          <Melds melds={p.melds} flowers={flowersOf(p)} w={ow} wrap={!(s.wide && side === 'top')} />
+          <Melds melds={p.melds} flowers={flowersOf(p)} w={ow} wrap={!(s.wide && side === 'top')} {seat} hide={hideMeld(seat)} />
           {#if revealed}
             <div class="concealed rack">{#each sortTiles(parseTiles(revealed[seat])) as x}<Tile tile={x} w={ow} />{/each}</div>
           {:else if s.back > 0}
@@ -389,11 +443,11 @@
           {@const seat = seatAt(r.side, me)}
           {@const across = r.side === 'top' || r.side === 'bottom'}
           <div class="river-cell {r.area}">
-            <River discards={pos.players[seat].discards} w={s.river} cols={across ? s.acrossCols : s.sideCols}
+            <River {seat} discards={pos.players[seat].discards} w={s.river} cols={across ? s.acrossCols : s.sideCols}
               rows={across ? s.acrossRows : s.sideRows} last={lastDiscard === seat} claim={claimSeat === seat} from={r.side} />
           </div>
         {/each}
-        {#each callouts as c (c.id)}
+        {#each fxShown ? [] : callouts as c (c.id)}
           {#if c.at !== 'own'}{@render plaque(c, c.at === 'center' ? 'mid' : AREA[c.side])}{/if}
         {/each}
         {#if !s.wide}
@@ -419,7 +473,7 @@
         {@render myBadge()}
       </div>
       <div class="me" data-tour="hand">
-        <Melds melds={pos.players[me].melds} w={myMeldW} wrap={false} />
+        <Melds melds={pos.players[me].melds} w={myMeldW} wrap={false} seat={me} hide={hideMeld(me)} />
         <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected oneClick={keys} {marks} {tagH} />
       </div>
@@ -427,7 +481,7 @@
       <div class="me tall" data-tour="hand">
         <div class="me-top">
           <span class="me-badge" bind:clientWidth={meBadgeW}>{@render myBadge()}</span>
-          <Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} />
+          <Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} seat={me} hide={hideMeld(me)} />
         </div>
         <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected perRow={s.handRow} {marks} {tagH} />
@@ -446,9 +500,10 @@
       </button>
     {/if}
     {#if strip}<div class="strip" style="bottom: {meH + 4}px">{@render strip()}</div>{/if}
-    {#each callouts as c (c.id)}
+    {#each fxShown ? [] : callouts as c (c.id)}
       {#if c.at === 'own'}{@render plaque(c, c.side)}{/if}
     {/each}
+    {#if fxShown}{#key fxShown.id}<CallFx fx={fxShown} w={Math.max(40, s.hand * 1.15)} />{/key}{/if}
   {/if}
 </div>
 {#if withAside && aside}<div class="aside" style="width: {asideW}px">{@render aside()}</div>{/if}

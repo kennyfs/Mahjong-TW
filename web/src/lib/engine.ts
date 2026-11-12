@@ -90,13 +90,13 @@ export async function act(game: GameRecord, seat: number, action: Action): Promi
   return (await request({ cmd: 'act', game, seat, action })).game;
 }
 
-export async function bot(game: GameRecord, seat: number, player: string, seed?: string): Promise<Action> {
-  return (await request({ cmd: 'bot', game, seat, player, seed })).action;
-}
-
 /** The network's bots play the action the policy head likes best: it played stronger than the best composed Q
  *  (docs/training.md, 2026-11-12: +0.04 to +0.08 a hand), at the user's word whatever the analysis shows as best. */
 const botSpec = (p: string | null) => (p !== null && p.startsWith('net:') && !p.includes('mode=') ? p + ',mode=policy' : p);
+
+export async function bot(game: GameRecord, seat: number, player: string, seed?: string): Promise<Action> {
+  return (await request({ cmd: 'bot', game, seat, player: botSpec(player), seed })).action;
+}
 
 export async function advance(game: GameRecord, players: (string | null)[], seed?: string, steps?: number): Promise<GameRecord> {
   return (await request({ cmd: 'advance', game, players: players.map(botSpec), seed, steps })).game;

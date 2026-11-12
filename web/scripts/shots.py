@@ -82,7 +82,11 @@ if __name__ == '__main__':
             page.evaluate(PLAY, [9, True])
             shot(page, f'{name}-2-mid')
             r = page.evaluate(PLAY, [999, True])
-            # The hand's end: the table as it ended for a moment (END_PAUSE), then the result.
+            # The hand's end: the win's moment over the whole screen (CallFx.svelte), the table as it ended for a
+            # moment once it is over (END_PAUSE), then the result.
+            if page.locator('.fx').count():
+                shot(page, f'{name}-3-moment')
+                page.wait_for_function("() => !document.querySelector('.fx')", timeout=5000)
             shot(page, f'{name}-3-end')
             page.wait_for_timeout(2400)
             shot(page, f'{name}-4-result')

@@ -300,7 +300,8 @@ enum class FigureKey(val notable: Double?, val moreIsBetter: Boolean) {
   DANGER(0.03, false), WHO(null, true), EFF(null, true),
 }
 
-data class FigureCell(val key: FigureKey, val label: String, val value: String, val tone: Int)
+/** `tone` colors the figure alone; `after`: words after it that keep the line's color, as the label does. */
+data class FigureCell(val key: FigureKey, val label: String, val value: String, val tone: Int, val after: String = "")
 
 private fun toneOf(key: FigureKey, x: Double?, b: Double?): Int {
   val gap = key.notable ?: return 0
@@ -311,8 +312,8 @@ private fun toneOf(key: FigureKey, x: Double?, b: Double?): Int {
 
 /** `c`: the action's cost (null: no 差 cell); `best`: the best action's figures, to color against. */
 fun figureCells(res: Resources, f: ActionFigures, c: Double?, names: List<String>?, best: ActionFigures?): List<FigureCell> {
-  fun cell(key: FigureKey, label: String, value: String, x: Double? = null, b: Double? = null) =
-    FigureCell(key, label, value, if (best != null && best !== f) toneOf(key, x, b) else 0)
+  fun cell(key: FigureKey, label: String, value: String, x: Double? = null, b: Double? = null, after: String = "") =
+    FigureCell(key, label, value, if (best != null && best !== f) toneOf(key, x, b) else 0, after)
   val out = ArrayList<FigureCell>()
   val q = f.q
   if (q != null) {
@@ -321,9 +322,10 @@ fun figureCells(res: Resources, f: ActionFigures, c: Double?, names: List<String
     out += cell(FigureKey.COST, if (costly) res.getString(R.string.fig_cost) else "", if (costly) pts(-c!!) else "")
     val win = f.win ?: 0.0
     out += cell(FigureKey.WIN, res.getString(R.string.fig_win), pct(win), win, best?.win)
-    out += cell(FigureKey.TSUMO, "",
-      if (win >= 0.005) "（${res.getString(R.string.fig_tsumo)} ${pct(f.tsumo ?: 0.0)}・${res.getString(R.string.fig_tai, fixed(f.tai ?: 0.0, 1))}）" else "",
-      f.tsumo, best?.tsumo)
+    // （自摸 3.7%・0.9 台）: only the chance is colored (it is what is compared), not the words or the brackets.
+    val some = win >= 0.005
+    out += cell(FigureKey.TSUMO, if (some) "（${res.getString(R.string.fig_tsumo)}" else "", if (some) pct(f.tsumo ?: 0.0) else "",
+      f.tsumo, best?.tsumo, if (some) "・${res.getString(R.string.fig_tai, fixed(f.tai ?: 0.0, 1))}）" else "")
     out += cell(FigureKey.DEAL, res.getString(R.string.fig_deal_in), pct(f.dealIn ?: 0.0), f.dealIn, best?.dealIn)
     out += cell(FigureKey.OTHERS, res.getString(R.string.fig_others_tsumo), pct(f.othersTsumo ?: 0.0), f.othersTsumo, best?.othersTsumo)
     val danger = f.danger

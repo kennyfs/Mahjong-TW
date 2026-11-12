@@ -21,6 +21,10 @@
 //          The wall in drawing order (ordinary draws from the front, replacements from the back), two characters a
 //          tile. The actions are every decision in order; on a discard the deciding seats' decisions may come in any
 //          order. SPEC is a rules spec of docs/rules.md section 11.
+//          Or a hand taken on from another's position with the tiles that seat has not seen dealt again (a review's
+//          branch with its unseen tiles reshuffled): {"rules", "setup", "base": {"game": RECORD, "seat": s,
+//          "seed": S}, "actions": [...]} (no wall): the base game is replayed, the seat's position taken from it
+//          with its history (Game::loadPosition, the seed deals what the seat cannot see), then the actions apply.
 // SETUP    {"dealer": s, "east": s (-1: the dealer), "round": wind, "streak": n}
 // ACTION   {"type": TYPE, "tile": TILE}: TYPE is discard, tsumo, ankan, kakan, pass, ron, pon, kan, chi, declare; the tile is
 //          the discard, the kong's kind, a chow's lowest tile, or (ron, pon, kan) the claimed tile; tsumo, pass and
@@ -129,6 +133,8 @@ namespace GuiJson {
     HandSetup setup;
     std::vector<uint8_t> wall;
     std::vector<std::pair<int, Action>> actions;
+    // A hand taken on from another's position (RECORD above): its "base" as given, null for a hand from its deal.
+    nlohmann::json base;
   };
   nlohmann::json record(const Record& r);
   Record parseRecord(const nlohmann::json& j);

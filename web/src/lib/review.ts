@@ -256,9 +256,10 @@ export function figureItems(f: Figures, c: number | null, names: string[] | null
  * An action's figures as cells of fixed columns (FIGURE_KEYS), so that a list's rows, and the figures of each tile
  * over the hand, line up whatever an action has: a cell an action has not is empty and keeps its room (Figures.svelte
  * makes each column as wide as its widest cell). `tone`: 1 (green) where the action is better than the best one by
- * more than NOTABLE (more wins, fewer deal-ins...), -1 (red) where it is worse by more.
+ * more than NOTABLE (more wins, fewer deal-ins...), -1 (red) where it is worse by more: the figure alone takes the color
+ * (`after`: words after it that keep the line's color, as the label does).
  */
-export interface FigureCell { key: FigureKey; label: string; value: string; tone: -1 | 0 | 1 }
+export interface FigureCell { key: FigureKey; label: string; value: string; tone: -1 | 0 | 1; after?: string }
 export const FIGURE_KEYS = ['q', 'cost', 'win', 'tsumo', 'deal', 'others', 'danger', 'who', 'eff'] as const;
 export type FigureKey = (typeof FIGURE_KEYS)[number];
 /** The gap to the best action worth a color, by figure: the 75th percentile of |best - k-th| for the 2nd to 6th action
@@ -276,16 +277,18 @@ function toneOf(key: FigureKey, x: number | undefined, b: number | undefined): -
 
 /** `c`: the action's cost (null: no 差 cell); `best`: the best action's figures, to color against. */
 export function figureCells(f: Figures, c: number | null, names: string[] | null, best: Figures | null): FigureCell[] {
-  const cell = (key: FigureKey, label: string, value: string, x?: number, b?: number): FigureCell =>
-    ({ key, label, value, tone: best && best !== f ? toneOf(key, x, b) : 0 });
+  const cell = (key: FigureKey, label: string, value: string, x?: number, b?: number, after = ''): FigureCell =>
+    ({ key, label, value, tone: best && best !== f ? toneOf(key, x, b) : 0, after });
   const out: FigureCell[] = [];
   if (f.q !== undefined) {
     out.push(cell('q', t('fig_value'), pts(f.q)));
     out.push(cell('cost', c !== null && c >= EQUAL ? t('fig_cost') : '', c !== null && c >= EQUAL ? pts(-c) : ''));
     const win = f.win ?? 0;
     out.push(cell('win', t('fig_win'), pct(win), win, best?.win));
-    out.push(cell('tsumo', '', win >= 0.005 ? `（${t('fig_tsumo')} ${pct(f.tsumo ?? 0)}・${t('fig_tai', (f.tai ?? 0).toFixed(1))}）` : '',
-      f.tsumo, best?.tsumo));
+    // （自摸 3.7%・0.9 台）: only the chance is colored (it is what is compared), not the words or the brackets.
+    const some = win >= 0.005;
+    out.push(cell('tsumo', some ? `（${t('fig_tsumo')}` : '', some ? pct(f.tsumo ?? 0) : '', f.tsumo, best?.tsumo,
+      some ? `・${t('fig_tai', (f.tai ?? 0).toFixed(1))}）` : ''));
     out.push(cell('deal', t('fig_deal_in'), pct(f.deal_in ?? 0), f.deal_in, best?.deal_in));
     out.push(cell('others', t('fig_others_tsumo'), pct(f.others_tsumo ?? 0), f.others_tsumo, best?.others_tsumo));
     out.push(cell('danger', f.danger !== undefined ? t('fig_danger') : '', f.danger !== undefined ? pct(f.danger) : '', f.danger, best?.danger));

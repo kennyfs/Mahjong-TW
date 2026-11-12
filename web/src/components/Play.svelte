@@ -5,6 +5,7 @@
   review (and each decision's analysis) is a button on the result.
 -->
 <script lang="ts">
+  import { fxOn } from '../lib/fx.svelte';
   import { onMount } from 'svelte';
   import { t } from '../lib/i18n.svelte';
   import { nav } from '../lib/nav.svelte';
@@ -79,7 +80,7 @@
     {#if shown}
       <Table view={shown} me={ME} {names} scores={totals} revealed={stage !== 'playing' ? final?.hands ?? null : null}
         interactive={stage === 'playing' && !practice.busy} onact={act} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64}
-        keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined}>
+        keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined} robbed={practice.robbed}>
         {#snippet corner()}
           {#if ui.wide}
             <span class="corner-buttons" data-tour="top">
@@ -119,7 +120,7 @@
           </div>
         {/snippet}
         {#snippet overlay()}
-          {#if stage === 'result' && held}
+          {#if stage === 'result' && (held || fxOn.on)}
             <button class="skip" aria-label={t('replay_result')} onclick={() => (held = false)}></button>
           {:else if stage === 'result' && final?.result && !hideResult}
             <div class="sheet">

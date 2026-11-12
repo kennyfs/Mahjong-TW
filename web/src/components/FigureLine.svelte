@@ -12,7 +12,7 @@
 <span class="line">
   {#each shown as { k, c } (k)}
     <span class="cell" class:good={c?.tone === 1} class:bad={c?.tone === -1} style="width: {Math.ceil(widths[k] ?? 0)}px">
-      <span class="lbl">{c?.label ?? ''}</span><span class="val">{c?.value ?? ''}</span>
+      <span class="lbl">{c?.label ?? ''}</span><span class="rt"><span class="val">{c?.value ?? ''}</span>{#if c?.after}<span class="aft">{c.after}</span>{/if}</span>
     </span>
   {/each}
 </span>
@@ -20,7 +20,7 @@
 <style>
   .line { display: flex; flex-wrap: wrap; column-gap: 12px; row-gap: 1px; }
   .cell { display: inline-flex; justify-content: space-between; gap: 0.3em; white-space: nowrap; font-variant-numeric: tabular-nums; flex: none; }
-  .lbl { opacity: 0.72; }
+  .lbl, .aft { opacity: 0.72; }
   .cell.good .val { color: var(--fig-good, var(--good)); }
   .cell.bad .val { color: var(--fig-bad, var(--bad)); }
 </style>

@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,7 +43,8 @@ fun rememberFigureWidths(lines: List<List<FigureCell>>, keys: List<FigureKey>, s
         val c = line.firstOrNull { it.key == k } ?: continue
         if (c.label.isEmpty() && c.value.isEmpty()) continue
         val label = if (c.label.isEmpty()) 0f else measurer.measure(c.label, style).size.width + gap
-        w = maxOf(w, label + (if (c.value.isEmpty()) 0f else measurer.measure(c.value, style).size.width.toFloat()))
+        val value = c.value + c.after
+        w = maxOf(w, label + (if (value.isEmpty()) 0f else measurer.measure(value, style).size.width.toFloat()))
       }
       with(density) { if (w > 0f) w.toDp() + 1.dp else 0.dp }
     }
@@ -62,16 +64,24 @@ fun FigureLine(
   }
 }
 
-/** The cells alone, for a FlowRow of the caller's (with words before them). */
+/** The cells alone, for a FlowRow of the caller's (with words before them). `boldTones`: the green and red figures in
+ *  bold (on a dark strip, where they must read at once). */
 @Composable
-fun FigureCells(cells: List<FigureCell>, keys: List<FigureKey>, widths: Map<FigureKey, Dp>, style: TextStyle, color: Color, soft: Color, good: Color, bad: Color) {
+fun FigureCells(
+  cells: List<FigureCell>, keys: List<FigureKey>, widths: Map<FigureKey, Dp>, style: TextStyle, color: Color, soft: Color, good: Color, bad: Color,
+  boldTones: Boolean = false,
+) {
     for (k in keys) {
       val w = widths[k] ?: 0.dp
       if (w == 0.dp) continue
       val c = cells.firstOrNull { it.key == k }
       Row(Modifier.width(w), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
         Text(c?.label ?: "", style = style, color = soft, maxLines = 1, softWrap = false)
-        Text(c?.value ?: "", style = style, color = when (c?.tone) { 1 -> good; -1 -> bad; else -> color }, maxLines = 1, softWrap = false)
+        Row(verticalAlignment = Alignment.Bottom) {
+          Text(c?.value ?: "", style = style, color = when (c?.tone) { 1 -> good; -1 -> bad; else -> color }, maxLines = 1, softWrap = false,
+            fontWeight = if (boldTones && (c?.tone ?: 0) != 0) FontWeight.Bold else null)
+          if (!c?.after.isNullOrEmpty()) Text(c!!.after, style = style, color = soft, maxLines = 1, softWrap = false)
+        }
       }
     }
 }

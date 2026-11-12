@@ -14,6 +14,7 @@ import { t } from './i18n.svelte';
 import { handRecord, newId, records } from './records.svelte';
 import { keepSummary } from './review';
 import { calloutsDone } from './callouts';
+import { preclaim, robbedEvent } from './claims';
 import { PACE, settings, type Length } from './settings.svelte';
 import { KEYS, load, save } from './store';
 import type { Action, GameEvent, GameRecord, View } from './types';
@@ -61,12 +62,15 @@ class Practice {
   error = $state<string | null>(null);
   /** The manual pace: the computer players' next step is ready and waits for `step`. */
   waiting = $state(false);
-  /** A few words on the table for a moment: the player's call did not stand. */
+  /** A few words on the table for a moment: the player's call did not stand, or was taken before they were asked. */
   notice = $state<string | null>(null);
+  /** The event (an index into the view's events) that was a claim taken from the player (lib/claims.ts): its moment
+   *  says 搶碰, 搶胡. */
+  robbed = $state<number | null>(null);
   private running = false;
   private epoch = 0;
   /** The step held (the game after it, and the player's view of it), for the game of this many actions. */
-  private ahead: { from: number; game: GameRecord; view: View } | null = null;
+  private ahead: { from: number; game: GameRecord; view: View; robbed?: number; say?: string } | null = null;
   /** The call the player just made on another's tile, until what came of it is known. */
   private claimed: Action['type'] | null = null;
   private noticeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -98,6 +102,7 @@ class Practice {
     this.ahead = null;
     this.waiting = false;
     this.claimed = null;
+    this.robbed = null;
     this.say(null);
   }
 
@@ -156,11 +161,44 @@ class Practice {
           await this.finish();
           break;
         }
+        const seed = `${this.meta?.id}/${this.meta?.hands}/${this.game.actions.length}`;
         if (p.pending.includes(ME)) {
           this.claimed = null;
-          break;
+          // Another's tile the player could claim: the computer players decide on it first (lib/claims.ts), the
+          // player's buttons held back meanwhile.
+          this.busy = true;
+          const pc = await preclaim(this.game, ME, this.bots, seed);
+          if (epoch !== this.epoch || !this.game || !pc) break;
+          if (!pc.robbed) {
+            this.game = pc.game;
+            this.persist();
+            await this.refresh();
+            break;
+          }
+          // A claim came before all of the player's: made at once, as the computer players' step.
+          const from = this.game.actions.length;
+          const before = this.view?.event_count ?? 0;
+          const view = await engine.view(pc.game, ME);
+          if (epoch !== this.epoch || !this.game || this.game.actions.length !== from) break;
+          const r = pc.robbed;
+          const robbed = robbedEvent(view.events, before, r.seat);
+          const say = t('claim_robbed', this.names()[r.seat], t('act_' + r.type), r.options.map((o) => t('act_' + o)).join('、'));
+          if (settings.speed === 'manual') {
+            this.ahead = { from, game: pc.game, view, robbed, say };
+            this.waiting = true;
+            break;
+          }
+          this.busy = true;
+          await sleep(Math.min(250, PACE[settings.speed] / 2));
+          await calloutsDone();
+          if (epoch !== this.epoch || !this.game || this.game.actions.length !== from) break;
+          this.robbed = robbed;
+          this.game = pc.game;
+          this.view = view;
+          this.say(say);
+          this.persist();
+          continue;
         }
-        const seed = `${this.meta?.id}/${this.meta?.hands}/${this.game.actions.length}`;
         if (settings.speed === 'manual') {
           const from = this.game.actions.length;
           const before = this.view?.event_count ?? 0;
@@ -216,8 +254,10 @@ class Practice {
     if (!this.waiting || !a || !this.game || this.running || a.from !== this.game.actions.length) return;
     this.ahead = null;
     this.waiting = false;
+    if (a.robbed !== undefined) this.robbed = a.robbed;
     this.game = a.game;
     this.view = a.view;
+    if (a.say) this.say(a.say);
     this.persist();
     void this.run();
   }
@@ -237,14 +277,27 @@ class Practice {
     this.say(null);
     // A call on another's tile may yet give way to a call that comes before it.
     this.claimed = this.view.phase !== 'self' && action.type !== 'pass' ? action.type : null;
+    const before = this.view.event_count;
     try {
       this.game = await engine.act(this.game, ME, action);
+      // The others decided first (lib/claims.ts): the claim is settled now. Another's that came first is the moment's
+      // 搶 (the player's buttons had a claim that would have stood, but not the one chosen).
+      const v = await engine.view(this.game, ME);
+      if (this.claimed) {
+        const fresh = v.events.slice(before).filter((e) => SHOWN.has(e.type));
+        const over = fresh.some((e) => e.seat === ME) ? undefined : fresh.find((e) => e.seat !== ME && e.type !== 'discard');
+        if (over) {
+          this.robbed = v.events.indexOf(over);
+          this.say(t('claim_overridden', t('act_' + this.claimed), this.names()[over.seat], t('act_' + over.type)));
+          this.claimed = null;
+        }
+      }
+      this.view = v;
     } catch (e) {
       this.error = String((e as Error).message ?? e);
       return;
     }
     this.persist();
-    await this.refresh();
     void this.run();
   }
 
@@ -255,7 +308,7 @@ class Practice {
     if (!result) return;
     if (this.stage !== 'playing') return;
     const meta = this.meta;
-    const key = `${this.game.wall.slice(0, 24)}/${this.game.actions.length}`;
+    const key = `${(this.game.wall ?? '').slice(0, 24)}/${this.game.actions.length}`;
     if (meta.recorded === key) {
       // After a reload: the hand's record (this game's, by its number) for the review and favorite on the result, and
       // the summary if the reload cut it short.

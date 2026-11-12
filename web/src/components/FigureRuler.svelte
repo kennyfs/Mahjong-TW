@@ -18,7 +18,7 @@
 <div class="ruler" aria-hidden="true">
   {#each cols as { k, cells } (k)}
     <span class="col" bind:offsetWidth={measured[k]}>
-      {#each cells as c}<span class="cell"><span class="lbl">{c.label}</span><span class="val">{c.value}</span></span>{/each}
+      {#each cells as c}<span class="cell"><span class="lbl">{c.label}</span><span class="rt"><span class="val">{c.value}</span>{c.after ?? ''}</span></span>{/each}
     </span>
   {/each}
 </div>

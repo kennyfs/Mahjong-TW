@@ -6,6 +6,7 @@
   final standings with the player's hands (their review and analysis come from the records).
 -->
 <script lang="ts">
+  import { fxOn } from '../lib/fx.svelte';
   import { onDestroy, onMount } from 'svelte';
   import {
     battle, HAND_CHOICES, LENGTHS, NAME_LENGTH, nameOf, rankOf, standings, TIME_LIMITS, type HandOutcome, type Length,
@@ -334,7 +335,7 @@
             </div>
           {/snippet}
           {#snippet overlay()}
-            {#if handOver && held}
+            {#if handOver && (held || fxOn.on)}
               <button class="skip" aria-label={t('replay_result')} onclick={() => (held = false)}></button>
             {:else if handOver && !hideResult}
               <!-- A short window (a phone held sideways): the standings beside the result, which keeps its buttons in view. -->

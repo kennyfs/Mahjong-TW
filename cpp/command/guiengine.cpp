@@ -333,6 +333,8 @@ json GuiJson::record(const Record& r) {
       a.push_back(Tiles::name(sa.second.kind));
     actions.push_back(a);
   }
+  if(!r.base.is_null())
+    return json{{"rules", r.rules}, {"setup", setupJson(r.setup)}, {"base", r.base}, {"actions", actions}};
   return json{{"rules", r.rules}, {"setup", setupJson(r.setup)}, {"wall", wall}, {"actions", actions}};
 }
 
@@ -340,9 +342,18 @@ GuiJson::Record GuiJson::parseRecord(const json& j) {
   Record r;
   r.rules = getString(j, "rules", "simple1,none");
   r.setup = parseSetup(j.contains("setup") ? j["setup"] : json(nullptr));
-  string wall = j.at("wall").get<string>();
-  for(int t : Tiles::parse(wall))
-    r.wall.push_back((uint8_t)t);
+  if(j.contains("base") && !j["base"].is_null()) {
+    const json& b = j["base"];
+    if(!b.is_object() || !b.contains("game") || !b.contains("seat") || !b.contains("seed"))
+      throw StringError("A base is {\"game\": RECORD, \"seat\": s, \"seed\": S}");
+    if(b["game"].contains("base") && !b["game"]["base"].is_null())
+      throw StringError("A base game has a wall of its own");
+    r.base = b;
+  } else {
+    string wall = j.at("wall").get<string>();
+    for(int t : Tiles::parse(wall))
+      r.wall.push_back((uint8_t)t);
+  }
   if(j.contains("actions"))
     for(const json& a : j["actions"]) {
       if(!a.is_array() || a.size() < 2)
@@ -365,7 +376,19 @@ static Action normalized(const Game& game, Action a) {
 }
 
 void GuiJson::replay(const Record& r, Game& game, bool holdLast) {
-  game.start(r.setup, r.wall);
+  if(!r.base.is_null()) {
+    // The base game to its end, the seat's position in it, the unseen tiles dealt again by the seed.
+    Record b = parseRecord(r.base["game"]);
+    Game from(Rules::parse(b.rules));
+    replay(b, from);
+    int seat = r.base["seat"].get<int>();
+    if(seat < 0 || seat > 3)
+      throw StringError("Bad seat in the base");
+    const json& s = r.base["seed"];
+    Rand rand(s.is_string() ? s.get<string>() : s.dump());
+    game.loadPosition(from.positionOf(seat), rand, from.events());
+  } else
+    game.start(r.setup, r.wall);
   for(size_t i = 0; i < r.actions.size(); i++) {
     int s = r.actions[i].first;
     if(s < 0 || s > 3)

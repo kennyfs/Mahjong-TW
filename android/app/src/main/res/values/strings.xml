@@ -146,6 +146,12 @@
   <string name="speed_manual_hint">手動：電腦不會自己動，每按一次「下一步」才做下一個動作。</string>
   <string name="manual_next">下一步</string>
   <string name="claim_overridden">你的%1$s沒有成立：%2$s 的%3$s優先</string>
+  <!-- A claim taken before the player was asked (it came before every claim they could make): the moment's word, and a note. -->
+  <string name="rob_chi">搶吃</string>
+  <string name="rob_pon">搶碰</string>
+  <string name="rob_kan">搶明槓</string>
+  <string name="rob_ron">搶胡</string>
+  <string name="claim_robbed">%1$s 搶%2$s（你本來可以%3$s）</string>
   <string name="settings_look">外觀</string>
   <string name="settings_colors">配色</string>
   <string name="colors_table">牌桌綠</string>
@@ -188,6 +194,20 @@
 
   <!-- Replay -->
   <string name="replay_title">回顧</string>
+  <string name="branch_title">分支</string>
+  <string name="branch_hint">從這一手換個打法繼續打（不計分、不記錄）</string>
+  <string name="branch_reshuffle">重洗看不到的牌</string>
+  <string name="branch_step">分支第 %1$d 步</string>
+  <string name="branch_your_turn">輪到你：點一下牌再點一次打出，或往上滑</string>
+  <string name="branch_others">電腦在打…</string>
+  <string name="branch_back_note">上一步回到這裡：可以改打，或按下一步照原樣往下看</string>
+  <string name="branch_over">這一局打完了</string>
+  <string name="branch_note">不計分、不記錄</string>
+  <string name="branch_again">從分支點再打一次</string>
+  <string name="branch_back">回到回顧</string>
+  <string name="branch_new">重新開分支</string>
+  <string name="branch_to_start">回到分支點</string>
+  <string name="branch_to_newest">到最新一步</string>
   <string name="replay_step">第 %1$d／%2$d 步</string>
   <string name="replay_start">開局</string>
   <string name="replay_prev">上一步</string>
@@ -374,6 +394,10 @@
   <string name="table_marks_both">損失與危險</string>
   <string name="table_marks_loss">只有損失</string>
   <string name="table_marks_none">不標示</string>
+  <string name="settings_call_fx">吃、碰、胡的效果</string>
+  <string name="call_fx_anim">全畫面動畫</string>
+  <string name="call_fx_words">只有字樣</string>
+  <string name="call_fx_hint">全畫面動畫：吃碰到的牌從牌河飛起、湊成面子，再飛到它在桌上的位置；胡的那張牌飛進胡牌的手牌（槓、補花只有字樣）。點一下畫面就跳過。</string>
   <string name="table_marks_hint">損失：每張牌上方標出打它比最佳選擇差多少；危險：牌底部的色條，越紅越可能馬上放槍。點一下牌仍會顯示它的數字。</string>
   <string name="settings_level">失誤門檻</string>
   <string name="level_beginner">入門</string>

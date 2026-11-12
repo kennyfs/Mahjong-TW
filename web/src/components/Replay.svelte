@@ -22,6 +22,7 @@
   else the next hand of the same game in the records.
 -->
 <script lang="ts">
+  import { fxOn } from '../lib/fx.svelte';
   import { actionText, fullAction, isTaken } from '../lib/actions';
   import { shared } from '../lib/app.svelte';
   import * as engine from '../lib/engine';
@@ -37,6 +38,7 @@
   import { parseTiles, sortTiles, tileName, windName, without, type Tile as T } from '../lib/tiles';
   import { recordAction, type Analysis, type Review, type Steps, type Truth, type View } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
+  import Branch from './Branch.svelte';
   import DecisionPanel from './DecisionPanel.svelte';
   import FigureLine from './FigureLine.svelte';
   import FigureRuler from './FigureRuler.svelte';
@@ -305,6 +307,15 @@
     placed = k;
   });
 
+  /** The review's branch (Branch.svelte): from the step of one of the player's decisions; back at that step after. */
+  let branchFrom = $state<number | null>(null);
+  const canBranch = $derived(!!rec && step < n && isMine(step));
+  function closeBranch() {
+    const k = branchFrom;
+    branchFrom = null;
+    if (k !== null) go(k);
+  }
+
   function toAnalysis() {
     if (!rec || !deciding) return;
     const seat = deciding.seat;
@@ -315,6 +326,7 @@
     });
   }
   function onkey(e: KeyboardEvent) {
+    if (branchFrom !== null) return;
     if (e.key === 'ArrowRight') next();
     else if (e.key === 'ArrowLeft') prev();
     else if (e.key === 'ArrowDown') nextMine();
@@ -332,6 +344,7 @@
 
 {#snippet topButtons()}
   {#if rec}
+    <button class="btn text branch" disabled={!canBranch} title={t('branch_hint')} onclick={() => (branchFrom = step)}>{t('branch_title')}</button>
     <button class="btn icon text" aria-label={t('favorite')} aria-pressed={!!rec.fav} onclick={() => records.setFav(rec.id, !rec.fav)}>
       <Icon name={rec.fav ? 'star' : 'starBorder'} />
     </button>
@@ -473,6 +486,9 @@
   {/if}
 {/snippet}
 
+{#if rec && branchFrom !== null}
+  <Branch game={cut(branchFrom)} me={rec.me} {names} onclose={closeBranch} />
+{:else}
 <div class="page" class:side>
   {#if !side}
     <TitleBar title={t('replay_title')} {onback}>{@render topButtons()}</TitleBar>
@@ -506,7 +522,7 @@
           <Table {view} me={rec.me} {names} revealed={showAll || step === n ? (view.hands ?? null) : null} interactive={false}
             maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)}>
             {#snippet overlay()}
-              {#if step === n && final?.result && showResult}
+              {#if step === n && final?.result && showResult && !fxOn.on}
                 <div class="sheet">
                   <HandResult {final} {names} me={rec.me} rev={rec.rev ?? null} w={ui.wide ? Math.min(36, Math.max(24, ui.w / 30)) : Math.min(34, Math.max(24, ui.w / 13))}>
                     {#snippet actions()}
@@ -551,6 +567,7 @@
     </div>
   {/if}
 </div>
+{/if}
 
 <style>
   .page { height: 100%; display: flex; flex-direction: column; min-height: 0; }
@@ -614,9 +631,14 @@
   .opt b.g2 { color: var(--danger-2); }
   .opt b.g3 { color: #ff8f8f; }
   .detail { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 1px 12px; padding: 5px 12px; border-radius: 12px;
-    background: rgba(0, 0, 0, 0.72); color: #fff; max-width: 100%; font-variant-numeric: tabular-nums; --fig-good: var(--felt-good); --fig-bad: var(--felt-bad); }
+    background: rgba(8, 14, 11, 0.86); color: #fff; max-width: 100%; font-variant-numeric: tabular-nums; --fig-good: #b9f6c2; --fig-bad: #ffbdb5; }
   /* As wide for every tile (二萬 or 東). */
   .detail .what { min-width: 5.2em; }
+  /* On the black strip the words as light as the figures (dimmed, they were hard to read there). */
+  .detail :global(.lbl), .detail :global(.aft) { opacity: 1; color: #d6ebdf; }
+  /* Its greens and reds the same light ones in every theme (the strip is always dark), in bold so that they read at once. */
+  .detail :global(.good .val), .detail :global(.bad .val) { font-weight: 700; }
+  .detail :global(.ruler .val) { font-weight: 700; }
   .detail :global(.line) { display: contents; }
   .loading { display: flex; justify-content: center; padding: 32px; }
   .spinner { width: 36px; height: 36px; border-radius: 50%; border: 4px solid transparent; border-top-color: var(--primary); animation: spin 0.9s linear infinite; }

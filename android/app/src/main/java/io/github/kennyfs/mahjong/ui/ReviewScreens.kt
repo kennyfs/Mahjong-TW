@@ -546,7 +546,8 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
       a.actions.indices.filter { a.actions[it].action.type == "discard" }.associateWith { figureCells(res, a.actions[it], costOf(a, it), oppNames, best) }
     }
     val detailStyle = MaterialTheme.typography.bodySmall.tabular()
-    val detailWidths = rememberFigureWidths(discardLines.values.toList(), FigureKey.entries, detailStyle)
+    // (Measured in bold: a green or red figure is bold there.)
+    val detailWidths = rememberFigureWidths(discardLines.values.toList(), FigureKey.entries, detailStyle.copy(fontWeight = FontWeight.Bold))
     val strip: (@Composable () -> Unit)? = if (mine != null && (options.isNotEmpty() || detail)) ({
       val a = mine.analysis
       if (options.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -569,16 +570,17 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
       }
       if (detail && pickedTile != null) {
         val small = MaterialTheme.typography.bodySmall
-        val soft = Color.White.copy(alpha = 0.72f)
+        // The words as light as the figures on the black strip (dimmed, they were hard to read there).
+        val soft = Color(0xFFD6EBDF)
         FlowRow(
-          Modifier.testTag("replay_detail").background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 5.dp),
+          Modifier.testTag("replay_detail").background(Color(0xDB080E0B), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 5.dp),
           horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
           // As wide for every tile (二萬 or 東).
           Text("${stringResource(R.string.act_discard)} ${Tiles.name(pickedTile)}", Modifier.widthIn(min = with(LocalDensity.current) { (small.fontSize * 5.2f).toDp() }),
             style = small, color = Color.White, fontWeight = FontWeight.Bold)
           FigureCells(discardLines[pickedIndex] ?: emptyList(), FigureKey.entries, detailWidths, detailStyle, Color.White, soft,
-            Color(0xFFA8E6B0), Color(0xFFFFB4AB))
+            Color(0xFFB9F6C2), Color(0xFFFFBDB5), boldTones = true)
         }
       }
     }) else null

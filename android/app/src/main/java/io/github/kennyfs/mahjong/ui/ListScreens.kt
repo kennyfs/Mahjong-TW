@@ -256,10 +256,11 @@ private fun ReviewStats(reviewed: List<HandRecord>, pending: Int, level: Level, 
           val x = reviewed.sumOf { it.rev?.kinds?.getOrNull(kind.ordinal) ?: 0.0 }
           val share = if (loss > 0) (x / loss).toFloat().coerceIn(0f, 1f) else 0f
           Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // The words, the figure, then the bar of its share.
+            Text(stringResource(kind.label) + " " + pts(x / k, false), style = MaterialTheme.typography.bodySmall)
             Box(Modifier.width(48.dp).height(8.dp).clip(RoundedCornerShape(4.dp)).background(cs.surfaceContainerHighest)) {
               Box(Modifier.fillMaxHeight().fillMaxWidth(share).background(cs.primary))
             }
-            Text(stringResource(kind.label) + " " + pts(x / k, false), style = MaterialTheme.typography.bodySmall)
           }
         }
       }

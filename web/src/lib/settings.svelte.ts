@@ -27,6 +27,8 @@ const defaultRows = (): ListRows => (typeof window !== 'undefined' && window.inn
 /** What a review's hand shows on its tiles (the advanced settings): each discard's cost over it and its danger along
  *  its foot, the cost alone, or nothing (the list beside or under the table says it all the same). */
 export type TableMarks = 'both' | 'loss' | 'none';
+/** A chow's, a pung's and a win's moment: over the whole screen (CallFx.svelte), or the words over the player alone. */
+export type CallFxMode = 'anim' | 'words';
 export const TABLE_MARKS: TableMarks[] = ['both', 'loss', 'none'];
 /** Which losses the review counts as mistakes and stops at: a beginner's only the large ones, an expert's the small
  *  ones too (lib/review.ts). */
@@ -46,6 +48,7 @@ interface Stored {
   listRows?: ListRows;
   level: Level;
   tableMarks?: TableMarks;
+  callFx?: CallFxMode;
 }
 
 const DEFAULTS: Stored = {
@@ -66,6 +69,7 @@ class Settings {
   listRows = $state<ListRows>('bars');
   level = $state<Level>('mid');
   tableMarks = $state<TableMarks>('both');
+  callFx = $state<CallFxMode>('anim');
 
   constructor() {
     const s = { ...DEFAULTS, ...load<Partial<Stored>>(KEYS.settings, {}) };
@@ -81,6 +85,7 @@ class Settings {
     this.listRows = s.listRows && LIST_ROWS.includes(s.listRows) ? s.listRows : defaultRows();
     this.level = LEVELS.includes(s.level) ? s.level : 'mid';
     this.tableMarks = s.tableMarks && TABLE_MARKS.includes(s.tableMarks) ? s.tableMarks : 'both';
+    this.callFx = s.callFx === 'words' ? 'words' : 'anim';
   }
 
   get spec(): string { return ruleSpec(this.rules); }
@@ -89,7 +94,7 @@ class Settings {
     save(KEYS.settings, {
       rules: this.rules, length: this.length, bot: this.bot, speed: this.speed, colors: this.colors, dark: this.dark,
       text: this.text, name: this.name, server: this.server, listRows: this.listRows, level: this.level,
-      tableMarks: this.tableMarks,
+      tableMarks: this.tableMarks, callFx: this.callFx,
     } satisfies Stored);
   }
 }

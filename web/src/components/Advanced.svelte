@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
-  import { settings, type ListRows, type TableMarks } from '../lib/settings.svelte';
+  import { settings, type CallFxMode, type ListRows, type TableMarks } from '../lib/settings.svelte';
   import TitleBar from './TitleBar.svelte';
   import Toggle from './Toggle.svelte';
 
@@ -13,6 +13,8 @@
   const marks: [TableMarks, string][] = [['both', t('table_marks_both')], ['loss', t('table_marks_loss')], ['none', t('table_marks_none')]];
   function setRows(v: ListRows) { settings.listRows = v; settings.persist(); }
   function setMarks(v: TableMarks) { settings.tableMarks = v; settings.persist(); }
+  const fxModes: [CallFxMode, string][] = [['anim', t('call_fx_anim')], ['words', t('call_fx_words')]];
+  function setFx(v: CallFxMode) { settings.callFx = v; settings.persist(); }
 </script>
 
 <div class="page">
@@ -27,6 +29,11 @@
       <div class="body-large">{t('settings_table_marks')}</div>
       <Toggle options={marks} selected={settings.tableMarks} onselect={setMarks} />
       <div class="body-small dim">{t('table_marks_hint')}</div>
+    </div>
+    <div class="block">
+      <div class="body-large">{t('settings_call_fx')}</div>
+      <Toggle options={fxModes} selected={settings.callFx} onselect={setFx} />
+      <div class="body-small dim">{t('call_fx_hint')}</div>
     </div>
   </div></div>
 </div>

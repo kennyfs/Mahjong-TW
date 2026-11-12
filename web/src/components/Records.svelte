@@ -167,7 +167,7 @@
           <div class="kinds body-small">
             <span class="dim">{t('stats_kinds')}</span>
             {#each review.kinds as k (k.name)}
-              <span class="kind"><span class="kind-bar"><i style="width: {Math.round(k.share * 100)}%"></i></span>{k.name} {pts(k.each, false)}</span>
+              <span class="kind">{k.name} {pts(k.each, false)}<span class="kind-bar"><i style="width: {Math.round(k.share * 100)}%"></i></span></span>
             {/each}
           </div>
         {/if}
