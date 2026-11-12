@@ -2,25 +2,22 @@
 // computer players of a practice game wait for a call's words before they go on, so that it can be followed; a tap
 // anywhere (or a key) lets the words go at once, and whoever waited goes on.
 
-import { settings, type Speed } from './settings.svelte';
+import { later, now } from './clock';
+import { ms } from './timing';
 
-/** A call's, a declaration's or a win's words, ms, by the pace of the settings (the manual pace keeps them until the
- *  next tap; this is how long they stay where nothing waits for the player). */
-const CALL: Record<Speed, number> = { slow: 2000, normal: 1500, fast: 1000, manual: 1500 };
+/** A call's, a declaration's or a win's words, ms, by the pace of the settings (lib/timing.ts; the manual pace
+ *  keeps them until the next tap: this is how long they stay where nothing waits for the player). Where a moment shows
+ *  the same (Moments.svelte), its own time is waited for as the words' are. */
+export const callMs = () => ms('words_call');
 /** A flower's (there are many, and nothing is decided): brief, and nothing waits for them. */
-const FLOWER: Record<Speed, number> = { slow: 900, normal: 700, fast: 500, manual: 700 };
-export const callMs = () => CALL[settings.speed] ?? 1500;
-export const flowerMs = () => FLOWER[settings.speed] ?? 700;
-/** A chow's, a pung's or a win's moment (CallFx.svelte): three and a half times the words' (the user found the words'
- *  time too short for it), and waited for as they are. */
-export const fxMs = () => Math.round(callMs() * 3.5);
+export const flowerMs = () => ms('words_flower');
 
 let until = 0;
 let waiting: (() => void)[] = [];
-let timer: ReturnType<typeof setTimeout> | undefined;
+let timer: (() => void) | undefined;
 
 function release() {
-  clearTimeout(timer);
+  timer?.();
   timer = undefined;
   until = 0;
   for (const go of waiting.splice(0)) go();
@@ -28,10 +25,10 @@ function release() {
 
 /** Words went up for `ms`, to be waited for. */
 export function calloutShown(ms: number) {
-  until = Math.max(until, performance.now() + ms);
+  until = Math.max(until, now() + ms);
   if (waiting.length) {
-    clearTimeout(timer);
-    timer = setTimeout(release, until - performance.now());
+    timer?.();
+    timer = later(release, until - now());
   }
 }
 
@@ -42,11 +39,11 @@ export function calloutsSkipped() {
 
 /** Resolves when no words that are waited for are up: at once when there are none. */
 export function calloutsDone(): Promise<void> {
-  const left = until - performance.now();
+  const left = until - now();
   if (left <= 0) return Promise.resolve();
   return new Promise((go) => {
     waiting.push(go);
-    clearTimeout(timer);
-    timer = setTimeout(release, left);
+    timer?.();
+    timer = later(release, left);
   });
 }

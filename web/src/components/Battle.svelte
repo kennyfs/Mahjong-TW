@@ -6,7 +6,7 @@
   final standings with the player's hands (their review and analysis come from the records).
 -->
 <script lang="ts">
-  import { fxDone, fxOn } from '../lib/fx.svelte';
+  import { fxDone, fxOn, resultTap } from '../lib/fx.svelte';
   import { onDestroy, onMount } from 'svelte';
   import {
     battle, HAND_CHOICES, LENGTHS, NAME_LENGTH, nameOf, rankOf, standings, TIME_LIMITS, type HandOutcome, type Length,
@@ -18,7 +18,8 @@
   import { FLOWER_PRESETS, flowerLabel, TAI_PRESETS, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import { windName } from '../lib/tiles';
-  import { END_AFTER_FX, END_PAUSE, localTime, signed, ui } from '../lib/ui.svelte';
+  import { localTime, signed, ui } from '../lib/ui.svelte';
+  import TapOn from './TapOn.svelte';
   import Dialog from './Dialog.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
@@ -60,11 +61,10 @@
     if (!inPlay) return;
     inPlay = false;
     held = true;
-    // After a moment of the win, counted from its end (it showed the hand already); without one, from now.
+    // The result's moment was tapped on (Table.svelte): the result at once; else (words alone) till a tap.
     let alive = true;
-    let id: ReturnType<typeof setTimeout> | undefined;
-    void fxDone().then((was) => { if (alive) id = setTimeout(() => (held = false), was ? END_AFTER_FX : END_PAUSE); });
-    return () => { alive = false; clearTimeout(id); };
+    void fxDone().then(() => { if (alive && resultTap.tapped) held = false; });
+    return () => { alive = false; };
   });
 
   // A shared link (#/battle/123456): its PIN, ready to join.
@@ -339,7 +339,7 @@
           {/snippet}
           {#snippet overlay()}
             {#if handOver && (held || fxOn.on)}
-              <button class="skip" aria-label={t('replay_result')} onclick={() => (held = false)}></button>
+              <TapOn onnext={() => (held = false)} />
             {:else if handOver && !hideResult}
               <!-- A short window (a phone held sideways): the standings beside the result, which keeps its buttons in view. -->
               {@const side = short && room.phase === 'REVIEW' && people.length > 1}
@@ -491,7 +491,6 @@
   .mini-standings { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 20px; background: var(--surface-container-high);
     color: var(--on-surface); }
   .peek { position: absolute; right: 12px; top: 12px; z-index: 5; }
-  .skip { position: absolute; inset: 0; z-index: 5; border: none; background: transparent; cursor: pointer; }
   .reconnect { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px;
     padding: 8px 14px; border-radius: 18px; background: var(--surface-container-highest); color: var(--on-surface); }
   .panel { display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 16px 0; color: var(--on-felt); }

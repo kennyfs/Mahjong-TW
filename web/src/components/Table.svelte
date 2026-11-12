@@ -28,12 +28,13 @@
   `onnext` (practice at the manual pace): the others' next step waits for the player: a button for it, where the
   player's hand leaves room when it is not their turn (a tall table: at the end of the hand's first row, the place
   of no tile, so that a tap too many discards nothing; a wide one: over the hand's right end), and Space or Enter.
-  `stay`: a call's and a win's words stay until the next tap or key (the game waits for the player anyway).
+  `stay`: a call's and a win's words stay until the next tap or key (the game waits for the player anyway); not those
+  of a moment (it showed them).
 -->
 <script lang="ts">
-  import { untrack, type Snippet } from 'svelte';
+  import { tick, untrack, type Snippet } from 'svelte';
   import { fade } from 'svelte/transition';
-  import { callMs, flowerMs, fxMs, calloutShown, calloutsSkipped } from '../lib/callouts';
+  import { callMs, flowerMs, calloutShown, calloutsSkipped } from '../lib/callouts';
   import { t } from '../lib/i18n.svelte';
   import {
     DRAWN_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, OPP_LINES, runLines, SHOWN_RIVER, shownHeight, tableSizes, tallTopRoom, type TableSizes,
@@ -42,8 +43,13 @@
   import type { TileMark } from '../lib/review';
   import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
-  import { setFx } from '../lib/fx.svelte';
-  import CallFx, { type Fx } from './CallFx.svelte';
+  import { resultTap, setFx } from '../lib/fx.svelte';
+  import { later } from '../lib/clock';
+  import CallFx from './CallFx.svelte';
+  import SadFx from './SadFx.svelte';
+  import SmallFx from './SmallFx.svelte';
+  import { FULL, total, type Moment, type Parts } from '../lib/moments';
+  import { ms, REVIEW_END, type TimingKey } from '../lib/timing';
   import ClaimBar from './ClaimBar.svelte';
   import { settings } from '../lib/settings.svelte';
   import Melds from './Melds.svelte';
@@ -53,9 +59,9 @@
   import Tile, { TILE_RATIO } from './Tile.svelte';
 
   let {
-    view, me, names, scores = null, revealed = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
+    view, me, names, scores = null, revealed: revealedIn = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
-    marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null,
+    marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null, review = false,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
     onact?: (a: Action) => void; handLabel?: string; maxHand?: number; keys?: boolean; away?: boolean[];
@@ -65,7 +71,15 @@
     /** The event (an index into view.events) that was a claim taken from the player (lib/claims.ts): its words are
      *  搶碰, 搶胡 instead of 碰, 胡. */
     robbed?: number | null;
+    /** A review's table: its moments of a hand's end are small, by the player, and shorter (lib/timing.ts). */
+    review?: boolean;
   } = $props();
+  let tableEl = $state<HTMLElement>();
+  /** The moments (below): one after another. */
+  let moments = $state<Moment[]>([]);
+  /** The hands shown (`revealed`) once a hand's end comes to them: after who dealt in, a draw's pause (lib/moments.ts
+   *  gap), and before the pause that leads to the result's moment. */
+  const revealed = $derived(moments.findIndex((m) => m.kind === 'gap' && !m.hide) > 0 ? null : revealedIn);
 
   const others: Side[] = ['right', 'top', 'left'];
   const pos = $derived(view.position);
@@ -219,45 +233,121 @@
   let callouts = $state<{ id: number; side: Side; text: string; kind: CalloutKind; at: CalloutAt; who: string }[]>([]);
   let seen = -1;
   let nextId = 0;
-  /** A chow's, a pung's or a win's moment over the whole screen (CallFx.svelte), unless the settings keep to the words.
-   *  `seat`: whose; a win's tiles are the winner's hand once it is shown (it may come a moment after the win). */
-  let fx = $state<(Omit<Fx, 'tiles' | 'gap'> & { seat: number; tiles: T[]; gap: number; meld: number }) | null>(null);
-  /** The meld a call's moment is bringing: out of sight at its place till it lands. */
+
+  // ---- The moments (lib/moments.ts): a call's by the caller; what ends a hand, and a declaration, over the whole
+  // screen. One after another (who dealt in, then each winner); a practice game's computer players wait for them. ----
+  const cur = $derived(moments[0] ?? null);
+  // (Told when one comes up and when all are gone, not between two: what waits for them waits for the last.)
+  const anyFx = $derived(moments.length > 0);
   $effect(() => {
-    setFx(!!fx);
+    setFx(anyFx);
     return () => setFx(false);
   });
-  const hideMeld = (seat: number) => (fx && fx.kind === 'call' && fx.seat === seat ? fx.meld : -1);
+  /** The meld a call's moment is bringing (now or next): out of sight at its place till it lands. */
+  const hideMeld = (seat: number) => moments.find((m) => m.kind === 'call' && m.seat === seat)?.meld ?? -1;
   const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const fxShown = $derived.by((): Fx | null => {
-    if (!fx) return null;
-    if (fx.kind !== 'win') return fx;
-    const hand = (revealed ?? view.hands)?.[fx.seat];
-    if (!hand) return { ...fx, tiles: [], gap: 0 };
-    const tiles = sortTiles(without(parseTiles(hand), [fx.tile]));
-    return { ...fx, tiles, gap: tiles.length };
+  /** A win's tiles: the winner's hand once it is shown (it may come a moment after the win). */
+  const curShown = $derived.by((): Moment | null => {
+    if (!cur || cur.kind !== 'win' || cur.type === 'flower_win') return cur;
+    const hand = (revealed ?? view.hands)?.[cur.seat];
+    if (!hand) return { ...cur, tiles: [], gap: 0 };
+    const tiles = sortTiles(without(parseTiles(hand), cur.tile ? [cur.tile] : []));
+    return { ...cur, tiles, gap: tiles.length };
   });
-  /** `river`: the tile lies at the end of `from`'s river (not a robbed kong's). */
-  function startFx(e: GameEvent, word: string, who: string, note: string, from: number, river = true) {
-    if (settings.callFx !== 'anim' || reduceMotion || !e.tile) return;
-    const id = nextId++;
-    const ms = fxMs();
-    // The computer players of a practice game wait for it, as for the words.
-    calloutShown(ms);
-    let tiles: T[] = [];
-    if (e.type === 'chi') tiles = without(sortTiles(e.tiles ?? []), [e.tile]);
-    else if (e.type === 'pon') tiles = [e.tile, e.tile];
-    const call = e.type === 'chi' || e.type === 'pon';
-    const meld = call ? pos.players[e.seat].melds.length - 1 : -1;
-    // The tile lifts off the river it lies in (the last of the one who discarded it), and a call's meld lands as its
-    // seat's newest; a robbed kong's tile comes from that side.
-    const src = river && from >= 0 && from !== e.seat ? `[data-river="${from}"] > :last-child` : null;
-    fx = { id, kind: call ? 'call' : 'win', word, who, note, side: sideOf(e.seat, me),
-      from: from >= 0 && from !== e.seat ? sideOf(from, me) : null, tiles, gap: call ? 1 : 0, tile: e.tile, ms, seat: e.seat, meld,
-      src, dst: call ? `[data-meld="${e.seat}-${meld}"]` : null };
-    // (`holdFx` on the window: the screenshot scripts keep the moment up to step through it.)
-    if (!('holdFx' in window)) setTimeout(() => { if (fx?.id === id) fx = null; }, ms);
+  function startMoments(list: Moment[]) {
+    if (!list.length) return;
+    // What was still up goes (it is old news); these follow one another.
+    moments = list;
+    if (list.some(holds)) resultTap.tapped = false;
+    calloutShown(list.reduce((t, m) => t + m.ms, 0));
   }
+  function momentDone(id: number) {
+    if (moments[0]?.id !== id) return;
+    moments = moments.slice(1);
+  }
+  // A hand's result over the whole screen (a win, a draw; not in a review, which has its own steps) stops where the
+  // light has run over the hand, its plaque and tiles still (what turns and runs behind them goes on), till a tap:
+  // then it goes. A tap before that lets all of the hand's end go (the result comes at once).
+  const HOLD_AT = 0.78;
+  const holds = (m: Moment) => !review && (m.kind === 'win' || m.kind === 'drawn');
+  $effect(() => {
+    resultTap.on = !!cur && holds(cur);
+    return () => { resultTap.on = false; };
+  });
+  /** The moment held for the tap, and what of it stopped. */
+  let tapHold = $state<number | null>(null);
+  let stopped: Animation[] = [];
+  function holdMoment(c: Moment) {
+    if (moments[0]?.id !== c.id) return;
+    tapHold = c.id;
+    stopped = [...document.querySelectorAll('.fx')].flatMap((el) => el.getAnimations({ subtree: true }))
+      .filter((a) => a.playState === 'running' && a.effect?.getTiming().iterations !== Infinity);
+    for (const a of stopped) a.pause();
+  }
+  function releaseHold() {
+    const id = tapHold;
+    const c = moments[0];
+    tapHold = null;
+    for (const a of stopped.splice(0)) if (a.playState === 'paused') a.play();
+    resultTap.tapped = true;
+    if (c && c.id === id) later(() => momentDone(c.id), c.ms * (1 - HOLD_AT));
+  }
+  $effect(() => {
+    const c = cur;
+    // (`holdFx` on the window: the screenshot scripts keep the moment up to step through it.)
+    if (!c || 'holdFx' in window) return;
+    return holds(c) ? later(() => holdMoment(c), c.ms * HOLD_AT) : later(() => momentDone(c.id), c.ms);
+  });
+  // ---- The player's discard: from where it stood in the hand to its place in the river; and the hand closing the
+  // gap it left (the drawn tile to its place, the tiles between it and the gap a tile's width over). Slow at both
+  // ends. ----
+  /** The hand's tiles where they stood before the view changed (the discard is gone from it after). */
+  let handRects: { tile: string; drawn: boolean; r: DOMRect }[] = [];
+  $effect.pre(() => {
+    void view;
+    untrack(() => {
+      if (!tableEl) return;
+      handRects = [...tableEl.querySelectorAll<HTMLElement>('.me [data-tile]')].map((el) => ({
+        tile: el.dataset.tile!, drawn: el.dataset.drawn === '1', r: (el.querySelector('.lifted') ?? el).getBoundingClientRect() }));
+    });
+  });
+  function flyDiscard(tile: string) {
+    // The drawn tile if it is the one, else the last of its kind.
+    const from = handRects.find((h) => h.drawn && h.tile === tile) ?? [...handRects].reverse().find((h) => h.tile === tile);
+    if (!from) return;
+    const before = handRects.filter((h) => h !== from);
+    void tick().then(() => {
+      // The hand: each tile from where its like stood (the n-th of a kind to the n-th), where it moved.
+      const left = new Map<string, DOMRect[]>();
+      for (const h of before) left.set(h.tile, [...(left.get(h.tile) ?? []), h.r]);
+      const hm = ms('hand_move');
+      let moved = false;
+      for (const el of tableEl?.querySelectorAll<HTMLElement>('.me [data-tile]') ?? []) {
+        const r0 = left.get(el.dataset.tile!)?.shift();
+        if (!r0) continue;
+        const r1 = el.getBoundingClientRect();
+        const dx = r0.left - r1.left, dy = r0.top - r1.top;
+        if (Math.abs(dx) + Math.abs(dy) < 1) continue;
+        moved = true;
+        el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: hm, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', fill: 'backwards' });
+      }
+      const el = tableEl?.querySelector<HTMLElement>(`[data-river="${me}"] > :last-child`);
+      if (!el) return;
+      const to = el.getBoundingClientRect();
+      const k = from.r.width / Math.max(1, to.width);
+      const dx = from.r.left + from.r.width / 2 - (to.left + to.width / 2), dy = from.r.top + from.r.height / 2 - (to.top + to.height / 2);
+      el.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${k})` }, { transform: 'none' }],
+        { duration: ms('discard_move'), easing: 'cubic-bezier(0.65, 0, 0.35, 1)', fill: 'backwards' });
+    });
+  }
+
+  const callParts = (): Parts => ({ in: ms('call_in'), drop: ms('call_drop'), hold: ms('call_hold'), out: ms('call_out') });
+  const dealinParts = (): Parts => ({ in: ms('dealin_in'), drop: 0, hold: ms('dealin_hold'), out: ms('dealin_out') });
+  const RIVER_AREA: Record<Side, string> = { top: 'rt', left: 'rl', right: 'rr', bottom: 'rb' };
+  /** Where a player's small moment stands: over their river (a call's), over their tiles (who dealt in). */
+  const riverOf = (seat: number) => `.river-cell.${RIVER_AREA[sideOf(seat, me)]}`;
+  const seatOf = (seat: number) => (seat === me ? '.me' : `.seat.${sideOf(seat, me)}`);
+
   const WORDS: Partial<Record<GameEvent['type'], string>> = {
     chi: 'act_chi', pon: 'act_pon', kan: 'act_kan', ankan: 'act_ankan', kakan: 'act_kakan', tsumo: 'act_tsumo', ron: 'act_ron',
     flower: 'call_flower', flower_win: 'call_flower_win', exhausted: 'call_exhausted',
@@ -270,12 +360,17 @@
       if (seen < 0 || count < seen) {
         seen = count;
         if (callouts.length) callouts = [];
+        if (moments.length) moments = [];
+        tapHold = null;
+        resultTap.tapped = false;
         return;
       }
       const fresh = evs.slice(evs.length - (count - seen));
       seen = count;
       // A jump over many events (a review going to another decision) says none of them.
       if (fresh.length > 8) return;
+      const anim = settings.callFx === 'anim' && !reduceMotion;
+      const list: Moment[] = [];
       let flowersShown = new Set<number>();
       let dealtIn = false;
       // One at a time over a player: later words take the place of earlier ones. What is not a flower is waited for.
@@ -283,20 +378,27 @@
       // wherever they stand.
       const say = (side: Side, text: string, kind: CalloutKind, ms: number, who = '') => {
         const id = nextId++;
-        const at: CalloutAt = kind === 'drawn' ? 'center' : kind === 'dealin' ? 'own' : 'river';
+        // (補花 by the player's own seat, as who dealt in.)
+        const at: CalloutAt = kind === 'drawn' ? 'center' : kind === 'dealin' || kind === 'flower' ? 'own' : 'river';
         callouts = [...callouts.filter((c) => c.side !== side || c.at !== at), { id, side, text, kind, at, who }];
-        if (!stay || kind === 'flower') setTimeout(() => { callouts = callouts.filter((c) => c.id !== id); }, ms);
+        if (!stay || kind === 'flower') later(() => { callouts = callouts.filter((c) => c.id !== id); }, ms);
         if (kind !== 'flower') calloutShown(ms);
       };
+      // A moment over the whole screen: in a review, short or small (the settings of the tool).
+      const small = review;
+      const fullMs = (key: TimingKey) => Math.round(ms(key) * (review ? REVIEW_END : 1));
       const base = evs.length - fresh.length;
+      const lastBefore = (at: number, types: string[]) => [...evs.slice(0, at)].reverse().find((x) => types.includes(x.type));
       for (const [i, e] of fresh.entries()) {
         // A player's discard lands in their river: their words over it go.
         if (e.type === 'discard') {
           const side = sideOf(e.seat, me);
           if (callouts.some((c) => c.side === side && c.at === 'river')) callouts = callouts.filter((c) => c.side !== side || c.at !== 'river');
+          if (e.seat === me && anim && e.tile) flyDiscard(e.tile);
           continue;
         }
-        const taken = base + i === robbed && ['chi', 'pon', 'kan', 'ron'].includes(e.type);
+        const at = base + i;
+        const taken = at === robbed && ['chi', 'pon', 'kan', 'ron'].includes(e.type);
         const word = e.type === 'declare' ? `call_${e.declared ?? 'tianting'}` : taken ? `rob_${e.type}` : WORDS[e.type];
         if (!word) continue;
         // One 補花 for a run of flowers.
@@ -304,25 +406,118 @@
           if (flowersShown.has(e.seat)) continue;
           flowersShown.add(e.seat);
         }
+        const side = sideOf(e.seat, me);
+        const moment = (o: Partial<Moment> & Pick<Moment, 'kind' | 'key' | 'ms'>): Moment => ({
+          id: nextId++, type: e.type, seat: e.seat, side, word: t(word), who: names[e.seat], note: '', mine: e.seat === me, tiles: [],
+          gap: -1, tile: null, src: null, from: null, dst: null, meld: -1, anchor: null, ...o,
+        });
+        /** A win's or a declaration's over the whole screen, or (a small review's) its words by the player. */
+        const full = (o: Partial<Moment> & Pick<Moment, 'kind' | 'key'>): Moment => {
+          if (!small) return moment({ ms: fullMs(o.key), ...o });
+          const total = fullMs(o.key);
+          const p = { in: ms('call_in'), drop: 0, out: ms('dealin_out'), hold: 0 };
+          p.hold = Math.max(200, total - p.in - p.out);
+          return moment({ ...o, kind: o.kind === 'sad' ? 'dealin' : 'small', ms: p.in + p.hold + p.out, parts: p,
+            tiles: o.kind === 'sad' && o.tile ? [o.tile] : [], gap: -1, tile: null,
+            anchor: o.kind === 'drawn' ? '.rivers' : o.kind === 'sad' ? seatOf(o.seat ?? e.seat) : riverOf(o.seat ?? e.seat) });
+        };
+        let has = false;
+        if (anim) {
+          if (e.type === 'chi' || e.type === 'pon' || e.type === 'kan') {
+            // The discard it was called on: the last one before it. The tile called lies in the middle, as in the meld.
+            const from = lastBefore(at, ['discard'])?.seat ?? -1;
+            const tiles = e.type === 'chi' ? without(sortTiles(e.tiles ?? []), [e.tile!]) : Array(e.type === 'pon' ? 2 : 3).fill(e.tile);
+            const meld = pos.players[e.seat].melds.length - 1;
+            const parts = callParts();
+            list.push(moment({ kind: 'call', key: 'call_in', ms: total(parts), parts, tiles, gap: 1, tile: e.tile,
+              src: from >= 0 && from !== e.seat ? `[data-river="${from}"] > :last-child` : null, from: from >= 0 ? sideOf(from, me) : null,
+              dst: `[data-meld="${e.seat}-${meld}"]`, meld, anchor: riverOf(e.seat) }));
+            has = true;
+          } else if (e.type === 'ankan' || e.type === 'kakan') {
+            // A concealed kong (another's: its backs) or a pung made a kong: the fourth tile comes in at the end.
+            const melds = pos.players[e.seat].melds;
+            const meld = e.type === 'kakan' ? melds.findIndex((m) => m.type === 'kakan' && m.tile === e.tile) : melds.length - 1;
+            const parts = callParts();
+            list.push(moment({ kind: 'call', key: 'call_in', ms: total(parts), parts, tiles: Array(3).fill(e.tile), gap: 3, tile: e.tile,
+              dst: meld >= 0 ? `[data-meld="${e.seat}-${meld}"]` : null, meld, anchor: riverOf(e.seat) }));
+            has = true;
+          } else if (e.type === 'tsumo') {
+            list.push(full({ kind: 'win', key: 'tsumo', tile: e.tile, gap: 0 }));
+            has = true;
+          } else if (e.type === 'flower_win') {
+            // The winner's flowers; 七搶一: the other player's one comes from where it lies.
+            const mine = flowersOf(pos.players[e.seat]);
+            const loser = view.result?.loser ?? -1;
+            const other = loser >= 0 && loser !== e.seat ? flowersOf(pos.players[loser])[0] : undefined;
+            const item = view.result?.winners.find((x) => x.seat === e.seat)?.items.find((x) => x.item === 'eight_flowers' || x.item === 'seven_rob_one');
+            list.push(full({ kind: 'win', key: 'flower_win', tiles: other ? mine : mine.slice(0, -1), gap: other ? mine.length : mine.length - 1,
+              tile: other ?? mine[mine.length - 1] ?? null, src: other ? `[data-flower="${other}"]` : null, from: other ? sideOf(loser, me) : null,
+              note: item?.name ?? '' }));
+            has = true;
+          } else if (e.type === 'declare') {
+            // The declared hand: the player's own; another's backs.
+            const tiles = e.seat === me ? sortTiles(parseTiles(pos.hand)) : Array(concealedCount(view, e.seat)).fill(null);
+            list.push(full({ kind: 'declare', key: 'declare', tiles }));
+            has = true;
+          } else if (e.type === 'exhausted') {
+            list.push(full({ kind: 'drawn', key: 'drawn', who: '', neutral: true }));
+            has = true;
+          } else if (e.type === 'ron' && !dealtIn) {
+            // Who dealt in first (the player's own: over the whole screen), then each winner in turn.
+            dealtIn = true;
+            const last = [...evs].reverse().find((x) => x.type === 'discard' || x.type === 'kakan');
+            const loser = view.result?.loser ?? last?.seat ?? -1;
+            const rons = fresh.filter((x) => x.type === 'ron');
+            const winners = rons.map((x) => names[x.seat]).join('、');
+            if (loser >= 0 && loser !== e.seat) {
+              if (loser === me) list.push(full({ kind: 'sad', key: 'sad', seat: loser, side: 'bottom', word: t('call_deal_in'), who: names[loser], mine: true,
+                note: `${winners} ${t('act_ron')}`, tile: e.tile }));
+              else {
+                const parts = dealinParts();
+                list.push(moment({ kind: 'dealin', key: 'dealin_in', seat: loser, side: sideOf(loser, me), word: t('call_deal_in'), who: names[loser],
+                  mine: false, ms: total(parts), parts, tiles: e.tile ? [e.tile] : [], anchor: seatOf(loser) }));
+              }
+            }
+            for (const r of rons) {
+              const rTaken = base + fresh.indexOf(r) === robbed;
+              list.push({ ...full({ kind: 'win', key: 'win', tile: r.tile, gap: 0,
+                src: last?.type !== 'kakan' && loser >= 0 && loser !== r.seat ? `[data-river="${loser}"] > :last-child` : null,
+                from: loser >= 0 && loser !== r.seat ? sideOf(loser, me) : null,
+                note: loser >= 0 && loser !== r.seat ? `${names[loser]} ${t('call_deal_in')}` : '' }),
+                seat: r.seat, side: sideOf(r.seat, me), who: names[r.seat], mine: r.seat === me, word: t(rTaken ? 'rob_ron' : 'act_ron'),
+                neutral: r.seat !== me && loser !== me,
+                ...(small ? { anchor: riverOf(r.seat) } : {}) });
+            }
+            has = true;
+          } else if (e.type === 'ron') has = true;
+        }
+        // (Its moment showed it: no words after it, even those that stay.)
+        if (has) continue;
         const kind: CalloutKind = e.type === 'tsumo' || e.type === 'ron' || e.type === 'flower_win' ? 'win'
           : e.type === 'flower' ? 'flower' : e.type === 'exhausted' ? 'drawn' : 'call';
-        say(e.type === 'exhausted' ? 'top' : sideOf(e.seat, me), t(word), kind, e.type === 'flower' ? flowerMs() : callMs(),
+        say(e.type === 'exhausted' ? 'top' : side, t(word), kind, e.type === 'flower' ? flowerMs() : callMs(),
           kind === 'win' ? names[e.seat] : '');
         // Who dealt in: the discard (or the added kong's tile) the win was on. Once, however many won on it.
-        if (e.type === 'ron' && !dealtIn) {
-          dealtIn = true;
+        if (e.type === 'ron' && !callouts.some((c) => c.kind === 'dealin')) {
           const from = view.result?.loser ?? [...evs].reverse().find((x) => x.type === 'discard' || x.type === 'kakan')?.seat ?? -1;
           if (from >= 0 && from !== e.seat) say(sideOf(from, me), t('call_deal_in'), 'dealin', callMs(), names[from]);
-          const robbed = [...evs].reverse().find((x) => x.type === 'discard' || x.type === 'kakan')?.type === 'kakan';
-          startFx(e, t(word), names[e.seat], from >= 0 && from !== e.seat ? `${names[from]} ${t('call_deal_in')}` : '', from, !robbed);
-        } else if (e.type === 'tsumo') startFx(e, t(word), names[e.seat], '', -1);
-        else if (e.type === 'chi' || e.type === 'pon') {
-          // The discard it was called on: the last one before it.
-          const at = evs.indexOf(e);
-          const from = [...evs.slice(0, at < 0 ? evs.length : at)].reverse().find((x) => x.type === 'discard')?.seat ?? -1;
-          startFx(e, t(word), names[e.seat], '', from);
         }
       }
+      // A hand's end: (who dealt in;) the hands shown, a pause, the result's moment (who won, the draw). A draw: a
+      // pause before the hands are shown too. (Not before 天聽, 地聽.)
+      if (anim) {
+        const RESULT = ['ron', 'tsumo', 'flower_win', 'exhausted'];
+        const at = list.findIndex((m) => (m.kind === 'win' || m.kind === 'drawn' || m.kind === 'small') && RESULT.includes(m.type));
+        if (at >= 0) {
+          const drawn = list[at].type === 'exhausted';
+          const gap = (key: TimingKey, hide: boolean): Moment => ({
+            id: nextId++, kind: 'gap', type: drawn ? 'exhausted' : 'ron', seat: me, side: 'bottom', word: '', who: '', note: '', mine: false,
+            tiles: [], gap: -1, tile: null, src: null, from: null, dst: null, meld: -1, anchor: null, key, hide,
+            ms: Math.round(ms(key) * (review ? REVIEW_END : 1)) });
+          list.splice(at, 0, ...(drawn ? [gap('show_wait', true), gap('reveal', false)] : [gap('reveal', false)]));
+        }
+      }
+      if (list.length) startMoments(list);
     });
   });
 
@@ -332,9 +527,16 @@
   const AREA: Record<Side, string> = { top: 'on-rt', left: 'on-rl', right: 'on-rr', bottom: 'on-rb' };
   /** A tap anywhere, or a key: the words go at once (and whoever waits for them goes on). The tap still does what it
    *  was for. */
-  function skipCallouts() {
+  function skipCallouts(e: Event) {
+    // A result held for the tap: it goes on. Before that, a tap lets all of the hand's end go.
+    if (tapHold !== null && moments[0]?.id === tapHold) {
+      releaseHold();
+      return;
+    }
+    tapHold = null;
+    if (moments.some(holds)) resultTap.tapped = true;
     if (callouts.length) callouts = [];
-    fx = null;
+    if (moments.length) moments = [];
     calloutsSkipped();
   }
   $effect(() => {
@@ -399,7 +601,7 @@
   </div>
 {/snippet}
 <div class="felt-bg" bind:clientWidth={W} bind:clientHeight={H}>
-<div class="table" class:wide={s.wide} class:shown={!!revealed} style="max-width: {s.tableW}px; font-size: {s.font}px;
+<div class="table" bind:this={tableEl} class:wide={s.wide} class:shown={!!revealed} style="max-width: {s.tableW}px; font-size: {s.font}px;
   --side-w: {s.sideW}px; --top-h: {s.topH}px; --me-h: {meH}px; --pad-l: {padL}px; --pad-r: {padR}px; --below-l: {belowL}px;
   --below-r: {belowR}px; --corner-h: {cornerH}px; --corner-r: {cornerR}px; --hand-w: {s.hand}px">
   {#if W > 0}
@@ -446,10 +648,11 @@
           {@const across = r.side === 'top' || r.side === 'bottom'}
           <div class="river-cell {r.area}">
             <River {seat} discards={pos.players[seat].discards} w={s.river} cols={across ? s.acrossCols : s.sideCols}
-              rows={across ? s.acrossRows : s.sideRows} last={lastDiscard === seat} claim={claimSeat === seat} from={r.side} />
+              rows={across ? s.acrossRows : s.sideRows} last={lastDiscard === seat} claim={claimSeat === seat} from={r.side}
+              still={seat === me && settings.callFx === 'anim' && !reduceMotion} />
           </div>
         {/each}
-        {#each fxShown ? [] : callouts as c (c.id)}
+        {#each moments.length ? [] : callouts as c (c.id)}
           {#if c.at !== 'own'}{@render plaque(c, c.at === 'center' ? 'mid' : AREA[c.side])}{/if}
         {/each}
         {#if !s.wide}
@@ -475,15 +678,15 @@
         {@render myBadge()}
       </div>
       <div class="me" data-tour="hand">
-        <Melds melds={pos.players[me].melds} w={myMeldW} wrap={false} seat={me} hide={hideMeld(me)} />
         <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected oneClick={keys} {marks} {tagH} />
+        <span class="me-melds"><Melds melds={pos.players[me].melds} w={myMeldW} wrap={false} seat={me} hide={hideMeld(me)} reverse /></span>
       </div>
     {:else}
       <div class="me tall" data-tour="hand">
         <div class="me-top">
           <span class="me-badge" bind:clientWidth={meBadgeW}>{@render myBadge()}</span>
-          <Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} seat={me} hide={hideMeld(me)} />
+          <span class="me-melds"><Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} seat={me} hide={hideMeld(me)} reverse /></span>
         </div>
         <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected perRow={s.handRow} {marks} {tagH} />
@@ -502,10 +705,17 @@
       </button>
     {/if}
     {#if strip}<div class="strip" style="bottom: {meH + 4}px">{@render strip()}</div>{/if}
-    {#each fxShown ? [] : callouts as c (c.id)}
+    {#each moments.length ? [] : callouts as c (c.id)}
       {#if c.at === 'own'}{@render plaque(c, c.side)}{/if}
     {/each}
-    {#if fxShown}{#key fxShown.id}<CallFx fx={fxShown} w={Math.max(40, s.hand * 1.15)} />{/key}{/if}
+    {#if cur && curShown}
+      {#key cur.id}
+        {#if cur.kind === 'gap'}<!-- (The pause before a win: nothing.) -->
+        {:else if cur.kind === 'sad'}<SadFx m={cur} w={Math.max(40, s.hand * 1.15)} ms={cur.ms} />
+        {:else if FULL.includes(cur.kind)}<CallFx m={curShown} w={Math.max(40, s.hand * 1.15)} ms={cur.ms} />
+        {:else}<SmallFx m={cur} w={Math.max(24, Math.min(50, s.hand * 0.9))} root={tableEl} />{/if}
+      {/key}
+    {/if}
   {/if}
 </div>
 {#if withAside && aside}<div class="aside" style="width: {asideW}px">{@render aside()}</div>{/if}
@@ -574,10 +784,13 @@
   .box-streak { color: var(--highlight); font-size: 0.92em; font-weight: 700; }
   .box-extra { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
 
-  .me { grid-area: me; display: flex; align-items: flex-end; justify-content: center; gap: 12px; padding: 0 8px 6px; min-width: 0; }
+  /* The hand to the left (a discard leaves the rest in place); the melds at the right end, the first at the far right
+     and each after it to its left, so that none moves when another comes. */
+  .me { grid-area: me; display: flex; align-items: flex-end; justify-content: flex-start; gap: 12px; padding: 0 8px 6px 16px; min-width: 0; }
   .me.tall { flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; padding: 0 4px 6px; }
   .me-top { display: flex; align-items: flex-end; gap: 8px; min-width: 0; align-self: stretch; }
   .me-badge { flex: none; align-self: center; display: flex; max-width: 60%; }
+  .me-melds { margin-left: auto; min-width: 0; display: flex; justify-content: flex-end; }
   .me-corner { position: absolute; left: 8px; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
     max-width: calc(var(--side-w) - 12px); }
   .me-flowers { padding-left: 4px; }

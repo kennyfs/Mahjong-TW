@@ -13,10 +13,12 @@ import * as engine from './engine';
 import { t } from './i18n.svelte';
 import { handRecord, newId, records } from './records.svelte';
 import { keepSummary } from './review';
-import { calloutsDone } from './callouts';
-import { justCalled, preclaim, robbedEvent, robPause } from './claims';
+import { calloutsDone, calloutsSkipped } from './callouts';
+import { later, now, wait } from './clock';
+import { justCalled, othersCall, preclaim, robbedEvent, robPause } from './claims';
 import { fxDone } from './fx.svelte';
-import { PACE, settings, type Length } from './settings.svelte';
+import { settings, type Length } from './settings.svelte';
+import { ms } from './timing';
 import { KEYS, load, save } from './store';
 import type { Action, GameEvent, GameRecord, View } from './types';
 
@@ -43,11 +45,9 @@ interface Saved { game: GameRecord; meta: Meta }
 
 export type Stage = 'playing' | 'result' | 'over';
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const sleep = wait;
 /** What shows on the table as a player's doing (a draw and a flower are not waited for). */
 const SHOWN = new Set<GameEvent['type']>(['discard', 'chi', 'pon', 'kan', 'ankan', 'kakan', 'declare', 'tsumo', 'ron', 'flower_win']);
-/** A notice's time on the table, ms. */
-const NOTICE_MS = 4500;
 
 class Practice {
   game = $state<GameRecord | null>(null);
@@ -70,11 +70,17 @@ class Practice {
   robbed = $state<number | null>(null);
   private running = false;
   private epoch = 0;
+  /** The loop running (`run`): its number and its game's epoch. One of a game gone (another dealt while it waited
+   *  out a pace or a moment) ends at its next look; it holds back neither another game's loop nor its state. */
+  private loop = 0;
+  private loopEpoch = -1;
+  /** This game's loop is running. */
+  private get looping() { return this.running && this.loopEpoch === this.epoch; }
   /** The step held (the game after it, and the player's view of it), for the game of this many actions. */
   private ahead: { from: number; game: GameRecord; view: View; robbed?: number; say?: string } | null = null;
   /** The call the player just made on another's tile, until what came of it is known. */
   private claimed: Action['type'] | null = null;
-  private noticeTimer: ReturnType<typeof setTimeout> | undefined;
+  private noticeTimer: (() => void) | undefined;
 
   get bots(): (string | null)[] {
     const b = this.meta?.bot ?? settings.bot;
@@ -91,7 +97,9 @@ class Practice {
       this.game = s.game;
       this.meta = s.meta;
       this.stage = 'playing';
+      const epoch = this.epoch;
       await this.refresh();
+      if (epoch !== this.epoch) return;
       if (this.view?.phase === 'over') await this.finish();
       else void this.run();
     } else await this.newGame();
@@ -100,6 +108,8 @@ class Practice {
   /** Another game or hand: nothing held from the last. */
   private reset() {
     this.epoch++;
+    // (What the last game's loop waits for goes at once: it sees the game is gone.)
+    calloutsSkipped();
     this.ahead = null;
     this.waiting = false;
     this.claimed = null;
@@ -114,9 +124,12 @@ class Practice {
   }
 
   private say(text: string | null) {
-    clearTimeout(this.noticeTimer);
+    this.noticeTimer?.();
     this.notice = text;
-    if (text) this.noticeTimer = setTimeout(() => (this.notice = null), NOTICE_MS);
+    if (text) {
+      const t = ms('notice');
+      this.noticeTimer = later(() => (this.notice = null), t);
+    }
   }
 
   private persist() {
@@ -136,8 +149,12 @@ class Practice {
     this.final = null;
     this.lastRecord = null;
     this.stage = 'playing';
+    const epoch = this.epoch;
     try {
-      this.game = await engine.newHand(rules, { dealer: startDealer, east: -1, round: 0, streak: 0 }, seed ? `${seed}/0` : undefined);
+      const game = await engine.newHand(rules, { dealer: startDealer, east: -1, round: 0, streak: 0 }, seed ? `${seed}/0` : undefined);
+      // (Another game came meanwhile: this one is no more.)
+      if (epoch !== this.epoch) return;
+      this.game = game;
     } catch (e) {
       this.error = String((e as Error).message ?? e);
       return;
@@ -148,8 +165,11 @@ class Practice {
   }
 
   private async refresh() {
-    if (!this.game) return;
-    this.view = await engine.view(this.game, ME);
+    const g = this.game;
+    if (!g) return;
+    const v = await engine.view(g, ME);
+    // (Not the view of a game gone meanwhile.)
+    if (this.game === g) this.view = v;
   }
 
   /**
@@ -158,13 +178,16 @@ class Practice {
    * pace, what shows waits for `step` (see the top).
    */
   private async run() {
-    if (this.running) return;
+    if (this.looping) return;
+    const my = ++this.loop;
     this.running = true;
     const epoch = this.epoch;
+    this.loopEpoch = epoch;
     try {
       while (this.game && epoch === this.epoch) {
         const p = await engine.pending(this.game);
         if (p.phase === 'over') {
+          if (epoch !== this.epoch) break;
           await this.finish();
           break;
         }
@@ -174,7 +197,7 @@ class Practice {
           // Another's tile the player could claim: the computer players decide on it first (lib/claims.ts), the
           // player's buttons held back meanwhile.
           this.busy = true;
-          const shown = performance.now();
+          const shown = now();
           const pc = await preclaim(this.game, ME, this.bots, seed);
           if (epoch !== this.epoch || !this.game || !pc) break;
           if (!pc.robbed) {
@@ -199,7 +222,8 @@ class Practice {
           this.busy = true;
           // The discard stays a while first (lib/claims.ts robPause, counted from when it showed), its words done.
           await calloutsDone();
-          await sleep(Math.max(0, robPause() - (performance.now() - shown)));
+          const left = Math.max(0, robPause() - (now() - shown));
+          await sleep(left);
           if (epoch !== this.epoch || !this.game || this.game.actions.length !== from) break;
           this.robbed = robbed;
           this.game = pc.game;
@@ -231,17 +255,36 @@ class Practice {
           continue;
         }
         this.busy = true;
-        // A bot's own turn takes the pace (but not the discard after its chow or pung: the moment showed it); deciding
-        // on a discard (nobody else may) takes a short beat.
-        const pace = PACE[settings.speed];
-        await sleep(p.phase !== 'self' ? Math.min(250, pace / 2) : justCalled(this.game, p.current) ? 0 : pace);
-        // A call's words (碰, 槓, 天聽) stay their time before the game goes on; a tap anywhere lets them go.
+        // A bot's own turn takes the pace (but not the discard after its chow or pung: the moment showed it). Deciding
+        // on a discard (nobody else may): a call shows after the tile's stay, no call at once (lib/claims.ts othersCall).
+        // The pace counts once a call's moment or words (碰, 槓, 天聽) are over (a tap anywhere lets them go).
+        const claim = p.phase !== 'self';
         await calloutsDone();
         if (epoch !== this.epoch || !this.game) break;
+        if (!claim) {
+          const key = justCalled(this.game, p.current) ? 'bot_after_call' : 'bot_turn';
+          const pace = ms(key);
+          await sleep(pace);
+          if (epoch !== this.epoch || !this.game) break;
+        }
         const before = this.view?.event_count ?? 0;
-        this.game = await engine.advance(this.game, this.bots, seed, 1);
+        const from = now();
+        const next = await engine.advance(this.game, this.bots, seed, 1);
+        let view: View | null = null;
+        if (claim) {
+          view = await engine.view(next, ME);
+          if (epoch !== this.epoch) break;
+          if (othersCall(view, before, ME)) {
+            const left = Math.max(0, ms('bot_claim') - (now() - from));
+            await sleep(left);
+          }
+        }
+        // (Another game came meanwhile: this one's step is no more.)
+        if (epoch !== this.epoch) break;
+        this.game = next;
         this.persist();
-        await this.refresh();
+        if (view) this.view = view;
+        else await this.refresh();
         if (this.claimed && this.view) {
           const v = this.view;
           const fresh = v.events.slice(Math.max(0, v.events.length - (v.event_count - before))).filter((e) => SHOWN.has(e.type));
@@ -253,15 +296,17 @@ class Practice {
     } catch (e) {
       this.error = String((e as Error).message ?? e);
     } finally {
-      this.busy = false;
-      this.running = false;
+      if (this.loop === my) {
+        this.busy = false;
+        this.running = false;
+      }
     }
   }
 
   /** The manual pace: the computer players' next step, now. */
   step() {
     const a = this.ahead;
-    if (!this.waiting || !a || !this.game || this.running || a.from !== this.game.actions.length) return;
+    if (!this.waiting || !a || !this.game || this.looping || a.from !== this.game.actions.length) return;
     this.ahead = null;
     this.waiting = false;
     if (a.robbed !== undefined) this.robbed = a.robbed;
@@ -283,7 +328,7 @@ class Practice {
 
   /** The player's decision (one of view.legal). */
   async act(action: Action) {
-    if (!this.game || !this.view?.my_turn || this.running) return;
+    if (!this.game || !this.view?.my_turn || this.looping) return;
     this.say(null);
     // A call on another's tile may yet give way to a call that comes before it.
     this.claimed = this.view.phase !== 'self' && action.type !== 'pass' ? action.type : null;

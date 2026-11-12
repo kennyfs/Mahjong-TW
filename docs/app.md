@@ -209,6 +209,43 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     figure, then a bar in a loss's color. The computer players play the network's policy.
   - Words of a call by a player with an empty river (a pung of the game's first discard) stood at the screen's
     top-left corner in the app (an empty river had no bounds): placed by the river's own place now.
+- **0.7.0** (2026-11-13; the moments as the user picked them with the tuning tool of the branch `fx-dev`, which keeps
+  the tool, `?tune`, and the looks not picked; its defaults are these). Someone found the whole-screen moment of
+  every chow and pung tiresome:
+  - **The pace in one file for the app and the page**: `android/app/src/main/res/raw/timing.json` (the page copies
+    it, scripts/strings.mjs, and reads it in lib/timing.ts). Every time at the normal pace in ms; the slow and the
+    fast pace are factors of it (`speed`: 1.3 and 0.75), except the times in `fixed` (a notice's: reading); the
+    manual pace is the normal one. `style` names the looks picked (the branch's tool reads it).
+  - **Calls by the caller** (SmallFx): a slanted dark panel over the caller's river, kept inside the table, the
+    word large at its foot; it slides in from the left by part of its width, slowing (`call_in`); the tile called
+    lifts off the river into the gap between the caller's tiles (`call_drop`); it stays (`call_hold`); the meld
+    flies to its place among the caller's melds (`call_out`). Kongs too (a concealed one of another's in backs; an
+    added one's fourth tile from above).
+  - **A computer player's pace**: `bot_turn` before its own turn, counted from the end of a moment or of the words;
+    `bot_after_call` after its own chow or pung; `bot_claim` before its call on a discard, and only then (a pause
+    whenever someone could call told the player so: lib/claims.ts othersCall); `rob_show`, the discard's stay before
+    a claim taken from the player.
+  - **A hand's end**: another's deal-in small by them (`dealin_*`), the player's own over the whole screen (the
+    table losing its color, dark at the top and clearer downwards, 放槍 sinking in with the tile: SadFx, `sad`);
+    the hands shown; a pause (`reveal`); each winner in turn over the whole screen: a win on a discard, a
+    self-draw, a flower win (the flowers; 七搶一's eighth from where it lies). An exhaustive draw: a pause
+    (`show_wait`), the hands shown, a pause, its moment. 天聽 and 地聽 over the whole screen, without a pause. The
+    player's own win: gold, with turning rays and sparks; another's self-draw or win on the player's discard: steel
+    blue, quieter; another's win on another's discard, and a draw: graphite (the player loses nothing).
+  - **A result's moment stops at 78%** (the light has run over the hand), its plaque and tiles still, the rays and
+    speed lines going on, till a tap; a tap before that lets all of the hand's end go. The result then comes at
+    once; with no moment (words alone) the table waits for a tap. ≫ 按一下以繼續 at the bottom right once the
+    result's moment starts. Practice, a review's branch, a table battle (its 90 s to be ready run from the hand's
+    end, as before). A review's hand's end: small by the player, × `review_end` (0.5); the player's own deal-in
+    shows its tile; the winner's name clear of the word.
+  - **The hand** stands to the left, the melds at the right end (the first at the far right, each after it to its
+    left: none moves when another comes). The player's own discard moves from the hand to the river
+    (`discard_move`) while the hand closes its gap (`hand_move`: the drawn tile to its place, the tiles between a
+    tile over). Moves from a river (a call's tile, a win's) are slow at both ends. A full-screen moment's tiles in
+    two lines when one would make them smaller than 34 px. 補花 by its seat's tiles (its flowers come in as before).
+  - Fixed: a practice game (or a review's branch) dealt while the last one's loop waited stalled (after 重新開始:
+    the dealer, a computer player, never played); with two moments in a row, what waited for them went on at the
+    first's end (the table told the moments over between them); a moment's words came after it at the manual pace.
 
 ## Built and checked
 

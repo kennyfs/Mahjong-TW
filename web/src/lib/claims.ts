@@ -7,8 +7,8 @@
 // Practice and a review's branch use it; a table battle's room decides claims its own way (server/).
 
 import * as engine from './engine';
-import { settings, type Speed } from './settings.svelte';
-import type { Action, GameRecord } from './types';
+import { ms } from './timing';
+import type { Action, GameRecord, View } from './types';
 
 export interface Preclaim {
   /** The game with the computer players' decisions on the tile (and, when taken from the player, the player's pass). */
@@ -20,8 +20,15 @@ export interface Preclaim {
 /** How long the tile a claim is taken on stays on the table before the claim's moment, ms, by the pace (the manual
  *  pace: until the player's tap; a branch, which has none, takes the middle one): the player sees what was discarded
  *  before it is taken. */
-const ROB_SHOW: Record<Speed, number> = { slow: 2400, normal: 1600, fast: 900, manual: 1600 };
-export const robPause = () => ROB_SHOW[settings.speed] ?? 1600;
+export const robPause = () => ms('rob_show');
+
+/** Whether a step of the game (its view, `before` events before it) is a computer player's call on another's tile (a
+ *  chow, a pung, a kong, a win): that one shows after the tile's stay (`bot_claim`); a step with none shows at once,
+ *  as there would be no pause where nobody could call, so that a pause never tells the player that someone could. */
+export function othersCall(view: View, before: number, me: number): boolean {
+  const fresh = view.events.slice(Math.max(0, view.events.length - (view.event_count - before)));
+  return fresh.some((e) => e.seat !== me && ['chi', 'pon', 'kan', 'ron'].includes(e.type));
+}
 
 /** Whether `seat`, to play now, came to it by a chow or a pung (since the last discard): its discard then follows the
  *  call's moment (or words) at once, without the pace of a turn of its own; the moment already showed what it took. */
@@ -34,15 +41,17 @@ export function justCalled(game: GameRecord, seat: number): boolean {
   return false;
 }
 
-/** null: nothing to decide first (the player's own turn, or the player is not to decide). */
-export async function preclaim(game: GameRecord, me: number, bots: (string | null)[], seed: string): Promise<Preclaim | null> {
+/** null: nothing to decide first (the player's own turn, or the player is not to decide). `decide`: a computer
+ *  player's answer from elsewhere (a scene of the tuning tool keeps to its record), else its bot's. */
+export async function preclaim(game: GameRecord, me: number, bots: (string | null)[], seed: string,
+  decide?: (g: GameRecord, seat: number) => Action | null): Promise<Preclaim | null> {
   const p = await engine.pending(game);
   if (p.phase === 'self' || p.phase === 'over' || !p.pending.includes(me)) return null;
   // Those still to decide (a branch from the player's decision may have the others' answers already in its record:
   // they are weighed the same).
   const others = p.pending.filter((s) => s !== me && bots[s]);
   // Each decides on the game as it stands (none sees another's answer), then the answers go in.
-  const answers = await Promise.all(others.map((s) => engine.bot(game, s, bots[s]!, `${seed}/${s}`)));
+  const answers = await Promise.all(others.map((s) => decide?.(game, s) ?? engine.bot(game, s, bots[s]!, `${seed}/${s}`)));
   let g = game;
   for (let i = 0; i < others.length; i++) g = await engine.act(g, others[i], answers[i]);
   // Nobody else claims (now or before): the player is asked.

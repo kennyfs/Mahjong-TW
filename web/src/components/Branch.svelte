@@ -15,14 +15,15 @@
   at the step the branch was taken from.
 -->
 <script lang="ts">
-  import { fxDone, fxOn } from '../lib/fx.svelte';
-  import { END_AFTER_FX } from '../lib/ui.svelte';
+  import { fxDone, fxOn, resultTap } from '../lib/fx.svelte';
+  import TapOn from './TapOn.svelte';
   import { untrack } from 'svelte';
   import { calloutsDone } from '../lib/callouts';
-  import { justCalled, preclaim, robbedEvent, robPause } from '../lib/claims';
+  import { justCalled, othersCall, preclaim, robbedEvent, robPause } from '../lib/claims';
   import * as engine from '../lib/engine';
   import { t } from '../lib/i18n.svelte';
-  import { PACE, settings } from '../lib/settings.svelte';
+  import { settings } from '../lib/settings.svelte';
+  import { ms } from '../lib/timing';
   import type { Action, GameRecord, View } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
   import HandResult from './HandResult.svelte';
@@ -49,7 +50,7 @@
   let showResult = $state(true);
   /** The computer players deciding first on a tile the player could claim (lib/claims.ts): no buttons meanwhile. */
   let deciding = $state(false);
-  /** The end: the table as it ended for a moment after the win's moment, before the result. */
+  /** The end: the table as it ended till the player's tap (TapOn.svelte), then the result. */
   let held = $state(false);
   const over = $derived(view?.phase === 'over');
   $effect(() => {
@@ -58,10 +59,10 @@
       return;
     }
     held = true;
+    // The result's moment was tapped on (Table.svelte): the result at once; else (words alone) till a tap.
     let alive = true;
-    let id: ReturnType<typeof setTimeout> | undefined;
-    void fxDone().then((was) => { if (alive) id = setTimeout(() => (held = false), was ? END_AFTER_FX : 0); });
-    return () => { alive = false; clearTimeout(id); };
+    void fxDone().then(() => { if (alive && resultTap.tapped) held = false; });
+    return () => { alive = false; };
   });
   /** A claim taken from the player: its event (Table's `robbed`). */
   let robbed = $state<number | null>(null);
@@ -106,16 +107,21 @@
   }
 
   /** The computer players, a decision point at a time, until the player decides or the hand is over. */
+  // (A loop of another epoch, waiting out a pace when the branch started again, ends at its next look: it holds back
+  // neither this one nor its state.)
   let running = false;
+  let loop = 0;
+  let loopEpoch = -1;
   async function run() {
-    if (running) return;
+    if (running && loopEpoch === epoch) return;
+    const my = ++loop;
     running = true;
     const e = epoch;
+    loopEpoch = e;
     try {
       while (game && e === epoch && cursor === game.actions.length) {
         const p = await engine.pending(game);
         if (p.phase === 'over') break;
-        const pace = PACE[settings.speed === 'manual' ? 'normal' : settings.speed];
         if (p.pending.includes(me)) {
           deciding = true;
           const shown = performance.now();
@@ -128,7 +134,8 @@
             break;
           }
           await calloutsDone();
-          await sleep(Math.max(0, robPause() - (performance.now() - shown)));
+          const left = Math.max(0, robPause() - (performance.now() - shown));
+          await sleep(left);
           if (e !== epoch || !game) break;
           const before = view?.event_count ?? 0;
           const v = await engine.view(pc.game, me);
@@ -141,23 +148,41 @@
           if (v.phase === 'over') final = await engine.view(game, me, 0, true);
           continue;
         }
-        await sleep(p.phase !== 'self' ? Math.min(250, pace / 2) : justCalled(game, p.current) ? 0 : pace);
+        // A computer player's turn at its pace; their answers to a tile: a call after the tile's stay, none at once
+        // (lib/claims.ts othersCall).
+        // (The pace counts once a call's moment or words are over.)
+        const claim = p.phase !== 'self';
         await calloutsDone();
         if (e !== epoch || !game) break;
+        if (!claim) {
+          const key = justCalled(game, p.current) ? 'bot_after_call' : 'bot_turn';
+          const pace = ms(key);
+          await sleep(pace);
+          if (e !== epoch || !game) break;
+        }
+        const before = view?.event_count ?? 0;
+        const from = performance.now();
         const g = await engine.advance(game, bots, `${seed}/${game.actions.length}`, 1);
         if (e !== epoch) break;
-        game = g;
-        cursor = g.actions.length;
         const v = await engine.view(g, me);
         if (e !== epoch) break;
+        if (claim && othersCall(v, before, me)) {
+          const left = Math.max(0, ms('bot_claim') - (performance.now() - from));
+          await sleep(left);
+          if (e !== epoch) break;
+        }
+        game = g;
+        cursor = g.actions.length;
         view = v;
         if (v.phase === 'over') final = await engine.view(g, me, 0, true);
       }
     } catch (x) {
       error = String((x as Error).message ?? x);
     } finally {
-      running = false;
-      deciding = false;
+      if (loop === my) {
+        running = false;
+        deciding = false;
+      }
     }
   }
 
@@ -223,6 +248,7 @@
       <Table {view} {me} {names} revealed={view.phase === 'over' ? (final?.hands ?? null) : null} interactive={!!view.my_turn && !deciding} {robbed}
         onact={act} maxHand={ui.desk ? 64 : 56}>
         {#snippet overlay()}
+          {#if over && (held || fxOn.on)}<TapOn onnext={() => (held = false)} />{/if}
           {#if sheet && final}
             <div class="sheet">
               <HandResult {final} {names} {me} rev={null} next={false} w={ui.wide ? Math.min(36, Math.max(24, ui.w / 30)) : Math.min(34, Math.max(24, ui.w / 13))}>

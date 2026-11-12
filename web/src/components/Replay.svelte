@@ -520,7 +520,7 @@
       <div class="table-wrap">
         {#if view}
           <Table {view} me={rec.me} {names} revealed={showAll || step === n ? (view.hands ?? null) : null} interactive={false}
-            maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)}>
+            maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} review>
             {#snippet overlay()}
               {#if step === n && final?.result && showResult && !fxOn.on}
                 <div class="sheet">

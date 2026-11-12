@@ -8,24 +8,27 @@
   import { FLOWER_SCALE, meldGaps } from '../lib/layout';
   import Tile from './Tile.svelte';
   import { scale } from 'svelte/transition';
-  let { melds, flowers = [], w, wrap = true, seat = -1, hide = -1 }: {
+  let { melds, flowers = [], w, wrap = true, seat = -1, hide = -1, reverse = false }: {
     melds: Meld[]; flowers?: string[]; w: number; wrap?: boolean; seat?: number; hide?: number;
+    /** From the right: the first at the right end, each after it to its left (the player's own, at the hand's right). */
+    reverse?: boolean;
   } = $props();
   const g = $derived(meldGaps(w));
 </script>
 
-<div class="melds" class:wrap style="gap: {g.row}px {g.col}px">
+<div class="melds" class:wrap class:reverse style="gap: {g.row}px {g.col}px">
   {#each melds as m, i (i + m.type)}
     <div class="meld" data-meld="{seat}-{i}" style:visibility={i === hide ? 'hidden' : null} in:scale={{ start: 1.4, duration: 260 }}>
       {#each meldTiles(m) as t, k}<Tile tile={t} {w} mark={m.type === 'chi' && !!m.called && k === 1} />{/each}
     </div>
   {/each}
-  {#each flowers as f (f)}<span class="flower" in:scale={{ start: 1.4, duration: 260 }}><Tile tile={f} w={w * FLOWER_SCALE} /></span>{/each}
+  {#each flowers as f (f)}<span class="flower" data-flower={f} in:scale={{ start: 1.4, duration: 260 }}><Tile tile={f} w={w * FLOWER_SCALE} /></span>{/each}
 </div>
 
 <style>
   .melds { display: flex; align-items: flex-end; }
   .melds.wrap { flex-wrap: wrap; }
+  .melds.reverse { flex-direction: row-reverse; }
   .meld { display: flex; gap: 0; }
   .flower { display: block; }
 </style>

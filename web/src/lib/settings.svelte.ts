@@ -11,8 +11,6 @@ export type Dark = 'SYSTEM' | 'LIGHT' | 'DARK';
 export type TextSize = 'SMALL' | 'NORMAL' | 'LARGE';
 
 export const TEXT_SCALE: Record<TextSize, number> = { SMALL: 0.88, NORMAL: 1, LARGE: 1.15 };
-/** A bot's pause before it plays, and before the next turn after a discard, in ms. */
-export const PACE: Record<Exclude<Speed, 'manual'>, number> = { slow: 1100, normal: 650, fast: 250 };
 
 /** The bots: the network (the engine's built-in one, playing the action it values most) and tile efficiency. */
 export const NET_BOT = 'net:model=/models/actor.onnx';

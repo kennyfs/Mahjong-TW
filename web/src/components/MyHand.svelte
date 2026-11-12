@@ -103,7 +103,7 @@
           style="margin-left: {isDrawn && row.length > 1 ? w * DRAWN_GAP : 0}px"
           onpointerdown={(e) => down(e, i)} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}
           in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0 }}
-          aria-pressed={selected === i}>
+          aria-pressed={selected === i} data-tile={all[i]} data-drawn={isDrawn ? '1' : '0'}>
           <span class="lifted" style="transform: translateY({drag?.i === i ? drag.dy : selected === i ? -lift : 0}px)">
             {#if marks?.get(all[i])?.tag}
               {@const m = marks.get(all[i])!}

@@ -6,9 +6,11 @@
   import type { Discard } from '../lib/types';
   import Tile from './Tile.svelte';
   import { fly } from 'svelte/transition';
-  let { discards, w, cols, rows = 0, last = false, claim = false, from = 'bottom', seat = -1 }: {
+  let { discards, w, cols, rows = 0, last = false, claim = false, from = 'bottom', seat = -1, still = false }: {
     discards: Discard[]; w: number; cols: number; rows?: number; last?: boolean; claim?: boolean;
     from?: 'bottom' | 'top' | 'left' | 'right'; seat?: number;
+    /** A new discard comes without its own move (the table moves it from the hand: Table.svelte flyDiscard). */
+    still?: boolean;
   } = $props();
   const fit = $derived(rows > 0 && discards.length > cols * rows ? Math.ceil(discards.length / rows) : cols);
   const tw = $derived((w * cols) / fit);
@@ -19,7 +21,7 @@
 <div class="river" data-river={seat} style="width: {cols * w}px; grid-template-columns: repeat({fit}, {tw}px)">
   {#each discards as d, i (i)}
     {@const end = i === discards.length - 1}
-    <span class="slot" class:claim={claim && end && !d.called} in:fly={{ x: dx * 1.5, y: dy * 1.5, duration: 220 }}>
+    <span class="slot" class:claim={claim && end && !d.called} in:fly={{ x: dx * 1.5, y: dy * 1.5, duration: still ? 0 : 220 }}>
       <Tile tile={d.tile} w={tw} dim={d.called} glow={last && end && !d.called} />
     </span>
   {/each}

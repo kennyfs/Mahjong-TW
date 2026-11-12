@@ -50,3 +50,8 @@ for (const [lang, dir] of Object.entries(DIRS)) {
 mkdirSync(join(root, 'src', 'generated'), { recursive: true });
 writeFileSync(join(root, 'src', 'generated', 'strings.json'), JSON.stringify(all) + '\n');
 console.log(`strings: ${Object.keys(zh).length} names, ${Object.keys(all).length} languages`);
+
+// The pace of the game (how long the computer players wait, the words stay, the moments last) is the app's too:
+// res/raw/timing.json, read as it is (src/lib/timing.ts).
+writeFileSync(join(root, 'src', 'generated', 'timing.json'), readFileSync(join(res, 'raw', 'timing.json'), 'utf8'));
+

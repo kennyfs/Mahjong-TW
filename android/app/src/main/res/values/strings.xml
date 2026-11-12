@@ -273,6 +273,7 @@
   <string name="record_hand_of">第 %1$d 局</string>
   <string name="replay_end">結果</string>
   <string name="replay_result">看結果</string>
+  <string name="tap_to_continue">按一下以繼續</string>
   <string name="replay_nothing">這一手沒有紀錄。</string>
   <string name="replay_pass">過</string>
   <string name="analysis_title_decision">分析：%1$s的決定</string>

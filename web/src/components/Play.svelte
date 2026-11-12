@@ -5,7 +5,7 @@
   review (and each decision's analysis) is a button on the result.
 -->
 <script lang="ts">
-  import { fxDone, fxOn } from '../lib/fx.svelte';
+  import { fxDone, fxOn, resultTap } from '../lib/fx.svelte';
   import { onMount } from 'svelte';
   import { t } from '../lib/i18n.svelte';
   import { nav } from '../lib/nav.svelte';
@@ -15,11 +15,12 @@
   import { settings } from '../lib/settings.svelte';
   import { windName } from '../lib/tiles';
   import type { Action } from '../lib/types';
-  import { END_AFTER_FX, END_PAUSE, signed, ui } from '../lib/ui.svelte';
+  import { signed, ui } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
   import Table from './Table.svelte';
+  import TapOn from './TapOn.svelte';
 
   let { onreview }: { onreview: (id: string) => void } = $props();
 
@@ -37,8 +38,8 @@
   const rulesChip = $derived(t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerLabel(settings.rules.flowers))));
   const lastFav = $derived(practice.lastRecord ? !!records.get(practice.lastRecord)?.fav : false);
   $effect(() => { if (stage === 'playing') hideResult = false; });
-  /** A hand's end: the table as it ended (every hand shown, the words of the win, 放槍 over who dealt in) for a moment
-   *  before the result; a tap goes on at once. Not for a result come back to. */
+  /** A hand's end: the result's moment waits for the player's tap (Table.svelte), then the result; without one (words
+   *  alone) the table as it ended waits for it (TapOn.svelte). Not for a result come back to. */
   let held = $state(false);
   let inPlay = false;
   $effect(() => {
@@ -50,19 +51,17 @@
     if (stage !== 'result' || !inPlay) return;
     inPlay = false;
     held = true;
-    if (settings.speed === 'manual') return;
-    // After a moment of the win, counted from its end (it showed the hand already); without one, from now.
+    // The result's moment was tapped on (Table.svelte): the result at once; else (words alone) till a tap.
     let alive = true;
-    let id: ReturnType<typeof setTimeout> | undefined;
-    void fxDone().then((was) => { if (alive) id = setTimeout(() => (held = false), was ? END_AFTER_FX : END_PAUSE); });
-    return () => { alive = false; clearTimeout(id); };
+    void fxDone().then(() => { if (alive && resultTap.tapped) held = false; });
+    return () => { alive = false; };
   });
 
   function act(a: Action) { void practice.act(a); }
-  /** The manual pace: the others' next step waits for the player; and so does the table at a hand's end. */
+  /** The manual pace: the others' next step waits for the player. */
   const manual = $derived(settings.speed === 'manual');
   const onnext = $derived(stage === 'playing' && practice.waiting ? () => practice.step()
-    : stage === 'result' && held && manual ? () => { held = false; } : null);
+    : null);
   const totals = $derived(meta?.totals ?? [0, 0, 0, 0]);
   const shown = $derived(stage !== 'playing' && final ? final : view);
 </script>
@@ -81,6 +80,8 @@
   {/if}
   <div class="table-wrap">
     {#if shown}
+      <!-- (Another game, a scene of the tuning tool: a table of its own, nothing of the last one's moments.) -->
+      {#key meta?.id}
       <Table view={shown} me={ME} {names} scores={totals} revealed={stage !== 'playing' ? final?.hands ?? null : null}
         interactive={stage === 'playing' && !practice.busy} onact={act} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64}
         keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined} robbed={practice.robbed}>
@@ -124,7 +125,7 @@
         {/snippet}
         {#snippet overlay()}
           {#if stage === 'result' && (held || fxOn.on)}
-            <button class="skip" aria-label={t('replay_result')} onclick={() => (held = false)}></button>
+            <TapOn onnext={() => (held = false)} />
           {:else if stage === 'result' && final?.result && !hideResult}
             <div class="sheet">
               <HandResult {final} {names} me={ME} rev={practice.lastRecord ? records.get(practice.lastRecord)?.rev ?? null : null} w={ui.wide ? Math.min(40, Math.max(26, ui.w / 27)) : Math.min(36, Math.max(26, ui.w / 13))}>
@@ -161,6 +162,7 @@
           {/if}
         {/snippet}
       </Table>
+      {/key}
     {:else}
       <div class="loading"><span class="spinner"></span></div>
     {/if}
@@ -188,7 +190,6 @@
   .corner-buttons { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
   .notice { display: inline-block; padding: 4px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.72); color: #fff; font-weight: 500;
     font-size: 0.9375rem; }
-  .skip { position: absolute; inset: 0; z-index: 5; border: none; background: transparent; cursor: pointer; }
   .table-wrap { flex: 1; min-height: 0; position: relative; }
   .sheet { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 12px;
     background: rgba(0, 0, 0, 0.35); }
