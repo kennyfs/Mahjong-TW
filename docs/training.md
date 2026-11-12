@@ -249,3 +249,38 @@ missing). Its parameters and why:
   of the arms had. Self-play waits when it is two iterations ahead of the newest network (`--ahead`).
 - Matches against network 0 every 20 networks (4,000 deals; about ten minutes in which nothing is played).
 
+
+### The run `s2` stopped improving (2026-11-12, networks 60 to 201)
+
+Eight hours and 142 iterations (14 million hands) of `s2` as above gave nothing that a match shows:
+
+- The matches of the loop (every 20 networks, 4,000 deals, one against three of the run's first network): +0.07
+  a hand at network 60 (the mean of the two rule sets), +0.10 at 80, and between +0.08 and +0.12 from then to 200
+  (standard errors 0.03 and 0.044). Against greedy the same picture.
+- Those matches play the action of the best Q from the event heads (`mode=q`, the player's default), not the policy
+  that self-play trains. So the policy's first choice was played too (`mode=policy`, 8,000 deals, one against three
+  of the first network by Q): +0.124 and +0.150 (`simple1,none`, `simple2,see`; ± 0.021 and 0.030) at network 60,
+  +0.136 and +0.210 at 100, +0.119 and +0.194 at 140, +0.105 and +0.221 at 201. Flat as well. The first network's
+  own policy against its own Q: +0.005 and −0.008.
+- Of network 201, one against three of itself by Q: the policy's first choice +0.038 ± 0.022 and +0.079 ± 0.030,
+  drawing from the policy −0.033 and −0.029; three by the policy against one by Q: the one by Q loses 0.011 and
+  gains 0.036 (nothing). So a player should take the policy's first choice (the app's computer players take Q's).
+- All the while `train1.py` reported the same on held-out hands: `fork_slope` 1.0 to 1.25, `critic_explains` 0.30
+  to 0.33, the policy 0.012 nats from the one that played, and `improve` 0.0011 to 0.0017 a decision, every
+  iteration.
+
+`python/is_improve.py` asks the hands themselves what a step gained: on the next iteration's hands, which the
+network was not trained on, the results weighted by π_K(a) / μ(a) say what network K's policy at one decision would
+have gained over the playing network's. On iteration 202 (600,000 decisions, played by network 201): network 200
+instead +0.0001 ± 0.00024, network 199 +0.0004 ± 0.00025, network 191 0.0000 ± 0.0004; on iteration 101 (played by
+99): network 90 +0.0006 ± 0.0004, network 60 +0.0009 ± 0.0009; on iteration 66 (by 64): network 55 +0.0006 ±
+0.0005. So a step gained nothing (the critic's `improve` of 0.0014 is six standard errors away), and ten steps
+gained nothing. The policies' distances say the same: 0.012 nats to the network before, 0.014 to the one before
+that, 0.034 to the one ten before. The policy moves about a point, each iteration toward that iteration's errors of
+the critic and back.
+
+What `improve` measures is the critic's opinion of the new policy, and the policy was moved toward that opinion; on
+held-out hands it is still the same critic. With 0.17 forks a hand, 3 decisions in 100 have a second action played
+out, so the critic's values of the actions not played are nearly all inferred, and a fork's check of them
+(`fork_slope`) is of actions drawn from the policy, not of the actions the step moves toward. The run `s1`, whose
+59 iterations did gain (+0.12 to +0.15 over the network of stage 0), had 1.5 forks a hand.
