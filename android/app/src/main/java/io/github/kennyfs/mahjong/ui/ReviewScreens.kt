@@ -611,7 +611,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         val v = view
         if (v == null) Loading()
         else TableView(
-          v, rec.me, names, revealed = if (showAll || step == n) v.hands else null, interactive = false, maxHand = 56f,
+          v, rec.me, names, revealed = if (showAll || step == n) v.hands else null, interactive = false, maxHand = 56f, review = true,
           marks = marks, notes = notes, strip = strip, onPick = { picked = it },
           overlay = {
             val f = final

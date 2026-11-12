@@ -47,6 +47,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -68,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import io.github.kennyfs.mahjong.AppModel
+import io.github.kennyfs.mahjong.FxClock
 import io.github.kennyfs.mahjong.R
 import io.github.kennyfs.mahjong.Rules
 import io.github.kennyfs.mahjong.Tiles
@@ -476,8 +478,10 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
   val handOver = table?.view?.result != null
   var hideResult by remember { mutableStateOf(false) }
   LaunchedEffect(handOver) { if (!handOver) hideResult = false }
-  // A hand's end: the table as it ended for a moment before the result; a tap goes on at once.
-  val (held, letGo) = endPause(handOver)
+  // A hand's end: the result's moment waits for the player's tap (TableView), then the result; without one (the words
+  // alone) the table as it ended waits for it (TapOn). The time to be ready runs from the hand's end all the same.
+  val (held, letGo) = endHold(handOver)
+  val fxOn by FxClock.on.collectAsState()
   var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
   LaunchedEffect(Unit) {
     while (true) {
@@ -531,7 +535,7 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
               MiniButton(stringResource(R.string.battle_leave), onLeave)
             }) else null,
             overlay = {
-              if (handOver && held) SkipPause(letGo)
+              if (handOver && (held || fxOn)) TapOn(letGo)
               else if (handOver && !hideResult) {
                 val side = short && room.phase == Phase.REVIEW && people.size > 1
                 val actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {

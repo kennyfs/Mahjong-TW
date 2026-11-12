@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.kennyfs.mahjong.AppModel
 import io.github.kennyfs.mahjong.Page
+import io.github.kennyfs.mahjong.FxClock
 import io.github.kennyfs.mahjong.Practice
 import io.github.kennyfs.mahjong.R
 import io.github.kennyfs.mahjong.Rules
@@ -73,15 +75,13 @@ fun PlayScreen(vm: AppModel) {
   val final = practice.final
   val stage = practice.stage
   LaunchedEffect(stage) { if (stage == Practice.Stage.PLAYING) hideResult = false }
-  // A hand's end: the table as it ended for a moment before the result; a tap goes on at once.
-  // At the manual pace the computer players' steps wait for the player's button, and so does the table at a hand's end.
+  // A hand's end: the result's moment waits for the player's tap (TableView), then the result; without one (the words
+  // alone) the table as it ended waits for it (TapOn). At the manual pace the computer players' steps wait for the
+  // player's button.
   val manual = settings.speed == Speed.MANUAL
-  val (held, letGo) = endPause(stage != Practice.Stage.PLAYING, stay = manual)
-  val onNext: (() -> Unit)? = when {
-    stage == Practice.Stage.PLAYING && practice.waiting -> ({ practice.step() })
-    stage == Practice.Stage.RESULT && held && manual -> letGo
-    else -> null
-  }
+  val (held, letGo) = endHold(stage != Practice.Stage.PLAYING)
+  val fxOn by FxClock.on.collectAsState()
+  val onNext: (() -> Unit)? = if (stage == Practice.Stage.PLAYING && practice.waiting) ({ practice.step() }) else null
   val notice = practice.notice
   val handLabel = meta?.let { stringResource(R.string.hand_n, it.hands + if (stage == Practice.Stage.PLAYING) 1 else 0) } ?: ""
   val chip = rulesChip(settings.rules.tai, settings.rules.flowers, settings.rules.overrides.isNotEmpty())
@@ -123,7 +123,7 @@ fun PlayScreen(vm: AppModel) {
           }) else null,
           overlay = {
             when {
-              stage == Practice.Stage.RESULT && held -> SkipPause(letGo)
+              stage == Practice.Stage.RESULT && (held || fxOn) -> TapOn(letGo)
               stage == Practice.Stage.RESULT && final?.result != null && !hideResult -> Sheet {
                 HandResultCard(final, names, Practice.ME, resultTileW(wide, w), rev = last?.rev, level = settings.level) {
                   IconButton(onClick = { practice.lastRecord?.let { vm.records.setFav(it, !lastFav) } }) {

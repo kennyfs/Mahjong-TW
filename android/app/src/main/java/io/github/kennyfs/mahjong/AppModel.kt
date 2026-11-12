@@ -24,11 +24,13 @@ enum class Page { RULES, REVIEW, GUIDE, ADVANCED }
 class AppModel(private val app: Application) : AndroidViewModel(app) {
   init {
     Engine.setup(app)
+    Timing.load(app)
   }
 
   val settings = Settings(app).also { s ->
-    CalloutClock.speedOf = { s.speed }
-    FxClock.enabled = { s.callFx == CallFxMode.anim }
+    Timing.speedOf = { s.speed }
+    // (Not with the system's animations off: the words alone, as the web page's reduced motion.)
+    FxClock.enabled = { s.callFx == CallFxMode.anim && android.animation.ValueAnimator.areAnimatorsEnabled() }
   }
   val records = Records(app)
   var error by mutableStateOf<String?>(null)

@@ -47,9 +47,9 @@ object Rules {
 }
 
 enum class Length { HAND, ROUND, GAME }
-/** The computer players' pace: a pause before each of their turns; MANUAL: each of their steps waits for the player
- *  (Practice.kt). */
-enum class Speed(val ms: Long) { SLOW(1100), NORMAL(650), FAST(250), MANUAL(0) }
+/** The computer players' pace (its times: Timing, res/raw/timing.json); MANUAL: each of their steps waits for the
+ *  player (Practice.kt). */
+enum class Speed { SLOW, NORMAL, FAST, MANUAL }
 enum class ColorStyle { TABLE, MINIMAL }
 enum class DarkMode { SYSTEM, LIGHT, DARK }
 enum class TextSize(val scale: Float) { SMALL(0.88f), NORMAL(1f), LARGE(1.15f) }

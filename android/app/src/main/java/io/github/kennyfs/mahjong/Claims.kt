@@ -20,9 +20,16 @@ object Claims {
   class Robbed(val seat: Int, val type: String, val options: List<String>)
   class Preclaim(val game: GameRecord, val robbed: Robbed?)
 
-  /** How long the tile a claim is taken on stays on the table before the claim's moment, ms, by the pace (the manual
-   *  pace: until the player's tap; a branch, which has none, takes the middle one). */
-  fun pauseMs(speed: Speed): Long = when (speed) { Speed.SLOW -> 2400L; Speed.FAST -> 900L; else -> 1600L }
+  /** How long the tile a claim is taken on stays on the table before the claim's moment, ms, by the pace (Timing; the
+   *  manual pace: until the player's tap; a branch, which has none, takes the normal one): the player sees what was
+   *  discarded before it is taken. */
+  fun robPause(): Long = Timing.ms("rob_show")
+
+  /** Whether a step of the game (its view, `before` events before it) is a computer player's call on another's tile (a
+   *  chow, a pung, a kong, a win): that one shows after the tile's stay (`bot_claim`); a step with none shows at once, as
+   *  there would be no pause where nobody could call, so that a pause never tells the player that someone could. */
+  fun othersCall(view: View, before: Int, me: Int): Boolean =
+    view.events.takeLast((view.eventCount - before).coerceIn(0, view.events.size)).any { it.seat != me && it.type in setOf("chi", "pon", "kan", "ron") }
 
   /** Whether `seat`, to play now, came to it by a chow or a pung (since the last discard): its discard then follows the
    *  call's moment (or words) at once, without the pace of a turn of its own; the moment already showed what it took. */

@@ -74,6 +74,13 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
 
   private var running = false
   private var epoch = 0
+  /** The loop running (`run`): its number and its game's epoch. One of a game gone (another dealt while it waited out a
+   *  pace or a moment) ends at its next look; it holds back neither another game's loop nor its state. (It held back
+   *  the new game's: after 重新開始 the dealer, a computer player, never played.) */
+  private var loop = 0
+  private var loopEpoch = -1
+  /** This game's loop is running. */
+  private val looping: Boolean get() = running && loopEpoch == epoch
   /** The step held (the game after it, and the player's view of it), for the game of this many actions. */
   private class Ahead(val from: Int, val game: GameRecord, val view: View, val robbed: Int = -1, val say: String? = null)
   private var ahead: Ahead? = null
@@ -84,6 +91,8 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   /** Another game or hand: nothing held from the last. */
   private fun reset() {
     epoch++
+    // (What the last game's loop waits for goes at once: it sees the game is gone.)
+    CalloutClock.release()
     ahead = null
     waiting = false
     claimed = null
@@ -104,7 +113,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     noticeJob?.cancel()
     notice = text
     if (text != null) noticeJob = scope.launch {
-      delay(NOTICE_MS)
+      delay(Timing.ms("notice"))
       notice = null
     }
   }
@@ -169,12 +178,14 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   }
 
   /** The bots decide, a decision point at a time, until the player must decide or the hand is over. Each bot's turn
-   *  waits the pace of the settings, and the words of a call (CalloutClock), so it can be followed; at the manual
-   *  pace, what shows waits for `step` (see the top). */
+   *  waits the pace of the settings (Timing), and the words or moment of a call (CalloutClock), so it can be followed;
+   *  at the manual pace, what shows waits for `step` (see the top). */
   private fun run() {
-    if (running) return
+    if (looping) return
+    val my = ++loop
     running = true
     val e = epoch
+    loopEpoch = e
     scope.launch {
       try {
         while (e == epoch) {
@@ -213,8 +224,9 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
               waiting = true
               break
             }
+            // The discard stays a while first (Claims.robPause, counted from when it showed), its words done.
             CalloutClock.done()
-            delay(maxOf(0L, Claims.pauseMs(settings.speed) - (android.os.SystemClock.uptimeMillis() - shown)))
+            delay(maxOf(0L, Claims.robPause() - (android.os.SystemClock.uptimeMillis() - shown)))
             if (e != epoch || game !== g) break
             robbed = at
             game = pc.game
@@ -243,15 +255,31 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
             continue
           }
           busy = true
-          // A bot's own turn takes the pace (but not the discard after its chow or pung: the moment showed it); deciding
-          // on a discard (nobody else may) takes a short beat.
-          delay(if (p.phase != "self") minOf(250L, settings.speed.ms / 2) else if (Claims.justCalled(g, p.current)) 0L else settings.speed.ms)
-          // A call's words (碰, 槓, 天聽) stay their time before the game goes on; a touch anywhere lets them go.
+          // A bot's own turn takes the pace (bot_turn; after its own chow or pung bot_after_call: the moment showed
+          // it). Deciding on a discard (nobody else may): a call shows after the tile's stay (bot_claim), no call at
+          // once (Claims.othersCall). The pace counts once a call's moment or words (碰, 槓, 天聽) are over (a touch
+          // anywhere lets them go).
+          val claim = p.phase != "self"
           CalloutClock.done()
           if (e != epoch || game == null) break
-          game = Engine.advance(g, bots, seed, 1)
+          if (!claim) {
+            delay(Timing.ms(if (Claims.justCalled(g, p.current)) "bot_after_call" else "bot_turn"))
+            if (e != epoch || game == null) break
+          }
+          val from = android.os.SystemClock.uptimeMillis()
+          val next = Engine.advance(g, bots, seed, 1)
+          var nextView: View? = null
+          if (claim) {
+            val v = Engine.view(next, ME)
+            if (e != epoch) break
+            if (Claims.othersCall(v, before, ME)) delay(maxOf(0L, Timing.ms("bot_claim") - (android.os.SystemClock.uptimeMillis() - from)))
+            nextView = v
+          }
+          // (Another game came meanwhile: this one's step is no more.)
+          if (e != epoch) break
+          game = next
           persist()
-          refresh()
+          if (nextView != null) view = nextView else refresh()
           if (claimed != null) {
             view?.let { sayOverridden(shownSince(it, before)) }
             claimed = null
@@ -260,8 +288,10 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
       } catch (ex: EngineException) {
         onError(ex.message ?: "")
       } finally {
-        busy = false
-        running = false
+        if (loop == my) {
+          busy = false
+          running = false
+        }
       }
     }
   }
@@ -270,7 +300,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   fun step() {
     val a = ahead ?: return
     val g = game ?: return
-    if (!waiting || running || a.from != g.actions.size) return
+    if (!waiting || looping || a.from != g.actions.size) return
     ahead = null
     waiting = false
     if (a.robbed >= 0) robbed = a.robbed
@@ -294,7 +324,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   fun act(action: Action) = scope.launch {
     val g = game ?: return@launch
     val v = view
-    if (v?.myTurn != true || running) return@launch
+    if (v?.myTurn != true || looping) return@launch
     say(null)
     // A call on another's tile may yet give way to a call that comes before it.
     claimed = if (v.phase != "self" && action.type != "pass") action.type else null
@@ -384,8 +414,6 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     const val ME = 0
     /** What shows on the table as a player's doing (a draw and a flower are not waited for). */
     private val SHOWN = setOf("discard", "chi", "pon", "kan", "ankan", "kakan", "declare", "tsumo", "ron", "flower_win")
-    /** A notice's time on the table, ms. */
-    private const val NOTICE_MS = 4500L
 
     private fun actionWord(type: String) = when (type) {
       "ron" -> R.string.act_ron

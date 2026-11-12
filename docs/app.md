@@ -240,16 +240,37 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     shows its tile; the winner's name clear of the word.
   - **The hand** stands to the left, the melds at the right end (the first at the far right, each after it to its
     left: none moves when another comes). The player's own discard moves from the hand to the river
-    (`discard_move`) while the hand closes its gap (`hand_move`: the drawn tile to its place, the tiles between a
-    tile over). Moves from a river (a call's tile, a win's) are slow at both ends. A full-screen moment's tiles in
+    (`discard_move`); once it is halfway there the hand closes its gap (`hand_move`: the drawn tile to its place, the
+    tiles between a tile over; the user's, after trying it). Moves from a river (a call's tile, a win's) are slow at
+    both ends. A full-screen moment's tiles in
     two lines when one would make them smaller than 34 px. 補花 by its seat's tiles (its flowers come in as before).
   - Fixed: a practice game (or a review's branch) dealt while the last one's loop waited stalled (after 重新開始:
     the dealer, a computer player, never played); with two moments in a row, what waited for them went on at the
     first's end (the table told the moments over between them); a moment's words came after it at the manual pace.
+  - **The app** alike: Timing.kt reads the pace (Speed keeps no times of its own). ui/Moments.kt: the moments
+    (FxHost: the queue, the stop at 78% and the tap; FxOverlay draws them over the whole window, and ≫
+    按一下以繼續 at the table's bottom right), ui/SmallFx.kt, ui/SadFx.kt (the table's color taken by a Saturation
+    blend over the window where Android 10 and up can, and darker), ui/CallFx.kt; TableView turns the events into
+    words and moments (TableEvents) and times them (MomentsClock); ui/HandMotion.kt moves the hand (armed as the
+    view with the discard is composed, before it is laid out: the tiles' places before are still known; each tile and
+    the river's new tile move as they are placed); while the discard flies, the parts of the table that hold the
+    river are drawn over the hand (overWhileFlying), and the hand's moving tiles over the ones that stay, as on the
+    page. With the system's animations off the words alone (as the page's reduced motion). Practice's and the
+    branch's loops by number, as the page's.
 
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.7.0.apk` (2026-11-13): 0.7.0 above, network 211. Its debug twin on the emulator, sideways, with
+    the system's animations on (the emulator's script turns them off): two practice hands played by a script, the
+    player pung and chowing where it could; at each hand's end the result's moment stopped at 78% with ≫
+    按一下以繼續, and one tap brought the result; no crash. The screen recorded and looked at frame by frame: a
+    pung's panel over the player's river, its meld landing at the right end; the player's discards, the drawn tile
+    and tiles from the middle of the hand (the hand moving once the tile was halfway). What the frames showed and
+    was put right: the discard went under the hand's tiles as it left them, and the drawn tile under the tiles it
+    passed on its way to its place. The release build as its x86_64 twin (`MAHJONG_ABIS=x86_64`, not kept): it
+    started, played on and took a discard, no crash; the arm64 APK itself was not run. Upright not looked at. The
+    page: built, `svelte-check` clean (the halfway move not looked at in a browser).
   - `apk/mahjong-0.6.0.apk` (2026-11-12 evening): 0.6.0 above, network 211. Its debug twin on the emulator, with
     practice hands made by hand (the dealer's first discard 5m; the player may chow or pung it, another may pung or
     win on it): a chow taken by a pung, a pung taken by a win (the greedy bot), the player's own chow (its meld

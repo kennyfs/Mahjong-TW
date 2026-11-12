@@ -299,8 +299,8 @@
     return holds(c) ? later(() => holdMoment(c), c.ms * HOLD_AT) : later(() => momentDone(c.id), c.ms);
   });
   // ---- The player's discard: from where it stood in the hand to its place in the river; and the hand closing the
-  // gap it left (the drawn tile to its place, the tiles between it and the gap a tile's width over). Slow at both
-  // ends. ----
+  // gap it left (the drawn tile to its place, the tiles between it and the gap a tile's width over) once the discard is
+  // halfway there. Slow at both ends. ----
   /** The hand's tiles where they stood before the view changed (the discard is gone from it after). */
   let handRects: { tile: string; drawn: boolean; r: DOMRect }[] = [];
   $effect.pre(() => {
@@ -321,6 +321,8 @@
       const left = new Map<string, DOMRect[]>();
       for (const h of before) left.set(h.tile, [...(left.get(h.tile) ?? []), h.r]);
       const hm = ms('hand_move');
+      // (They wait where they stood till the discard is halfway.)
+      const wait = Math.round(ms('discard_move') / 2);
       let moved = false;
       for (const el of tableEl?.querySelectorAll<HTMLElement>('.me [data-tile]') ?? []) {
         const r0 = left.get(el.dataset.tile!)?.shift();
@@ -329,7 +331,8 @@
         const dx = r0.left - r1.left, dy = r0.top - r1.top;
         if (Math.abs(dx) + Math.abs(dy) < 1) continue;
         moved = true;
-        el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: hm, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', fill: 'backwards' });
+        el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+          { duration: hm, delay: wait, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', fill: 'backwards' });
       }
       const el = tableEl?.querySelector<HTMLElement>(`[data-river="${me}"] > :last-child`);
       if (!el) return;

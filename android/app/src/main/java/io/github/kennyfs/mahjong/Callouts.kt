@@ -6,32 +6,26 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * The words over the players (ui/TableView.kt: a call, a win, a flower): how long they stay, and waiting for them.
- * The computer players of a practice game wait for a call's words before they go on, so that it can be followed; a
- * touch anywhere (MainActivity) lets the words go at once, and whoever waited goes on. The web page's lib/callouts.ts.
+ * The words over the players (ui/TableView.kt: a call, a win, a flower) and the moments (ui/Moments.kt): how long they
+ * stay, and waiting for them. The computer players of a practice game wait for a call's words or moment before they go
+ * on, so that it can be followed; a touch anywhere (MainActivity) lets them go at once, and whoever waited goes on. The
+ * web page's lib/callouts.ts.
  */
 object CalloutClock {
-  /** The pace of the settings (AppModel sets it): the words' times follow it. */
-  var speedOf: () -> Speed = { Speed.NORMAL }
-
   /** A call's, a declaration's or a win's words, ms (the manual pace keeps them until the next touch; this is how long
    *  they stay where nothing waits for the player). */
-  fun callMs(): Long = when (speedOf()) { Speed.SLOW -> 2000L; Speed.FAST -> 1000L; else -> 1500L }
+  fun callMs(): Long = Timing.ms("words_call")
 
-  /** A flower's (there are many, and nothing is decided): brief, and nothing waits for them. */
-  fun flowerMs(): Long = when (speedOf()) { Speed.SLOW -> 900L; Speed.FAST -> 500L; else -> 700L }
+  /** A flower's (there are many, and nothing is decided): nothing waits for them. */
+  fun flowerMs(): Long = Timing.ms("words_flower")
 
-  /** A chow's, a pung's or a win's moment (ui/CallFx.kt): three and a half times the words' (the user found the
-   *  words' time too short for it), and waited for as they are. */
-  fun fxMs(): Long = callMs() * 7 / 2
-
-  /** When the words that are waited for end (SystemClock.uptimeMillis), 0 when none are up. */
+  /** When the words or moments that are waited for end (SystemClock.uptimeMillis), 0 when none are up. */
   private val until = MutableStateFlow(0L)
 
-  /** The touches that let the words go: the table drops its words when this changes. */
+  /** The touches that let the words go: the table drops its words (and its moments) when this changes. */
   val skips = MutableStateFlow(0)
 
-  /** Words went up for `ms`, to be waited for. */
+  /** Words or moments went up for `ms`, to be waited for. */
   fun shown(ms: Long) {
     until.value = maxOf(until.value, SystemClock.uptimeMillis() + ms)
   }
@@ -40,6 +34,11 @@ object CalloutClock {
   fun skip() {
     until.value = 0L
     skips.value += 1
+  }
+
+  /** Whoever waits goes on now (another game: the last one's loop sees it is gone), the words left as they are. */
+  fun release() {
+    until.value = 0L
   }
 
   /** Returns when no words that are waited for are up: at once when there are none. */
@@ -55,14 +54,25 @@ object CalloutClock {
 }
 
 /**
- * Whether a call's or a win's moment (ui/CallFx.kt, started by the table) is on the screen: a hand's result waits for
- * it to end before it shows, and the hold of the table as it ended (END_AFTER_FX) counts from its end. The web page's
+ * Whether the table's moments (ui/Moments.kt) are on the screen: a hand's result waits for them to end before it shows,
+ * so that the two never cover each other; the table as it ended then waits for a tap (ui/TapOn). The web page's
  * lib/fx.svelte.ts.
  */
 object FxClock {
+  /** A moment is up (from when the first of a run comes till the last goes: not between two). */
   val on = MutableStateFlow(false)
 
-  /** Whether the settings show the moments (AppModel sets it); otherwise the words alone. */
+  /** A hand's result over the whole screen (a win, a draw) is up now: it stops for the player's tap. */
+  val resultOn = MutableStateFlow(false)
+
+  /** The result's moment was tapped on (or let go): the result comes after it at once; else (words alone) the table
+   *  waits for a tap. Set again for each hand's end. */
+  @Volatile var tapped = false
+
+  /** The touch going on began over a moment (MainActivity, before the touch lets it go): it only let the moment go. */
+  @Volatile var downOverFx = false
+
+  /** Whether the moments show (AppModel sets it: the settings, and the system's animations); otherwise the words. */
   var enabled: () -> Boolean = { true }
 
   /** How long a change may take to start its moment (the table's next composition: slow on a slow phone), ms. */

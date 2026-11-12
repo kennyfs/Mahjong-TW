@@ -102,9 +102,14 @@ private val TABS = listOf(
 )
 
 class MainActivity : ComponentActivity() {
-  /** A touch anywhere lets the words over the players go (CalloutClock); it still does what it was for. */
+  /** A touch anywhere lets the words over the players and the moments go (CalloutClock; a result's moment stopped for the
+   *  touch goes on); it still does what it was for, but where it began over a moment (FxClock.downOverFx: the table's
+   *  tap to go on at a hand's end). */
   override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-    if (ev.actionMasked == MotionEvent.ACTION_DOWN) CalloutClock.skip()
+    if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+      FxClock.downOverFx = FxClock.on.value
+      CalloutClock.skip()
+    }
     return super.dispatchTouchEvent(ev)
   }
 

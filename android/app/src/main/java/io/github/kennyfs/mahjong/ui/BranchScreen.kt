@@ -65,7 +65,7 @@ import io.github.kennyfs.mahjong.EngineJson
 import io.github.kennyfs.mahjong.FxClock
 import io.github.kennyfs.mahjong.GameRecord
 import io.github.kennyfs.mahjong.R
-import io.github.kennyfs.mahjong.Speed
+import io.github.kennyfs.mahjong.Timing
 import io.github.kennyfs.mahjong.View
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -89,8 +89,7 @@ import kotlinx.serialization.json.put
  * 下一步 goes forward again over what was played. The seed stays for as long as the branch does; only a new branch
  * (or turning 重洗 on or off) deals with another. Back, or the end, returns to the review at the step it was taken from.
  */
-class BranchRun(private val scope: CoroutineScope, private val source: GameRecord, val me: Int, private val bot: () -> String,
-  private val speed: () -> Speed) {
+class BranchRun(private val scope: CoroutineScope, private val source: GameRecord, val me: Int, private val bot: () -> String) {
   var reshuffle by mutableStateOf(false)
   var seed by mutableStateOf(newSeed())
   var game by mutableStateOf<GameRecord?>(null)
@@ -105,7 +104,11 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
   /** A claim taken from the player: its event (TableView's `robbed`). */
   var robbed by mutableIntStateOf(-1)
   private var epoch = 0
+  /** The computer players' loop (`run`): its number and its epoch. One of another epoch (waiting out a pace when the
+   *  branch started again) ends at its next look: it holds back neither this one nor its state. */
   private var running = false
+  private var loop = 0
+  private var loopEpoch = -1
 
   private val root: GameRecord get() = if (!reshuffle) source else GameRecord(
     source.rules, source.setup, actions = emptyList(),
@@ -116,7 +119,6 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
     },
   )
   val start: Int get() = if (reshuffle) 0 else source.actions.size
-  private val pace: Speed get() = speed().let { if (it == Speed.MANUAL) Speed.NORMAL else it }
   private fun bots() = (0..3).map { if (it == me) null else bot() }
 
   /** From the decision again (the first time, 從分支點再打一次, or 重洗 turned on or off). */
@@ -162,9 +164,11 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
 
   /** The computer players, a decision point at a time, until the player decides or the hand is over. */
   private fun run() {
-    if (running) return
+    if (running && loopEpoch == epoch) return
+    val my = ++loop
     running = true
     val e = epoch
+    loopEpoch = e
     scope.launch {
       try {
         while (e == epoch) {
@@ -187,7 +191,7 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
               break
             }
             CalloutClock.done()
-            delay(maxOf(0L, Claims.pauseMs(pace) - (android.os.SystemClock.uptimeMillis() - shown)))
+            delay(maxOf(0L, Claims.robPause() - (android.os.SystemClock.uptimeMillis() - shown)))
             if (e != epoch) break
             val before = view?.eventCount ?: 0
             val v = Engine.view(pc.game, me)
@@ -200,23 +204,37 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
             if (v.phase == "over") final = Engine.view(pc.game, me, 0, reveal = true)
             continue
           }
-          delay(if (p.phase != "self") minOf(250L, pace.ms / 2) else if (Claims.justCalled(g, p.current)) 0L else pace.ms)
+          // A computer player's turn at its pace (Timing; the manual pace: the normal one), counted once a call's moment
+          // or words are over; their answers to a tile: a call after the tile's stay, none at once (Claims.othersCall).
+          val claim = p.phase != "self"
           CalloutClock.done()
           if (e != epoch) break
+          if (!claim) {
+            delay(Timing.ms(if (Claims.justCalled(g, p.current)) "bot_after_call" else "bot_turn"))
+            if (e != epoch) break
+          }
+          val before = view?.eventCount ?: 0
+          val from = android.os.SystemClock.uptimeMillis()
           val next = Engine.advance(g, bots, seedNow, 1)
           if (e != epoch) break
-          game = next
-          cursor = next.actions.size
           val v = Engine.view(next, me)
           if (e != epoch) break
+          if (claim && Claims.othersCall(v, before, me)) {
+            delay(maxOf(0L, Timing.ms("bot_claim") - (android.os.SystemClock.uptimeMillis() - from)))
+            if (e != epoch) break
+          }
+          game = next
+          cursor = next.actions.size
           view = v
           if (v.phase == "over") final = Engine.view(next, me, 0, reveal = true)
         }
       } catch (x: EngineException) {
         error = x.message ?: ""
       } finally {
-        running = false
-        deciding = false
+        if (loop == my) {
+          running = false
+          deciding = false
+        }
       }
     }
   }
@@ -297,7 +315,7 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
 fun BranchScreen(vm: AppModel, source: GameRecord, me: Int, names: List<String>, onClose: () -> Unit) {
   val scope = rememberCoroutineScope()
   val settings = vm.settings
-  val b = remember(source) { BranchRun(scope, source, me, { settings.bot }, { settings.speed }) }
+  val b = remember(source) { BranchRun(scope, source, me) { settings.bot } }
   LaunchedEffect(b) { b.restart() }
   val close = {
     b.close()
@@ -307,17 +325,9 @@ fun BranchScreen(vm: AppModel, source: GameRecord, me: Int, names: List<String>,
   val view = b.view
   val final = b.final
   val over = view?.phase == "over"
-  // The end: the table as it ended for a moment after the win's moment, before the result.
-  var held by remember { mutableStateOf(false) }
-  LaunchedEffect(over) {
-    if (!over) {
-      held = false
-      return@LaunchedEffect
-    }
-    held = true
-    if (FxClock.done()) delay(END_AFTER_FX)
-    held = false
-  }
+  // The end: the result's moment waits for the player's tap (TableView), then the result; without one (the words
+  // alone) the table as it ended waits for it (TapOn).
+  val (held, letGo) = endHold(over)
   val fxOn by FxClock.on.collectAsState()
   val sheet = over && final?.result != null && b.showResult && !fxOn && !held
   val cs = MaterialTheme.colorScheme
@@ -339,6 +349,7 @@ fun BranchScreen(vm: AppModel, source: GameRecord, me: Int, names: List<String>,
           view, me, names, revealed = if (over) final?.hands else null, interactive = view.myTurn && !b.deciding, onAct = { b.act(it) },
           maxHand = 56f, robbed = b.robbed,
           overlay = {
+            if (over && (held || fxOn)) TapOn(letGo)
             if (sheet && final != null) Sheet {
               HandResultCard(final, names, me, resultTileW(side, w), next = false) {
                 TextButton(onClick = { b.showResult = false }) { Text(stringResource(R.string.result_hands)) }
