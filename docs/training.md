@@ -284,3 +284,24 @@ held-out hands it is still the same critic. With 0.17 forks a hand, 3 decisions 
 out, so the critic's values of the actions not played are nearly all inferred, and a fork's check of them
 (`fork_slope`) is of actions drawn from the policy, not of the actions the step moves toward. The run `s1`, whose
 59 iterations did gain (+0.12 to +0.15 over the network of stage 0), had 1.5 forks a hand.
+
+More forks alone did not change it. From iteration 203 `s2` played 1.5 forks a hand again (189 hands a second a
+machine, 100,000 hands in four and a half minutes). The held-out reports moved a little (`fork_explains` 0.11 to
+0.16 where it was about 0.10, 1,500 forks to judge by in place of 160; the policy's entropy from 0.86 to 0.82 in
+nine iterations, after 140 iterations without a trend), and `improve` stayed 0.0012 to 0.0021. On iteration 209
+(played by network 207): network 206 instead −0.0001 ± 0.00023, network 202 (five steps back, the last of 0.17
+forks) 0.0000 ± 0.00035. The run was stopped at network 211 (2026-11-12 11:30; both sides start again where they were): as it is set up it does not get
+stronger, and it kept two workstations and the GPU busy.
+
+What is known and not:
+
+- Not known: whether this is the method's fixed point or as well as these inputs and this size can play. The
+  policy's first choice beats drawing from it by about 0.1 a hand, so the policy that plays the hands is far from
+  what the same network plays best, and a one-step change of it toward any of its neighbours gains nothing.
+- The critic's `improve` cannot be trusted as it is computed, and neither can `fork_slope` vouch for it. The next
+  thing to find out is where the two part: on forks, the realized difference against the predicted one weighted by
+  how far the step moved the policy toward the other action (the direction of the step, not a draw from the
+  policy).
+- `is_improve.py` makes a variant cheap to judge: ten iterations and one more to measure on, to about 0.0004 a
+  decision, where a match of 8,000 deals cannot see 140 iterations. A larger actor or critic, a lower learning
+  rate, a smaller entropy bonus or targets from playouts would each be judged that way.
