@@ -183,6 +183,12 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.5.0.apk` (2026-11-12 afternoon): 0.5.0 above, network 211. Its debug twin on the emulator:
+    `bin/check_melds.py` (6 practice hands, 70 looks at a seat with two melds or more, none short; the old layout
+    built for comparison: 46 looks short in 3 hands, as the user's screenshots), the records' share sheet, the file
+    saved to Downloads and read back (8 hands, each with its whole game), 分數歸零 (東風圈第 1 局, ±0). The page:
+    built, `svelte-check` clean, the records' end and 分數歸零 in Firefox, and `shots-battle.py` (two browsers, a
+    table game and a contest on a local server, one reloading mid-contest) passed (`shots/web-battle-050/`).
   - `apk/mahjong-0.4.1.apk` (2026-11-12): 0.4.0 with network 211 of the run `s2` in place of iteration 50 of `s1`
     (`models/actor_s2_211.fp16.onnx`; the page's `engine-files/actor.onnx` too). Its predictions are a little
     better and its play is no stronger that a match shows (docs/training.md; the float16 file, one against three of
