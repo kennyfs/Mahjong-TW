@@ -112,6 +112,11 @@ class Records {
     save(KEYS.battles, this.battles);
   }
 
+  /** Every record, as a file to hand on (to find a bug in a hand played): the app's form (Records.kt). */
+  exportText(): string {
+    return JSON.stringify({ app: 'mahjong-tw', version: 'web', time: new Date().toISOString(), hands: this.hands, battles: this.battles });
+  }
+
   get(id: string): HandRecord | undefined {
     return this.hands.find((h) => h.id === id);
   }

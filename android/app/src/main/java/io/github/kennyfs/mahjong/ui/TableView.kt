@@ -128,8 +128,8 @@ private class Shown(val counts: List<Int>, val flowers: Int, val concealed: Int)
  * screen's `corner` (its buttons) in its top-right one, nothing between the rivers; a tall one has them in a box
  * between the rivers. Sizes from TableLayout (the web page's Table.svelte, the same arithmetic).
  *
- * The player's turn to discard: the hand in a pulsing frame of the turn's color, and with no tile drawn (the dealer's
- * first discard, after a call) its last tile set apart as a drawn one is. A discard the player may claim stands out in
+ * The player's turn to discard: the hand in a pulsing frame of the turn's color; with no tile drawn (the dealer's
+ * first discard, after a call) no tile is set apart (the frame says whose turn it is). A discard the player may claim stands out in
  * its river (larger, pulsing), and the claim buttons show their tiles large, the claimed one lit. A wide table's own
  * flowers lie over the hand, above the player's name plate (in the hand's row they took its room: a drawn tile was
  * squeezed small).
@@ -223,7 +223,10 @@ fun TableView(
     fun oppW(side: Side, seat: Int): Float {
       val o = shownOf(seat)
       if (!s.wide) {
-        if (revealed == null) return fitMelds(o.counts, o.flowers, s.sideW - 8, OPP_LINES, s.opp)
+        // Smaller also where the lines would not fit under the name plate: a FlowRow leaves out what does not fit
+        // (a second meld went missing under a plate of two lines).
+        if (revealed == null) return minOf(fitMelds(o.counts, o.flowers, s.sideW - 8, OPP_LINES, s.opp),
+          fitShown(o.counts, o.flowers, 0, s.sideW - 8, s.topH - plateH(side) - 12, s.opp))
         return fitShown(o.counts, o.flowers, o.concealed, s.sideW - 9, s.topH - plateH(side) - 12, s.opp)
       }
       // Wide: the concealed tiles' backs, when they are not shown, take their room first.
@@ -246,14 +249,12 @@ fun TableView(
       }
       seat
     }
-    // The player's tiles: the drawn one apart. With none drawn on the player's turn to discard (the dealer's first
-    // discard, after a call), the last one apart as a drawn one is: the hand says whose turn it is.
+    // The player's tiles: the drawn one apart. None drawn (the dealer's first discard, after a call): none apart.
     val all = if (revealed != null) Tiles.parse(revealed[me]) else Tiles.parse(pos.hand)
     val reallyDrawn = if (revealed == null && pos.drawn != null && view.phase == "self" && view.current == me) pos.drawn else null
     val sorted = Tiles.sort(if (reallyDrawn != null) Tiles.without(all, listOf(reallyDrawn)) else all)
-    val apart = revealed == null && reallyDrawn == null && view.phase == "self" && view.current == me && sorted.size % 3 == 2
-    val mine = if (apart) sorted.dropLast(1) else sorted
-    val drawn = reallyDrawn ?: if (apart) sorted.last() else null
+    val mine = sorted
+    val drawn = reallyDrawn
     val discardable = if (interactive && view.myTurn) view.legal.filter { it.type == "discard" }.mapNotNull { it.tile }.toSet() else emptySet()
     val claims = if (interactive && view.myTurn) view.legal.filter { it.type != "discard" } else emptyList()
     /** The player's turn to discard: the hand's frame pulses. */
@@ -291,7 +292,7 @@ fun TableView(
       val shown = revealed?.get(seat)?.let { Tiles.sort(Tiles.parse(it)) }
       val count = if (s.back == 0f && revealed == null) hidden else null
       if (s.wide && side == Side.TOP) {
-        Row(mod.padding(start = (6 + padL).d, end = (6 + padR).d, top = 4.dp, bottom = 4.dp),
+        Row(mod.testTag("seat_$seat").padding(start = (6 + padL).d, end = (6 + padR).d, top = 4.dp, bottom = 4.dp),
           horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
           Box(measured(side)) { badge(seat, count) }
           Row(horizontalArrangement = Arrangement.spacedBy(RACK_GAP_ROW.d), verticalAlignment = Alignment.Bottom) {
@@ -303,9 +304,10 @@ fun TableView(
         return
       }
       val end = s.wide && side == Side.RIGHT
+      // A test tag: what a seat shows (its name plate's count, its melds) is checked by scripts on a device.
       Column(
-        if (s.wide) mod.padding(start = 6.dp, end = 6.dp, top = (4 + if (end) belowR else belowL).d, bottom = (4 + if (end) cornerR else cornerH).d)
-        else mod.padding(horizontal = 4.dp, vertical = 4.dp),
+        if (s.wide) mod.testTag("seat_$seat").padding(start = 6.dp, end = 6.dp, top = (4 + if (end) belowR else belowL).d, bottom = (4 + if (end) cornerR else cornerH).d)
+        else mod.testTag("seat_$seat").padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalAlignment = if (!s.wide) Alignment.CenterHorizontally else if (end) Alignment.End else Alignment.Start,
         verticalArrangement = if (s.wide) Arrangement.spacedBy(4.dp, Alignment.CenterVertically) else Arrangement.spacedBy(4.dp),
       ) {
@@ -378,7 +380,7 @@ fun TableView(
             Row(Modifier.height(meH.d).fillMaxWidth().tourAnchor("hand").padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
               horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.Bottom) {
               Melds(pos.players[me].melds, emptyList(), snap(myMeldW), wrap = false)
-              MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, apart = apart)
+              MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn)
             }
           }
           Column(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 2).d).widthIn(max = (s.sideW - 12).d).then(measured(Side.BOTTOM)),
@@ -419,7 +421,7 @@ fun TableView(
                 Box(Modifier.align(Alignment.CenterVertically).then(measured(Side.BOTTOM))) { badge(me, null) }
                 Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = true)
               }
-              MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, apart = apart)
+              MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn)
             }
           }
           if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 4).d)) { status() }
@@ -602,14 +604,12 @@ fun pulse(ms: Int): Float {
  * The player's concealed tiles, the drawn one apart at the end. On the player's turn a tap lifts a tile and a second
  * tap discards it; a tile dragged upwards is discarded when let go. `perRow`: tiles a row (an upright phone), 0 one row.
  * `turn`: the player's turn to discard: a frame of the turn's color pulses around the tiles, and a tile that may not
- * be discarded then (after declaring a ready hand) is darker. `apart`: the tile set apart (`drawn`) was not drawn (the
- * dealer's first discard, after a call).
+ * be discarded then (after declaring a ready hand) is darker.
  */
 @Composable
 fun MyHand(
   tiles: List<String>, drawn: String?, w: Float, perRow: Int, discardable: Set<String>, onDiscard: (String) -> Unit,
   selected: Int?, onSelect: (Int?) -> Unit, marks: Map<String, TileMark>? = null, tagH: Float = 0f, turn: Boolean = false,
-  apart: Boolean = false,
 ) {
   val highlight = LocalTable.current.highlight
   val glow = if (turn) pulse(1100) else 0f

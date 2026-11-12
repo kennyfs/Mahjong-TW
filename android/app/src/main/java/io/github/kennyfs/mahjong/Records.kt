@@ -74,6 +74,12 @@ data class BattleGroup(
   val fav: Boolean = false,
 )
 
+/** The records as exported (the records page's share and save buttons): the same on the web page. */
+@Serializable
+data class ExportedRecords(
+  val app: String, val version: String, val time: String, val hands: List<HandRecord>, val battles: List<BattleGroup>,
+)
+
 @Serializable
 private data class StoredRecords(val hands: List<HandRecord> = emptyList(), val battles: List<BattleGroup> = emptyList())
 
@@ -124,6 +130,10 @@ class Records(context: Context) {
     battles = battles.filter { it.fav || it.id in keep }
     persist()
   }
+
+  /** Every record, as a file to hand on (to find a bug in a hand played). */
+  fun exportText(version: String): String =
+    EngineJson.encodeToString(ExportedRecords("mahjong-tw", version, Instant.now().toString(), hands, battles))
 
   fun get(id: String) = hands.firstOrNull { it.id == id }
 

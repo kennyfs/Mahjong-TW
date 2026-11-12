@@ -11,8 +11,7 @@
   figures) is not lifted: its tag would run into the row above; its face and frame say it is chosen.
   `turn`: the player's turn to discard: a frame of the turn's color pulses around the tiles, and a tile that may not
   be discarded then (after declaring a ready hand: all but those that keep it ready, later all but the one drawn) is
-  darker. `apart`: the tile set
-  apart (`drawn`) was not drawn (the dealer's first discard, after a call): it slides aside instead of coming down.
+  darker.
 
   A tile's touch target is its own place, whether the tile is lifted or not, and while it is lifted the room over it
   too: the second tap lands where the first did (a thumb at the tile's foot) or on the tile where it now is. (A
@@ -26,10 +25,10 @@
   import type { TileMark } from '../lib/review';
   import type { Tile as T } from '../lib/tiles';
   let { tiles, drawn = null, w, canDiscard = () => false, ondiscard, selected = $bindable(null), perRow = 0, oneClick = false,
-    marks = null, tagH = 0, turn = false, apart = false }: {
+    marks = null, tagH = 0, turn = false }: {
     tiles: T[]; drawn?: T | null; w: number; canDiscard?: (t: T) => boolean; ondiscard?: (t: T) => void;
     selected?: number | null; perRow?: number; oneClick?: boolean; marks?: Map<T, TileMark> | null; tagH?: number;
-    turn?: boolean; apart?: boolean;
+    turn?: boolean;
   } = $props();
 
   // The drawn tile last, as its own index.
@@ -97,12 +96,12 @@
   --top: {Math.max(h * LIFT, tagH)}px; {blockW ? `width: ${blockW}px` : ''}">
   {#each rows as row, r (r)}
     <div class="row" style="height: {h}px">
-      {#each row as i (i + '/' + all[i] + (drawn && i === tiles.length ? (apart ? '/a' : '/d') : ''))}
+      {#each row as i (i + '/' + all[i] + (drawn && i === tiles.length ? '/d' : ''))}
         {@const isDrawn = !!drawn && i === tiles.length}
         <button class="slot" class:up={selected === i} class:hover={oneClick && canDiscard(all[i])} class:held={turn && !canDiscard(all[i])}
           style="margin-left: {isDrawn && row.length > 1 ? w * DRAWN_GAP : 0}px"
           onpointerdown={(e) => down(e, i)} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}
-          in:fly={isDrawn && apart ? { x: -w * DRAWN_GAP, duration: 220 } : { y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0 }}
+          in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0 }}
           aria-pressed={selected === i}>
           <span class="lifted" style="transform: translateY({drag?.i === i ? drag.dy : selected === i ? -lift : 0}px)">
             {#if marks?.get(all[i])}

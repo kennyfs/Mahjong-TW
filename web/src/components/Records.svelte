@@ -3,6 +3,8 @@
   line's tap opens the hand's review (replay, and each decision's analysis). Favorites stay when the rest are cleared.
   Battles are listed as groups of their hands. Over the list, what the network's reviews of these hands add up to:
   the points lost a hand, the mistakes a hand at the settings' level, and which kind of decision lost them.
+  At the end, for the developer: every record as a JSON file (shared where the browser can, else saved), and
+  practice's scores set to zero (a new game from the first hand; the records stay).
 -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
@@ -16,11 +18,34 @@
   import Icon from './Icon.svelte';
   import TitleBar from './TitleBar.svelte';
   import Toggle from './Toggle.svelte';
+  import { practice } from '../lib/practice.svelte';
 
   let { onreview }: { onreview: (id: string) => void } = $props();
   let tab = $state<RecordKind>('practice');
   let favOnly = $state(false);
   let confirmClear = $state(false);
+  let confirmReset = $state(false);
+
+  const exportName = () => `mahjong-records-${new Date().toISOString().slice(0, 10)}.json`;
+  function saveRecords() {
+    const url = URL.createObjectURL(new Blob([records.exportText()], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportName();
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
+  /** The system's share sheet where the browser has one for files (a phone's), else the file saved. */
+  const canShare = typeof navigator !== 'undefined' && !!navigator.canShare
+    && navigator.canShare({ files: [new File(['{}'], 'x.json', { type: 'application/json' })] });
+  async function shareRecords() {
+    const file = new File([records.exportText()], exportName(), { type: 'application/json' });
+    try {
+      await navigator.share({ files: [file] });
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') saveRecords();
+    }
+  }
   let openBattle = $state<string | null>(null);
 
   const hands = $derived(records.hands.filter((h) => h.kind === tab && (!favOnly || h.fav)).slice().reverse());
@@ -153,8 +178,32 @@
     {:else}
       {#each battles as b (b.id)}{@render battle(b)}{:else}<p class="empty body-large dim">{t('records_empty')}</p>{/each}
     {/if}
+    <section class="dev">
+      <h2 class="title-small">{t('records_dev_title')}</h2>
+      <p class="body-medium dim">{t('records_dev_info')}</p>
+      <p class="title-small">{t('records_dev_count', records.hands.length)}</p>
+      <div class="dev-actions">
+        {#if canShare}
+          <button class="btn filled" disabled={!records.hands.length} onclick={shareRecords}><Icon name="share" size={18} />{t('records_share')}</button>
+        {/if}
+        <button class={canShare ? 'btn outlined' : 'btn filled'} disabled={!records.hands.length} onclick={saveRecords}>
+          <Icon name="download" size={18} />{t('records_export')}
+        </button>
+      </div>
+      <button class="btn text reset" onclick={() => (confirmReset = true)}>{t('records_reset_scores')}</button>
+    </section>
   </div></div>
 </div>
+
+{#if confirmReset}
+  <Dialog onclose={() => (confirmReset = false)}>
+    <p class="body-large" style="margin:0">{t('records_reset_scores_confirm')}</p>
+    {#snippet actions()}
+      <button class="btn text" onclick={() => (confirmReset = false)}>{t('cancel')}</button>
+      <button class="btn text" onclick={() => { confirmReset = false; void practice.newGame(); }}>{t('records_reset_scores_ok')}</button>
+    {/snippet}
+  </Dialog>
+{/if}
 
 {#if confirmClear}
   <Dialog onclose={() => (confirmClear = false)}>
@@ -189,4 +238,10 @@
   .kind { display: inline-flex; align-items: center; gap: 6px; }
   .kind-bar { width: 48px; height: 8px; border-radius: 4px; background: var(--surface-container-highest); overflow: hidden; display: inline-block; }
   .kind-bar i { display: block; height: 100%; background: var(--primary); }
+  .dev { display: flex; flex-direction: column; gap: 10px; padding: 20px 16px 0; }
+  .dev h2 { margin: 0; color: var(--primary); }
+  .dev p { margin: 0; }
+  .dev-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dev-actions .btn { display: inline-flex; align-items: center; gap: 8px; }
+  .dev .reset { align-self: flex-start; margin-left: -8px; }
 </style>

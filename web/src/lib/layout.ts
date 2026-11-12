@@ -196,7 +196,8 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSi
     const opp = Math.max(22, Math.min(hand * 0.6, 32));
     const meldLine = Math.max(30, H(meld));
     const meH = meldLine + 4 + H(hand) * (2 + ROW_GAP + LIFT) + 6;
-    const own = 28 + OPP_LINES * (H(opp) + meldGaps(opp).row) + 4;
+    // The name plate, the column's padding (4 above and below) and the gap under the plate (4), then the lines.
+    const own = 28 + 12 + OPP_LINES * H(opp) + (OPP_LINES - 1) * meldGaps(opp).row;
     const topH = Math.max(more, own);
     // A strip grown for shown hands keeps SHOWN_GAP clear of the rivers (they are centered in what is left).
     const centerH = h - meH - topH - 4;

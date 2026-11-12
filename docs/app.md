@@ -32,7 +32,8 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     (a slim one stays upright), so the rivers are larger: a phone sideways about 31 → 35 px a tile, upright 32 → 35.
     A river holds 16 tiles at full size across and 15 at the sides (2 rows of 8; 3 columns), a longer one shrinks.
   - The turn: when the player must discard without a drawn tile (the dealer's first, after a claim) the last tile
-    stands apart like a drawn one and the hand has a pulsing yellow frame (also with a drawn tile).
+    stands apart like a drawn one and the hand has a pulsing yellow frame (also with a drawn tile). (0.5.0: no
+    longer set apart, at the user's word; the frame alone.)
   - A claim: the discard to claim is enlarged and pulsing in its river, and lit in the claim buttons (tiles 0.8 of the
     hand's). A chow shows the claimed tile in the middle.
   - Sideways, the player's flowers sit above the name plate, and the player's melds shrink when the row is short of
@@ -160,6 +161,24 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     many discards nothing); on a wide one in the corner over the hand's right end. (Further in, left of the right
     player's column, it covered the fifth row of that player's discards in a long hand; in the corner the right
     player's hand shown at the end can reach it on a low table, until the tap it waits for.)
+- **0.5.0** (2026-11-12 afternoon, the user's bugs and requests; app and page alike):
+  - **A seat's second meld went missing** on an upright phone (the user's screenshots: `10 張` beside one meld, so
+    13 tiles; with a third meld all three showed). The others' columns over the rivers were sized for a name plate
+    of 40 dp and the meld lines, without the column's padding and the gap under the plate (12 dp); the app's
+    melds are a `FlowRow`, which leaves out an item that does not fit the height it is given, so the second line
+    vanished (three melds shrank to two a line and fit). The strip now has the room it needs, and the melds are
+    also fitted to the height under the plate as measured, so a taller plate (a larger font) makes them smaller
+    rather than lost. The page had the same arithmetic (its lines overflowed rather than vanished): fixed alike.
+    Checked by `mahjong-files/bin/check_melds.py`, which plays practice hands on the emulator and at every look
+    adds each seat's count to the meld tiles in its column (test tag `seat_N`): never under 16.
+  - **No tile set apart when none was drawn** (the dealer's first discard, the discard after a call): the hand's
+    last tile no longer moves right as if drawn; the pulsing frame says whose turn it is.
+  - **The records' end, for the developer** (as Thirteen's): every record as one JSON file (`mahjong-records-
+    DATE.json`: `app`, `version`, `time`, `hands`, `battles`, each hand with its whole `game` record, so a hand
+    played can be replayed exactly), through the system's share sheet (分享; the app by a FileProvider copy in the
+    cache, the page where the browser can share files) or saved (匯出). And 分數歸零: practice's game starts
+    again from its first hand (東風圈第 1 局) with the totals at zero; the records stay.
+  - The network is no longer called a beta (測試版) in the settings, the about text and the analysis' note.
 
 ## Built and checked
 

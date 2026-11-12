@@ -25,6 +25,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
+import android.content.Context
+import android.content.Intent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.time.LocalDate
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
@@ -127,6 +141,16 @@ fun RecordsScreen(vm: AppModel) {
   // The reviews of this tab's hands, added up; the hands not reviewed by this network can be, one after another.
   val reviewed = all.filter { it.rev?.m == Engine.MODEL_ID }
   val pending = all.filter { it.rev?.m != Engine.MODEL_ID }
+  val context = LocalContext.current
+  val scope = rememberCoroutineScope()
+  var confirmReset by remember { mutableStateOf(false) }
+  val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+    if (uri != null) scope.launch {
+      val text = records.exportText(BuildConfig.VERSION_NAME ?: "")
+      runCatching { withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) } } }
+        .onFailure { vm.error = it.message }
+    }
+  }
   val stats = stringResource(
     R.string.records_stats, all.size, all.count { it.me in it.winners }, all.count { it.loser == it.me }, signed(all.sumOf { it.points[it.me] }),
   )
@@ -169,9 +193,15 @@ fun RecordsScreen(vm: AppModel) {
           }
           if (battles.isEmpty()) item { Empty() }
         }
+        item(key = "dev") {
+          ForDeveloper(records.hands.size, onShare = { scope.launch { shareRecords(context, records.exportText(BuildConfig.VERSION_NAME ?: "")) } },
+            onSave = { save.launch(exportName()) }, onReset = { confirmReset = true })
+        }
       }
     }
   }
+  if (confirmReset) ConfirmDialog(stringResource(R.string.records_reset_scores_confirm), onConfirm = { vm.practice.newGame() },
+    onDismiss = { confirmReset = false }, confirm = stringResource(R.string.records_reset_scores_ok))
   if (confirmClear) ConfirmDialog(stringResource(R.string.records_clear_confirm), onConfirm = { records.clear() }, onDismiss = { confirmClear = false },
     confirm = stringResource(R.string.delete))
 }
@@ -233,6 +263,44 @@ private fun ReviewStats(reviewed: List<HandRecord>, pending: Int, level: Level, 
         }
       }
     }
+  }
+}
+
+private fun exportName() = "mahjong-records-${LocalDate.now()}.json"
+
+/** The records through the system's share sheet (a chat app, a drive, Quick Share): a copy in the cache, which
+ *  res/xml/file_paths.xml makes the FileProvider's. */
+private suspend fun shareRecords(context: Context, text: String) {
+  val file = withContext(Dispatchers.IO) {
+    File(context.cacheDir, "shared").also { it.mkdirs() }.let { File(it, exportName()) }.also { it.writeText(text) }
+  }
+  val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+  val send = Intent(Intent.ACTION_SEND).setType("application/json").putExtra(Intent.EXTRA_STREAM, uri)
+    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+  context.startActivity(Intent.createChooser(send, null))
+}
+
+/** The records' end: every record as a file for the developer (shared or saved), and practice's scores set to zero. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ForDeveloper(count: Int, onShare: () -> Unit, onSave: () -> Unit, onReset: () -> Unit) {
+  SectionHeader(stringResource(R.string.records_dev_title), Modifier.padding(top = 8.dp))
+  Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Text(stringResource(R.string.records_dev_info), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(stringResource(R.string.records_dev_count, count), style = MaterialTheme.typography.titleSmall)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      Button(onClick = onShare, Modifier.heightIn(min = 48.dp).testTag("records_share"), enabled = count > 0) {
+        Icon(Icons.Outlined.Share, null, Modifier.padding(end = 8.dp))
+        Text(stringResource(R.string.records_share))
+      }
+      OutlinedButton(onClick = onSave, Modifier.heightIn(min = 48.dp).testTag("records_save"), enabled = count > 0) {
+        Icon(Icons.Outlined.Save, null, Modifier.padding(end = 8.dp))
+        Text(stringResource(R.string.records_export))
+      }
+    }
+  }
+  TextButton(onClick = onReset, Modifier.padding(start = 8.dp, top = 8.dp, bottom = 24.dp).heightIn(min = 48.dp).testTag("records_reset_scores")) {
+    Text(stringResource(R.string.records_reset_scores))
   }
 }
 

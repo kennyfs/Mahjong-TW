@@ -11,8 +11,8 @@
   flower's briefly; a tap anywhere, or a key, lets them go at once, and a player's own go when they discard. New
   discards, melds and the drawn tile come in moving.
 
-  The player's turn to discard: the hand in a pulsing frame of the turn's color, and with no tile drawn (the dealer's
-  first discard, after a call) its last tile set apart as a drawn one is. A discard the player may claim stands out
+  The player's turn to discard: the hand in a pulsing frame of the turn's color; with no tile drawn (the dealer's
+  first discard, after a call) no tile is set apart (the frame says whose turn it is). A discard the player may claim stands out
   in its river (larger, pulsing), and the claim buttons show their tiles large, the claimed one lit.
   A wide table's own flowers lie over the hand, above the player's name plate (in the hand's row they took its room).
 
@@ -121,14 +121,12 @@
   const belowL = $derived(s.wide ? Math.max(0, info.h + 8 - s.topH) : 0);
   const belowR = $derived(s.wide && showCorner ? Math.max(0, buttons.h + 8 - s.topH) : 0);
 
-  // The player's tiles: the drawn one apart. With none drawn on the player's turn to discard (the dealer's first
-  // discard, after a call), the last one apart as a drawn one is: the hand says whose turn it is.
+  // The player's tiles: the drawn one apart. None drawn (the dealer's first discard, after a call): none apart.
   const mine = $derived.by(() => {
     const all = revealed ? parseTiles(revealed[me]) : parseTiles(pos.hand);
     const drawn = !revealed && pos.drawn && view.phase === 'self' && view.current === me ? pos.drawn : null;
     const tiles = sortTiles(drawn ? without(all, [drawn]) : all);
-    const apart = !revealed && !drawn && view.phase === 'self' && view.current === me && tiles.length % 3 === 2 ? tiles.pop()! : null;
-    return { tiles, drawn: drawn ?? apart, apart: !!apart };
+    return { tiles, drawn };
   });
   /** The rows of the hand on a tall table (the next-step button stands at the end of the first). */
   const handRows = $derived(s.handRow > 0 && mine.tiles.length + (mine.drawn ? 1 : 0) > s.handRow ? 2 : 1);
@@ -298,7 +296,8 @@
   function oppW(side: Side, seat: number): number {
     const o = shownOf(seat);
     if (!s.wide) {
-      if (!revealed) return fitMelds(o.counts, o.flowers, s.sideW - 8, OPP_LINES, s.opp);
+      if (!revealed) return Math.min(fitMelds(o.counts, o.flowers, s.sideW - 8, OPP_LINES, s.opp),
+        fitShown(o.counts, o.flowers, 0, s.sideW - 8, s.topH - plateH(side) - 12, s.opp));
       return fitShown(o.counts, o.flowers, o.concealed, s.sideW - 8, s.topH - plateH(side) - 12, s.opp);
     }
     // Wide: the concealed tiles' backs, when they are not shown, take their room first.
@@ -420,7 +419,7 @@
       </div>
       <div class="me" data-tour="hand">
         <Melds melds={pos.players[me].melds} w={myMeldW} wrap={false} />
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} apart={mine.apart} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected oneClick={keys} {marks} {tagH} />
       </div>
     {:else}
@@ -429,7 +428,7 @@
           <span class="me-badge" bind:clientWidth={meBadgeW}>{@render myBadge()}</span>
           <Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} />
         </div>
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} apart={mine.apart} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected perRow={s.handRow} {marks} {tagH} />
       </div>
       {#if status}<div class="status tall" style="bottom: {meH + 4}px">{@render status()}</div>{/if}

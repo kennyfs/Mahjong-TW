@@ -172,6 +172,13 @@
   <string name="records_clear">清除紀錄</string>
   <string name="records_clear_confirm">清除所有沒收藏的紀錄？</string>
   <string name="records_export">匯出</string>
+  <string name="records_share">分享</string>
+  <string name="records_dev_title">給開發者</string>
+  <string name="records_dev_info">每一局都只存在這裡（規則、牌山、每家的每個決定），不會自動傳出去。遇到問題時，把紀錄檔（JSON）分享或匯出給開發者，就能重現那一局。</string>
+  <string name="records_dev_count">共 %1$d 局</string>
+  <string name="records_reset_scores">分數歸零</string>
+  <string name="records_reset_scores_confirm">把練習的分數歸零，從東風圈第 1 局重新開始？目前這一將會放棄，紀錄不會刪除。</string>
+  <string name="records_reset_scores_ok">歸零</string>
   <string name="records_stats">%1$d 局・胡 %2$d・放槍 %3$d・累計 %4$s</string>
   <string name="record_draw">流局</string>
   <string name="record_win_you">你胡 %1$d 台</string>
@@ -351,9 +358,9 @@
 
   <!-- The network's analysis: the review of a hand, a decision's figures, the tables of draws and claims (the web page
        first; the app when its design is chosen) -->
-  <string name="about_text_net">台灣十六張麻將。電腦玩家與分析用還在訓練中的神經網路（測試版），也可以改用牌效率（向聽數與進張數）。程式以 GPLv3 授權釋出，牌面的字取自 Noto Serif CJK（SIL Open Font License）。</string>
+  <string name="about_text_net">台灣十六張麻將。電腦玩家與分析用神經網路，也可以改用牌效率（向聽數與進張數）。程式以 GPLv3 授權釋出，牌面的字取自 Noto Serif CJK（SIL Open Font License）。</string>
   <string name="about_version">版本 %1$s・神經網路 %2$s</string>
-  <string name="bot_net">神經網路（測試版）</string>
+  <string name="bot_net">神經網路</string>
   <string name="settings_analysis">分析</string>
   <string name="settings_list_rows">「每個選擇」的清單怎麼顯示</string>
   <string name="list_rows_numbers">數字</string>
@@ -445,7 +452,7 @@
   <string name="whatif_no_claims">沒有值得吃碰槓的牌。</string>
   <string name="whatif_pass_better">有 %1$d 種能吃碰的牌，不理比較好。</string>
   <string name="whatif_needs_draw">輪到自己時要先有摸進的牌。</string>
-  <string name="analysis_source_network">神經網路（測試版）的估計。期望：這一局最後得分的平均（台）。胡、放槍、被自摸：打到這一局結束的機率。當下危險：打出這張馬上放槍的機率。下面的向聽數與進張是牌效率。</string>
+  <string name="analysis_source_network">神經網路的估計。期望：這一局最後得分的平均（台）。胡、放槍、被自摸：打到這一局結束的機率。當下危險：打出這張馬上放槍的機率。下面的向聽數與進張是牌效率。</string>
   <string name="analysis_palette_show">選牌</string>
   <string name="analysis_palette_hide">收起</string>
   <string name="analysis_rules_of_hand">這一局的規則</string>

@@ -209,8 +209,9 @@ fun tableSizes(width: Float, height: Float, maxHand: Float = 64f, top: Float = 0
     val opp = max(22f, min(hand * 0.6f, 32f))
     val meldLine = max(30f, h(meld))
     val meH = meldLine + 4 + h(hand) * (2 + ROW_GAP + LIFT) + 6
-    // The others' name plates in two lines (TableView's SeatBadge: the name over the tiles held and the score).
-    val own = 40 + OPP_LINES * (h(opp) + meldGaps(opp).row) + 4
+    // The others' name plates in two lines (TableView's SeatBadge: the name over the tiles held and the score), the
+    // column's padding (4 above and below) and the gap under the plate (4).
+    val own = 40 + 12 + OPP_LINES * h(opp) + (OPP_LINES - 1) * meldGaps(opp).row
     val topH = max(more, own)
     // A strip grown for shown hands keeps SHOWN_GAP clear of the rivers (they are centered in what is left).
     val centerH = height - meH - topH - 4 - (if (more > own) SHOWN_GAP else 0f)
