@@ -18,7 +18,7 @@
   import { fxOn } from '../lib/fx.svelte';
   import { untrack } from 'svelte';
   import { calloutsDone } from '../lib/callouts';
-  import { preclaim, robbedEvent } from '../lib/claims';
+  import { preclaim, robbedEvent, robPause } from '../lib/claims';
   import * as engine from '../lib/engine';
   import { t } from '../lib/i18n.svelte';
   import { PACE, settings } from '../lib/settings.svelte';
@@ -103,6 +103,7 @@
         const pace = PACE[settings.speed === 'manual' ? 'normal' : settings.speed];
         if (p.pending.includes(me)) {
           deciding = true;
+          const shown = performance.now();
           const pc = await preclaim(game, me, bots, `${seed}/${game.actions.length}`);
           if (e !== epoch || !game || !pc) break;
           if (!pc.robbed) {
@@ -111,8 +112,8 @@
             view = await engine.view(game, me);
             break;
           }
-          await sleep(Math.min(250, pace / 2));
           await calloutsDone();
+          await sleep(Math.max(0, robPause() - (performance.now() - shown)));
           if (e !== epoch || !game) break;
           const before = view?.event_count ?? 0;
           const v = await engine.view(pc.game, me);

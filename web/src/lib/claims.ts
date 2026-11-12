@@ -7,6 +7,7 @@
 // Practice and a review's branch use it; a table battle's room decides claims its own way (server/).
 
 import * as engine from './engine';
+import { settings, type Speed } from './settings.svelte';
 import type { Action, GameRecord } from './types';
 
 export interface Preclaim {
@@ -15,6 +16,12 @@ export interface Preclaim {
   /** The claim that came first and the player's options it beat; null when the player is asked. */
   robbed: { seat: number; type: Action['type']; options: Action['type'][] } | null;
 }
+
+/** How long the tile a claim is taken on stays on the table before the claim's moment, ms, by the pace (the manual
+ *  pace: until the player's tap; a branch, which has none, takes the middle one): the player sees what was discarded
+ *  before it is taken. */
+const ROB_SHOW: Record<Speed, number> = { slow: 2400, normal: 1600, fast: 900, manual: 1600 };
+export const robPause = () => ROB_SHOW[settings.speed] ?? 1600;
 
 /** null: nothing to decide first (the player's own turn, or no computer player but the player's to decide). */
 export async function preclaim(game: GameRecord, me: number, bots: (string | null)[], seed: string): Promise<Preclaim | null> {

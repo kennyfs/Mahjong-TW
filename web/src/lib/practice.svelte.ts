@@ -14,7 +14,7 @@ import { t } from './i18n.svelte';
 import { handRecord, newId, records } from './records.svelte';
 import { keepSummary } from './review';
 import { calloutsDone } from './callouts';
-import { preclaim, robbedEvent } from './claims';
+import { preclaim, robbedEvent, robPause } from './claims';
 import { PACE, settings, type Length } from './settings.svelte';
 import { KEYS, load, save } from './store';
 import type { Action, GameEvent, GameRecord, View } from './types';
@@ -167,6 +167,7 @@ class Practice {
           // Another's tile the player could claim: the computer players decide on it first (lib/claims.ts), the
           // player's buttons held back meanwhile.
           this.busy = true;
+          const shown = performance.now();
           const pc = await preclaim(this.game, ME, this.bots, seed);
           if (epoch !== this.epoch || !this.game || !pc) break;
           if (!pc.robbed) {
@@ -189,8 +190,9 @@ class Practice {
             break;
           }
           this.busy = true;
-          await sleep(Math.min(250, PACE[settings.speed] / 2));
+          // The discard stays a while first (lib/claims.ts robPause, counted from when it showed), its words done.
           await calloutsDone();
+          await sleep(Math.max(0, robPause() - (performance.now() - shown)));
           if (epoch !== this.epoch || !this.game || this.game.actions.length !== from) break;
           this.robbed = robbed;
           this.game = pc.game;
