@@ -305,3 +305,26 @@ What is known and not:
 - `is_improve.py` makes a variant cheap to judge: ten iterations and one more to measure on, to about 0.0004 a
   decision, where a match of 8,000 deals cannot see 140 iterations. A larger actor or critic, a lower learning
   rate, a smaller entropy bonus or targets from playouts would each be judged that way.
+
+### Do the predictions get better? (2026-11-12)
+
+What an analysis shows comes from the actor's other heads, so they were measured apart from the play:
+`python/eval_heads.py`, the averaged weights of the run's checkpoints on the 598,000 marked decisions of iteration
+212, which no network was trained on (the trainer's loss terms, the action played as the known outcome; ± is the
+standard error of the difference to network 60, over batches of the same samples).
+
+| Actor | `events` | `q_mse` | `ready` | `danger` | `win_tile` | `final_hand` |
+|---|---:|---:|---:|---:|---:|---:|
+| 0 (the run's first) | 2.1527 | 1.2279 | 0.9575 | 1.1394 | 1.1530 | 12.589 |
+| 60 | 2.0941 | 1.2146 | 0.8608 | 1.0545 | 1.1241 | 11.523 |
+| 100 | 2.0899 | 1.2140 | 0.8535 | 1.0483 | 1.1222 | 11.482 |
+| 140 | 2.0894 | 1.2138 | 0.8521 | 1.0469 | 1.1217 | 11.470 |
+| 180 | 2.0890 | 1.2137 | 0.8510 | 1.0448 | 1.1210 | 11.463 |
+| 211 | 2.0883 | 1.2134 | 0.8496 | 1.0431 | 1.1205 | 11.436 |
+| ± | 0.0003 | 0.0002 | 0.0002 | 0.0002 | 0.0001 | 0.0009 |
+
+Every head got better at every step of the ladder, and none by much: from network 60 to 211 the events' loss
+fell by 0.28%, the result's squared error by 0.1%, a tenth of what the first 60 networks gained. The critic (2.7M
+parameters, the full state) on the same decisions, with a fork's second action: `events` 1.6700 at network 60,
+1.6540 at 100, 1.6437 at 180, 1.6371 at 211 (± 0.0006), `q_mse` 0.9930 to 0.9765 (± 0.0009): 2% and 1.7%, and
+still falling.
