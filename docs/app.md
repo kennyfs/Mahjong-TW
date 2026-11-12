@@ -164,6 +164,11 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.4.1.apk` (2026-11-12): 0.4.0 with network 211 of the run `s2` in place of iteration 50 of `s1`
+    (`models/actor_s2_211.fp16.onnx`; the page's `engine-files/actor.onnx` too). Its predictions are a little
+    better and its play is no stronger that a match shows (docs/training.md; the float16 file, one against three of
+    the network before, 1,500 deals of `simple2,see`: −0.04 ± 0.07). Built and the APK's network checked by its
+    hash; not walked through on the emulator (the code is 0.4.0's).
   - `apk/mahjong-0.4.0.apk` (2026-11-12): 0.4.0 above. The page: `scratch/manual/manual_check.py` at phone, phone
     sideways and laptop sizes over four seeds (every press of 下一步 shows exactly one thing of the computer players',
     nothing of theirs shows without one except a call that comes before the player's own, which is said; the words
