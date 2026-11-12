@@ -41,6 +41,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -72,6 +74,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -81,6 +87,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.kennyfs.mahjong.Action
 import io.github.kennyfs.mahjong.CalloutClock
+import io.github.kennyfs.mahjong.FxClock
 import io.github.kennyfs.mahjong.Discard
 import io.github.kennyfs.mahjong.Meld
 import io.github.kennyfs.mahjong.R
@@ -144,6 +151,8 @@ private class Shown(val counts: List<Int>, val flowers: Int, val concealed: Int)
  * player's hand leaves room when it is not their turn (a tall table: at the end of the hand's first row, the place of
  * no tile, so that a tap too many discards nothing; a wide one: over the hand's right end).
  * `stay`: a call's and a win's words stay until the next touch (the game waits for the player anyway).
+ * `robbed`: the event (an index into the view's events) that was a claim taken from the player: its words are 搶碰,
+ * 搶胡. A chow's, a pung's and a win's moment (CallFx) plays over the table; the words wait under it.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -153,10 +162,16 @@ fun TableView(
   away: List<Boolean> = listOf(false, false, false, false),
   status: (@Composable () -> Unit)? = null, corner: (@Composable () -> Unit)? = null, overlay: (@Composable BoxScope.() -> Unit)? = null,
   marks: Map<String, TileMark>? = null, notes: List<SeatNote?>? = null, strip: (@Composable () -> Unit)? = null,
-  onPick: ((String?) -> Unit)? = null, onNext: (() -> Unit)? = null, stay: Boolean = false,
+  onPick: ((String?) -> Unit)? = null, onNext: (() -> Unit)? = null, stay: Boolean = false, robbed: Int = -1,
 ) {
   val c = LocalTable.current
   val density = LocalDensity.current
+  val host = remember { FxHost() }
+  DisposableEffect(host) {
+    FxStage.host = host
+    onDispose { if (FxStage.host === host) FxStage.host = null }
+  }
+  FxTrigger(host, view, me, names, robbed)
   BoxWithConstraints(modifier.fillMaxSize().background(c.felt)) {
     val roomW = maxWidth.value
     val roomH = maxHeight.value
@@ -297,7 +312,7 @@ fun TableView(
           horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
           Box(measured(side)) { badge(seat, count) }
           Row(horizontalArrangement = Arrangement.spacedBy(RACK_GAP_ROW.d), verticalAlignment = Alignment.Bottom) {
-            Melds(p.melds, flowersOf(p), ow, wrap = false)
+            Melds(p.melds, flowersOf(p), ow, wrap = false, seat = seat, host = host)
             if (shown != null) Rack(shown, ow, wrap = false)
             else if (s.back > 0) Row { repeat(hidden) { TileView(null, s.back.d) } }
           }
@@ -314,7 +329,7 @@ fun TableView(
       ) {
         Box(measured(side)) { badge(seat, count) }
         Melds(p.melds, flowersOf(p), ow, wrap = true,
-          arrangement = if (!s.wide) Arrangement.Center else if (end) Arrangement.End else Arrangement.Start)
+          arrangement = if (!s.wide) Arrangement.Center else if (end) Arrangement.End else Arrangement.Start, seat = seat, host = host)
         if (shown != null) Rack(shown, ow, wrap = true, end = end)
         else if (s.back > 0) FlowRow(horizontalArrangement = if (end) Arrangement.End else Arrangement.Start) { repeat(hidden) { TileView(null, s.back.d) } }
       }
@@ -327,9 +342,11 @@ fun TableView(
     fun river(side: Side, rows: Int, cols: Int) {
       val seat = seatAt(side, me)
       Box(Modifier.onGloballyPositioned {
-        val r = it.boundsInRoot()
+        // (Not boundsInRoot: an empty river, of no height, has Rect.Zero there, and its words went to the corner.)
+        val o = it.positionInRoot()
+        val r = Rect(o, Size(it.size.width.toFloat(), it.size.height.toFloat()))
         if (rivers[side] != r) rivers = rivers + (side to r)
-      }) { River(pos.players[seat].discards, s.river, cols, rows, lastDiscard == seat, claim = claimSeat == seat) }
+      }) { River(pos.players[seat].discards, s.river, cols, rows, lastDiscard == seat, claim = claimSeat == seat, onLast = { host.river(seat, it) }) }
     }
 
     @Composable
@@ -380,7 +397,7 @@ fun TableView(
             }
             Row(Modifier.height(meH.d).fillMaxWidth().tourAnchor("hand").padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
               horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.Bottom) {
-              Melds(pos.players[me].melds, emptyList(), snap(myMeldW), wrap = false)
+              Melds(pos.players[me].melds, emptyList(), snap(myMeldW), wrap = false, seat = me, host = host)
               MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn)
             }
           }
@@ -420,7 +437,7 @@ fun TableView(
               horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom)) {
               Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
                 Box(Modifier.align(Alignment.CenterVertically).then(measured(Side.BOTTOM))) { badge(me, null) }
-                Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = true)
+                Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = true, seat = me, host = host)
               }
               MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn)
             }
@@ -437,7 +454,16 @@ fun TableView(
         val stripPad = if (s.wide) (s.sideW + 4).d else 8.dp
         if (strip != null) Column(Modifier.align(Alignment.BottomCenter).padding(start = stripPad, end = stripPad, bottom = (meH + 4).d),
           horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) { strip() }
-        Callouts(view, me, s, names, rivers.mapValues { it.value.translate(-origin.x, -origin.y) }, minOf(roomW, s.tableW), roomH, stay)
+        Callouts(view, me, s, names, rivers.mapValues { it.value.translate(-origin.x, -origin.y) }, minOf(roomW, s.tableW), roomH, stay,
+          robbed, hidden = host.fx != null)
+      }
+      // The moment itself: over the whole window (FxOverlay), with what it shows from here.
+      val fxW = maxOf(40f, s.hand * 1.15f)
+      val fxNow = host.fx
+      SideEffect {
+        host.me = me
+        host.w = fxW
+        host.tiles = fxNow?.let { fxTiles(it, view, revealed) } ?: emptyList()
       }
       overlay?.invoke(this)
     }
@@ -523,11 +549,18 @@ fun signed(x: Double): String {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun Melds(melds: List<Meld>, flowers: List<String>, w: Float, wrap: Boolean, arrangement: Arrangement.Horizontal = Arrangement.Start) {
+fun Melds(
+  melds: List<Meld>, flowers: List<String>, w: Float, wrap: Boolean, arrangement: Arrangement.Horizontal = Arrangement.Start,
+  seat: Int = -1, host: FxHost? = null,
+) {
   if (melds.isEmpty() && flowers.isEmpty()) return
   val g = meldGaps(w)
+  // `host`: where each meld is, for a call's moment to land at; the meld it is bringing is out of sight till then.
+  val hide = host?.hideMeld(seat) ?: -1
   val content: @Composable () -> Unit = {
-    for (m in melds) Row { for ((k, t) in meldTiles(m).withIndex()) TileView(t, w.d, mark = m.type == "chi" && m.called != null && k == 1) }
+    for ((i, m) in melds.withIndex()) Row(
+      if (host == null) Modifier else Modifier.fxAnchor { host.meld(seat, i, it) }.alpha(if (i == hide) 0f else 1f),
+    ) { for ((k, t) in meldTiles(m).withIndex()) TileView(t, w.d, mark = m.type == "chi" && m.called != null && k == 1) }
     for (f in flowers) TileView(f, (w * FLOWER_SCALE).d)
   }
   if (wrap) FlowRow(horizontalArrangement = Arrangement.spacedBy(g.col.d, if (arrangement == Arrangement.End) Alignment.End else if (arrangement == Arrangement.Center) Alignment.CenterHorizontally else Alignment.Start),
@@ -540,7 +573,7 @@ fun Melds(melds: List<Meld>, flowers: List<String>, w: Float, wrap: Boolean, arr
  * player may claim the last discard: it stands out, larger and pulsing.
  */
 @Composable
-fun River(discards: List<Discard>, w: Float, cols: Int, rows: Int, last: Boolean, claim: Boolean = false) {
+fun River(discards: List<Discard>, w: Float, cols: Int, rows: Int, last: Boolean, claim: Boolean = false, onLast: ((FxAnchor) -> Unit)? = null) {
   val fit = if (rows > 0 && discards.size > cols * rows) ceil(discards.size.toFloat() / rows).toInt() else cols
   val tw = w * cols / fit
   val pulse = if (claim) pulse(900) else 0f
@@ -551,7 +584,9 @@ fun River(discards: List<Discard>, w: Float, cols: Int, rows: Int, last: Boolean
         for (i in r until minOf(r + fit, discards.size)) {
           val d = discards[i]
           val out = claim && i == discards.size - 1 && !d.called
-          Box(if (out) Modifier.zIndex(1f).scale(1.25f + 0.15f * pulse) else Modifier) {
+          // The last tile's place: a call's or a win's moment lifts it off from there.
+          val anchor = if (onLast != null && i == discards.size - 1) Modifier.fxAnchor(onLast) else Modifier
+          Box(anchor.then(if (out) Modifier.zIndex(1f).scale(1.25f + 0.15f * pulse) else Modifier)) {
             TileView(d.tile, tw.d, dim = d.called, glow = (last || out) && i == discards.size - 1 && !d.called)
           }
         }
@@ -562,6 +597,9 @@ fun River(discards: List<Discard>, w: Float, cols: Int, rows: Int, last: Boolean
 
 /** A hand's end: how long the table shows how it ended (the hands, the words of the win) before the result, ms. */
 const val END_PAUSE = 2200L
+
+/** The same after a win's moment (CallFx), from its end. */
+const val END_AFTER_FX = 1200L
 
 /**
  * A hand's end: whether the table is still to show how it ended (every hand shown, the words of the win, 放槍 over who
@@ -580,7 +618,9 @@ fun endPause(over: Boolean, stay: Boolean = false): Pair<Boolean, () -> Unit> {
       held = true
       inPlay[0] = false
       if (!stay) {
-        delay(END_PAUSE)
+        // After a win's moment (CallFx), a shorter while from its end.
+        val was = FxClock.done()
+        delay(if (was) END_AFTER_FX else END_PAUSE - FxClock.START)
         held = false
       }
     }
@@ -832,7 +872,7 @@ fun ClaimBar(actions: List<Action>, w: Float, onAct: (Action) -> Unit, claimed: 
 }
 
 /** The plaques the words are set on: the face's color, the word's, the lip's under it, the fine line's inside the edge. */
-private enum class CalloutKind(val face: Color, val ink: Color, val back: Color, val line: Color) {
+internal enum class CalloutKind(val face: Color, val ink: Color, val back: Color, val line: Color) {
   /** A call, a declaration: gold. */
   CALL(Color(0xFFF6B93B), Color(0xFF3B2200), Color(0xFFB9780F), Color(0x6B3B2200)),
   /** A win: vermilion, and larger. */
@@ -852,6 +892,9 @@ private class Callout(val id: Int, val side: Side, val text: String, val kind: C
   val at get() = when (kind) { CalloutKind.DRAWN -> CalloutAt.CENTER; CalloutKind.DEALIN -> CalloutAt.OWN; else -> CalloutAt.RIVER }
 }
 
+/** The events a moment (CallFx) plays for. */
+private val FX_TYPES = setOf("chi", "pon", "ron", "tsumo")
+
 /** The words' coming in and their fading, ms. */
 private const val CALLOUT_IN = 320
 private const val CALLOUT_OUT = 160
@@ -866,7 +909,10 @@ private const val CALLOUT_OUT = 160
  * they discard. `rivers`: the rivers' places on the table, px; `w`, `h`: the table's size, dp.
  */
 @Composable
-private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<String>, rivers: Map<Side, Rect>, w: Float, h: Float, stay: Boolean) {
+private fun BoxScope.Callouts(
+  view: View, me: Int, s: TableSizes, names: List<String>, rivers: Map<Side, Rect>, w: Float, h: Float, stay: Boolean, robbed: Int,
+  hidden: Boolean,
+) {
   val list = remember { mutableStateListOf<Callout>() }
   val skips by CalloutClock.skips.collectAsState()
   LaunchedEffect(skips) { list.clear() }
@@ -886,6 +932,8 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<St
     "exhausted" to R.string.call_exhausted, "declare:tianting" to R.string.call_tianting, "declare:diting" to R.string.call_diting,
   )
   val texts = words.mapValues { stringResource(it.value) }
+  val robTexts = mapOf("chi" to R.string.rob_chi, "pon" to R.string.rob_pon, "kan" to R.string.rob_kan, "ron" to R.string.rob_ron)
+    .mapValues { stringResource(it.value) }
   val dealtIn = stringResource(R.string.call_deal_in)
   LaunchedEffect(view.eventCount) {
     val count = view.eventCount
@@ -901,15 +949,23 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<St
     if (fresh.size > 8) return@LaunchedEffect
     val flowers = HashSet<Int>()
     var said = false
-    for (e in fresh) {
+    val base = view.events.size - fresh.size
+    for ((i, e) in fresh.withIndex()) {
       // A player's discard lands in their river: their words over it go.
       if (e.type == "discard") {
         val side = sideOf(e.seat, me)
         list.removeAll { it.side == side && it.at == CalloutAt.RIVER }
         continue
       }
-      val text = texts[if (e.type == "declare") "declare:${e.declared ?: "tianting"}" else e.type] ?: continue
+      val text = (if (base + i == robbed) robTexts[e.type] else null)
+        ?: texts[if (e.type == "declare") "declare:${e.declared ?: "tianting"}" else e.type] ?: continue
       if (e.type == "flower" && !flowers.add(e.seat)) continue
+      // A chow's, a pung's or a win's moment (CallFx) says it (and who dealt in): no words under it, only their time
+      // (that the game waits for). At the manual pace the words stay for after it.
+      if (!stay && e.tile != null && e.type in FX_TYPES && FxClock.enabled()) {
+        CalloutClock.shown(CalloutClock.callMs())
+        continue
+      }
       val kind = when (e.type) {
         "tsumo", "ron", "flower_win" -> CalloutKind.WIN
         "flower" -> CalloutKind.FLOWER
@@ -973,7 +1029,8 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<St
         Modifier.align(Alignment.TopStart).layout { m, _ ->
           val p = m.measure(Constraints())
           layout(0, 0) { p.place((at.x - p.width * pivot.x).roundToInt(), (at.y - p.height * pivot.y).roundToInt()) }
-        }.scale(scale).alpha(alpha).testTag("callout"),
+          // Under a call's or a win's moment: out of sight (they keep their time).
+        }.scale(scale).alpha(if (hidden) 0f else alpha).testTag("callout"),
       ) { Plaque(co.text, co.kind, fs, len, co.who) }
     }
   }
@@ -985,7 +1042,7 @@ private fun BoxScope.Callouts(view: View, me: Int, s: TableSizes, names: List<St
  * words. Under it `who`, on a tab over the plaque's lower edge.
  */
 @Composable
-private fun Plaque(text: String, kind: CalloutKind, fs: Float, len: Int, who: String) {
+internal fun Plaque(text: String, kind: CalloutKind, fs: Float, len: Int, who: String, robInk: Color? = null) {
   val flower = kind == CalloutKind.FLOWER
   val lip = fs * 0.09f
   val cut = fs * (if (flower) 0.3f else 0.24f)
@@ -1011,7 +1068,12 @@ private fun Plaque(text: String, kind: CalloutKind, fs: Float, len: Int, who: St
       }.height((fs * (if (flower) 1.6f else 1.5f) + lip).d).padding(start = pad.d, end = (if (len == 2) pad - fs * 0.06f else pad).d, bottom = lip.d),
       contentAlignment = Alignment.Center,
     ) {
-      Text(text, Modifier.wrapContentHeight(Alignment.CenterVertically, unbounded = true), maxLines = 1, softWrap = false,
+      // 搶碰, 搶胡 (a claim taken from the player, in a moment): the 搶 in `robInk`.
+      val shown = if (robInk != null && text.startsWith("搶")) buildAnnotatedString {
+        withStyle(SpanStyle(color = robInk)) { append(text.substring(0, 1)) }
+        append(text.substring(1))
+      } else AnnotatedString(text)
+      Text(shown, Modifier.wrapContentHeight(Alignment.CenterVertically, unbounded = true), maxLines = 1, softWrap = false,
         style = TextStyle(color = kind.ink, fontWeight = if (flower) FontWeight.ExtraBold else FontWeight.Black, fontFamily = FontFamily.Serif,
           fontSize = font, lineHeight = font, letterSpacing = if (len == 2) (font.value * 0.06f).sp else 0.sp))
     }

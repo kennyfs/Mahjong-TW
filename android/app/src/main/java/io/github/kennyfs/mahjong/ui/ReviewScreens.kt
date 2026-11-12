@@ -56,6 +56,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -80,6 +81,7 @@ import io.github.kennyfs.mahjong.Analysis
 import io.github.kennyfs.mahjong.AppModel
 import io.github.kennyfs.mahjong.EQUAL
 import io.github.kennyfs.mahjong.Engine
+import io.github.kennyfs.mahjong.FxClock
 import io.github.kennyfs.mahjong.EngineException
 import io.github.kennyfs.mahjong.R
 import io.github.kennyfs.mahjong.Review
@@ -263,6 +265,18 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
   }
   val stepKey = "${rec.id}/$step"
 
+  // The review's branch (BranchScreen): from the step of one of the player's decisions; back at that step after.
+  var branchFrom by remember(rec.id) { mutableStateOf<Int?>(null) }
+  val canBranch = step < n && isMine(step)
+  branchFrom?.let { k ->
+    BranchScreen(vm, rec.game.cut(k), rec.me, names) {
+      branchFrom = null
+      go(k)
+    }
+    return
+  }
+  val fxOn by FxClock.on.collectAsState()
+
   BoxWithConstraints(Modifier.fillMaxSize()) {
     /** A wide window: the controls in a column at the right, the table the full height; with the list of a decision's
      *  actions under them when the window is large. */
@@ -368,7 +382,14 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     }
 
     val toggleColors = IconButtonDefaults.iconToggleButtonColors(checkedContainerColor = cs.secondaryContainer, checkedContentColor = cs.onSecondaryContainer)
+    val branchButton = @Composable {
+      TextButton(onClick = { branchFrom = step }, enabled = canBranch, modifier = Modifier.testTag("replay_branch")) {
+        Text(stringResource(R.string.branch_title))
+      }
+    }
     val topButtons = @Composable {
+      // (The narrow column beside the table has no room for it here: it has it under.)
+      if (!side || inlinePanel) branchButton()
       IconButton(onClick = { vm.records.setFav(rec.id, !rec.fav) }) {
         Icon(if (rec.fav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite))
       }
@@ -594,7 +615,8 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
           marks = marks, notes = notes, strip = strip, onPick = { picked = it },
           overlay = {
             val f = final
-            if (step == n && f?.result != null && showResult) Sheet {
+            // (After a win's moment, when it plays: CallFx.)
+            if (step == n && f?.result != null && showResult && !fxOn) Sheet {
               HandResultCard(f, names, rec.me, resultTileW(side, w), rev = rec.rev, level = level) {
                 TextButton(onClick = { showResult = false }) { Text(stringResource(R.string.result_hands)) }
                 if (stops.isNotEmpty()) FilledTonalButton(onClick = { go(stops.first().step) }) { Text(stringResource(R.string.review_next_key)) }
@@ -691,6 +713,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         } else {
           Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             top()
+            branchButton()
             summary()
             info()
           }

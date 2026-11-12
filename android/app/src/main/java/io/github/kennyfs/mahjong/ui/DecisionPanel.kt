@@ -169,7 +169,8 @@ fun DecisionPanel(
     else listOf(FigureKey.WIN, FigureKey.TSUMO, FigureKey.DEAL, FigureKey.OTHERS, FigureKey.DANGER, FigureKey.WHO, FigureKey.EFF)
   val figLines = remember(analysis, oppNames, res) { analysis.actions.map { figureCells(res, it, null, oppNames, analysis.actions[best]) } }
   val figStyle = small.tabular()
-  val figWidths = rememberFigureWidths(figLines, figKeys, figStyle)
+  // (Measured in bold: a green or red figure is bold.)
+  val figWidths = rememberFigureWidths(figLines, figKeys, figStyle.copy(fontWeight = FontWeight.Bold))
   val outcome = LocalOutcome.current
 
   Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -280,7 +281,7 @@ fun DecisionPanel(
               drawRect(line, Offset(x - 1.dp.toPx(), 0f), Size(2.dp.toPx(), size.height))
             }
           }
-          FigureLine(figLines[i], figKeys, figWidths, figStyle, LocalContentColor.current, soft, outcome.good, outcome.bad)
+          FigureLine(figLines[i], figKeys, figWidths, figStyle, LocalContentColor.current, soft, outcome.figGood, outcome.figBad)
           if (f.waits.isNotEmpty() && f.shanten == 0) FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
             itemVerticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.analysis_waits), style = small, color = soft)

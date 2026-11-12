@@ -72,6 +72,7 @@ import io.github.kennyfs.mahjong.ui.RulesScreen
 import io.github.kennyfs.mahjong.ui.SettingsScreen
 import io.github.kennyfs.mahjong.ui.TOUR_STEPS
 import io.github.kennyfs.mahjong.ui.TourOverlay
+import io.github.kennyfs.mahjong.ui.FxOverlay
 import io.github.kennyfs.mahjong.ui.WelcomeDialog
 import io.github.kennyfs.mahjong.ui.isDark
 import io.github.kennyfs.mahjong.ui.tourAnchor
@@ -220,5 +221,7 @@ private fun App(vm: AppModel) {
     onClose = { vm.welcomed() },
   )
   if (tour.on && !battle.inRoom) TourOverlay(tour) { vm.open(Page.GUIDE) }
+  // A call's or a win's moment, over everything.
+  FxOverlay()
   }
 }

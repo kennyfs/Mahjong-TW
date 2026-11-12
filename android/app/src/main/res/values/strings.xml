@@ -388,7 +388,7 @@
   <string name="list_rows_both">兩者</string>
   <string name="list_rows_hint">數字：每個選擇的期望、胡牌、放槍等機率；長條：和最佳選擇相比，差在胡牌、放槍還是被自摸；兩者：都顯示（每一列比較高）。數字比最佳選擇明顯好的是綠色、明顯差的是紅色。</string>
   <string name="settings_advanced">進階</string>
-  <string name="settings_advanced_row">清單與手牌標示的顯示方式</string>
+  <string name="settings_advanced_row">清單、手牌標示、吃碰胡的效果</string>
   <string name="advanced_title">進階設定</string>
   <string name="settings_table_marks">回顧時手牌上的標示</string>
   <string name="table_marks_both">損失與危險</string>

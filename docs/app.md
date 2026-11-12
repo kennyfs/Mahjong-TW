@@ -180,9 +180,44 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     again from its first hand (東風圈第 1 局) with the totals at zero; the records stay.
   - The network is no longer called a beta (測試版) in the settings, the about text and the analysis' note.
 
+- **0.6.0** (2026-11-12 evening, the user's requests; app and page alike):
+  - **A call's or a win's moment** over the whole window (CallFx; the advanced settings can keep to the words): a
+    dark veil, two black wedges from opposite corners, a band askew with speed lines over its whole width, the word
+    on its plaque and whose it is. A chow or a pung: the tile called lifts off the river where it lies, drops into
+    the gap between the caller's own tiles, and the meld flies to its exact place among the caller's melds, scaled
+    to their size (kept out of sight there till it lands). A win: the winner's hand with the winning tile dropping
+    into the gap at its end (from the river of who dealt in; a self-draw from above, lit), a light over it, and
+    who dealt in under the name. It lasts the words' time of the pace (slow 2.0 s, normal 1.5, fast 1.0); a tap lets
+    it go. The table's own words for it are not shown under it (at the manual pace they stay for after it). A
+    hand's result waits for it, and the table holds 1.2 s after it (2.2 s without one). The app draws it over every
+    screen and bar (in the table alone it left the felt's cutout margin and the controls beside it uncovered).
+  - **Claims taken first**: when the player could claim another's tile, the computer players that may claim it
+    decide first (lib/claims.ts, Claims.kt); when one of their claims comes before every one the player could
+    make, it is made at once without the player's buttons, after the discard has stayed a while (slow 2.4 s,
+    normal 1.6, fast 0.9; the manual pace: the player's tap), its moment says 搶碰 / 搶胡 / 搶明槓 (搶 in its own
+    color) and the table says `電腦 1 搶碰（你本來可以吃）` after it. A computer player's claim taken by another's
+    is shown as an ordinary one (the computer players do not learn of claims that did not stand either). Claims
+    already in the record (a branch from the player's own decision there) are weighed the same.
+  - **The review's branch** (分支, from one of the player's decisions): the hand played on with the computer players
+    moving by themselves; 上一步 / 下一步 within it, a choice changed drops what came after; 重洗看不到的牌 deals the
+    unseen tiles again (the engine's `base` record, docs/gui-engine.md); the result without the next dealer; not
+    recorded. The app: beside the table in a column when sideways, under it upright.
+  - The lists' green and red figures bold and darker in the light theme; the felt strip's words light, its figures
+    a fixed light green and red; of （自摸 3.7%・0.9 台） only the chance is colored. The records' overview: words,
+    figure, then a bar in a loss's color. The computer players play the network's policy.
+  - Words of a call by a player with an empty river (a pung of the game's first discard) stood at the screen's
+    top-left corner in the app (an empty river had no bounds): placed by the river's own place now.
+
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.6.0.apk` (2026-11-12 evening): 0.6.0 above, network 211. Its debug twin on the emulator, with
+    practice hands made by hand (the dealer's first discard 5m; the player may chow or pung it, another may pung or
+    win on it): a chow taken by a pung, a pung taken by a win (the greedy bot), the player's own chow (its meld
+    landing beside the name plate), sideways and upright, frames and a screen recording; a branch from the claim
+    taken (its 搶胡 again, the result); the moment over the whole window. The release APK itself (arm64 only) was
+    not run on the x86_64 emulator. The page: built, `svelte-check` clean, the same cases in Firefox, the branch's
+    moment measured to cover the window sideways and upright.
   - `apk/mahjong-0.5.0.apk` (2026-11-12 afternoon): 0.5.0 above, network 211. Its debug twin on the emulator:
     `bin/check_melds.py` (6 practice hands, 70 looks at a seat with two melds or more, none short; the old layout
     built for comparison: 46 looks short in 3 hands, as the user's screenshots), the records' share sheet, the file

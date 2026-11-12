@@ -23,17 +23,22 @@ export interface Preclaim {
 const ROB_SHOW: Record<Speed, number> = { slow: 2400, normal: 1600, fast: 900, manual: 1600 };
 export const robPause = () => ROB_SHOW[settings.speed] ?? 1600;
 
-/** null: nothing to decide first (the player's own turn, or no computer player but the player's to decide). */
+/** null: nothing to decide first (the player's own turn, or the player is not to decide). */
 export async function preclaim(game: GameRecord, me: number, bots: (string | null)[], seed: string): Promise<Preclaim | null> {
   const p = await engine.pending(game);
   if (p.phase === 'self' || p.phase === 'over' || !p.pending.includes(me)) return null;
+  // Those still to decide (a branch from the player's decision may have the others' answers already in its record:
+  // they are weighed the same).
   const others = p.pending.filter((s) => s !== me && bots[s]);
-  if (!others.length) return null;
   // Each decides on the game as it stands (none sees another's answer), then the answers go in.
   const answers = await Promise.all(others.map((s) => engine.bot(game, s, bots[s]!, `${seed}/${s}`)));
   let g = game;
   for (let i = 0; i < others.length; i++) g = await engine.act(g, others[i], answers[i]);
-  if (answers.every((a) => a.type === 'pass')) return { game: g, robbed: null };
+  // Nobody else claims (now or before): the player is asked.
+  let since = game.actions.length - 1;
+  while (since >= 0 && game.actions[since][1] !== 'discard' && game.actions[since][1] !== 'kakan') since--;
+  const before = game.actions.slice(since + 1).some((x) => x[1] !== 'pass');
+  if (answers.every((a) => a.type === 'pass') && !before) return { game: g, robbed: null };
   // Would any of the player's claims stand?
   const v = await engine.view(g, me);
   const options = v.legal.filter((a) => a.type !== 'pass');
@@ -44,7 +49,7 @@ export async function preclaim(game: GameRecord, me: number, bots: (string | nul
   }
   const done = await engine.act(g, me, { type: 'pass' });
   const st = await engine.steps(done);
-  const at = done.actions.findIndex((x, i) => i >= game.actions.length && st.taken[i] && x[1] !== 'pass');
+  const at = done.actions.findIndex((x, i) => i > since && st.taken[i] && x[1] !== 'pass');
   const won = at >= 0 ? done.actions[at] : null;
   return { game: done, robbed: won ? { seat: won[0] as number, type: won[1] as Action['type'], options: [...new Set(options.map((o) => o.type))] } : null };
 }

@@ -61,7 +61,9 @@ data class TableColors(
 )
 
 @Immutable
-data class Outcome(val good: Color, val bad: Color)
+/** A result's green and red; `figGood`, `figBad`: the lists' figures' (darker in the light theme, to read on the
+ *  lists' tinted rows). */
+data class Outcome(val good: Color, val bad: Color, val figGood: Color = good, val figBad: Color = bad)
 
 private val BRASS = Color(0xFFF0C058)
 
@@ -131,7 +133,7 @@ fun isDark(mode: DarkMode, system: Boolean) = when (mode) {
 fun MahjongTheme(style: ColorStyle, darkMode: DarkMode, textSize: TextSize, content: @Composable () -> Unit) {
   val dark = isDark(darkMode, isSystemInDarkTheme())
   val scheme = if (dark) BrandDark else BrandLight
-  val outcome = if (dark) Outcome(Color(0xFF81C784), Color(0xFFEF9A9A)) else Outcome(Color(0xFF2E7D32), Color(0xFFC62828))
+  val outcome = if (dark) Outcome(Color(0xFF81C784), Color(0xFFEF9A9A)) else Outcome(Color(0xFF2E7D32), Color(0xFFC62828), Color(0xFF1B6E23), Color(0xFFA3191A))
   val density = LocalDensity.current
   CompositionLocalProvider(
     LocalTable provides tableFor(style, scheme, dark),

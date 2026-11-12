@@ -49,3 +49,26 @@ object CalloutClock {
     }
   }
 }
+
+/**
+ * Whether a call's or a win's moment (ui/CallFx.kt, started by the table) is on the screen: a hand's result waits for
+ * it to end before it shows, and the hold of the table as it ended (END_AFTER_FX) counts from its end. The web page's
+ * lib/fx.svelte.ts.
+ */
+object FxClock {
+  val on = MutableStateFlow(false)
+
+  /** Whether the settings show the moments (AppModel sets it); otherwise the words alone. */
+  var enabled: () -> Boolean = { true }
+
+  /** How long a change may take to start its moment (the table's next composition: slow on a slow phone), ms. */
+  const val START = 300L
+
+  /** Returns when no moment is up: true when one was (it waited for its end), false when none was. A moment the change
+   *  just made is waited for to start, for up to START (so false comes that late). */
+  suspend fun done(): Boolean {
+    if (withTimeoutOrNull(START) { on.first { it } } == null) return false
+    on.first { !it }
+    return true
+  }
+}

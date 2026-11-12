@@ -68,6 +68,10 @@ enum class ListRows { numbers, bars, both }
  *  foot, the cost alone, or nothing (the list says it all the same). */
 enum class TableMarks { both, loss, none }
 
+/** A chow's, a pung's or a win's moment (the advanced settings): over the whole screen (ui/CallFx.kt), or the words
+ *  over the player alone. */
+enum class CallFxMode { anim, words }
+
 /**
  * Which losses the review counts as mistakes and stops at: a beginner's only the large ones, an expert's the small
  * ones too (Review.kt). `grade`: the least grade that counts.
@@ -80,6 +84,7 @@ private data class StoredSettings(
   val colors: ColorStyle = ColorStyle.TABLE, val dark: DarkMode = DarkMode.SYSTEM, val text: TextSize = TextSize.NORMAL,
   val name: String = "", val server: String = "", val listRows: ListRows? = null, val level: Level = Level.mid,
   val tableMarks: TableMarks = TableMarks.both,
+  val callFx: CallFxMode = CallFxMode.anim,
   /** 1: saved by a version with the network (before it, the bot could only be tile efficiency). */
   val version: Int = 0,
 )
@@ -102,6 +107,7 @@ class Settings(context: Context) {
   var listRows by mutableStateOf(stored.listRows ?: if (context.resources.configuration.smallestScreenWidthDp >= 600) ListRows.both else ListRows.bars)
   var level by mutableStateOf(stored.level)
   var tableMarks by mutableStateOf(stored.tableMarks)
+  var callFx by mutableStateOf(stored.callFx)
 
   val spec: String get() = rules.spec
 
@@ -111,7 +117,7 @@ class Settings(context: Context) {
     set(v) = prefs.edit().putBoolean("welcome.seen", v).apply()
 
   fun persist() {
-    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, listRows, level, tableMarks, version = 1)
+    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, listRows, level, tableMarks, callFx, version = 1)
     prefs.edit().putString("settings", EngineJson.encodeToString(s)).apply()
   }
 }

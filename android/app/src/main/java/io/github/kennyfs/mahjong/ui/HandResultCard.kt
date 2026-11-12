@@ -59,7 +59,7 @@ import kotlin.math.abs
 @Composable
 fun HandResultCard(
   final: View, names: List<String>, me: Int, w: Float, modifier: Modifier = Modifier, rev: ReviewSummary? = null, level: Level = Level.mid,
-  actions: @Composable RowScope.() -> Unit = {},
+  next: Boolean = true, actions: @Composable RowScope.() -> Unit = {},
 ) {
   val r = final.result ?: return
   val cs = MaterialTheme.colorScheme
@@ -159,7 +159,8 @@ fun HandResultCard(
             color = if (mistakes > 0) LocalOutcome.current.bad else LocalOutcome.current.good)
         }
       }
-      Text(
+      // The next hand's dealer (not for a review's branch: there is no next hand).
+      if (next) Text(
         if (r.nextStreak > 0) stringResource(R.string.result_next_streak, names[r.nextDealer], r.nextStreak)
         else stringResource(R.string.result_next_dealer, names[r.nextDealer]),
         style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,

@@ -78,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import io.github.kennyfs.mahjong.AppModel
 import io.github.kennyfs.mahjong.BOTS
 import io.github.kennyfs.mahjong.BattleGroup
+import io.github.kennyfs.mahjong.CallFxMode
 import io.github.kennyfs.mahjong.ColorStyle
 import io.github.kennyfs.mahjong.BuildConfig
 import io.github.kennyfs.mahjong.DarkMode
@@ -259,7 +260,8 @@ private fun ReviewStats(reviewed: List<HandRecord>, pending: Int, level: Level, 
             // The words, the figure, then the bar of its share.
             Text(stringResource(kind.label) + " " + pts(x / k, false), style = MaterialTheme.typography.bodySmall)
             Box(Modifier.width(48.dp).height(8.dp).clip(RoundedCornerShape(4.dp)).background(cs.surfaceContainerHighest)) {
-              Box(Modifier.fillMaxHeight().fillMaxWidth(share).background(cs.primary))
+              // A loss's share: in a loss's color, not the brand's green.
+              Box(Modifier.fillMaxHeight().fillMaxWidth(share).background(Marks.danger2))
             }
           }
         }
@@ -583,6 +585,13 @@ fun AdvancedScreen(vm: AppModel, onBack: () -> Unit) {
             s.tableMarks, { s.tableMarks = it; s.persist() }, Modifier.fillMaxWidth().testTag("settings_table_marks"),
           )
           Text(stringResource(R.string.table_marks_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Block(stringResource(R.string.settings_call_fx)) {
+          ToggleGroup(
+            listOf(CallFxMode.anim to stringResource(R.string.call_fx_anim), CallFxMode.words to stringResource(R.string.call_fx_words)),
+            s.callFx, { s.callFx = it; s.persist() }, Modifier.fillMaxWidth().testTag("settings_call_fx"),
+          )
+          Text(stringResource(R.string.call_fx_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
     }

@@ -12,6 +12,13 @@ whole wall in drawing order, and every decision so far. Each request carries the
 (well under a millisecond), so the caller owns the state, can save it as is (a finished record is a full replay of
 the hand), and can resume anywhere.
 
+A hand may also be taken on from a seat's position in another (a review's branch with 重洗看不到的牌): its record has
+`"base": {"game": RECORD, "seat": s, "seed": S}` in place of the wall. The engine replays the base game to its end,
+takes that seat's position in it (what the seat saw: its hand, everyone's melds, discards and flowers, the tiles
+left), deals the tiles the seat could not see (the others' concealed tiles, the wall) again by the seed, and plays
+the record's actions from there. A base game has a wall of its own (no base in a base). The engine answers with the
+record as it came (`base`, no `wall`), so the same base and seed always give the same hand.
+
 The record holds the wall, so it shows every hidden tile. **Only the authority holds it**: the app in practice, the
 room (on the server, or on the phone that hosts a nearby game) in a battle. A player's screen is built only from
 `view` for that player's seat, which hides what the seat cannot see: other players' hands and draws, the kinds of

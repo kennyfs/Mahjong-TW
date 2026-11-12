@@ -99,11 +99,11 @@
 
 <div class="fx {fx.kind}" style={vars} aria-hidden="true">
   <div class="veil"></div>
-  <div class="band">
+  <div class="band"><div class="lines">
     {#each LINES as l, i (i)}
-      <span class="streak" style="top: {l.y}%; width: {l.len}%; height: {l.weight}px; opacity: {l.op}; animation-duration: {l.dur}s; animation-delay: {l.delay}s"></span>
+      <span class="streak" style="top: {l.y}%; width: {l.len}%; height: {l.weight}px; opacity: {l.op}; --to: {10000 / l.len}%; animation-duration: {l.dur}s; animation-delay: {l.delay}s"></span>
     {/each}
-  </div>
+  </div></div>
   <div class="wedge tl"></div>
   <div class="wedge br"></div>
   <div class="stage">
@@ -152,16 +152,19 @@
   @keyframes tl-call { 0% { transform: translate(-60%, -60%); } 12% { transform: none; } 64% { transform: none; opacity: 1; } 90%, 100% { transform: translate(-60%, -60%); opacity: 0; } }
   @keyframes br-call { 0% { transform: translate(60%, 60%); } 12% { transform: none; } 64% { transform: none; opacity: 1; } 90%, 100% { transform: translate(60%, 60%); opacity: 0; } }
 
-  /* The band across the middle, askew, and its speed lines running along it. */
-  .band { position: absolute; left: -20vw; right: -20vw; top: 50%; height: clamp(180px, 46vh, 420px); translate: 0 -50%; rotate: -14deg;
+  /* The band across the middle, askew, long enough to reach past the screen's corners, there from the start (it comes in
+     as the veil does), and its speed lines running along it, each over its whole length. */
+  .band { position: absolute; left: -50vmax; right: -50vmax; top: 50%; height: clamp(180px, 46vh, 420px); translate: 0 -50%; rotate: -14deg;
     background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.07) 18%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.07) 82%, transparent);
     overflow: hidden; animation: band var(--ms) ease-out both; }
-  @keyframes band { 0% { clip-path: inset(0 100% 0 0); } 14% { clip-path: inset(0 0 0 0); } 84% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes band { 0% { opacity: 0; } 8% { opacity: 1; } 84% { opacity: 1; } 100% { opacity: 0; } }
   .call .band { animation-name: band-call; }
-  @keyframes band-call { 0% { clip-path: inset(0 100% 0 0); } 14% { clip-path: inset(0 0 0 0); } 64% { opacity: 1; } 88%, 100% { opacity: 0; } }
+  /* The lines run over the part of the band on the screen (as wide as the screen, turned, and a little more). */
+  .lines { position: absolute; top: 0; bottom: 0; left: 50%; width: calc(110vw + 0.5 * clamp(180px, 46vh, 420px)); translate: -50% 0; }
+  @keyframes band-call { 0% { opacity: 0; } 8% { opacity: 1; } 64% { opacity: 1; } 88%, 100% { opacity: 0; } }
   .streak { position: absolute; left: 0; border-radius: 2px; background: linear-gradient(90deg, transparent, #fff 35%, #fff 80%, transparent);
     animation-name: run; animation-timing-function: linear; animation-iteration-count: infinite; }
-  @keyframes run { from { transform: translateX(-110%); } to { transform: translateX(380%); } }
+  @keyframes run { from { transform: translateX(-100%); } to { transform: translateX(var(--to)); } }
 
   /* The word and the tiles, upright on the band. */
   .stage { position: relative; display: flex; flex-direction: column; align-items: center; gap: clamp(26px, 6vh, 48px); }

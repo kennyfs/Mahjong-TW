@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.roundToInt
@@ -14,9 +15,13 @@ import kotlin.math.roundToInt
 @Serializable
 data class Setup(val dealer: Int = 0, val east: Int = -1, val round: Int = 0, val streak: Int = 0)
 
-/** A hand: rules, setup, the whole wall and every decision ([seat, type, tile?]). Only the authority holds it. */
+/** A hand: rules, setup, the whole wall and every decision ([seat, type, tile?]). Only the authority holds it. Or a hand
+ *  taken on from a seat's position in another (a review's branch with its unseen tiles dealt again): `base` {game,
+ *  seat, seed} and no wall (docs/gui-engine.md). */
 @Serializable
-data class GameRecord(val rules: String, val setup: Setup, val wall: String, val actions: List<JsonArray> = emptyList()) {
+data class GameRecord(
+  val rules: String, val setup: Setup, val wall: String = "", val actions: List<JsonArray> = emptyList(), val base: JsonObject? = null,
+) {
   fun cut(n: Int) = copy(actions = actions.take(n))
 }
 

@@ -26,7 +26,10 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
     Engine.setup(app)
   }
 
-  val settings = Settings(app).also { s -> CalloutClock.speedOf = { s.speed } }
+  val settings = Settings(app).also { s ->
+    CalloutClock.speedOf = { s.speed }
+    FxClock.enabled = { s.callFx == CallFxMode.anim }
+  }
   val records = Records(app)
   var error by mutableStateOf<String?>(null)
 

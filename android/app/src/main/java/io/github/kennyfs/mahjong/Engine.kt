@@ -116,6 +116,15 @@ object Engine {
     return a.field("game")
   }
 
+  /** One seat's decision by a bot (NET_BOT: the network's policy, as `advance`). */
+  suspend fun bot(game: GameRecord, seat: Int, player: String, seed: String? = null): Action {
+    fun req(spec: String) = buildJsonObject {
+      put("cmd", "bot"); put("game", json(game)); put("seat", seat); put("player", spec); seed?.let { put("seed", it) }
+    }
+    val a = if (player == NET_BOT) withModel { path -> req("net:model=$path,mode=policy") } else request(req(player))
+    return a.field("action")
+  }
+
   suspend fun pending(game: GameRecord): Pending =
     decode(request(buildJsonObject { put("cmd", "pending"); put("game", json(game)) }))
 

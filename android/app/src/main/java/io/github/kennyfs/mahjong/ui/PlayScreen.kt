@@ -109,7 +109,7 @@ fun PlayScreen(vm: AppModel) {
           shown, Practice.ME, names, scores = totals,
           revealed = if (stage != Practice.Stage.PLAYING) final?.hands else null,
           interactive = stage == Practice.Stage.PLAYING && !practice.busy,
-          onAct = { practice.act(it) }, handLabel = if (wide) handLabel else "", onNext = onNext, stay = manual,
+          onAct = { practice.act(it) }, handLabel = if (wide) handLabel else "", onNext = onNext, stay = manual, robbed = practice.robbed,
           status = if (notice != null) ({
             Text(notice, Modifier.background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 4.dp),
               color = Color.White, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)

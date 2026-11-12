@@ -64,14 +64,18 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   /** The manual pace: the computer players' next step is ready and waits for `step`. */
   var waiting by mutableStateOf(false)
     private set
-  /** A few words on the table for a moment: the player's call did not stand. */
+  /** A few words on the table for a moment: the player's call did not stand, or was taken before they were asked. */
   var notice by mutableStateOf<String?>(null)
+    private set
+  /** The event (an index into the view's events) that was a claim taken from the player (Claims): its moment says
+   *  搶碰, 搶胡. -1: none. */
+  var robbed by mutableStateOf(-1)
     private set
 
   private var running = false
   private var epoch = 0
   /** The step held (the game after it, and the player's view of it), for the game of this many actions. */
-  private class Ahead(val from: Int, val game: GameRecord, val view: View)
+  private class Ahead(val from: Int, val game: GameRecord, val view: View, val robbed: Int = -1, val say: String? = null)
   private var ahead: Ahead? = null
   /** The call the player just made on another's tile, until what came of it is known. */
   private var claimed: String? = null
@@ -83,7 +87,17 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     ahead = null
     waiting = false
     claimed = null
+    robbed = -1
     say(null)
+  }
+
+  /** The words once the moment that shows the same is over (they would be under its veil). */
+  private fun sayAfterFx(text: String) {
+    val e = epoch
+    scope.launch {
+      FxClock.done()
+      if (e == epoch) say(text)
+    }
   }
 
   private fun say(text: String?) {
@@ -103,7 +117,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     val mine = claimed ?: return false
     if (fresh.any { it.seat == ME }) return false
     val over = fresh.firstOrNull { it.seat != ME && it.type != "discard" } ?: return false
-    say(context.getString(R.string.claim_overridden, context.getString(actionWord(mine)), names().getOrElse(over.seat) { "" },
+    sayAfterFx(context.getString(R.string.claim_overridden, context.getString(actionWord(mine)), names().getOrElse(over.seat) { "" },
       context.getString(actionWord(over.type))))
     return true
   }
@@ -170,12 +184,45 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
             finish()
             break
           }
-          if (ME in p.pending) {
-            claimed = null
-            break
-          }
           val seed = "${meta?.id}/${meta?.hands}/${g.actions.size}"
           val before = view?.eventCount ?: 0
+          if (ME in p.pending) {
+            claimed = null
+            // Another's tile the player could claim: the computer players decide on it first (Claims), the player's
+            // buttons held back meanwhile.
+            busy = true
+            val shown = android.os.SystemClock.uptimeMillis()
+            val pc = Claims.preclaim(g, ME, bots, seed) ?: break
+            if (e != epoch || game !== g) break
+            val r = pc.robbed
+            if (r == null) {
+              game = pc.game
+              persist()
+              refresh()
+              break
+            }
+            // A claim came before all of the player's: made at once, as the computer players' step, after the discard
+            // has stayed a while (counted from when it showed).
+            val v = Engine.view(pc.game, ME)
+            if (e != epoch || game !== g) break
+            val at = Claims.robbedEvent(v.events, before, r.seat)
+            val text = context.getString(R.string.claim_robbed, names().getOrElse(r.seat) { "" }, context.getString(actionWord(r.type)),
+              r.options.joinToString("、") { context.getString(actionWord(it)) })
+            if (settings.speed == Speed.MANUAL) {
+              ahead = Ahead(g.actions.size, pc.game, v, at, text)
+              waiting = true
+              break
+            }
+            CalloutClock.done()
+            delay(maxOf(0L, Claims.pauseMs(settings.speed) - (android.os.SystemClock.uptimeMillis() - shown)))
+            if (e != epoch || game !== g) break
+            robbed = at
+            game = pc.game
+            view = v
+            sayAfterFx(text)
+            persist()
+            continue
+          }
           if (settings.speed == Speed.MANUAL) {
             val next = Engine.advance(g, bots, seed, 1)
             val v = Engine.view(next, ME)
@@ -225,8 +272,10 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     if (!waiting || running || a.from != g.actions.size) return
     ahead = null
     waiting = false
+    if (a.robbed >= 0) robbed = a.robbed
     game = a.game
     view = a.view
+    a.say?.let { sayAfterFx(it) }
     persist()
     run()
   }
@@ -249,13 +298,22 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     // A call on another's tile may yet give way to a call that comes before it.
     claimed = if (v.phase != "self" && action.type != "pass") action.type else null
     try {
-      game = Engine.act(g, ME, action)
+      val next = Engine.act(g, ME, action)
+      // The others decided first (Claims): the claim is settled now. Another's that came first is the moment's 搶.
+      val w = Engine.view(next, ME)
+      if (claimed != null) {
+        val fresh = shownSince(w, v.eventCount)
+        if (fresh.none { it.seat == ME }) fresh.firstOrNull { it.seat != ME && it.type != "discard" }?.let { robbed = w.events.indexOf(it) }
+        sayOverridden(fresh)
+        claimed = null
+      }
+      game = next
+      view = w
     } catch (e: EngineException) {
       onError(e.message ?: "")
       return@launch
     }
     persist()
-    refresh()
     run()
   }
 

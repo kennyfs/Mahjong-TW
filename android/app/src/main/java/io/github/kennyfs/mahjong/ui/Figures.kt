@@ -60,7 +60,8 @@ fun FigureLine(
   modifier: Modifier = Modifier, arrangement: Arrangement.Horizontal = Arrangement.spacedBy(12.dp),
 ) {
   FlowRow(modifier, horizontalArrangement = arrangement, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-    FigureCells(cells, keys, widths, style, color, soft, good, bad)
+    // The green and red figures bold.
+    FigureCells(cells, keys, widths, style, color, soft, good, bad, boldTones = true)
   }
 }
 
