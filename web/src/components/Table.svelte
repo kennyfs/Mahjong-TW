@@ -271,28 +271,36 @@
     const tiles = sortTiles(without(parseTiles(hand), cur.tile ? [cur.tile] : []));
     return { ...cur, tiles, gap: tiles.length };
   });
-  /** The moment whose sound is the win's (the first winner's; none after the player's own deal-in). */
-  let winSound = -1;
   function startMoments(list: Moment[]) {
     if (!list.length) return;
     // What was still up goes (it is old news); these follow one another.
     moments = list;
-    winSound = list.some((m) => m.kind === 'sad') ? -1 : list.find((m) => m.kind === 'win' || (m.kind === 'small' && m.type !== 'exhausted'))?.id ?? -1;
     if (list.some(holds)) resultTap.tapped = false;
     calloutShown(list.reduce((t, m) => t + m.ms, 0));
   }
-  // Each moment's sound: a call's, a kong's as the tile taken lands in its gap (SmallFx: at 0.82 of its drop); a win's
-  // as the winning tile lands (CallFx: at 0.44 of the moment) — not after the player's own deal-in, whose own sound
-  // (as its tile settles, SadFx: 0.36) says it; a draw's. A moment let go before its sound: none.
+  // Each moment's sound: a call's, a kong's as the tile taken lands in its gap (SmallFx: at 0.82 of its drop); a
+  // declaration's. A moment let go before its sound: none. (A hand's end sounds as the hands are shown, below.)
   $effect(() => {
     const c = cur;
     if (!c) return;
     return untrack(() => {
       if (c.kind === 'call') return playSound(c.type === 'chi' || c.type === 'pon' ? 'call' : 'kong', c.parts ? c.parts.in + 0.82 * c.parts.drop : 0);
-      if (c.kind === 'sad') return playSound('lose', 0.36 * c.ms);
       if (c.kind === 'declare') return playSound('call');
-      if (c.type === 'exhausted' && (c.kind === 'drawn' || c.kind === 'small')) return playSound('drawn');
-      if ((c.kind === 'win' || c.kind === 'small') && c.id === winSound) return playSound('win', c.kind === 'win' && c.gap >= 0 ? 0.44 * c.ms : 0);
+    });
+  });
+  // A hand's end: one sound as the hands are shown (`revealed`), by what it is to the player: their own win; another's
+  // they pay for (on their discard, or self-drawn); another's they neither gain nor lose by; a draw. (A table that
+  // starts with them shown, a replay showing all: none.)
+  let wasShown: boolean | null = null;
+  $effect(() => {
+    const shown = !!revealed;
+    untrack(() => {
+      if (shown && wasShown === false) {
+        const r = view.result;
+        const pays = r && (r.loser === me || (r.self_draw && !r.winners.some((w) => w.seat === me)));
+        playSound(!r ? 'other' : r.exhausted ? 'drawn' : r.winners.some((w) => w.seat === me) ? 'win' : pays ? 'lose' : 'other');
+      }
+      wasShown = shown;
     });
   });
   function momentDone(id: number) {
@@ -612,10 +620,8 @@
         // (Its moment showed it, and sounds it: no words after it, even those that stay.)
         if (has) continue;
         if (e.type === 'flower') playSound('flower');
-        else if (e.type === 'exhausted') playSound('drawn');
-        else if (e.type === 'ron' || e.type === 'tsumo' || e.type === 'flower_win') {
-          const loser = view.result?.loser ?? -1;
-          if (!fresh.slice(0, i).some((x) => x.type === 'ron')) playSound(e.type === 'ron' && loser === me ? 'lose' : 'win');
+        else if (e.type === 'exhausted' || e.type === 'ron' || e.type === 'tsumo' || e.type === 'flower_win') {
+          // (Its sound as the hands are shown.)
         } else if (e.type === 'kan' || e.type === 'ankan' || e.type === 'kakan') playSound('kong');
         else playSound('call');
         const kind: CalloutKind = e.type === 'tsumo' || e.type === 'ron' || e.type === 'flower_win' ? 'win'

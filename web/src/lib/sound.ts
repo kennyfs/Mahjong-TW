@@ -1,12 +1,13 @@
 // The table's sounds (public/sounds/simple, public/sounds/real: scripts/make_sounds.py): the shuffle, a packet of
-// tiles dealt, a tile discarded (a few takes, one at random each time), a call's, a kong's, a win's, the player's own
-// deal-in, a draw, a flower. Two sets, the settings' style: simple (what happened, no more) and real (tiles as they
+// tiles dealt, a tile discarded (a few takes, one at random each time), a call's, a kong's, a flower; at a hand's end,
+// as the hands are shown: the player's own win, another's (neither gaining nor losing by it), another's they pay for,
+// a draw. Two sets, the settings' style: simple (what happened, no more) and real (tiles as they
 // sound). Web Audio: a set's files are fetched and decoded once, after the first tap or key (a browser lets a page
 // make sound only after one); a sound asked for before they are in is not played late. The level: off, soft, full.
 
 import { settings } from './settings.svelte';
 
-export type SoundName = 'shuffle' | 'deal' | 'discard' | 'call' | 'kong' | 'win' | 'lose' | 'drawn' | 'flower';
+export type SoundName = 'shuffle' | 'deal' | 'discard' | 'call' | 'kong' | 'win' | 'other' | 'lose' | 'drawn' | 'flower';
 
 /** Each sound's files (takes of the same, one picked at random) and its own loudness at the full level. */
 const FILES: Record<SoundName, { files: string[]; gain: number }> = {
@@ -16,6 +17,7 @@ const FILES: Record<SoundName, { files: string[]; gain: number }> = {
   call: { files: ['call'], gain: 0.75 },
   kong: { files: ['kong'], gain: 0.75 },
   win: { files: ['win'], gain: 0.7 },
+  other: { files: ['other'], gain: 0.7 },
   lose: { files: ['lose'], gain: 0.7 },
   drawn: { files: ['drawn'], gain: 0.6 },
   flower: { files: ['flower'], gain: 0.5 },

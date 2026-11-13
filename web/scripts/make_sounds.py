@@ -6,7 +6,7 @@
   Audio, CC0: LICENSE-Kenney.txt), lowered (tiles are larger than dice) and cut into single knocks, laid out again:
   the shuffle in waves (hands pushing the tiles, dense; turning or lifted, sparse), a discard on the felt a little
   lower than the chip (a heavier thing), a call's tile knocking into the others, a win's hand laid down at once (on
-  felt: shorter and duller than on a hard table).
+  felt: shorter and duller than on a hard table), one sound for the hands shown at a hand's end.
 
 Each sound: 44.1 kHz mono WAV into OUT/simple and OUT/real; then each to public/sounds as mp3:
 
@@ -157,6 +157,8 @@ def simple():
         place(b, note(f, 1.0, 0.25 if i < 3 else 0.5), i * 0.085, 0.7 if i < 3 else 0.9)
     place(b, clack(pitch=0.95), 0.0, 0.5)
     save('simple', 'win', room(b, 0.3), 0.85)
+    # Another's win the player neither gains nor loses by: the same, lower and quieter.
+    save('simple', 'other', room(lower(b, 0.84), 0.3), 0.6)
     b = np.zeros(int(SR * 1.0))
     place(b, note(392.0, 0.8, 0.3, 0.5), 0.0, 0.8)
     place(b, note(311.1, 0.9, 0.4, 0.5), 0.18, 0.8)
@@ -222,8 +224,8 @@ def real():
     knocks = [g for s in shakes for g in grains(lower(s, 0.74))]
     print('knocks', len(knocks))
 
-    def tile_down(f=0.92, weight=0.12):
-        """A tile set down on the felt: the chip's lay a little lower (a tile is heavier), a faint thud under it."""
+    def tile_down(f=1.0, weight=0.12):
+        """A tile set down on the felt: the chip's lay (a little lower: a heavier thing), a faint thud under it."""
         x = lower(lay, f)
         b = np.zeros(len(x) + int(0.05 * SR))
         place(b, x, 0, 1.0)
@@ -243,8 +245,9 @@ def real():
             place(b, knock(), at + t, gain * rng.uniform(0.6, 1.0) * (1 - 0.5 * k / n))
         return b
 
-    for k, f in enumerate([0.92, 0.9, 0.94]):
-        save('real', f'discard-{k + 1}', room(tile_down(f), 0.08), 0.9)
+    # A discard: the chip's lay as it is (the user's ear: any lower is too low), takes a shade apart.
+    for k, f in enumerate([1.0, 0.98, 1.02]):
+        save('real', f'discard-{k + 1}', room(tile_down(f, 0.05), 0.08), 0.9)
     # A packet of four dealt: set down together, knocking into each other as they land.
     for k in range(2):
         b = np.zeros(int(SR * 0.3))
@@ -280,19 +283,17 @@ def real():
         place(b, tile_down(0.9, 0.25), 0.0, 0.9 * gain)
         clatter(n, spread, 0.8 * gain, 0.002, b)
         return lowpass(b, dull)
-    # A win: the winner's hand laid down (as the winning tile lands).
-    save('real', 'win', room(laid(14, 0.09, 1.0, 12000), 0.08), 0.9)
-    # The player's own deal-in: the winner's hand laid down all the same, duller.
-    save('real', 'lose', room(laid(12, 0.1, 0.9, 6000), 0.08), 0.8)
-    # A draw: the hands shown, two of them, softer.
-    b = np.zeros(int(SR * 0.6))
-    place(b, laid(8, 0.07, 0.8, 9000), 0.0, 1.0)
-    place(b, laid(8, 0.07, 0.6, 9000), 0.16, 1.0)
-    save('real', 'drawn', room(b, 0.08), 0.7)
-    # A flower: put out on the table, its replacement drawn.
-    b = np.zeros(int(SR * 0.35))
+    # The hands shown at a hand's end (as they open: one sound, one hand laid down), a shade apart by what it means
+    # to the player: their own win; another's they neither gain nor lose by; another's they pay for; a draw.
+    hand = laid(14, 0.09, 1.0, 12000)
+    save('real', 'win', room(hand, 0.08), 0.9)
+    save('real', 'other', room(lower(hand, 0.95), 0.08), 0.85)
+    save('real', 'drawn', room(lower(hand, 0.92), 0.08), 0.8)
+    save('real', 'lose', room(lower(hand, 0.88), 0.08), 0.8)
+    # A flower: put out on the table; a moment later, its replacement drawn.
+    b = np.zeros(int(SR * 0.5))
     place(b, tile_down(0.93), 0.0, 0.7)
-    place(b, knock(), 0.16, 0.25)
+    place(b, knock(), 0.3, 0.25)
     save('real', 'flower', room(b, 0.08), 0.55)
 
 simple()
