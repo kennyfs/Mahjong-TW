@@ -13,6 +13,7 @@ import io.github.kennyfs.mahjong.R
 import io.github.kennyfs.mahjong.RecordKind
 import io.github.kennyfs.mahjong.Records
 import io.github.kennyfs.mahjong.Settings
+import io.github.kennyfs.mahjong.Timing
 import io.github.kennyfs.mahjong.View
 import io.github.kennyfs.mahjong.protocol.Act
 import io.github.kennyfs.mahjong.protocol.ChangeSettings
@@ -264,6 +265,21 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
     table = tb.copy(view = tb.view.copy(myTurn = false, legal = emptyList()), deadline = null)
   }
 
+  /** A declared ready hand (天聽, 地聽, 報聽) whose only choice is the tile it drew: discarded by itself at a computer
+   *  player's pace (bot_turn), as in practice. A win or a concealed kong it may make waits for the player. */
+  private fun forcedDiscard() {
+    val tb = table ?: return
+    val v = tb.view
+    if (!v.myTurn || v.phase != "self" || v.legal.size != 1 || v.legal[0].type != "discard") return
+    if (v.position.players.getOrNull(tb.seat)?.declared == null) return
+    val a = v.legal[0]
+    scope.launch {
+      delay(Timing.ms("bot_turn"))
+      val now = table
+      if (now != null && now.hand == tb.hand && now.step == tb.step && now.view.myTurn) act(a)
+    }
+  }
+
   fun ready() {
     room?.let { link?.send(Ready(it.hand)) }
   }
@@ -335,6 +351,7 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
         table = MyTable(msg.hand, msg.seat, msg.step, msg.seats, view,
           msg.remainingMs?.takeIf { view.myTurn }?.let { System.currentTimeMillis() + it })
         beforeAct = null
+        forcedDiscard()
       }
       is ResultMsg -> addOutcomes(listOf(msg.outcome))
       is History -> addOutcomes(msg.outcomes)

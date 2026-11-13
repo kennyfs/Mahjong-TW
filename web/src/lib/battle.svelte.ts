@@ -10,6 +10,8 @@ import { handRecord, newId, records } from './records.svelte';
 import { settings } from './settings.svelte';
 import { load, save } from './store';
 import type { Action, GameRecord, View } from './types';
+import { later } from './clock';
+import { ms } from './timing';
 
 // ---- The protocol (protocol/src/main/kotlin/.../Messages.kt): JSON, the type in "t" ----
 
@@ -282,6 +284,21 @@ class Battle {
     this.table = { ...tb, view: { ...tb.view, my_turn: false, legal: [] }, deadline: null };
   }
 
+  /** A declared ready hand (天聽, 地聽, 報聽) whose only choice is the tile it drew: discarded by itself at a computer
+   *  player's pace (bot_turn), as in practice. A win or a concealed kong it may make waits for the player. */
+  private forcedDiscard() {
+    const tb = this.table;
+    if (!tb) return;
+    const v = tb.view;
+    if (!v.my_turn || v.phase !== 'self' || v.legal.length !== 1 || v.legal[0].type !== 'discard') return;
+    if (!v.position.players[tb.seat]?.declared) return;
+    const a = v.legal[0];
+    later(() => {
+      const now = this.table;
+      if (now && now.hand === tb.hand && now.step === tb.step && now.view.my_turn) this.act(a);
+    }, ms('bot_turn'));
+  }
+
   ready() { if (this.room) this.send({ t: 'ready', hand: this.room.hand }); }
 
   /** Leaves the room for good (the bot plays on for the player) and its results. */
@@ -357,6 +374,7 @@ class Battle {
           deadline: msg.remainingMs != null && view.my_turn ? Date.now() + msg.remainingMs : null,
         };
         this.beforeAct = null;
+        this.forcedDiscard();
         break;
       }
       case 'result':
