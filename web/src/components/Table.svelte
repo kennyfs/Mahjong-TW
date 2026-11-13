@@ -75,7 +75,7 @@
     robbed?: number | null;
     /** A review's table: its moments of a hand's end are small, by the player, and shorter (lib/timing.ts). */
     review?: boolean;
-    /** A hand just begun (practice: its id): its tiles are shuffled, built into walls and dealt first (DealFx.svelte),
+    /** A hand just begun (practice: its id): its tiles are shuffled and dealt first (DealFx.svelte),
      *  once (not again when the table comes back to it). */
     deal?: string | null;
   } = $props();
@@ -312,17 +312,36 @@
     if (!list.length) return;
     // What was still up goes (it is old news); these follow one another.
     moments = list;
+    jingleAt = list.find((m) => m.kind === 'sad' || m.kind === 'win' || m.kind === 'drawn')?.id ?? -1;
     if (list.some(holds)) resultTap.tapped = false;
     calloutShown(list.reduce((t, m) => t + m.ms, 0));
   }
-  // Each moment's sound: a call's, a kong's as the tile taken lands in its gap (SmallFx: at 0.82 of its drop); a
-  // declaration's. A moment let go before its sound: none. (A hand's end sounds as the hands are shown, below.)
+  /** A hand's result to the player, its jingle: their own win; a hand they pay for (their deal-in, another's
+   *  self-draw); neither (another's win on another's discard, a draw). */
+  function jingle(): 'success' | 'failure' | 'neutral' {
+    const r = view.result;
+    if (!r || r.exhausted) return 'neutral';
+    if (r.winners.some((w) => w.seat === me)) return 'success';
+    return r.loser === me || r.self_draw ? 'failure' : 'neutral';
+  }
+  /** The moment the result's jingle comes with: the first over the whole screen of a hand's end. */
+  let jingleAt = -1;
+  // Each moment's sound: a call's, a kong's as the tile taken lands in its gap (SmallFx: at 0.82 of its drop), and a
+  // tile set down as the meld lands at its place (at its end); a declaration's; a hand's end: the result's jingle as
+  // its first moment over the whole screen comes. A moment let go before its sound: none. (The hands shown at a hand's
+  // end sound as they are shown, below.)
   $effect(() => {
     const c = cur;
     if (!c) return;
     return untrack(() => {
-      if (c.kind === 'call') return playSound(c.type === 'chi' || c.type === 'pon' ? 'call' : 'kong', c.parts ? c.parts.in + 0.82 * c.parts.drop : 0);
-      if (c.kind === 'declare') return playSound('call');
+      if (c.kind === 'call') {
+        const p = c.parts;
+        const offs = [playSound(c.type === 'chi' || c.type === 'pon' ? 'call' : 'kong', p ? p.in + 0.82 * p.drop : 0)];
+        if (p && c.dst) offs.push(playSound('discard', p.in + p.drop + p.hold + p.out));
+        return () => offs.forEach((f) => f());
+      }
+      if (c.kind === 'declare') return playSound('declare');
+      if (c.id === jingleAt) return playSound(jingle());
     });
   });
   // A hand's end: one sound as the hands are shown (`revealed`), by what it is to the player: their own win; another's
@@ -336,6 +355,8 @@
         const r = view.result;
         const pays = r && (r.loser === me || (r.self_draw && !r.winners.some((w) => w.seat === me)));
         playSound(!r ? 'other' : r.exhausted ? 'drawn' : r.winners.some((w) => w.seat === me) ? 'win' : pays ? 'lose' : 'other');
+        // Without the moments (words only): the jingle a moment after.
+        if (!movesShown()) playSound(jingle(), 400);
       }
       wasShown = shown;
     });
@@ -377,7 +398,7 @@
     if (!c || 'holdFx' in window) return;
     return holds(c) ? later(() => holdMoment(c), c.ms * HOLD_AT) : later(() => momentDone(c.id), c.ms);
   });
-  // ---- A hand's start (practice): shuffled, walled and dealt (DealFx.svelte). Meanwhile the player's hand is its
+  // ---- A hand's start (practice): shuffled and dealt all at once (DealFx.svelte). Meanwhile the player's hand is its
   // backs as they come, the others' backs too, nobody's flowers; then the hand turns face up (the flowers with it).
   // The computer players wait for it as for words (a tap lets it go). ----
   let dealGeo = $state<{ center: { x: number; y: number; w: number; h: number }; targets: { x: number; y: number }[] } | null>(null);
@@ -408,7 +429,7 @@
     });
     dealGeo = { center: rel(c), targets };
     dealing = { id, n: [0, 0, 0, 0], flip: false };
-    const total = ms('deal_shuffle') + ms('deal_build') * 1.27 + 16 * ms('deal_packet') + ms('deal_fly') + 280 + ms('deal_flip');
+    const total = ms('deal_shuffle') + ms('deal_pause') + ms('deal_fly') + 90 + ms('deal_flip');
     calloutShown(total);
   }
   function dealPacket(seat: number, n: number) {
@@ -660,7 +681,7 @@
         else if (e.type === 'exhausted' || e.type === 'ron' || e.type === 'tsumo' || e.type === 'flower_win') {
           // (Its sound as the hands are shown.)
         } else if (e.type === 'kan' || e.type === 'ankan' || e.type === 'kakan') playSound('kong');
-        else playSound('call');
+        else playSound(e.type === 'declare' ? 'declare' : 'call');
         const kind: CalloutKind = e.type === 'tsumo' || e.type === 'ron' || e.type === 'flower_win' ? 'win'
           : e.type === 'flower' ? 'flower' : e.type === 'exhausted' ? 'drawn' : 'call';
         say(e.type === 'exhausted' ? 'top' : side, t(word), kind, e.type === 'flower' ? flowerMs() : callMs(),

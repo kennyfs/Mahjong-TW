@@ -1,19 +1,21 @@
-// The table's sounds (public/sounds/simple, public/sounds/real: scripts/make_sounds.py): the shuffle, a packet of
+// The table's sounds (public/sounds: scripts/make_sounds.py): the shuffle, a packet of
 // tiles dealt, a tile discarded (a few takes, one at random each time), a call's, a kong's, a flower; at a hand's end,
 // as the hands are shown: the player's own win, another's (neither gaining nor losing by it), another's they pay for,
-// a draw. Two sets, the settings' style: simple (what happened, no more) and real (tiles as they
-// sound). Web Audio: a set's files are fetched and decoded once, after the first tap or key (a browser lets a page
+// a draw; and with the result's moment, a jingle: the player's success, failure, or neither; a declared ready hand
+// (天聽, 地聽, 報聽): surprise. Tiles as they sound (a second set, made from scratch, was dropped
+// on 2026-11-13). Web Audio: the files are fetched and decoded once, after the first tap or key (a browser lets a page
 // make sound only after one); a sound asked for before they are in is not played late. The level: off, soft, full.
 
 import { settings } from './settings.svelte';
 
-export type SoundName = 'shuffle' | 'deal' | 'discard' | 'call' | 'kong' | 'win' | 'other' | 'lose' | 'drawn' | 'flower';
+export type SoundName = 'shuffle' | 'deal' | 'discard' | 'call' | 'kong' | 'win' | 'other' | 'lose' | 'drawn' | 'flower'
+  | 'success' | 'failure' | 'neutral' | 'declare';
 
 /** Each sound's files (takes of the same, one picked at random) and its own loudness at the full level. */
 const FILES: Record<SoundName, { files: string[]; gain: number }> = {
   shuffle: { files: ['shuffle'], gain: 0.8 },
   deal: { files: ['deal-1', 'deal-2'], gain: 0.55 },
-  discard: { files: ['discard-1', 'discard-2', 'discard-3'], gain: 0.7 },
+  discard: { files: ['discard-1', 'discard-2', 'discard-3'], gain: 0.45 },
   call: { files: ['call'], gain: 0.75 },
   kong: { files: ['kong'], gain: 0.75 },
   win: { files: ['win'], gain: 0.7 },
@@ -21,32 +23,35 @@ const FILES: Record<SoundName, { files: string[]; gain: number }> = {
   lose: { files: ['lose'], gain: 0.7 },
   drawn: { files: ['drawn'], gain: 0.6 },
   flower: { files: ['flower'], gain: 0.5 },
+  success: { files: ['success'], gain: 0.3 },
+  failure: { files: ['failure'], gain: 0.3 },
+  neutral: { files: ['neutral'], gain: 0.22 },
+  declare: { files: ['declare'], gain: 0.45 },
 };
 const LEVEL = { off: 0, soft: 0.4, full: 1 };
 
 let ctx: AudioContext | null = null;
 const buffers = new Map<string, AudioBuffer>();
-const loading = new Map<string, Promise<void>>();
+let loading: Promise<void> | null = null;
 
 function base(): string {
   const b = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/';
   return b.endsWith('/') ? b : b + '/';
 }
 
-function load(style = settings.soundStyle): Promise<void> {
-  const had = loading.get(style);
-  if (had || !ctx) return had ?? Promise.resolve();
+function load(): Promise<void> {
+  if (loading || !ctx) return loading ?? Promise.resolve();
   const c = ctx;
   const names = [...new Set(Object.values(FILES).flatMap((f) => f.files))];
   const p = Promise.all(names.map(async (n) => {
     try {
-      const r = await fetch(`${base()}sounds/${style}/${n}.mp3`);
-      buffers.set(`${style}/${n}`, await c.decodeAudioData(await r.arrayBuffer()));
+      const r = await fetch(`${base()}sounds/${n}.mp3`);
+      buffers.set(n, await c.decodeAudioData(await r.arrayBuffer()));
     } catch {
       // (A sound that does not load is not played.)
     }
   })).then(() => undefined);
-  loading.set(style, p);
+  loading = p;
   return p;
 }
 
@@ -72,10 +77,9 @@ export function playSound(name: SoundName, delay = 0): () => void {
   const level = LEVEL[settings.sound];
   if (!level || !ctx || ctx.state !== 'running' || document.hidden) return none;
   const f = FILES[name];
-  const style = settings.soundStyle;
-  const buf = buffers.get(`${style}/${f.files[Math.floor(Math.random() * f.files.length)]}`);
+  const buf = buffers.get(f.files[Math.floor(Math.random() * f.files.length)]);
   if (!buf) {
-    void load(style);
+    void load();
     return none;
   }
   const src = ctx.createBufferSource();

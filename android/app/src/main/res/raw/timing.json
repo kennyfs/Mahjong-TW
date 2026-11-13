@@ -27,8 +27,7 @@
     "declare": 2000,
     "drawn": 2000,
     "deal_shuffle": 1400,
-    "deal_build": 600,
-    "deal_packet": 90,
+    "deal_pause": 100,
     "deal_fly": 320,
     "deal_flip": 450
   },

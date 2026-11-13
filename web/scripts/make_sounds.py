@@ -1,18 +1,18 @@
-"""The table's sounds (public/sounds/simple/, public/sounds/real/), two sets the settings choose between:
+"""The table's sounds (public/sounds/), tiles as they sound, made from recordings of dice and a chip on felt
+(scripts/sounds-src/, Kenney's Casino Audio, CC0: LICENSE-Kenney.txt), lowered (tiles are larger than dice) and cut
+into single knocks, laid out again: the shuffle in waves (hands pushing the tiles, dense; turning or lifted, sparse), a
+discard on the felt a little lower than the chip (a heavier thing), a call's tile knocking into the others, a win's
+hand laid down at once (on felt: shorter and duller than on a hard table), one sound for the hands shown at a hand's
+end. A hand's result over the whole screen, the player's success, failure, or neither: a steel drum's jingles from
+Kenney's Short Jingles (CC0: LICENSE-Kenney-jingles.txt), as they are. A declared ready hand: two mallet notes.
 
-- simple: made from scratch here, no recordings; each says what happened (a soft knock for a discard, a few for a call,
-  a little tune for a win) and no more;
-- real: tiles as they sound, made from recordings of dice and a chip on felt (scripts/sounds-src/, Kenney's Casino
-  Audio, CC0: LICENSE-Kenney.txt), lowered (tiles are larger than dice) and cut into single knocks, laid out again:
-  the shuffle in waves (hands pushing the tiles, dense; turning or lifted, sparse), a discard on the felt a little
-  lower than the chip (a heavier thing), a call's tile knocking into the others, a win's hand laid down at once (on
-  felt: shorter and duller than on a hard table), one sound for the hands shown at a hand's end.
+(A second set, made from scratch, was dropped on 2026-11-13 at the user's word. real() starts from the random state
+it had after that set's sounds, so its sounds stay as they were.)
 
-Each sound: 44.1 kHz mono WAV into OUT/simple and OUT/real; then each to public/sounds as mp3:
+Each sound: 44.1 kHz mono WAV into OUT; then each to public/sounds as mp3:
 
     uv run --no-project --with numpy,scipy python scripts/make_sounds.py OUT
-    for s in simple real; do mkdir -p public/sounds/$s; for f in OUT/$s/*.wav; do
-      ffmpeg -i $f -ac 1 -b:a 64k public/sounds/$s/$(basename $f .wav).mp3; done; done
+    for f in OUT/*.wav; do ffmpeg -i $f -ac 1 -b:a 64k public/sounds/$(basename $f .wav).mp3; done
 """
 import os
 import subprocess
@@ -58,16 +58,16 @@ def room(x, wet=0.15):
     return y
 
 
-def save(kind, name, x, peak=0.9):
-    os.makedirs(os.path.join(OUT, kind), exist_ok=True)
+def save(name, x, peak=0.9):
+    os.makedirs(OUT, exist_ok=True)
     x = x / (np.max(np.abs(x)) + 1e-9) * peak
     pcm = (np.clip(x, -1, 1) * 32767).astype(np.int16)
-    with wave.open(os.path.join(OUT, kind, name + '.wav'), 'wb') as w:
+    with wave.open(os.path.join(OUT, name + '.wav'), 'wb') as w:
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(SR)
         w.writeframes(pcm.tobytes())
-    print(kind, name, f'{len(x) / SR:.2f}s')
+    print(name, f'{len(x) / SR:.2f}s')
 
 
 def burst_env(sec, waves, sparse=0.12):
@@ -84,33 +84,6 @@ def burst_env(sec, waves, sparse=0.12):
     return np.clip(d, 0, 1.4) * np.clip(fade, 0, 1)
 
 
-# ---------------------------------------------------------------- simple: made from scratch
-
-def clack(hard=1.0, pitch=1.0, dur=0.12):
-    """A tile set down: a hard click (bone/plastic modes) and a soft thump of the felt under it."""
-    t = t_of(dur)
-    x = np.zeros_like(t)
-    for f, d in [(2300, 0.022), (3600, 0.016), (5200, 0.010), (7400, 0.006), (1250, 0.030)]:
-        f = f * pitch * rng.uniform(0.97, 1.03)
-        x += rng.uniform(0.5, 1.0) * np.sin(2 * np.pi * f * t + rng.uniform(0, 6.28)) * np.exp(-t / (d * hard))
-    x += 1.6 * highpass(rng.normal(0, 1, len(t)) * np.exp(-t / 0.0025), 1500)
-    x += 0.8 * np.sin(2 * np.pi * 170 * pitch * t) * np.exp(-t / 0.018)
-    x *= np.minimum(1, t / 0.0006)
-    return x / np.max(np.abs(x))
-
-
-def tick(pitch=1.0, dur=0.06):
-    """Tile against tile, lighter and higher."""
-    t = t_of(dur)
-    x = np.zeros_like(t)
-    for f, d in [(3100, 0.008), (4700, 0.006), (6600, 0.004), (2000, 0.010)]:
-        f = f * pitch * rng.uniform(0.93, 1.07)
-        x += rng.uniform(0.4, 1.0) * np.sin(2 * np.pi * f * t + rng.uniform(0, 6.28)) * np.exp(-t / d)
-    x += 1.2 * highpass(rng.normal(0, 1, len(t)) * np.exp(-t / 0.0015), 2000)
-    x *= np.minimum(1, t / 0.0004)
-    return x / np.max(np.abs(x))
-
-
 def note(f, dur, decay, bright=1.0):
     """A soft mallet note (marimba-like)."""
     t = t_of(dur)
@@ -120,57 +93,6 @@ def note(f, dur, decay, bright=1.0):
     x *= np.minimum(1, t / 0.002)
     return x
 
-
-def simple():
-    for k in range(3):
-        save('simple', f'discard-{k + 1}', room(np.concatenate([clack(pitch=rng.uniform(0.92, 1.08)), np.zeros(int(SR * 0.08))]), 0.12))
-    for k in range(2):
-        b = np.zeros(int(SR * 0.25))
-        for i in range(4):
-            place(b, tick(pitch=rng.uniform(0.85, 1.1)), i * 0.022 + rng.uniform(0, 0.006), rng.uniform(0.5, 1.0))
-        place(b, clack(pitch=0.9, dur=0.1), 0.07, 0.5)
-        save('simple', f'deal-{k + 1}', room(b, 0.1), 0.6)
-    # The shuffle: soft ticks in waves (no rumble under them: not a machine turning).
-    sec = 1.6
-    env = burst_env(sec, 3, 0.1)
-    b = np.zeros(int(SR * (sec + 0.15)))
-    t = 0.0
-    while t < sec:
-        t += rng.exponential(1 / 90)
-        d = env[min(len(env) - 1, int(t * SR))]
-        if rng.random() < d:
-            place(b, tick(pitch=rng.uniform(0.7, 1.0), dur=0.05), t, rng.uniform(0.25, 0.7) * (0.4 + 0.6 * d))
-    # (A semitone lower, the whole of it: the user found it high.)
-    save('simple', 'shuffle', room(lowpass(lower(b, 0.93), 7000), 0.12), 0.6)
-    b = np.zeros(int(SR * 0.6))
-    place(b, clack(), 0.0, 0.9)
-    place(b, clack(pitch=1.05), 0.075, 0.8)
-    place(b, note(784, 0.5, 0.18), 0.02, 0.55)
-    save('simple', 'call', room(b, 0.2), 0.8)
-    b = np.zeros(int(SR * 0.7))
-    for i in range(3):
-        place(b, clack(pitch=0.97 + 0.03 * i), i * 0.07, 0.85)
-    place(b, note(587, 0.6, 0.22), 0.02, 0.6)
-    save('simple', 'kong', room(b, 0.2), 0.8)
-    b = np.zeros(int(SR * 1.3))
-    for i, f in enumerate([523.25, 659.25, 783.99, 1046.5]):
-        place(b, note(f, 1.0, 0.25 if i < 3 else 0.5), i * 0.085, 0.7 if i < 3 else 0.9)
-    place(b, clack(pitch=0.95), 0.0, 0.5)
-    save('simple', 'win', room(b, 0.3), 0.85)
-    # Another's win the player neither gains nor loses by: the same, lower and quieter.
-    save('simple', 'other', room(lower(b, 0.84), 0.3), 0.6)
-    b = np.zeros(int(SR * 1.0))
-    place(b, note(392.0, 0.8, 0.3, 0.5), 0.0, 0.8)
-    place(b, note(311.1, 0.9, 0.4, 0.5), 0.18, 0.8)
-    save('simple', 'lose', room(b, 0.3), 0.6)
-    b = np.zeros(int(SR * 0.9))
-    place(b, note(523.25, 0.7, 0.25, 0.6), 0.0, 0.7)
-    place(b, note(523.25, 0.7, 0.3, 0.6), 0.16, 0.6)
-    save('simple', 'drawn', room(b, 0.25), 0.6)
-    save('simple', 'flower', room(note(1174.7, 0.4, 0.12), 0.2), 0.45)
-
-
-# ---------------------------------------------------------------- real: from the CC0 recordings
 
 def read(name):
     """A source recording (ogg, through ffmpeg), mono floats at SR."""
@@ -216,6 +138,9 @@ def thump(f=150, decay=0.03, dur=0.12):
 
 
 def real():
+    # (Where the dropped set left it: the sounds as they were.)
+    rng.bit_generator.state = {'bit_generator': 'PCG64', 'state': {'state': 253202470338661063978099255859279573086,
+                               'inc': 261136684632268670825940853076396136793}, 'has_uint32': 0, 'uinteger': 0}
     lay = read('chip-lay-3.ogg')
     a = np.argmax(np.abs(lay) > 0.05)
     lay = lay[max(0, a - int(0.003 * SR)):a + int(0.25 * SR)]
@@ -246,14 +171,14 @@ def real():
         return b
 
     # A discard: the chip's lay as it is (the user's ear: any lower is too low), takes a shade apart.
-    for k, f in enumerate([1.0, 0.98, 1.02]):
-        save('real', f'discard-{k + 1}', room(tile_down(f, 0.05), 0.08), 0.9)
-    # A packet of four dealt: set down together, knocking into each other as they land.
+    # (2026-11-13 again: the chip's pitch still too low and loud: higher, no thud.)
+    for k, f in enumerate([1.15, 1.12, 1.18]):
+        save(f'discard-{k + 1}', room(tile_down(f, 0.0), 0.08), 0.9)
+    # The deal: the hands' tiles come in all at once, slid on the table (no tile set down), knocking into each other:
+    # one clatter, softer than a hand laid down.
     for k in range(2):
-        b = np.zeros(int(SR * 0.3))
-        place(b, tile_down(0.91 + 0.02 * k), 0.0, 0.8)
-        clatter(4, 0.02, 0.35, 0.004, b)
-        save('real', f'deal-{k + 1}', room(b, 0.06), 0.65)
+        b = lowpass(clatter(12, 0.1, 0.8), 9000)
+        save(f'deal-{k + 1}', room(b, 0.06), 0.65)
     # The shuffle: the knocks in waves, a soft slide of tiles on the felt under the dense parts. The random draws start
     # where they did for the take the user picked (2026-11-13), so that the other sounds can change without it.
     rng.bit_generator.state = {'bit_generator': 'PCG64', 'has_uint32': 0, 'uinteger': 328313141, 'state': {
@@ -271,11 +196,11 @@ def real():
     slide[:len(env)] *= env
     slide[len(env):] = 0
     b += slide
-    save('real', 'shuffle', room(b, 0.1), 0.75)
+    save('shuffle', room(b, 0.1), 0.75)
     # A chow or a pung: the tile taken knocking into the two (the moment's tile landing in its gap).
-    save('real', 'call', room(clatter(3, 0.012), 0.06), 0.8)
+    save('call', room(clatter(3, 0.012), 0.06), 0.8)
     # A kong: into three.
-    save('real', 'kong', room(clatter(5, 0.02), 0.06), 0.85)
+    save('kong', room(clatter(5, 0.02), 0.06), 0.85)
 
     def laid(n, spread, gain, dull):
         """A hand laid down at once: its weight on the felt, the tiles knocking into each other, quickly still."""
@@ -286,15 +211,34 @@ def real():
     # The hands shown at a hand's end (as they open: one sound, one hand laid down), a shade apart by what it means
     # to the player: their own win; another's they neither gain nor lose by; another's they pay for; a draw.
     hand = laid(14, 0.09, 1.0, 12000)
-    save('real', 'win', room(hand, 0.08), 0.9)
-    save('real', 'other', room(lower(hand, 0.95), 0.08), 0.85)
-    save('real', 'drawn', room(lower(hand, 0.92), 0.08), 0.8)
-    save('real', 'lose', room(lower(hand, 0.88), 0.08), 0.8)
+    save('win', room(hand, 0.08), 0.9)
+    save('other', room(lower(hand, 0.95), 0.08), 0.85)
+    save('drawn', room(lower(hand, 0.92), 0.08), 0.8)
+    save('lose', room(lower(hand, 0.88), 0.08), 0.8)
     # A flower: put out on the table; a moment later, its replacement drawn.
     b = np.zeros(int(SR * 0.5))
     place(b, tile_down(0.93), 0.0, 0.7)
     place(b, knock(), 0.3, 0.25)
-    save('real', 'flower', room(b, 0.08), 0.55)
+    save('flower', room(b, 0.08), 0.55)
 
-simple()
+def jingles():
+    """A hand's result to the player: their own win (rising), a hand they pay for (falling), neither."""
+    for name, src in [('success', 'jingles_STEEL02.ogg'), ('failure', 'jingles_STEEL01.ogg'), ('neutral', 'jingles_STEEL13.ogg')]:
+        x = read(src)
+        on = np.where(np.abs(x) > 0.01 * np.max(np.abs(x)))[0]
+        x = x[max(0, on[0] - int(0.005 * SR)):]
+        save(name, x, 0.8)
+
+
+def declare():
+    """天聽, 地聽, 報聽: surprise. Two mallet notes, the second a fourth higher and longer (the user's: two sounds, the
+    second a little higher and longer)."""
+    b = np.zeros(int(SR * 0.9))
+    place(b, note(783.99, 0.25, 0.07), 0.0, 0.7)
+    place(b, note(1046.5, 0.8, 0.22), 0.13, 1.0)
+    save('declare', room(b, 0.2), 0.7)
+
+
 real()
+jingles()
+declare()

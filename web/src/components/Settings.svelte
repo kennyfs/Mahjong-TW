@@ -9,7 +9,7 @@
   import { nav } from '../lib/nav.svelte';
   import { practice } from '../lib/practice.svelte';
   import { flowerLabel, taiLabel } from '../lib/rules';
-  import { BOTS, settings, type Colors, type Dark, type Length, type Level, type SoundLevel, type SoundStyle, type Speed, type TextSize } from '../lib/settings.svelte';
+  import { BOTS, settings, type Colors, type Dark, type Length, type Level, type SoundLevel, type Speed, type TextSize } from '../lib/settings.svelte';
   import { playSound } from '../lib/sound';
   import { tour } from '../lib/tour.svelte';
   import { ui } from '../lib/ui.svelte';
@@ -26,7 +26,6 @@
   const texts: [TextSize, string][] = [['SMALL', t('text_small')], ['NORMAL', t('text_normal')], ['LARGE', t('text_large')]];
   const bots: [string, string][] = BOTS.map((b) => [b.spec, t(b.label)]);
   const sounds: [SoundLevel, string][] = [['off', t('sound_off')], ['soft', t('sound_soft')], ['full', t('sound_full')]];
-  const styles: [SoundStyle, string][] = [['simple', t('sound_simple')], ['real', t('sound_real')]];
   const levels: [Level, string][] = [['beginner', t('level_beginner')], ['mid', t('level_mid')], ['expert', t('level_expert')]];
   const rulesValue = $derived(t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerLabel(settings.rules.flowers))) +
     (Object.keys(settings.rules.overrides).length ? '・' + t('rules_custom') : ''));
@@ -40,7 +39,6 @@
   function setSound(v: SoundLevel) { settings.sound = v; settings.persist(); playSound('discard'); }
   const onOff: [string, string][] = [['off', t('sound_off')], ['on', t('ready_hint_on')]];
   function setReady(v: string) { settings.readyHint = v === 'on'; settings.persist(); }
-  function setStyle(v: SoundStyle) { settings.soundStyle = v; settings.persist(); playSound('discard'); }
   function setText(v: TextSize) { settings.text = v; settings.persist(); }
 </script>
 
@@ -69,8 +67,6 @@
       <div class="block">
         <div class="body-large">{t('settings_sound')}</div>
         <Toggle options={sounds} selected={settings.sound} onselect={setSound} />
-        {#if settings.sound !== 'off'}<Toggle options={styles} selected={settings.soundStyle} onselect={setStyle} />{/if}
-        <div class="body-small dim">{t('sound_hint')}</div>
       </div>
       <div class="block">
         <div class="body-large">{t('settings_ready_hint')}</div>

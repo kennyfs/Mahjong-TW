@@ -144,13 +144,10 @@
   <string name="sound_off">關</string>
   <string name="sound_soft">小聲</string>
   <string name="sound_full">正常</string>
-  <string name="sound_simple">簡潔</string>
-  <string name="sound_real">擬真</string>
   <string name="settings_ready_hint">聽牌提示</string>
   <string name="ready_hint_on">開</string>
   <string name="ready_waits">聽 %1$s</string>
   <string name="ready_hint_text">開了之後，輪到你出牌時，打出去就會聽牌的牌上方會有小記號（電腦：滑鼠停在牌上可看聽哪些牌）。預設關閉：想考驗自己的判斷就不要開。</string>
-  <string name="sound_hint">簡潔：只表達發生了什麼（輕敲、短音）；擬真：像真的麻將牌在桌上的聲音。</string>
   <string name="speed_slow">慢</string>
   <string name="speed_normal">中</string>
   <string name="speed_fast">快</string>
