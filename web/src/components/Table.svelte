@@ -43,11 +43,13 @@
   import type { TileMark } from '../lib/review';
   import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
-  import { movesShown, resultTap, setFx } from '../lib/fx.svelte';
+  import { dealsShown, movesShown, resultTap, setFx } from '../lib/fx.svelte';
+  import { playSound } from '../lib/sound';
   import { later } from '../lib/clock';
   import CallFx from './CallFx.svelte';
   import SadFx from './SadFx.svelte';
   import SmallFx from './SmallFx.svelte';
+  import DealFx from './DealFx.svelte';
   import { FULL, total, type Moment, type Parts } from '../lib/moments';
   import { ms, REVIEW_END, type TimingKey } from '../lib/timing';
   import ClaimBar from './ClaimBar.svelte';
@@ -61,7 +63,7 @@
   let {
     view, me, names, scores = null, revealed: revealedIn = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
-    marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null, review = false,
+    marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null, review = false, deal = null,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
     onact?: (a: Action) => void; handLabel?: string; maxHand?: number; keys?: boolean; away?: boolean[];
@@ -73,10 +75,15 @@
     robbed?: number | null;
     /** A review's table: its moments of a hand's end are small, by the player, and shorter (lib/timing.ts). */
     review?: boolean;
+    /** A hand just begun (practice: its id): its tiles are shuffled, built into walls and dealt first (DealFx.svelte),
+     *  once (not again when the table comes back to it). */
+    deal?: string | null;
   } = $props();
   let tableEl = $state<HTMLElement>();
   /** The moments (below): one after another. */
   let moments = $state<Moment[]>([]);
+  /** A hand's deal going on (below): the tiles each seat has had dealt so far; `flip`: dealt, the hand turning up. */
+  let dealing = $state<{ id: string; n: number[]; flip: boolean } | null>(null);
   /** The hands shown (`revealed`) once a hand's end comes to them: after who dealt in, a draw's pause (lib/moments.ts
    *  gap), and before the pause that leads to the result's moment. */
   const revealed = $derived(moments.findIndex((m) => m.kind === 'gap' && !m.hide) > 0 ? null : revealedIn);
@@ -156,13 +163,13 @@
     onpick?.(i === null ? null : i < mine.tiles.length ? mine.tiles[i] : mine.drawn);
   });
   const discardable = $derived(new Set(view.my_turn ? view.legal.filter((a) => a.type === 'discard').map((a) => a.tile) : []));
-  const canDiscard = (tile: string) => interactive && discardable.has(tile);
+  const canDiscard = (tile: string) => interactive && !dealing && discardable.has(tile);
   function discard(tile: string) {
     onact?.({ type: 'discard', tile });
   }
-  const claims = $derived(interactive && view.my_turn ? view.legal.filter((a) => a.type !== 'discard') : []);
+  const claims = $derived(interactive && !dealing && view.my_turn ? view.legal.filter((a) => a.type !== 'discard') : []);
   /** The player's turn to discard: the hand's frame pulses. */
-  const myTurn = $derived(interactive && view.my_turn && discardable.size > 0);
+  const myTurn = $derived(interactive && !dealing && view.my_turn && discardable.size > 0);
   /** The tile the player may claim (a discard, or a kong's added tile), while they may: it stands out. */
   const claimTile = $derived(claims.some((a) => a.type !== 'pass') && view.phase !== 'self' ? (pos.claim?.tile ?? null) : null);
   const claimSeat = $derived(claimTile && view.phase === 'react' ? (pos.claim?.seat ?? -1) : -1);
@@ -253,13 +260,29 @@
     const tiles = sortTiles(without(parseTiles(hand), cur.tile ? [cur.tile] : []));
     return { ...cur, tiles, gap: tiles.length };
   });
+  /** The moment whose sound is the win's (the first winner's; none after the player's own deal-in). */
+  let winSound = -1;
   function startMoments(list: Moment[]) {
     if (!list.length) return;
     // What was still up goes (it is old news); these follow one another.
     moments = list;
+    winSound = list.some((m) => m.kind === 'sad') ? -1 : list.find((m) => m.kind === 'win' || (m.kind === 'small' && m.type !== 'exhausted'))?.id ?? -1;
     if (list.some(holds)) resultTap.tapped = false;
     calloutShown(list.reduce((t, m) => t + m.ms, 0));
   }
+  // Each moment's sound as it comes up: a call's, a kong's; who won (not after the player's own deal-in: its own sound
+  // says it); a draw.
+  $effect(() => {
+    const c = cur;
+    if (!c) return;
+    untrack(() => {
+      if (c.kind === 'call') playSound(c.type === 'chi' || c.type === 'pon' ? 'call' : 'kong');
+      else if (c.kind === 'sad') playSound('lose');
+      else if (c.kind === 'declare') playSound('call');
+      else if (c.type === 'exhausted' && (c.kind === 'drawn' || c.kind === 'small')) playSound('drawn');
+      else if ((c.kind === 'win' || c.kind === 'small') && c.id === winSound) playSound('win');
+    });
+  });
   function momentDone(id: number) {
     if (moments[0]?.id !== id) return;
     moments = moments.slice(1);
@@ -297,6 +320,62 @@
     if (!c || 'holdFx' in window) return;
     return holds(c) ? later(() => holdMoment(c), c.ms * HOLD_AT) : later(() => momentDone(c.id), c.ms);
   });
+  // ---- A hand's start (practice): shuffled, walled and dealt (DealFx.svelte). Meanwhile the player's hand is its
+  // backs as they come, the others' backs too, nobody's flowers; then the hand turns face up (the flowers with it).
+  // The computer players wait for it as for words (a tap lets it go). ----
+  let dealGeo = $state<{ center: { x: number; y: number; w: number; h: number }; targets: { x: number; y: number }[] } | null>(null);
+  let dealTimer: (() => void) | undefined;
+  $effect(() => {
+    const d = deal;
+    if (!d || W === 0 || !tableEl) return;
+    untrack(() => {
+      if (dealsShown.last === d) return;
+      dealsShown.last = d;
+      if (!movesShown()) return;
+      void tick().then(() => startDeal(d));
+    });
+  });
+  function startDeal(id: string) {
+    if (!tableEl) return;
+    const t0 = tableEl.getBoundingClientRect();
+    const rel = (r: DOMRect) => ({ x: r.left - t0.left + r.width / 2, y: r.top - t0.top + r.height / 2, w: r.width, h: r.height });
+    const c = tableEl.querySelector('.center')?.getBoundingClientRect();
+    if (!c) return;
+    const targets = [0, 1, 2, 3].map((seat) => {
+      if (seat === me) {
+        const r = tableEl!.querySelector('.me')!.getBoundingClientRect();
+        return { x: r.left - t0.left + Math.min(r.width / 2, 16 + 8 * s.hand), y: r.bottom - t0.top - s.hand * TILE_RATIO * 0.7 };
+      }
+      const el = tableEl!.querySelector(`.seat.${sideOf(seat, me)}`);
+      return el ? rel(el.getBoundingClientRect()) : { x: 0, y: 0 };
+    });
+    dealGeo = { center: rel(c), targets };
+    dealing = { id, n: [0, 0, 0, 0], flip: false };
+    const total = ms('deal_shuffle') + ms('deal_build') * 1.27 + 16 * ms('deal_packet') + ms('deal_fly') + 280 + ms('deal_flip');
+    calloutShown(total);
+  }
+  function dealPacket(seat: number, n: number) {
+    if (dealing) dealing.n[seat] += n;
+  }
+  /** The tiles are dealt: the player's turn face up, one after another from the left. */
+  function dealDone() {
+    if (!dealing) return;
+    dealing.flip = true;
+    void tick().then(() => {
+      const tiles = [...(tableEl?.querySelectorAll<HTMLElement>('.me [data-tile]') ?? [])];
+      const d = ms('deal_flip');
+      tiles.forEach((el, i) => el.animate([{ transform: 'perspective(400px) rotateY(90deg)' }, { transform: 'none' }],
+        { duration: d * 0.5, delay: (i / Math.max(1, tiles.length)) * d * 0.5, easing: 'ease-out', fill: 'backwards' }));
+      dealTimer = later(endDeal, d);
+    });
+  }
+  function endDeal() {
+    dealTimer?.();
+    dealTimer = undefined;
+    dealing = null;
+    dealGeo = null;
+  }
+
   // ---- The player's discard: from where it stood in the hand to its place in the river; and the hand closing the
   // gap it left (the drawn tile to its place, the tiles between it and the gap a tile's width over) once the discard is
   // halfway there. Slow at both ends. ----
@@ -416,6 +495,8 @@
         if (e.type === 'discard') {
           const side = sideOf(e.seat, me);
           if (callouts.some((c) => c.side === side && c.at === 'river')) callouts = callouts.filter((c) => c.side !== side || c.at !== 'river');
+          // Its sound when it lands (the last of a review's step over several).
+          if (i === fresh.map((x) => x.type).lastIndexOf('discard')) playSound('discard', anim ? ms('discard_move') : 0);
           if (e.seat === me && anim && e.tile) flyDiscard(e.tile);
           // Another's, the last that came, the next player's draw (and flowers) after it or nothing: a discard nobody
           // may claim comes with that draw (a review's step over several: the others' before it are in place).
@@ -516,8 +597,15 @@
             has = true;
           } else if (e.type === 'ron') has = true;
         }
-        // (Its moment showed it: no words after it, even those that stay.)
+        // (Its moment showed it, and sounds it: no words after it, even those that stay.)
         if (has) continue;
+        if (e.type === 'flower') playSound('flower');
+        else if (e.type === 'exhausted') playSound('drawn');
+        else if (e.type === 'ron' || e.type === 'tsumo' || e.type === 'flower_win') {
+          const loser = view.result?.loser ?? -1;
+          if (!fresh.slice(0, i).some((x) => x.type === 'ron')) playSound(e.type === 'ron' && loser === me ? 'lose' : 'win');
+        } else if (e.type === 'kan' || e.type === 'ankan' || e.type === 'kakan') playSound('kong');
+        else playSound('call');
         const kind: CalloutKind = e.type === 'tsumo' || e.type === 'ron' || e.type === 'flower_win' ? 'win'
           : e.type === 'flower' ? 'flower' : e.type === 'exhausted' ? 'drawn' : 'call';
         say(e.type === 'exhausted' ? 'top' : side, t(word), kind, e.type === 'flower' ? flowerMs() : callMs(),
@@ -553,6 +641,7 @@
   /** A tap anywhere, or a key: the words go at once (and whoever waits for them goes on). The tap still does what it
    *  was for. */
   function skipCallouts(e: Event) {
+    if (dealing) endDeal();
     // A result held for the tap: it goes on. Before that, a tap lets all of the hand's end go.
     if (tapHold !== null && moments[0]?.id === tapHold) {
       releaseHold();
@@ -600,7 +689,7 @@
   let meCorner = $state(0);
   const cornerR = $derived(s.wide ? s.font * 1.7 + 14 : 0);
   const cornerH = $derived(s.wide ? Math.max(cornerR, meCorner + 8) : 0);
-  const myFlowers = $derived(flowersOf(pos.players[me]));
+  const myFlowers = $derived(dealing && !dealing.flip ? [] : flowersOf(pos.players[me]));
   /** The player's melds and flowers, in the line over the hand (a wide table's as wide as the table; a tall one's
    *  beside the name plate): smaller rather than in a second line. */
   let meBadgeW = $state(0);
@@ -618,6 +707,12 @@
 </script>
 
 <svelte:window onkeydown={onkey} />
+<!-- The player's tiles as they are dealt: face down, as many as have come (a tall table's in its rows). -->
+{#snippet dealtBacks()}
+  <div class="dealt" style="padding-top: {s.hand * TILE_RATIO * 0.2}px; max-width: {s.handRow > 0 ? s.handRow * s.hand + 2 : 9999}px">
+    {#each { length: Math.min(dealing?.n[me] ?? 0, mine.tiles.length + (mine.drawn ? 1 : 0)) } as _}<Tile w={s.hand} />{/each}
+  </div>
+{/snippet}
 <!-- A word on its plaque (`where`: a river's cell or the middle of the rivers; else the side of the seat it lies over). -->
 {#snippet plaque(c: (typeof callouts)[number], where: string)}
   <div class="callout {c.kind} {c.at} {where} {wordSize(c.text)}" out:fade={{ duration: 160 }}>
@@ -646,7 +741,7 @@
     {#each others as side (side)}
       {@const seat = seatAt(side, me)}
       {@const p = pos.players[seat]}
-      {@const hidden = concealedCount(view, seat)}
+      {@const hidden = dealing ? Math.min(concealedCount(view, seat), dealing.n[seat]) : concealedCount(view, seat)}
       {@const ow = oppW(side, seat)}
       <div class="seat {side}">
         <div class="plate" bind:clientWidth={plate[side].w} bind:clientHeight={plate[side].h}>
@@ -655,7 +750,7 @@
             away={away[seat]} note={notes?.[seat] ?? (p.declared ? { text: t(`call_${p.declared}`), level: 0 } : null)} />
         </div>
         <div class="seat-tiles">
-          <Melds melds={p.melds} flowers={flowersOf(p)} w={ow} wrap={!(s.wide && side === 'top')} {seat} hide={hideMeld(seat)} />
+          <Melds melds={p.melds} flowers={dealing ? [] : flowersOf(p)} w={ow} wrap={!(s.wide && side === 'top')} {seat} hide={hideMeld(seat)} />
           {#if revealed}
             <div class="concealed rack">{#each sortTiles(parseTiles(revealed[seat])) as x}<Tile tile={x} w={ow} />{/each}</div>
           {:else if s.back > 0}
@@ -706,8 +801,9 @@
         <div class="me-line" style="height: {s.meldLine}px">
           <Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} wrap={false} seat={me} hide={hideMeld(me)} />
         </div>
+        {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
         <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
-          bind:selected oneClick={keys} {marks} {tagH} />
+          bind:selected oneClick={keys} {marks} {tagH} />{/if}
       </div>
     {:else}
       <!-- Over the hand: the melds at the left (the first at the far left), the flowers after them; the name plate at
@@ -717,8 +813,9 @@
           <span class="me-melds"><Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} seat={me} hide={hideMeld(me)} /></span>
           <span class="me-badge" bind:clientWidth={meBadgeW}>{@render myBadge()}</span>
         </div>
+        {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
         <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
-          bind:selected perRow={s.handRow} {marks} {tagH} />
+          bind:selected perRow={s.handRow} {marks} {tagH} />{/if}
       </div>
       {#if status}<div class="status tall" style="bottom: {meH + 4}px">{@render status()}</div>{/if}
     {/if}
@@ -737,6 +834,9 @@
     {#each moments.length ? [] : callouts as c (c.id)}
       {#if c.at === 'own'}{@render plaque(c, c.side)}{/if}
     {/each}
+    {#if dealing && !dealing.flip && dealGeo}
+      <DealFx center={dealGeo.center} tw={s.river} dealer={setup.dealer} targets={dealGeo.targets} onpacket={dealPacket} ondone={dealDone} />
+    {/if}
     {#if cur && curShown}
       {#key cur.id}
         {#if cur.kind === 'gap'}<!-- (The pause before a win: nothing.) -->
@@ -755,6 +855,7 @@
   .felt-bg { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--felt); color: var(--on-felt);
     display: flex; justify-content: center; gap: 16px; }
   .aside { flex: none; height: 100%; overflow: auto; }
+  .dealt { display: flex; flex-wrap: wrap; gap: 0; }
   /* Wide: the player opposite along the whole top (the screen's corner button, if any, before them), the other two
      beside the rivers. */
   .table { position: relative; width: 100%; height: 100%; overflow: hidden; color: var(--on-felt);

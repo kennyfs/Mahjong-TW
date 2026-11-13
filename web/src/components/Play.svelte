@@ -84,7 +84,8 @@
       {#key meta?.id}
       <Table view={shown} me={ME} {names} scores={totals} revealed={stage !== 'playing' ? final?.hands ?? null : null}
         interactive={stage === 'playing' && !practice.busy} onact={act} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64}
-        keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined} robbed={practice.robbed}>
+        keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined} robbed={practice.robbed}
+        deal={stage === 'playing' ? practice.deal : null}>
         {#snippet corner()}
           {#if ui.wide}
             <span class="corner-buttons" data-tour="top">

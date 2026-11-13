@@ -139,6 +139,10 @@
   <string name="settings_bot">電腦玩家</string>
   <string name="bot_greedy">牌效率（向聽數與進張）</string>
   <string name="settings_speed">電腦出牌速度</string>
+  <string name="settings_sound">音效</string>
+  <string name="sound_off">關</string>
+  <string name="sound_soft">小聲</string>
+  <string name="sound_full">正常</string>
   <string name="speed_slow">慢</string>
   <string name="speed_normal">中</string>
   <string name="speed_fast">快</string>

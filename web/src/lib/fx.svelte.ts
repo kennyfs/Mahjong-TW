@@ -10,6 +10,9 @@ export const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(pr
 export const movesShown = () => settings.callFx === 'anim' && !reduceMotion;
 
 export const fxOn = $state({ on: false });
+/** The last hand whose deal was shown (Table.svelte): a table that comes back to it (another screen and back) does not
+ *  deal it again. */
+export const dealsShown = { last: '' };
 /** A hand's result moment (a win, a draw over the whole screen) stops for the player's tap (Table.svelte): it was
  *  tapped on (or let go), so the result comes after it at once; else (words alone) the table waits for a tap
  *  (TapOn.svelte). Set again for each hand's end. */

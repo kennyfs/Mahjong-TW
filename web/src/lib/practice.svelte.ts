@@ -62,6 +62,8 @@ class Practice {
   error = $state<string | null>(null);
   /** The manual pace: the computer players' next step is ready and waits for `step`. */
   waiting = $state(false);
+  /** The hand just begun (its id), for the table to deal (Table.svelte `deal`); null for a hand taken up again. */
+  deal = $state<string | null>(null);
   /** A few words on the table for a moment: the player's call did not stand, or was taken before they were asked. */
   notice = $state<string | null>(null);
   /** The event (an index into the view's events) that was a claim taken from the player (lib/claims.ts): its moment
@@ -151,12 +153,15 @@ class Practice {
     this.final = null;
     this.lastRecord = null;
     this.stage = 'playing';
+    // (No table of the last game's view meanwhile: the new one's first view is its first, without words.)
+    this.view = null;
     const epoch = this.epoch;
     try {
       const game = await engine.newHand(rules, { dealer: startDealer, east: -1, round: 0, streak: 0 }, seed ? `${seed}/0` : undefined);
       // (Another game came meanwhile: this one is no more.)
       if (epoch !== this.epoch) return;
       this.game = game;
+      this.deal = `${this.meta.id}/0`;
     } catch (e) {
       this.error = String((e as Error).message ?? e);
       return;
@@ -407,6 +412,7 @@ class Practice {
     }
     this.reset();
     this.game = n.game;
+    this.deal = `${this.meta.id}/${this.meta.hands}`;
     this.final = null;
     this.stage = 'playing';
     this.persist();

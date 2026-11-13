@@ -25,7 +25,12 @@
     "tsumo": 3000,
     "flower_win": 3000,
     "declare": 2000,
-    "drawn": 2000
+    "drawn": 2000,
+    "deal_shuffle": 1400,
+    "deal_build": 600,
+    "deal_packet": 90,
+    "deal_fly": 320,
+    "deal_flip": 450
   },
   "review_end": 0.5,
   "style": { "call": "slant", "win": "full", "review_end": "simple", "drawn": "full" }
