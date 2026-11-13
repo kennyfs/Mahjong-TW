@@ -111,6 +111,8 @@ export interface TableSizes {
   tableW: number;
   /** The words' size on the table, px. */
   font: number;
+  /** The line over the player's hand that holds their melds and flowers (a tall table's, their name plate too). */
+  meldLine: number;
 }
 
 const H = (w: number) => w * TILE_RATIO;
@@ -148,10 +150,13 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSi
     // The hand: 17 tiles and the drawn one's gap across the width (the player's name plate is above it, at the
     // left), at most about a sixth of the height.
     const hand = Math.max(24, Math.min(maxHand, (w - 24) / (17 + DRAWN_GAP + 0.3), (h * 0.165) / TILE_RATIO));
-    const meld = hand * 0.78;
+    const meld = hand * 0.7;
     // The others' tiles: larger on a large window.
     const opp = Math.max(22, Math.min(hand * 0.66, h >= 900 ? 44 : 36));
-    const meH = H(hand) * (1 + LIFT) + 10;
+    // The player's melds and flowers in a line over the hand, at its left (the user: over the hand and at the left,
+    // whatever the screen); the hand under it.
+    const meldLine = Math.max(30, H(meld));
+    const meH = meldLine + 4 + H(hand) * (1 + LIFT) + 10;
     const topH = H(opp) + 12;
     const centerH = h - meH - topH - 6;
     const sideMin = Math.max(opp * 3.4 + 16, 128);
@@ -183,13 +188,13 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSi
     return {
       wide, hand, handRow: 0, meld, river, opp, back: h < LOW ? 0 : Math.max(10, opp * 0.66), acrossCols: b.acrossCols, acrossRows: b.acrossRows,
       sideCols: b.sideCols, sideRows, sideW, topH, meH, boxW: 0, mid: MID_ROWS * H(river), tableW,
-      font: Math.max(14, Math.min(18, opp * 0.46)),
+      font: Math.max(14, Math.min(18, opp * 0.46)), meldLine,
     };
   }
   // Tall (a phone upright): the others along the top, each in a column over their river (the previous at the left,
   // the one opposite in the middle, the next at the right) with OPP_LINES lines of melds and flowers; the rivers the
-  // whole width; the player's name plate, melds and flowers in a line over the hand, which wraps after HAND_ROW
-  // tiles (the drawn one apart at the end of the last row).
+  // whole width; the player's melds and flowers (at the left) and name plate (at the right) in a line over the hand,
+  // which wraps after HAND_ROW tiles (the drawn one apart at the end of the last row).
   // The rivers stay 26 px or more: on a short table the hand gets smaller (not below 30) to leave them the room.
   const tall = (hand: number, more = 0) => {
     const meld = Math.min(hand * 0.72, 40);
@@ -205,7 +210,7 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSi
     // The rivers: 3 columns at the sides, 5 across in 3 rows; as wide as the table allows, unless its height says less.
     let river = Math.min(hand * 0.9, (w - 24) / (acrossCols + 2 * sideCols));
     while (river > 16 && (2 * acrossRows + BOX_ROWS) * H(river) + 14 > riversH) river -= 0.5;
-    return { hand, meld, opp, meH, topH, centerH: riversH, river };
+    return { hand, meld, opp, meH, topH, centerH: riversH, river, meldLine };
   };
   const sideCols = 3;
   const acrossCols = 5;
@@ -214,11 +219,11 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSi
   while (fit.river < MIN_RIVER && fit.hand > 30) fit = tall(Math.max(30, fit.hand - 1));
   // A higher strip takes its room from the rivers alone: the hand stays as it was.
   if (top > fit.topH) fit = tall(fit.hand, top);
-  const { hand, meld, opp, meH, topH, centerH, river } = fit;
+  const { hand, meld, opp, meH, topH, centerH, river, meldLine } = fit;
   const sideRows = Math.max(4, Math.floor((centerH - 4) / H(river)));
   const mid = Math.max(H(river) * BOX_ROWS, Math.min(H(river) * 2, centerH - 2 * acrossRows * H(river) - 14));
   return {
     wide, hand, handRow: HAND_ROW, meld, river, opp, back: 0, acrossCols, acrossRows, sideCols, sideRows, sideW: (w - 8) / 3,
-    topH, meH, boxW: acrossCols * river, mid, tableW: w, font: 14,
+    topH, meH, boxW: acrossCols * river, mid, tableW: w, font: 14, meldLine,
   };
 }

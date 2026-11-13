@@ -13,9 +13,9 @@ import * as engine from './engine';
 import { t } from './i18n.svelte';
 import { handRecord, newId, records } from './records.svelte';
 import { keepSummary } from './review';
-import { calloutsDone, calloutsSkipped } from './callouts';
-import { later, now, wait } from './clock';
-import { justCalled, othersCall, preclaim, robbedEvent, robPause } from './claims';
+import { calloutsSkipped } from './callouts';
+import { later, now } from './clock';
+import { BotPace, othersCall, preclaim, robbedEvent } from './claims';
 import { fxDone } from './fx.svelte';
 import { settings, type Length } from './settings.svelte';
 import { ms } from './timing';
@@ -45,7 +45,6 @@ interface Saved { game: GameRecord; meta: Meta }
 
 export type Stage = 'playing' | 'result' | 'over';
 
-const sleep = wait;
 /** What shows on the table as a player's doing (a draw and a flower are not waited for). */
 const SHOWN = new Set<GameEvent['type']>(['discard', 'chi', 'pon', 'kan', 'ankan', 'kakan', 'declare', 'tsumo', 'ron', 'flower_win']);
 
@@ -81,6 +80,8 @@ class Practice {
   /** The call the player just made on another's tile, until what came of it is known. */
   private claimed: Action['type'] | null = null;
   private noticeTimer: (() => void) | undefined;
+  /** The computer players' pace (lib/claims.ts BotPace): their turns, their discards' flights, their answers to a tile. */
+  private pace = new BotPace();
 
   get bots(): (string | null)[] {
     const b = this.meta?.bot ?? settings.bot;
@@ -110,6 +111,7 @@ class Practice {
     this.epoch++;
     // (What the last game's loop waits for goes at once: it sees the game is gone.)
     calloutsSkipped();
+    this.pace.reset();
     this.ahead = null;
     this.waiting = false;
     this.claimed = null;
@@ -197,7 +199,6 @@ class Practice {
           // Another's tile the player could claim: the computer players decide on it first (lib/claims.ts), the
           // player's buttons held back meanwhile.
           this.busy = true;
-          const shown = now();
           const pc = await preclaim(this.game, ME, this.bots, seed);
           if (epoch !== this.epoch || !this.game || !pc) break;
           if (!pc.robbed) {
@@ -220,10 +221,9 @@ class Practice {
             break;
           }
           this.busy = true;
-          // The discard stays a while first (lib/claims.ts robPause, counted from when it showed), its words done.
-          await calloutsDone();
-          const left = Math.max(0, robPause() - (now() - shown));
-          await sleep(left);
+          // The discard stays a while first (rob_show, from when it came: BotPace), its words done.
+          await this.pace.settle();
+          await this.pace.rob();
           if (epoch !== this.epoch || !this.game || this.game.actions.length !== from) break;
           this.robbed = robbed;
           this.game = pc.game;
@@ -255,33 +255,28 @@ class Practice {
           continue;
         }
         this.busy = true;
-        // A bot's own turn takes the pace (but not the discard after its chow or pung: the moment showed it). Deciding
-        // on a discard (nobody else may): a call shows after the tile's stay, no call at once (lib/claims.ts othersCall).
-        // The pace counts once a call's moment or words (碰, 槓, 天聽) are over (a tap anywhere lets them go).
+        // A bot's own turn takes its pace (bot_turn; after its own chow or pung bot_after_call), its discard flying in
+        // to the river in the last of it, and is over when the tile lands. Deciding on a discard (nobody else may): a
+        // call shows after the tile's stay (bot_claim), no call at once (lib/claims.ts othersCall). Each counts once a
+        // call's moment or words (碰, 槓, 天聽) are over (a tap anywhere lets them go). (BotPace.)
         const claim = p.phase !== 'self';
-        await calloutsDone();
+        const game = this.game;
+        await this.pace.settle();
         if (epoch !== this.epoch || !this.game) break;
-        if (!claim) {
-          const key = justCalled(this.game, p.current) ? 'bot_after_call' : 'bot_turn';
-          const pace = ms(key);
-          await sleep(pace);
-          if (epoch !== this.epoch || !this.game) break;
-        }
         const before = this.view?.event_count ?? 0;
         const from = now();
-        const next = await engine.advance(this.game, this.bots, seed, 1);
+        const next = await engine.advance(game, this.bots, seed, 1);
         let view: View | null = null;
+        let fly = 0;
         if (claim) {
           view = await engine.view(next, ME);
           if (epoch !== this.epoch) break;
-          if (othersCall(view, before, ME)) {
-            const left = Math.max(0, ms('bot_claim') - (now() - from));
-            await sleep(left);
-          }
-        }
+          if (othersCall(view, before, ME)) await this.pace.call();
+        } else fly = await this.pace.turn(game, p.current, next, from);
         // (Another game came meanwhile: this one's step is no more.)
         if (epoch !== this.epoch) break;
         this.game = next;
+        this.pace.came(next, fly);
         this.persist();
         if (view) this.view = view;
         else await this.refresh();
@@ -291,6 +286,10 @@ class Practice {
           const over = fresh.some((e) => e.seat === ME) ? undefined : fresh.find((e) => e.seat !== ME && e.type !== 'discard');
           if (over) this.sayAfterFx(t('claim_overridden', t('act_' + this.claimed), this.names()[over.seat], t('act_' + over.type)));
           this.claimed = null;
+        }
+        if (fly > 0) {
+          await this.pace.land();
+          if (epoch !== this.epoch) break;
         }
       }
     } catch (e) {
@@ -335,6 +334,8 @@ class Practice {
     const before = this.view.event_count;
     try {
       this.game = await engine.act(this.game, ME, action);
+      // The player's discard flies to the river: the computer player after them discards once it has landed (BotPace).
+      this.pace.came(this.game, this.pace.flight());
       // The others decided first (lib/claims.ts): the claim is settled now. Another's that came first is the moment's
       // 搶 (the player's buttons had a claim that would have stood, but not the one chosen).
       const v = await engine.view(this.game, ME);

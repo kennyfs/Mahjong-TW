@@ -1,6 +1,14 @@
 // Whether a call's or a win's moment (CallFx.svelte, started by Table.svelte) is on the screen: a hand's result waits
 // for it to end before it shows (Play, Battle, Replay, Branch), so that the two never cover each other; the table as it
 // ended then waits for a tap (TapOn.svelte).
+import { settings } from './settings.svelte';
+
+/** The system asks for less motion: the words alone, the tiles where they go at once. */
+export const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Whether the moments and the tiles' moves (a discard's flight, the hand closing its gap) show: the settings' and the
+ *  system's choice (the app's FxClock.enabled). */
+export const movesShown = () => settings.callFx === 'anim' && !reduceMotion;
+
 export const fxOn = $state({ on: false });
 /** A hand's result moment (a win, a draw over the whole screen) stops for the player's tap (Table.svelte): it was
  *  tapped on (or let go), so the result comes after it at once; else (words alone) the table waits for a tap

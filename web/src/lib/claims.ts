@@ -7,6 +7,9 @@
 // Practice and a review's branch use it; a table battle's room decides claims its own way (server/).
 
 import * as engine from './engine';
+import { calloutsDone } from './callouts';
+import { now, wait } from './clock';
+import { movesShown } from './fx.svelte';
 import { ms } from './timing';
 import type { Action, GameRecord, View } from './types';
 
@@ -30,8 +33,8 @@ export function othersCall(view: View, before: number, me: number): boolean {
   return fresh.some((e) => e.seat !== me && ['chi', 'pon', 'kan', 'ron'].includes(e.type));
 }
 
-/** Whether `seat`, to play now, came to it by a chow or a pung (since the last discard): its discard then follows the
- *  call's moment (or words) at once, without the pace of a turn of its own; the moment already showed what it took. */
+/** Whether `seat`, to play now, came to it by a chow or a pung (since the last discard): its discard then takes the
+ *  pace that follows a call (bot_after_call), counted from the end of the call's moment (or words). */
 export function justCalled(game: GameRecord, seat: number): boolean {
   for (let k = game.actions.length - 1; k >= 0; k--) {
     const [s, type] = game.actions[k];
@@ -82,4 +85,74 @@ export function robbedEvent(events: { seat: number; type: string }[], from: numb
     if (e.seat === seat && ['chi', 'pon', 'kan', 'ron'].includes(e.type)) return i;
   }
   return -1;
+}
+
+/** The type of the last action of `game` (a step of the computer players: what it did). */
+export function lastType(game: GameRecord): string | undefined {
+  const a = game.actions[game.actions.length - 1];
+  return a ? String(a[1]) : undefined;
+}
+
+/**
+ * The computer players' pace as the table shows it (practice.svelte.ts, Branch.svelte; the app's Claims.kt BotPace). A
+ * computer player's own turn takes its pace (bot_turn; after its own chow or pung bot_after_call), counted from when it
+ * came, once the words or moment of what came before are over. A discard of theirs flies in to their river in the last
+ * discard_move of it (when the moves show: Table.svelte flyIn), never before the tile before it has landed, and the turn
+ * is over when it lands (with a pace of 900 and a flight of 500: still for 400, then 500 in flight). What they answer
+ * to a tile, a call (bot_claim) or a claim taken from the player (rob_show), shows that long after the tile came, its
+ * flight included, or after the words or moment over it.
+ */
+export class BotPace {
+  /** When the last discard (or added kong) came, or the words or moment over it ended; when the last discard lands. */
+  private shownAt = 0;
+  private landAt = 0;
+
+  /** A discard's flight to its river, ms: discard_move when the moves show; else none (it is there at once). */
+  flight(): number {
+    return movesShown() ? ms('discard_move') : 0;
+  }
+
+  /** Another game: nothing of the last one's tiles to wait for. */
+  reset() {
+    this.shownAt = 0;
+    this.landAt = 0;
+  }
+
+  /** Returns once the words and moments the table shows are over. (The table has the view by then: the engine's
+   *  answers come after its effects have run.) */
+  async settle() {
+    if (await calloutsDone()) this.shownAt = now();
+  }
+
+  /** What `next` added came now: a discard (in flight for `fly`) or an added kong is a tile the others may answer. */
+  came(next: GameRecord, fly: number) {
+    const type = lastType(next);
+    if (type !== 'discard' && type !== 'kakan') return;
+    this.shownAt = now();
+    this.landAt = this.shownAt + (type === 'discard' ? fly : 0);
+  }
+
+  /** A computer player's own turn (`seat`, in `game`; `next`: what it does), come at `from`: waits its pace, less the
+   *  flight of its discard. Resolves to that flight (0: none, or not a discard). */
+  async turn(game: GameRecord, seat: number, next: GameRecord, from: number): Promise<number> {
+    const fly = lastType(next) === 'discard' ? this.flight() : 0;
+    const pace = ms(justCalled(game, seat) ? 'bot_after_call' : 'bot_turn');
+    await wait(Math.max(0, from + pace - fly - now(), this.landAt - now()));
+    return fly;
+  }
+
+  /** A computer player's call on the tile: after its stay (bot_claim). */
+  call() {
+    return wait(Math.max(0, this.shownAt + ms('bot_claim') - now(), this.landAt - now()));
+  }
+
+  /** A claim taken from the player: after the tile's stay (rob_show; robPause). */
+  rob() {
+    return wait(Math.max(0, this.shownAt + robPause() - now(), this.landAt - now()));
+  }
+
+  /** The tile just discarded lands: a computer player's turn is over then. */
+  land() {
+    return wait(Math.max(0, this.landAt - now()));
+  }
 }

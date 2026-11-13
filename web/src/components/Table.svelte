@@ -43,7 +43,7 @@
   import type { TileMark } from '../lib/review';
   import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
-  import { resultTap, setFx } from '../lib/fx.svelte';
+  import { movesShown, resultTap, setFx } from '../lib/fx.svelte';
   import { later } from '../lib/clock';
   import CallFx from './CallFx.svelte';
   import SadFx from './SadFx.svelte';
@@ -245,7 +245,6 @@
   });
   /** The meld a call's moment is bringing (now or next): out of sight at its place till it lands. */
   const hideMeld = (seat: number) => moments.find((m) => m.kind === 'call' && m.seat === seat)?.meld ?? -1;
-  const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   /** A win's tiles: the winner's hand once it is shown (it may come a moment after the win). */
   const curShown = $derived.by((): Moment | null => {
     if (!cur || cur.kind !== 'win' || cur.type === 'flower_win') return cur;
@@ -344,6 +343,26 @@
     });
   }
 
+  /** Another player's discard: in from the table's edge on their side (the top, the left, the right), along the line
+   *  to its place in their river, fading in as it comes; slow at both ends. Its time (discard_move) is the last of the
+   *  computer player's pace (lib/claims.ts BotPace). The app's HandMotion discardIn. */
+  function flyIn(seat: number) {
+    void tick().then(() => {
+      const el = tableEl?.querySelector<HTMLElement>(`[data-river="${seat}"] > :last-child`);
+      if (!el || !tableEl) return;
+      const t = tableEl.getBoundingClientRect();
+      const to = el.getBoundingClientRect();
+      const side = sideOf(seat, me);
+      // From just inside the table's edge: the tile's outer side on it.
+      const dx = side === 'left' ? t.left - to.left : side === 'right' ? t.right - to.right : 0;
+      const dy = side === 'top' ? t.top - to.top : 0;
+      const d = ms('discard_move');
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+        { duration: d, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', fill: 'backwards' });
+      el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: d * 0.2, fill: 'backwards' });
+    });
+  }
+
   const callParts = (): Parts => ({ in: ms('call_in'), drop: ms('call_drop'), hold: ms('call_hold'), out: ms('call_out') });
   const dealinParts = (): Parts => ({ in: ms('dealin_in'), drop: 0, hold: ms('dealin_hold'), out: ms('dealin_out') });
   const RIVER_AREA: Record<Side, string> = { top: 'rt', left: 'rl', right: 'rr', bottom: 'rb' };
@@ -372,7 +391,7 @@
       seen = count;
       // A jump over many events (a review going to another decision) says none of them.
       if (fresh.length > 8) return;
-      const anim = settings.callFx === 'anim' && !reduceMotion;
+      const anim = movesShown();
       const list: Moment[] = [];
       let flowersShown = new Set<number>();
       let dealtIn = false;
@@ -398,6 +417,9 @@
           const side = sideOf(e.seat, me);
           if (callouts.some((c) => c.side === side && c.at === 'river')) callouts = callouts.filter((c) => c.side !== side || c.at !== 'river');
           if (e.seat === me && anim && e.tile) flyDiscard(e.tile);
+          // Another's, the last that came, the next player's draw (and flowers) after it or nothing: a discard nobody
+          // may claim comes with that draw (a review's step over several: the others' before it are in place).
+          else if (e.seat !== me && anim && fresh.slice(i + 1).every((x) => x.type === 'draw' || x.type === 'flower')) flyIn(e.seat);
           continue;
         }
         const at = base + i;
@@ -573,19 +595,19 @@
     const room = H - s.topH - meH - (side === 'left' ? cornerH + belowL : cornerR + belowR) - plateH(side) - 12 - backsH;
     return fitShown(o.counts, o.flowers, o.concealed, width, room, s.opp);
   }
-  /** The player's own name plate (with their flowers over it, and a battle's clock) lies over the foot of the left
-   *  column of a wide table: the column ends above it. The right one ends as high (or as the plate alone would). */
+  /** The player's own name plate (with a battle's clock over it) lies over the foot of the left column of a wide
+   *  table: the column ends above it. The right one ends as high (or as the plate alone would). */
   let meCorner = $state(0);
   const cornerR = $derived(s.wide ? s.font * 1.7 + 14 : 0);
   const cornerH = $derived(s.wide ? Math.max(cornerR, meCorner + 8) : 0);
   const myFlowers = $derived(flowersOf(pos.players[me]));
-  /** The player's melds: a wide table's in the hand's row, smaller when they would take the hand's room (kongs); a
-   *  tall one's in the line over the hand beside the name plate, smaller rather than in a second line. */
+  /** The player's melds and flowers, in the line over the hand (a wide table's as wide as the table; a tall one's
+   *  beside the name plate): smaller rather than in a second line. */
   let meBadgeW = $state(0);
   const myMeldW = $derived.by(() => {
     const counts = pos.players[me].melds.map((m) => meldTiles(m).length);
-    if (!counts.length) return s.meld;
-    if (s.wide) return fitShownRow(counts, 0, 0, s.tableW - 28 - (mine.tiles.length + 1 + DRAWN_GAP) * s.hand, s.meld);
+    if (!counts.length && !myFlowers.length) return s.meld;
+    if (s.wide) return fitMelds(counts, myFlowers.length, s.tableW - 28, 1, s.meld, 16);
     return fitMelds(counts, myFlowers.length, s.tableW - 16 - (meBadgeW || 90), 1, s.meld, 22);
   });
   const winds = $derived(view.seat_winds);
@@ -651,8 +673,7 @@
           {@const across = r.side === 'top' || r.side === 'bottom'}
           <div class="river-cell {r.area}">
             <River {seat} discards={pos.players[seat].discards} w={s.river} cols={across ? s.acrossCols : s.sideCols}
-              rows={across ? s.acrossRows : s.sideRows} last={lastDiscard === seat} claim={claimSeat === seat} from={r.side}
-              still={seat === me && settings.callFx === 'anim' && !reduceMotion} />
+              rows={across ? s.acrossRows : s.sideRows} last={lastDiscard === seat} claim={claimSeat === seat} />
           </div>
         {/each}
         {#each moments.length ? [] : callouts as c (c.id)}
@@ -677,19 +698,24 @@
     {#if s.wide}
       <div class="me-corner" style="bottom: {meH + 2}px" bind:clientHeight={meCorner}>
         {#if status}<div class="status">{@render status()}</div>{/if}
-        {#if myFlowers.length}<div class="me-flowers"><Melds melds={[]} flowers={myFlowers} w={s.opp} /></div>{/if}
         {@render myBadge()}
       </div>
+      <!-- The hand to the left (a discard leaves the rest in place); over it, at its left, the melds, the first at the
+           far left and each after it to its right (none moves when another comes), and the flowers. -->
       <div class="me" data-tour="hand">
+        <div class="me-line" style="height: {s.meldLine}px">
+          <Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} wrap={false} seat={me} hide={hideMeld(me)} />
+        </div>
         <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected oneClick={keys} {marks} {tagH} />
-        <span class="me-melds"><Melds melds={pos.players[me].melds} w={myMeldW} wrap={false} seat={me} hide={hideMeld(me)} reverse /></span>
       </div>
     {:else}
+      <!-- Over the hand: the melds at the left (the first at the far left), the flowers after them; the name plate at
+           the right end. -->
       <div class="me tall" data-tour="hand">
         <div class="me-top">
+          <span class="me-melds"><Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} seat={me} hide={hideMeld(me)} /></span>
           <span class="me-badge" bind:clientWidth={meBadgeW}>{@render myBadge()}</span>
-          <span class="me-melds"><Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} seat={me} hide={hideMeld(me)} reverse /></span>
         </div>
         <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected perRow={s.handRow} {marks} {tagH} />
@@ -787,16 +813,17 @@
   .box-streak { color: var(--highlight); font-size: 0.92em; font-weight: 700; }
   .box-extra { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
 
-  /* The hand to the left (a discard leaves the rest in place); the melds at the right end, the first at the far right
-     and each after it to its left, so that none moves when another comes. */
-  .me { grid-area: me; display: flex; align-items: flex-end; justify-content: flex-start; gap: 12px; padding: 0 8px 6px 16px; min-width: 0; }
-  .me.tall { flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; padding: 0 4px 6px; }
+  /* The hand to the left (a discard leaves the rest in place); the melds over it at the left, the first at the far
+     left and each after it to its right, so that none moves when another comes; the flowers after them. */
+  .me { grid-area: me; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 4px;
+    padding: 0 8px 6px 16px; min-width: 0; }
+  .me-line { display: flex; align-items: flex-end; min-width: 0; max-width: 100%; }
+  .me.tall { align-items: center; padding: 0 4px 6px; }
   .me-top { display: flex; align-items: flex-end; gap: 8px; min-width: 0; align-self: stretch; }
-  .me-badge { flex: none; align-self: center; display: flex; max-width: 60%; }
-  .me-melds { margin-left: auto; min-width: 0; display: flex; justify-content: flex-end; }
+  .me-badge { flex: none; align-self: center; display: flex; max-width: 60%; margin-left: auto; }
+  .me-melds { min-width: 0; display: flex; justify-content: flex-start; }
   .me-corner { position: absolute; left: 8px; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
     max-width: calc(var(--side-w) - 12px); }
-  .me-flowers { padding-left: 4px; }
 
   .claims { position: absolute; right: 8px; left: 8px; display: flex; justify-content: flex-end; z-index: 3; pointer-events: none; }
   .strip { position: absolute; right: 8px; left: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; z-index: 3;

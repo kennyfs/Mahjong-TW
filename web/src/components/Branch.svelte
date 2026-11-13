@@ -18,12 +18,10 @@
   import { fxDone, fxOn, resultTap } from '../lib/fx.svelte';
   import TapOn from './TapOn.svelte';
   import { untrack } from 'svelte';
-  import { calloutsDone } from '../lib/callouts';
-  import { justCalled, othersCall, preclaim, robbedEvent, robPause } from '../lib/claims';
+  import { BotPace, othersCall, preclaim, robbedEvent } from '../lib/claims';
   import * as engine from '../lib/engine';
   import { t } from '../lib/i18n.svelte';
   import { settings } from '../lib/settings.svelte';
-  import { ms } from '../lib/timing';
   import type { Action, GameRecord, View } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
   import HandResult from './HandResult.svelte';
@@ -71,10 +69,12 @@
 
   const at = (g: GameRecord, k: number): GameRecord => ({ ...g, actions: g.actions.slice(0, k) });
   const bots = $derived([0, 1, 2, 3].map((s) => (s === me ? null : settings.bot)));
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  /** The computer players' pace (lib/claims.ts BotPace): their turns, their discards' flights, their answers to a tile. */
+  const pace = new BotPace();
 
   function restart() {
     epoch++;
+    pace.reset();
     game = { ...root, actions: [...root.actions] };
     cursor = start;
     final = null;
@@ -124,7 +124,6 @@
         if (p.phase === 'over') break;
         if (p.pending.includes(me)) {
           deciding = true;
-          const shown = performance.now();
           const pc = await preclaim(game, me, bots, `${seed}/${game.actions.length}`);
           if (e !== epoch || !game || !pc) break;
           if (!pc.robbed) {
@@ -133,9 +132,9 @@
             view = await engine.view(game, me);
             break;
           }
-          await calloutsDone();
-          const left = Math.max(0, robPause() - (performance.now() - shown));
-          await sleep(left);
+          // The discard stays a while first (rob_show, from when it came: BotPace), its words done.
+          await pace.settle();
+          await pace.rob();
           if (e !== epoch || !game) break;
           const before = view?.event_count ?? 0;
           const v = await engine.view(pc.game, me);
@@ -148,33 +147,30 @@
           if (v.phase === 'over') final = await engine.view(game, me, 0, true);
           continue;
         }
-        // A computer player's turn at its pace; their answers to a tile: a call after the tile's stay, none at once
-        // (lib/claims.ts othersCall).
-        // (The pace counts once a call's moment or words are over.)
+        // A computer player's turn at its pace, its discard flying in to the river in the last of it, over when the
+        // tile lands; their answers to a tile: a call after the tile's stay, none at once (lib/claims.ts othersCall).
+        // Each counts once a call's moment or words are over. (BotPace.)
         const claim = p.phase !== 'self';
-        await calloutsDone();
+        const cur = game;
+        await pace.settle();
         if (e !== epoch || !game) break;
-        if (!claim) {
-          const key = justCalled(game, p.current) ? 'bot_after_call' : 'bot_turn';
-          const pace = ms(key);
-          await sleep(pace);
-          if (e !== epoch || !game) break;
-        }
         const before = view?.event_count ?? 0;
         const from = performance.now();
-        const g = await engine.advance(game, bots, `${seed}/${game.actions.length}`, 1);
+        const g = await engine.advance(cur, bots, `${seed}/${cur.actions.length}`, 1);
         if (e !== epoch) break;
         const v = await engine.view(g, me);
         if (e !== epoch) break;
-        if (claim && othersCall(v, before, me)) {
-          const left = Math.max(0, ms('bot_claim') - (performance.now() - from));
-          await sleep(left);
-          if (e !== epoch) break;
-        }
+        let fly = 0;
+        if (claim) {
+          if (othersCall(v, before, me)) await pace.call();
+        } else fly = await pace.turn(cur, p.current, g, from);
+        if (e !== epoch) break;
         game = g;
+        pace.came(g, fly);
         cursor = g.actions.length;
         view = v;
         if (v.phase === 'over') final = await engine.view(g, me, 0, true);
+        if (fly > 0) await pace.land();
       }
     } catch (x) {
       error = String((x as Error).message ?? x);
@@ -203,6 +199,8 @@
         if (over) robbed = v.events.indexOf(over);
       }
       game = g;
+      // The player's discard flies to the river: the computer player after them discards once it has landed.
+      pace.came(g, pace.flight());
       cursor = g.actions.length;
       showResult = true;
       await show();

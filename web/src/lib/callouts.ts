@@ -13,14 +13,14 @@ export const callMs = () => ms('words_call');
 export const flowerMs = () => ms('words_flower');
 
 let until = 0;
-let waiting: (() => void)[] = [];
+let waiting: ((waited: boolean) => void)[] = [];
 let timer: (() => void) | undefined;
 
 function release() {
   timer?.();
   timer = undefined;
   until = 0;
-  for (const go of waiting.splice(0)) go();
+  for (const go of waiting.splice(0)) go(true);
 }
 
 /** Words went up for `ms`, to be waited for. */
@@ -37,10 +37,10 @@ export function calloutsSkipped() {
   release();
 }
 
-/** Resolves when no words that are waited for are up: at once when there are none. */
-export function calloutsDone(): Promise<void> {
+/** Resolves when no words that are waited for are up: at once (false) when there are none, else (true) at their end. */
+export function calloutsDone(): Promise<boolean> {
   const left = until - now();
-  if (left <= 0) return Promise.resolve();
+  if (left <= 0) return Promise.resolve(false);
   return new Promise((go) => {
     waiting.push(go);
     timer?.();
