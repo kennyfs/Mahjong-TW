@@ -87,6 +87,7 @@ import androidx.compose.ui.unit.sp
 import io.github.kennyfs.mahjong.Action
 import io.github.kennyfs.mahjong.CalloutClock
 import io.github.kennyfs.mahjong.FxClock
+import io.github.kennyfs.mahjong.HandResult
 import io.github.kennyfs.mahjong.Discard
 import io.github.kennyfs.mahjong.GameEvent
 import io.github.kennyfs.mahjong.Meld
@@ -122,6 +123,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.platform.LocalContext
 import io.github.kennyfs.mahjong.Timing
+import io.github.kennyfs.mahjong.Sounds
 import kotlin.math.roundToLong
 
 private val Float.d: Dp get() = this.dp
@@ -173,7 +175,7 @@ fun TableView(
   status: (@Composable () -> Unit)? = null, corner: (@Composable () -> Unit)? = null, overlay: (@Composable BoxScope.() -> Unit)? = null,
   marks: Map<String, TileMark>? = null, notes: List<SeatNote?>? = null, strip: (@Composable () -> Unit)? = null,
   onPick: ((String?) -> Unit)? = null, onNext: (() -> Unit)? = null, stay: Boolean = false, robbed: Int = -1, review: Boolean = false,
-  readyHint: Boolean = false,
+  readyHint: Boolean = false, deal: String? = null,
 ) {
   val c = LocalTable.current
   val density = LocalDensity.current
@@ -197,10 +199,80 @@ fun TableView(
   val unseen = host.seen >= 0 && view.eventCount - host.seen in 1..8 && FxClock.enabled() &&
     view.events.takeLast(view.eventCount - host.seen).any { it.type == "ron" || it.type == "exhausted" }
   val shownAll = if (unseen || host.moments.indexOfFirst { it.kind == MomentKind.GAP && !it.hide } > 0) null else revealed
+  // A hand's end: one sound as the hands are shown, by what it is to the player: their own win; another's they pay for
+  // (on their discard, or self-drawn); another's they neither gain nor lose by; a draw. Without the moments (words
+  // only), the result's jingle a moment after. (A table that starts with them shown, a replay showing all: none.)
+  val wasShown = remember { arrayOfNulls<Boolean>(1) }
+  val shownNow = shownAll != null
+  LaunchedEffect(shownNow) {
+    if (shownNow && wasShown[0] == false) {
+      val r = view.result
+      val pays = r != null && (r.loser == me || (r.selfDraw && r.winners.none { it.seat == me }))
+      Sounds.play(when {
+        r == null -> Sounds.Name.OTHER
+        r.exhausted -> Sounds.Name.DRAWN
+        r.winners.any { it.seat == me } -> Sounds.Name.WIN
+        pays -> Sounds.Name.LOSE
+        else -> Sounds.Name.OTHER
+      })
+      if (!FxClock.enabled()) Sounds.play(jingleOf(r, me), 400)
+    }
+    wasShown[0] = shownNow
+  }
   // The melds that calls just made, which their moments will bring: out of sight already in this first frame (Melds),
   // as on the page, not shown for the frame before TableEvents starts the moments.
   val coming = if (host.seen >= 0 && view.eventCount - host.seen in 1..8 && FxClock.enabled())
     comingMelds(view, view.events.takeLast(view.eventCount - host.seen)) else emptyMap()
+  // A hand just begun (practice: its id, `deal`): its tiles are shuffled and dealt first (DealFx), once (not again when
+  // the table comes back to it). Meanwhile the player's hand is not there, the others' backs neither, nobody's flowers;
+  // then the hand turns face up (the flowers with it). The computer players wait for it (Practice: CalloutClock); a
+  // touch lets it go.
+  var dealing by remember { mutableStateOf<Dealing?>(null) }
+  /** The hand's tile width as laid out (dp): where the player's tiles go. */
+  val dealHand = remember { floatArrayOf(40f) }
+  val dealSoon = deal != null && deal != DealShown.last && FxClock.enabled()
+  val dealHide = dealSoon || dealing?.flipping == false
+  val dealOn = dealHide || dealing != null
+  LaunchedEffect(deal) {
+    val d = deal ?: return@LaunchedEffect
+    if (DealShown.last == d) return@LaunchedEffect
+    if (!FxClock.enabled()) {
+      DealShown.last = d
+      return@LaunchedEffect
+    }
+    // (The table laid out first: where the tiles go.)
+    withFrameMillis { }
+    withFrameMillis { }
+    DealShown.last = d
+    val table = host.areas["table"]
+    val mid = host.areas["center"]
+    val hand = host.areas["seat-$me"]
+    if (table == null || mid == null || hand == null) return@LaunchedEffect
+    val o = table.topLeft
+    val px = density.density
+    val handW = dealHand[0]
+    val targets = (0 until 4).map { seat ->
+      if (seat == me) Offset(hand.left - o.x + minOf(hand.width / 2, (16 + 8 * handW) * px), hand.bottom - o.y - handW * TILE_RATIO * 0.7f * px)
+      else host.areas["seat-$seat"]?.let { it.center - o } ?: Offset.Zero
+    }
+    dealing = Dealing(mid.translate(-o.x, -o.y), targets)
+    CalloutClock.shown(dealMs())
+  }
+  val dl = dealing
+  LaunchedEffect(dl, dl?.flipping) {
+    if (dl == null || !dl.flipping) return@LaunchedEffect
+    val d = Timing.ms("deal_flip")
+    val start = withFrameMillis { it }
+    while (dl.flipT < d) withFrameMillis { dl.flipT = it - start }
+    if (dealing === dl) dealing = null
+  }
+  // A touch lets the deal go.
+  val dealSkips by CalloutClock.skips.collectAsState()
+  val dealSkips0 = remember { intArrayOf(dealSkips) }
+  LaunchedEffect(dealSkips) {
+    if (dealSkips != dealSkips0[0]) dealing = null
+    dealSkips0[0] = dealSkips
+  }
   val motion = remember { HandMotion() }
   LaunchedEffect(motion.ticks) {
     if (motion.ticks == 0) return@LaunchedEffect
@@ -250,6 +322,7 @@ fun TableView(
       if (top > s0.topH) s0 = tableSizes(roomW, roomH - extra, maxHand, top)
     }
     val s = s0
+    dealHand[0] = s.hand
     val meH = s.meH + extra
     fun plateH(side: Side) = plates[side]?.second ?: if (s.wide) 30f else 40f
     // A wide table's corners: the round, the wall and the streak at the top-left; the screen's buttons at the
@@ -330,14 +403,14 @@ fun TableView(
       motion.hand = handNow
       motion.drawn = drawn != null
     }
-    val discardable = if (interactive && view.myTurn) view.legal.filter { it.type == "discard" }.mapNotNull { it.tile }.toSet() else emptySet()
-    val claims = if (interactive && view.myTurn) view.legal.filter { it.type != "discard" } else emptyList()
+    val discardable = if (interactive && !dealOn && view.myTurn) view.legal.filter { it.type == "discard" }.mapNotNull { it.tile }.toSet() else emptySet()
+    val claims = if (interactive && !dealOn && view.myTurn) view.legal.filter { it.type != "discard" } else emptyList()
     /** The player's turn to discard: the hand's frame pulses. */
-    val myTurn = interactive && view.myTurn && discardable.isNotEmpty()
+    val myTurn = interactive && !dealOn && view.myTurn && discardable.isNotEmpty()
     /** The tile the player may claim (a discard, or a kong's added tile), while they may: it stands out. */
     val claimTile = if (claims.any { it.type != "pass" } && view.phase != "self") pos.claim?.tile else null
     val claimSeat = if (claimTile != null && view.phase == "react") pos.claim?.seat ?: -1 else -1
-    val myFlowers = flowersOf(pos.players[me])
+    val myFlowers = if (dealHide) emptyList() else flowersOf(pos.players[me])
     /** The player's melds and flowers, in the line over the hand (a wide table's as wide as the table; a tall one's
      *  beside the name plate): smaller rather than in a second line. */
     val myMeldW = run {
@@ -367,7 +440,8 @@ fun TableView(
     fun seat(side: Side, mod: Modifier) {
       val seat = seatAt(side, me)
       val p = pos.players[seat]
-      val hidden = concealedCount(view, seat)
+      val hidden = if (dealHide) 0 else concealedCount(view, seat)
+      val theirFlowers = if (dealOn) emptyList() else flowersOf(p)
       val ow = snap(oppW(side, seat))
       val shown = shownAll?.get(seat)?.let { Tiles.sort(Tiles.parse(it)) }
       val count = if (s.back == 0f && shownAll == null) hidden else null
@@ -376,7 +450,7 @@ fun TableView(
           horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
           Box(measured(side)) { badge(seat, count) }
           Row(horizontalArrangement = Arrangement.spacedBy(RACK_GAP_ROW.d), verticalAlignment = Alignment.Bottom) {
-            Melds(p.melds, flowersOf(p), ow, wrap = false, seat = seat, host = host, coming = coming[seat] ?: -1)
+            Melds(p.melds, theirFlowers, ow, wrap = false, seat = seat, host = host, coming = coming[seat] ?: -1)
             if (shown != null) Rack(shown, ow, wrap = false)
             else if (s.back > 0) Row { repeat(hidden) { TileView(null, s.back.d) } }
           }
@@ -393,7 +467,7 @@ fun TableView(
         verticalArrangement = if (s.wide) Arrangement.spacedBy(4.dp, Alignment.CenterVertically) else Arrangement.spacedBy(4.dp),
       ) {
         Box(measured(side)) { badge(seat, count) }
-        Melds(p.melds, flowersOf(p), ow, wrap = true,
+        Melds(p.melds, theirFlowers, ow, wrap = true,
           arrangement = if (!s.wide) Arrangement.Center else if (end) Arrangement.End else Arrangement.Start, seat = seat, host = host,
           coming = coming[seat] ?: -1)
         if (shown != null) Rack(shown, ow, wrap = true, end = end)
@@ -427,7 +501,7 @@ fun TableView(
     @Composable
     fun center(mod: Modifier) {
       // (Over the hand while the player's discard flies from it: overWhileFlying, here and on the way to the river.)
-      Box(Modifier.overWhileFlying(motion).then(mod), contentAlignment = Alignment.Center) {
+      Box(Modifier.overWhileFlying(motion).then(mod).fxArea { host.area("center", it) }, contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
           Box(Modifier.width((s.sideCols * s.river).d), contentAlignment = Alignment.CenterEnd) { river(Side.LEFT, s.sideRows, s.sideCols) }
           // A wide table: nothing between the two rivers across but a gap. A tall one: the box.
@@ -488,8 +562,8 @@ fun TableView(
                   Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = false, seat = me, host = host, coming = coming[me] ?: -1)
                 }
               }
-              MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion, pick = !mustChoose,
-                ready = if (readyHint && myTurn) view.ready else null)
+              if (!dealHide) MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion,
+                pick = !mustChoose, ready = if (readyHint && myTurn) view.ready else null, flip = dealing)
             }
           }
           Column(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 2).d).widthIn(max = (s.sideW - 12).d).then(measured(Side.BOTTOM)),
@@ -534,8 +608,8 @@ fun TableView(
                 }
                 Box(Modifier.align(Alignment.CenterVertically).then(measured(Side.BOTTOM))) { badge(me, null) }
               }
-              MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion, pick = !mustChoose,
-                ready = if (readyHint && myTurn) view.ready else null)
+              if (!dealHide) MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn,
+                motion = motion, pick = !mustChoose, ready = if (readyHint && myTurn) view.ready else null, flip = dealing)
             }
           }
           if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 4).d)) { status() }
@@ -557,6 +631,8 @@ fun TableView(
           horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) { strip() }
         Callouts(words, s, rivers.mapValues { it.value.translate(-origin.x, -origin.y) }, minOf(roomW, s.tableW), roomH, stay,
           hidden = host.moments.isNotEmpty())
+        val dealt = dealing
+        if (dealt != null && !dealt.flipping) DealFx(dealt.center, dealt.targets, s.river, setup.dealer) { dealt.flipping = true }
       }
       // The moments themselves: over the whole window (FxOverlay), with what they show from here: a win's hand, the
       // tiles' widths, the rivers' middle (a draw's in a review).
@@ -772,7 +848,7 @@ fun pulse(ms: Int): Float {
 fun MyHand(
   tiles: List<String>, drawn: String?, w: Float, perRow: Int, discardable: Set<String>, onDiscard: (String) -> Unit,
   selected: Int?, onSelect: (Int?) -> Unit, marks: Map<String, TileMark>? = null, tagH: Float = 0f, turn: Boolean = false,
-  motion: HandMotion? = null, pick: Boolean = true, ready: Map<String, List<String>>? = null,
+  motion: HandMotion? = null, pick: Boolean = true, ready: Map<String, List<String>>? = null, flip: Dealing? = null,
 ) {
   val highlight = LocalTable.current.highlight
   val glow = if (turn) pulse(1100) else 0f
@@ -793,6 +869,7 @@ fun MyHand(
   // How far a chosen tile rises. In a review (to see a tile's figures) it does not: its tag would run into the row
   // above; its face and frame say it is chosen.
   val up = if (marks != null) 0f else h * LIFT
+  val flipMs = remember { Timing.ms("deal_flip") }
   fun tap(i: Int) {
     val t = all[i]
     if (t !in discardable) return onSelect(if (selected == i || !pick) null else i)
@@ -836,6 +913,11 @@ fun MyHand(
               .semantics(mergeDescendants = true) {}
               .padding(start = if (isDrawn && row.size > 1) (w * DRAWN_GAP).d else 0.dp)
               .handSlide(motion, keys[i])
+              // After the deal: face up one after another from the left (DealFx).
+              .then(if (flip?.flipping == true) Modifier.graphicsLayer {
+                rotationY = flipTurn(i, all.size, flip.flipT, flipMs)
+                cameraDistance = 12f * density.density
+              } else Modifier)
               .then(if (isDrawn) Modifier.drawnIn(motion, keys[i], h * density.density) else Modifier)
               .layout { m, c ->
                 val up = reach.d.roundToPx()
@@ -1113,6 +1195,8 @@ private fun TableEvents(host: FxHost, view: View, me: Int, names: List<String>, 
       if (e.type == "discard") {
         val side = sideOf(e.seat, me)
         words.removeAll { it.side == side && it.at == CalloutAt.RIVER }
+        // Its sound when it lands (the last of a review's step over several).
+        if (i == fresh.indexOfLast { it.type == "discard" }) Sounds.play(Sounds.Name.DISCARD, if (anim) Timing.ms("discard_move") else 0L)
         continue
       }
       val at = base + i
@@ -1217,8 +1301,16 @@ private fun TableEvents(host: FxHost, view: View, me: Int, names: List<String>, 
           has = true
         }
       }
-      // (Its moment showed it: no words after it, even those that stay.)
+      // (Its moment showed it, and sounds it: no words after it, even those that stay.)
       if (has) continue
+      when (e.type) {
+        "flower" -> Sounds.play(Sounds.Name.FLOWER)
+        // (Its sound as the hands are shown.)
+        "exhausted", "ron", "tsumo", "flower_win" -> {}
+        "kan", "ankan", "kakan" -> Sounds.play(Sounds.Name.KONG)
+        "declare" -> Sounds.play(Sounds.Name.DECLARE)
+        else -> Sounds.play(Sounds.Name.CALL)
+      }
       val kind = when (e.type) {
         "tsumo", "ron", "flower_win" -> CalloutKind.WIN
         "flower" -> CalloutKind.FLOWER
@@ -1244,10 +1336,22 @@ private fun TableEvents(host: FxHost, view: View, me: Int, names: List<String>, 
         list.addAll(at, if (drawn) listOf(gap("show_wait", true), gap("reveal", false)) else listOf(gap("reveal", false)))
       }
     }
+    // The result's jingle: with its first moment over the whole screen.
+    host.jingleAt = list.firstOrNull { it.kind == MomentKind.SAD || it.kind == MomentKind.WIN || it.kind == MomentKind.DRAWN }?.id ?: -1
+    host.jingle = jingleOf(view.result, me)
     host.start(list)
     // (The computer players of a practice game wait for what is up now: CalloutClock.settle.)
     CalloutClock.saw(count)
   }
+}
+
+/** A hand's result to the player, its jingle: their own win; a hand they pay for (their deal-in, another's self-draw);
+ *  neither (another's win on another's discard, a draw). */
+private fun jingleOf(r: HandResult?, me: Int): Sounds.Name = when {
+  r == null || r.exhausted -> Sounds.Name.NEUTRAL
+  r.winners.any { it.seat == me } -> Sounds.Name.SUCCESS
+  r.loser == me || r.selfDraw -> Sounds.Name.FAILURE
+  else -> Sounds.Name.NEUTRAL
 }
 
 /** The moments' times (FxHost): each in turn; a result's stops at HOLD_AT till the tap that lets it go on. Whether one
@@ -1257,6 +1361,7 @@ private fun MomentsClock(host: FxHost) {
   val cur = host.cur
   LaunchedEffect(cur?.id) {
     val c = cur ?: return@LaunchedEffect
+    host.soundsOf(c)
     if (host.holds(c)) {
       delay((c.ms * HOLD_AT).toLong())
       host.hold(c.id)

@@ -25,10 +25,12 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
   init {
     Engine.setup(app)
     Timing.load(app)
+    Sounds.load(app)
   }
 
   val settings = Settings(app).also { s ->
     Timing.speedOf = { s.speed }
+    Sounds.level = { s.sound }
     // (Not with the system's animations off: the words alone, as the web page's reduced motion.)
     FxClock.enabled = { s.callFx == CallFxMode.anim && android.animation.ValueAnimator.areAnimatorsEnabled() }
   }

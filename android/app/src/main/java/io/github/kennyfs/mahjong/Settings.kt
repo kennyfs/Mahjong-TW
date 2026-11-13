@@ -68,6 +68,9 @@ enum class ListRows { numbers, bars, both }
  *  foot, the cost alone, or nothing (the list says it all the same). */
 enum class TableMarks { both, loss, none }
 
+/** The table's sounds (Sounds.kt): off, soft, or full, and how loud each is. */
+enum class SoundLevel(val gain: Float) { off(0f), soft(0.4f), full(1f) }
+
 /** A chow's, a pung's or a win's moment (the advanced settings): over the whole screen (ui/CallFx.kt), or the words
  *  over the player alone. */
 enum class CallFxMode { anim, words }
@@ -87,6 +90,7 @@ private data class StoredSettings(
   val callFx: CallFxMode = CallFxMode.anim,
   /** 聽牌提示: marks on the discards that leave the hand ready (off unless asked for). */
   val readyHint: Boolean = false,
+  val sound: SoundLevel = SoundLevel.full,
   /** 1: saved by a version with the network (before it, the bot could only be tile efficiency). */
   val version: Int = 0,
 )
@@ -111,6 +115,7 @@ class Settings(context: Context) {
   var tableMarks by mutableStateOf(stored.tableMarks)
   var callFx by mutableStateOf(stored.callFx)
   var readyHint by mutableStateOf(stored.readyHint)
+  var sound by mutableStateOf(stored.sound)
 
   val spec: String get() = rules.spec
 
@@ -120,7 +125,7 @@ class Settings(context: Context) {
     set(v) = prefs.edit().putBoolean("welcome.seen", v).apply()
 
   fun persist() {
-    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, listRows, level, tableMarks, callFx, readyHint, version = 1)
+    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, listRows, level, tableMarks, callFx, readyHint, sound, version = 1)
     prefs.edit().putString("settings", EngineJson.encodeToString(s)).apply()
   }
 }

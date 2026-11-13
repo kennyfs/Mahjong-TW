@@ -16,7 +16,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 | 對戰 Battles | A table game (1 to 4 people, bots in the empty seats) or a same-tiles contest, on a battle server; the app also with phones nearby. The entry asks first only a new room or joining one (the app: online or nearby too); a new room then offers its kinds, joining asks the PIN. Lobby with a 6-digit PIN, the host's settings, the table with a clock per decision, each hand's result with the standings, the final standings and the player's hands. docs/battle.md. |
 | 分析 Analysis | A position set up by hand, or a step of a review taken there, with the network's figures for each legal action as it changes, and the tables of draws and of claims (docs/analysis.md section 4). |
 | 紀錄 Records | Practice hands, table battles and contests (battles as groups of hands); favorites; statistics of the network's reviews; each hand opens its review: the graph of the value, the decisions worth a look, each decision's verdict and figures, everyone's tiles at a tap. |
-| 設定 Settings | Help (the rules explained, the tour), rules (tai preset, flower preset, base, every parameter with its explanation), practice's length, the bots and their pace, how a decision's list shows and the level of mistakes, 聽牌提示 (off by default: a dot over each discard that leaves the hand ready, on the player's turn), text size, colors (table green or minimal), dark mode, about (the version and the network's id). |
+| 設定 Settings | Help (the rules explained, the tour), rules (tai preset, flower preset, base, every parameter with its explanation), practice's length, the bots and their pace, how a decision's list shows and the level of mistakes, 聽牌提示 (off by default: a dot over each discard that leaves the hand ready, on the player's turn), 音效 (off, soft, full), text size, colors (table green or minimal), dark mode, about (the version and the network's id). |
 
 - **Help** (0.2.0, as Thirteen's but not a copy): 規則說明, the rules explained in eight pages (`Guide.svelte`,
   `ui/GuideScreen.kt`): the rules to explain chosen first (the settings' at the start), then the goal with a winning
@@ -285,10 +285,36 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     moment started (the moments start in an effect, a frame after the view; longer for the session's first moment on
     a slow device). The melds that the new events' calls made are out of sight from that first frame (TableView
     comingMelds), as on the page (whose effect runs before the browser paints).
+- **0.8.0** (2026-11-13): 報聽, and the page's deal and sounds.
+  - **報聽** (docs/rules.md 5.1; in the app since the engine's features version 3, network 221 of the run s3): a
+    ready hand may be declared on any later turn too, with a concealed hand; it is locked and a win adds `baoting`
+    tai. Off in every preset (the user's): the rules' list has it, the player turns it on. A declared hand's only
+    discard plays by itself (at a computer player's pace). 聽牌提示 (the settings, off by default: a dot over each
+    discard that leaves the hand ready) and the hand and claim buttons as the user asked (689c9ea) came with it.
+  - **The deal** (ui/DealFx.kt, the page's DealFx.svelte): a practice hand's 65 tiles shuffled face down in the
+    middle of the table (`deal_shuffle`), a pause (`deal_pause`, 100 ms), then all dealt at once to their seats
+    (`deal_fly`, each up to 90 ms apart), and the player's hand turning face up one tile after another from the left
+    (`deal_flip`). Meanwhile the hand, the others' backs and everyone's flowers are not there and nothing can be
+    played; the computer players wait for it (Practice `dealt`: CalloutClock); a touch lets it go; once for a hand
+    (DealShown: not again when the table comes back to it). With the moments off (the settings, the system's
+    animations) none.
+  - **Sounds** (Sounds.kt: SoundPool; the files are the page's web/public/sounds, copied in by the build's
+    copySounds, a name's '-' as '_'): the shuffle; one knock of tiles as the deal lands; a discard as it lands; a
+    call's or a kong's tile knocking in, then a tile set down as the meld lands; a flower; 天聽, 地聽, 報聽 two
+    mallet notes; the hands shown at a hand's end, by what it is to the player (their win, another's they pay for,
+    another's, a draw); with the result's moment a jingle (success, failure, neither; without the moments 400 ms
+    after the hands). The settings' 音效: 關, 小聲, 正常 (the page's levels). None while the app is not on the screen.
 
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.8.0.apk` (2026-11-13): 0.8.0 above, network 221 of the run s3 (arm64-v8a, the debug key as
+    before). Its debug twin on the emulator, upright, the system's animations on (`bin/check_deal.py`): a new game's
+    deal recorded and looked at frame by frame (the shuffle in the middle, the tiles flying to the four seats, the
+    hand turning up; the dealer, a computer player, discarded only after it); the system's audio service listed the
+    app's sounds starting (the shuffle, the deal's knock 1.8 s after it, the discards), no SoundPool error, no crash;
+    the settings' 音效 row. The release APK itself was not run. The page: built, `svelte-check` clean, every scene
+    of fx-dev's tool replayed in Firefox without an error, the sounds fetched from their new place.
   - `apk/mahjong-0.7.1.apk` (2026-11-13): 0.7.1 above, network 211 (arm64-v8a, the debug key as 0.7.0's). On the
     emulator with the system's animations on, screen recordings looked at frame by frame:
     - a test build with the moments' slides and fades ten times as long (`call_in` 1500, `call_out` 2500, a deal-in's

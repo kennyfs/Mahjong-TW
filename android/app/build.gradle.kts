@@ -34,6 +34,15 @@ val copyModel = tasks.register<Copy>("copyModel") {
   rename { "actor.onnx" }
 }
 
+// The table's sounds: the web page's (web/public/sounds, made by web/scripts/make_sounds.py), into the resources as
+// raw ones (a name of letters, digits and _: deal-1.mp3 as deal_1.mp3).
+val soundRes = layout.buildDirectory.dir("sound-res")
+val copySounds = tasks.register<Copy>("copySounds") {
+  from("../../web/public/sounds") { include("*.mp3") }
+  into(soundRes.map { it.dir("raw") })
+  rename { it.replace('-', '_') }
+}
+
 fun git(vararg args: String): String? =
   runCatching { providers.exec { commandLine("git", *args) }.standardOutput.asText.get().trim() }.getOrNull()?.ifEmpty { null }
 
@@ -117,6 +126,8 @@ android {
   }
   // The network, copied by copyModel.
   sourceSets["main"].assets.directories += modelAssets.get().asFile.absolutePath
+  // The sounds, copied by copySounds.
+  sourceSets["main"].res.directories += soundRes.get().asFile.absolutePath
   // The reduced library goes in as it is; the AAR's comes with the AAR.
   if (ownOrt != null) sourceSets["main"].jniLibs.directories += ortDir.dir("jni").asFile.absolutePath
   packaging {
@@ -132,7 +143,7 @@ kotlin {
 }
 
 tasks.named("preBuild") {
-  dependsOn(extractOrt, copyModel)
+  dependsOn(extractOrt, copyModel, copySounds)
   doFirst {
     if (!modelFile.exists()) throw GradleException("The network is missing: set MAHJONG_MODEL to an actor's .onnx (android/README.md); looked for $modelFile")
   }

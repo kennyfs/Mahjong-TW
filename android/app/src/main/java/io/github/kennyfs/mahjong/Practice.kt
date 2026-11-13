@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlin.random.Random
+import io.github.kennyfs.mahjong.ui.dealMs
 
 /**
  * Practice: the player (seat 0) against three bots, for one hand, one round (一圈) or a full game (一將). The app is the
@@ -70,6 +71,9 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   /** The event (an index into the view's events) that was a claim taken from the player (Claims): its moment says
    *  搶碰, 搶胡. -1: none. */
   var robbed by mutableStateOf(-1)
+    private set
+  /** The hand just begun (its id), for the table to deal (TableView `deal`); null for a hand taken up again. */
+  var deal by mutableStateOf<String?>(null)
     private set
 
   private var running = false
@@ -172,7 +176,14 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     }
     persist()
     refresh()
+    dealt("${meta?.id}/0")
     run()
+  }
+
+  /** A hand begun: the table deals it (its moment), and the computer players wait for it, as for words. */
+  private fun dealt(id: String) {
+    deal = id
+    if (FxClock.enabled()) CalloutClock.shown(dealMs())
   }
 
   private suspend fun refresh() {
@@ -424,6 +435,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     stage = Stage.PLAYING
     persist()
     refresh()
+    dealt("${m.id}/${m.hands}")
     run()
   }
 

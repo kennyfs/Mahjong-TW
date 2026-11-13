@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import io.github.kennyfs.mahjong.CalloutClock
+import io.github.kennyfs.mahjong.Sounds
 import io.github.kennyfs.mahjong.FxClock
 import io.github.kennyfs.mahjong.R
 import io.github.kennyfs.mahjong.Side
@@ -168,6 +169,33 @@ class FxHost {
   private var next = 0
   fun nextId() = next++
 
+  /** The moment the result's jingle comes with (the first over the whole screen of a hand's end), and the jingle. */
+  var jingleAt = -1
+  var jingle: Sounds.Name? = null
+  /** The moments' sounds still to come: they go with the moments (a moment let go before its sound: none). */
+  private val sounds = ArrayList<() -> Unit>()
+
+  /** A moment's sounds as it comes (MomentsClock): a call's, a kong's as the tile taken lands in its gap (at 0.82 of
+   *  its drop), and a tile set down as the meld lands at its place (at its end); a declaration's; the result's
+   *  jingle. (The hands shown at a hand's end sound as they are shown: TableView.) */
+  fun soundsOf(c: Moment) {
+    val p = c.parts
+    when {
+      c.kind == MomentKind.CALL -> {
+        sounds += Sounds.play(if (c.type == "chi" || c.type == "pon") Sounds.Name.CALL else Sounds.Name.KONG,
+          if (p != null) p.come + (0.82 * p.drop).toLong() else 0L)
+        if (p != null && c.meld >= 0) sounds += Sounds.play(Sounds.Name.DISCARD, p.total)
+      }
+      c.kind == MomentKind.DECLARE -> sounds += Sounds.play(Sounds.Name.DECLARE)
+      c.id == jingleAt -> jingle?.let { sounds += Sounds.play(it) }
+    }
+  }
+
+  private fun dropSounds() {
+    for (off in sounds) off()
+    sounds.clear()
+  }
+
   /** A hand's result over the whole screen (a win, a draw; not in a review, which has its own steps) stops for the tap. */
   fun holds(m: Moment) = !review && (m.kind == MomentKind.WIN || m.kind == MomentKind.DRAWN)
 
@@ -177,6 +205,7 @@ class FxHost {
   /** These follow one another (what was still up goes: it is old news). */
   fun start(list: List<Moment>) {
     if (list.isEmpty()) return
+    dropSounds()
     moments = list
     holding = null
     released = null
@@ -197,6 +226,7 @@ class FxHost {
 
   /** Another hand, another table: none. */
   fun clear() {
+    dropSounds()
     moments = emptyList()
     holding = null
     released = null

@@ -113,6 +113,17 @@ class MainActivity : ComponentActivity() {
     return super.dispatchTouchEvent(ev)
   }
 
+  // (No sounds while the app is not on the screen.)
+  override fun onStart() {
+    super.onStart()
+    Sounds.visible = true
+  }
+
+  override fun onStop() {
+    Sounds.visible = false
+    super.onStop()
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()

@@ -96,6 +96,8 @@ import io.github.kennyfs.mahjong.RecordKind
 import io.github.kennyfs.mahjong.RuleChoice
 import io.github.kennyfs.mahjong.Rules
 import io.github.kennyfs.mahjong.RulesInfo
+import io.github.kennyfs.mahjong.SoundLevel
+import io.github.kennyfs.mahjong.Sounds
 import io.github.kennyfs.mahjong.Speed
 import io.github.kennyfs.mahjong.TableMarks
 import io.github.kennyfs.mahjong.TextSize
@@ -630,6 +632,13 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
             s.speed, { s.speed = it; save(); vm.practice.paceChanged() }, Modifier.fillMaxWidth().testTag("settings_speed"),
           )
           Text(stringResource(R.string.speed_manual_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Block(stringResource(R.string.settings_sound)) {
+          ToggleGroup(
+            listOf(SoundLevel.off to stringResource(R.string.sound_off), SoundLevel.soft to stringResource(R.string.sound_soft),
+              SoundLevel.full to stringResource(R.string.sound_full)),
+            s.sound, { s.sound = it; save(); Sounds.play(Sounds.Name.DISCARD) }, Modifier.fillMaxWidth().testTag("settings_sound"),
+          )
         }
         Block(stringResource(R.string.settings_ready_hint)) {
           ToggleGroup(listOf(false to stringResource(R.string.sound_off), true to stringResource(R.string.ready_hint_on)),
