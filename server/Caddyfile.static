@@ -1,0 +1,23 @@
+# The site behind an ingress (a cluster's: TLS, and /ws and /health to the battle server, are the ingress's): the page
+# only, on :8080, as an unprivileged user may. The image's other Caddyfile is compose's (server/compose.yml).
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	encode zstd gzip
+	# A static site whose screens are in the address's fragment (#/play), so a file that is not there is a 404.
+	root * /srv
+	file_server
+	# Vite's files carry a hash of their content in their names: kept for good. The rest is checked each time.
+	@hashed path /assets/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	@unhashed not path /assets/*
+	header @unhashed Cache-Control "no-cache"
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+}

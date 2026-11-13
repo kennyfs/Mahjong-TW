@@ -1,11 +1,13 @@
-# The server image needs cpp/, protocol/ and server/; the site web/ too, with the app's strings.
+# The server image needs cpp/, protocol/ and server/; the site web/ too, with the app's strings and times. Each of the
+# app's files by its own name: the legacy builder lets nothing in under a wildcard here (a language added: its
+# values-xx/strings.xml as a line of its own).
 *
 !cpp
 !protocol
 !server
 !web
 !android/app/src/main/res/values/strings.xml
-!android/app/src/main/res/values-*/strings.xml
+!android/app/src/main/res/raw/timing.json
 web/node_modules
 web/dist
 web/build

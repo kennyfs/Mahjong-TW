@@ -1,0 +1,4 @@
+# The page's network for a Docker build from this context (server/Dockerfile, web-engine): actor.onnx, put
+# here by hand. Kept out of git: the build fetches it from a release otherwise.
+*
+!.gitignore

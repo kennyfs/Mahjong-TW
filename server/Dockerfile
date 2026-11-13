@@ -1,11 +1,12 @@
 # The battle server: the C++ engine (`mahjong gui`) and the Kotlin server around it; and the site: the web page (web/,
-# its engine as WebAssembly) served by Caddy, which passes /ws on to the server. Nothing here needs ONNX Runtime yet;
-# when a network joins the engine, Thirteen's server/Dockerfile shows where it goes (a model stage, ORT in the engine
-# and web-engine stages).
+# its engine and network as WebAssembly) served by Caddy. The battle server needs no network (its bots play tile
+# efficiency); the page's engine does: ONNX Runtime for WebAssembly and the network, each fetched and checked by its
+# SHA-256 (the web-engine stage).
 # Build from the repository root: docker compose -f server/compose.yml build (see docs/battle.md), or one target:
 #   docker build -f server/Dockerfile --target runtime -t IMAGE .
 #   docker build -f server/Dockerfile --target site -t IMAGE .
-# The build argument JOBS caps the compile jobs of each C++ build (by default every core; two builds run at once).
+# Build arguments: JOBS caps the compile jobs of each C++ build (by default every core; two builds run at once);
+# MODEL_URL, MODEL_SHA256: the page's network (below). Works with the legacy builder (no BuildKit features).
 
 # The engine, without -march=native so the image runs on any x86-64 host; its unit tests must pass.
 FROM ubuntu:26.04 AS engine
@@ -29,37 +30,53 @@ RUN gradle -p server --no-daemon :protocol:test test installDist
 
 # ---- The web page ----
 
-# The engine (cpp/ and GuiEngine) as WebAssembly.
+# The engine (cpp/ and GuiEngine) as WebAssembly, with the network beside it. What it links and loads:
+# - ONNX Runtime 1.31.1 reduced to the operators these networks use, as a WebAssembly static library: Thirteen's
+#   release asset (its web/build-ort-wasm.sh; this network's operators are among them), the same bytes as the one the
+#   page was built with on the development machine;
+# - the network: server/model/actor.onnx when the build context has it (put there by hand, kept out of git), else
+#   MODEL_URL (a release asset of this repository's); either way it must match MODEL_SHA256 (network 221 of the run
+#   s3, its weights as float16). A new network: both arguments, here and in the release.
 FROM emscripten/emsdk:6.0.13 AS web-engine
-RUN apt-get update && apt-get install -y --no-install-recommends ninja-build python3-venv \
+RUN apt-get update && apt-get install -y --no-install-recommends ninja-build python3-venv curl ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
   && python3 -m venv /opt/tools && /opt/tools/bin/pip install --no-cache-dir cmake==4.4.4
 ENV PATH=/opt/tools/bin:$PATH
+RUN curl -fsSL -o /ort-wasm.tar.gz https://github.com/kennyfs/Thirteen/releases/download/v2.1.0/ort-wasm-1.31.1.tar.gz \
+  && echo "b8c7a39adb38f83137eebd39e84ffbbad434cc7218e7f53067e59e94977e67ce  /ort-wasm.tar.gz" | sha256sum -c - \
+  && mkdir /opt/ort-wasm && tar -xzf /ort-wasm.tar.gz -C /opt/ort-wasm && rm /ort-wasm.tar.gz
+ARG MODEL_URL=https://github.com/kennyfs/Mahjong-TW/releases/download/v1.0.0/actor_s3_221.fp16.onnx
+ARG MODEL_SHA256=f1bce44e58cb47b65e95777c9039419f0c7b10f53d3600b791770253a63663db
+COPY server/model /model
+RUN if [ ! -f /model/actor.onnx ]; then curl -fsSL -o /model/actor.onnx "$MODEL_URL"; fi \
+  && echo "$MODEL_SHA256  /model/actor.onnx" | sha256sum -c -
 WORKDIR /src
 COPY cpp cpp
 COPY web/engine web/engine
 COPY web/build-engine.sh web/
 # The emsdk image has its tools on PATH already; the script reads JOBS.
 ARG JOBS
-RUN web/build-engine.sh
+RUN ORT_WASM_DIR=/opt/ort-wasm MODEL=/model/actor.onnx web/build-engine.sh
 
 # The page, built by Vite with the app's strings.
 FROM node:24-slim AS web-page
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
-# Only the strings.xml of each language (.dockerignore).
+# Only the strings.xml of each language and the times (raw/timing.json; .dockerignore).
 COPY android/app/src/main/res /src/android/app/src/main/res
 COPY web/ ./
 COPY --from=web-engine /src/web/engine-files engine-files
 RUN npm run build
 
-# Caddy with the page in /srv and its Caddyfile.
+# Caddy with the page in /srv. Its Caddyfile: compose's (its own TLS for $DOMAIN, /ws to the server) by default;
+# behind an ingress that routes /ws and /health itself, the static one on :8080 (Caddyfile.static: run with
+# `caddy run --config /etc/caddy/Caddyfile.static --adapter caddyfile`).
 FROM caddy:2.8 AS site
 # Without the binary's file capability (to bind ports below 1024), which a container without capabilities cannot run:
 # a copy has none.
 RUN cp /usr/bin/caddy /usr/bin/caddy.new && mv /usr/bin/caddy.new /usr/bin/caddy
-COPY server/Caddyfile /etc/caddy/Caddyfile
+COPY server/Caddyfile server/Caddyfile.static /etc/caddy/
 COPY --from=web-page /src/web/dist /srv
 
 # ---- The battle server ----
