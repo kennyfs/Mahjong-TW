@@ -25,10 +25,12 @@
   import type { TileMark } from '../lib/review';
   import type { Tile as T } from '../lib/tiles';
   let { tiles, drawn = null, w, canDiscard = () => false, ondiscard, selected = $bindable(null), perRow = 0, oneClick = false,
-    marks = null, tagH = 0, turn = false }: {
+    marks = null, tagH = 0, turn = false, drawWait = 0 }: {
     tiles: T[]; drawn?: T | null; w: number; canDiscard?: (t: T) => boolean; ondiscard?: (t: T) => void;
     selected?: number | null; perRow?: number; oneClick?: boolean; marks?: Map<T, TileMark> | null; tagH?: number;
     turn?: boolean;
+    /** How long the drawn tile waits before it comes in (ms): another's discard still flying to its river. */
+    drawWait?: number;
   } = $props();
 
   // The drawn tile last, as its own index.
@@ -102,7 +104,7 @@
         <button class="slot" class:up={selected === i} class:hover={oneClick && canDiscard(all[i])} class:held={turn && !canDiscard(all[i])}
           style="margin-left: {isDrawn && row.length > 1 ? w * DRAWN_GAP : 0}px"
           onpointerdown={(e) => down(e, i)} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}
-          in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0 }}
+          in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0, delay: isDrawn ? drawWait : 0 }}
           aria-pressed={selected === i} data-tile={all[i]} data-drawn={isDrawn ? '1' : '0'}>
           <span class="lifted" style="transform: translateY({drag?.i === i ? drag.dy : selected === i ? -lift : 0}px)">
             {#if marks?.get(all[i])?.tag}

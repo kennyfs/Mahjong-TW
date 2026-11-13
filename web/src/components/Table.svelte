@@ -156,6 +156,17 @@
     const tiles = sortTiles(drawn ? without(all, [drawn]) : all);
     return { tiles, drawn };
   });
+  // The tile the player draws after another's discard nobody could claim (it comes in the same view): it comes into
+  // the hand once that discard has landed in its river (flyIn), not while it flies. (`seen`: the events shown before
+  // this view; the event effect moves it on after the view is drawn.)
+  const drawWait = $derived.by(() => {
+    if (!mine.drawn || seen < 0 || !movesShown()) return 0;
+    const evs = view.events;
+    let i = evs.length - 1;
+    while (i >= 0 && (evs[i].type === 'draw' || evs[i].type === 'flower')) i--;
+    const d = evs[i];
+    return d && d.type === 'discard' && d.seat !== me && view.event_count - evs.length + i >= seen ? ms('discard_move') : 0;
+  });
   /** The rows of the hand on a tall table (the next-step button stands at the end of the first). */
   const handRows = $derived(s.handRow > 0 && mine.tiles.length + (mine.drawn ? 1 : 0) > s.handRow ? 2 : 1);
   $effect(() => {
@@ -803,7 +814,7 @@
           <Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} wrap={false} seat={me} hide={hideMeld(me)} />
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected oneClick={keys} {marks} {tagH} />{/if}
       </div>
     {:else}
@@ -815,7 +826,7 @@
           <span class="me-badge" bind:clientWidth={meBadgeW}>{@render myBadge()}</span>
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected perRow={s.handRow} {marks} {tagH} />{/if}
       </div>
       {#if status}<div class="status tall" style="bottom: {meH + 4}px">{@render status()}</div>{/if}
