@@ -105,7 +105,7 @@ void Rules::applyPreset(const string& name) {
     qianggang = gangshang = haidi = hedi = tianhu = dihu = renhu = 0;
     anyWind = noHonorFlower = kongTai = ankongTai = 0;
     tianting = diting = 0;
-    baoting = 1;  // 報聽 (2026-11-13), in every preset
+    baoting = 0;  // 報聽: off in every preset, the players turn it on (2026-11-13)
     if(name == "simple1") {
       // Southern Taiwan: dealer, streak and self-draw only; base 2 tai; 截胡.
       streak = 1;

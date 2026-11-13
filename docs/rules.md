@@ -103,8 +103,8 @@ ready hand on their first turn:
    copy), when the hand waits on exactly the same kinds after it as before the draw. Winning stays optional, and the
    missed-win rule (5.4) applies as usual.
 5. A win of a declared hand adds the item's tai to everything else it scores.
-6. **報聽** (`baoting`, added 2026-11-13 at the players' request, not a usual Taiwanese rule; 1 in every preset, 0 turns
-   it off): with `baoting` above 0 a player may declare a ready hand on any later turn too, with a concealed
+6. **報聽** (`baoting`, added 2026-11-13 at the players' request, not a usual Taiwanese rule; 0 in every preset (off), the
+   players turn it on): with `baoting` above 0 a player may declare a ready hand on any later turn too, with a concealed
    hand (no chow, pung or exposed kong so far; concealed kongs are fine), as in 1 and 3 otherwise. On the first turn
    a declaration that qualifies as 天聽 or 地聽 (with its item above 0) is that; otherwise it is 報聽. The hand is
    locked as in 4, and a win adds `baoting` tai.
@@ -192,7 +192,7 @@ The columns are the tai presets (section 11), listed in this order:
 | 人胡 Human hand | `renhu` | 0 | 0 | 0 | 16 | Another player wins on a discard before their first discard, with no chow, pung or kong so far. Replaces concealed. |
 | 天聽 Declared ready, heavenly | `tianting` | 0 | 0 | 8 | 8 | Section 5.1. |
 | 地聽 Declared ready, earthly | `diting` | 0 | 0 | 4 | 4 | Section 5.1. |
-| 報聽 Declared ready, later | `baoting` | 1 | 1 | 1 | 1 | Section 5.1. |
+| 報聽 Declared ready, later | `baoting` | 0 | 0 | 0 | 0 | Section 5.1; off in every preset, the players turn it on. |
 | 見風見台 Any wind pung | `any_wind` | 0 | 1 | 0 | 0 | Per wind pung, instead of 圈風 and 門風 (明星3缺1's 見花見字 option). |
 | 無字無花 No honors, no flowers | `no_honor_flower` | 0 | 0 | 0 | 0 | (見花見字 option.) |
 | 明槓 Kong | `kong_tai` | 0 | 0 | 0 | 0 | Per exposed or added kong (見花見字 option). |

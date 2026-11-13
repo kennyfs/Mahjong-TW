@@ -430,8 +430,8 @@ static void testDeclare() {
 
   // 報聽: where 天聽 and 地聽 are not played, the same declarations are 報聽, a win after one adds its tai.
   {
-    Rules r = Rules::parse("simple2,none");
-    testAssert(Rules::parse("simple1").baoting == 1 && Rules::parse("standard").baoting == 1);
+    Rules r = Rules::parse("simple2,none,baoting=1");
+    testAssert(Rules::parse("simple1").baoting == 0 && Rules::parse("standard").baoting == 0);
     Game g3(r);
     g3.start(setup, buildWall(r));
     testAssert(g3.declareType(0) == 3);
