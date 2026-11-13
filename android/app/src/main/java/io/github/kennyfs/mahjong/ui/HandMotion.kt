@@ -67,13 +67,28 @@ class HandMotion {
    *  (overWhileFlying). */
   var flying by mutableStateOf(false)
 
+  /** The player's drawn tile coming into the hand from over it (drawnIn; the web page's MyHand): its key, when, and how
+   *  long it waits first (another's discard nobody could claim, come with the draw, still flying to its river). */
+  var drawnKey: String? = null
+  var drawnStart = 0L
+  var drawnWait = 0L
+  val drawnMs = 220L
+
+  fun armDrawn(key: String, wait: Long) {
+    drawnKey = key
+    drawnStart = SystemClock.uptimeMillis()
+    drawnWait = max(0L, wait)
+    ticks++
+  }
+
   /** The hand waits where it stood till the discard is halfway (ms after the start). */
   val handWait: Long get() = flyMs / 2
 
   val moving: Boolean get() = SystemClock.uptimeMillis() - start < max(handWait + handMs, flyMs)
 
   /** The player's moves, or another's discard, still going. */
-  val anyMoving: Boolean get() = moving || ins.values.any { SystemClock.uptimeMillis() - it.start < it.ms }
+  val anyMoving: Boolean get() = moving || ins.values.any { SystemClock.uptimeMillis() - it.start < it.ms } ||
+    (drawnKey != null && SystemClock.uptimeMillis() - drawnStart < drawnWait + drawnMs)
 
   /** `seat` (at `side` of the table) discarded the tile `index` of their river: it flies in, for `ms`. */
   fun armIn(seat: Int, side: Side, index: Int, ms: Long) {
@@ -154,6 +169,30 @@ fun Modifier.handSlide(motion: HandMotion?, key: String): Modifier = if (motion 
         }
       }
       p.place(off.x.roundToInt(), off.y.roundToInt(), zIndex = if (st.d != Offset.Zero) 1f else 0f)
+    }
+  }
+}
+
+/** The player's drawn tile (`key`) as it comes: unseen while it waits (HandMotion.armDrawn), then down into its place
+ *  from a tile's height (`h`, px) over it, fading in, slowing as it lands. */
+fun Modifier.drawnIn(motion: HandMotion?, key: String, h: Float): Modifier = if (motion == null) this else layout { m, c ->
+  val p = m.measure(c)
+  layout(p.width, p.height) {
+    var y = 0f
+    var a = 1f
+    if (motion.drawnKey == key) {
+      motion.frame
+      val t = SystemClock.uptimeMillis() - motion.drawnStart - motion.drawnWait
+      if (t < motion.drawnMs) {
+        val f = (t.toFloat() / motion.drawnMs).coerceIn(0f, 1f)
+        val e = 1 - (1 - f) * (1 - f) * (1 - f)
+        y = -h * (1 - e)
+        a = e
+      }
+    }
+    p.placeWithLayer(0, 0) {
+      translationY = y
+      alpha = a
     }
   }
 }

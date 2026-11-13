@@ -182,6 +182,43 @@
   /** The player's turn to discard: the hand's frame pulses. */
   const myTurn = $derived(interactive && !dealing && view.my_turn && discardable.size > 0);
   /** The tile the player may claim (a discard, or a kong's added tile), while they may: it stands out. */
+  // Sideways, the choices low, off the next player's melds: level with the foot of the player's melds and flowers, at
+  // their right; only when those reach under where the choices would be, over them (as upright). (Not by the hand:
+  // its length changes often, the choices' place hardly.)
+  let claimBottom = $state<number | null>(null);
+  function placeClaims() {
+    const bar = tableEl?.querySelector<HTMLElement>('.claims > *');
+    const line = tableEl?.querySelector<HTMLElement>('.me .me-line');
+    if (!tableEl || !bar || !line) return;
+    const t = tableEl.getBoundingClientRect();
+    const b = bar.getBoundingClientRect(), l = line.getBoundingClientRect();
+    const meldsRight = Math.max(l.left, ...[...line.querySelectorAll<HTMLElement>('.tile')].map((e) => e.getBoundingClientRect().right));
+    claimBottom = t.right - 8 - b.width >= meldsRight + 8 ? t.bottom - l.bottom : null;
+  }
+  $effect(() => {
+    if (!claims.length || !s.wide) {
+      claimBottom = null;
+      return;
+    }
+    void [claims, s.hand, s.tableW, meH, pos.players[me].melds.length, myFlowers.length];
+    void tick().then(() => untrack(placeClaims));
+  });
+  // A call to decide on with no tile of the hand to play: a tap on the hand lifts nothing (and what was lifted goes down).
+  // Else a lifted tile stays up while the others play (the player may have chosen it already: one tap plays it on
+  // their turn), till the hand itself changes (a tile drawn is apart: not a change).
+  const pickHand = $derived(!claims.length || view.legal.some((a) => a.type === 'discard'));
+  const handKey = $derived(mine.tiles.join(','));
+  $effect(() => {
+    if (!pickHand) untrack(() => { if (selected !== null) selected = null; });
+  });
+  let lastHand = '';
+  $effect(() => {
+    const k = handKey;
+    untrack(() => {
+      if (k !== lastHand && lastHand && selected !== null && !review) selected = null;
+      lastHand = k;
+    });
+  });
   const claimTile = $derived(claims.some((a) => a.type !== 'pass') && view.phase !== 'self' ? (pos.claim?.tile ?? null) : null);
   const claimSeat = $derived(claimTile && view.phase === 'react' ? (pos.claim?.seat ?? -1) : -1);
 
@@ -820,7 +857,7 @@
           <Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} wrap={false} seat={me} hide={hideMeld(me)} />
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected oneClick={keys} {marks} {tagH} />{/if}
       </div>
     {:else}
@@ -832,7 +869,7 @@
           <span class="me-badge" bind:clientWidth={meBadgeW}>{@render myBadge()}</span>
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected perRow={s.handRow} {marks} {tagH} />{/if}
       </div>
       {#if status}<div class="status tall" style="bottom: {meH + 4}px">{@render status()}</div>{/if}
@@ -840,7 +877,7 @@
 
     <!-- Choices, and words over the players. -->
     {#if claims.length && onact}
-      <div class="claims" style="bottom: {meH + 4}px"><ClaimBar actions={claims} w={s.hand} {onact} {keys} claimed={claimTile} /></div>
+      <div class="claims" style="bottom: {claimBottom ?? meH + 4}px"><ClaimBar actions={claims} w={s.hand} {onact} {keys} claimed={claimTile} /></div>
     {/if}
     {#if onnext}
       <button class="next" class:tall={!s.wide} onclick={onnext} style={s.wide ? `bottom: ${meH + 4}px`

@@ -398,7 +398,12 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 - **Discarding**: a tap lifts a tile and a second tap discards it, or a tile dragged upwards is discarded: one tap
   alone never discards (a phone's mistaken tap). On a computer one click discards and the keyboard plays (← → Enter,
   H G P C, Space). Claims are buttons over the hand: win first, then kongs, pung, each way of a chow with its three
-  tiles, pass.
+  tiles, pass; sideways their foot level with the foot of the player's melds and flowers (right of them; over them
+  only when those reach under the buttons: the next player's melds stay clear; not by the hand, whose length changes
+  often). A tile lifted while the others play stays lifted (one tap plays it on the player's turn) till the hand
+  itself changes; with a claim to decide on and no tile to play, a tap lifts nothing and a lifted tile goes down (the
+  user's, 2026-11-13). The drawn tile comes in from over the hand once another's discard that came with it (nobody
+  could claim it) has landed in its river.
 - **Tile sizes** (the user's request): the hand's tiles are the largest (about 43 dp on the standard phone either
   way; floors of 30 dp upright and 24 dp sideways); an upright phone wraps the hand after 8 tiles (two rows; the drawn tile, or a dealer's 17th, ends the second);
   the rivers stay at 26 dp or more while the hand can give room; the others' concealed tiles are drawn as backs when

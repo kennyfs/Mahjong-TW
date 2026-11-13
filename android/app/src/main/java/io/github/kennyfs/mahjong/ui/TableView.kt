@@ -319,8 +319,11 @@ fun TableView(
         // nobody may claim comes with that draw (a review's step over several: the others' before it are in place).
         val k = fresh.indexOfLast { it.type == "discard" }
         val o = if (k >= 0 && fresh.drop(k + 1).all { it.type == "draw" || it.type == "flower" }) fresh[k] else null
-        if (o != null && o.seat != me && o.seat in pos.players.indices)
-          motion.armIn(o.seat, sideOf(o.seat, me), pos.players[o.seat].discards.size - 1, Timing.ms("discard_move"))
+        val flies = o != null && o.seat != me && o.seat in pos.players.indices
+        if (flies) motion.armIn(o!!.seat, sideOf(o.seat, me), pos.players[o.seat].discards.size - 1, Timing.ms("discard_move"))
+        // The player's draw: the tile comes into the hand, once that discard has landed.
+        if (drawn != null && fresh.any { it.type == "draw" && it.seat == me })
+          motion.armDrawn(HandMotion.tileKeys(handNow).last(), if (flies) Timing.ms("discard_move") else 0L)
       }
       motion.seen = count
       motion.hand = handNow
@@ -342,7 +345,12 @@ fun TableView(
       else if (s.wide) fitMelds(counts, myFlowers.size, minOf(roomW, s.tableW) - 28, 1, s.meld, 16f)
       else fitMelds(counts, myFlowers.size, minOf(roomW, s.tableW) - 16 - (plates[Side.BOTTOM]?.first ?: 90f), 1, s.meld, 22f)
     }
-    var selected by remember(view.eventCount) { mutableStateOf<Int?>(null) }
+    // A call to decide on with no tile of the hand to play (吃, 碰, 胡, 過): a tap on the hand lifts nothing, and what was
+    // lifted goes down. Else a lifted tile stays up while the others play (the player may have chosen it already: one
+    // tap plays it on their turn), till the hand itself changes (a tile drawn is apart: not a change). A review: each
+    // step its own.
+    val mustChoose = claims.isNotEmpty() && view.legal.none { it.type == "discard" }
+    var selected by remember(if (marks != null) view.eventCount else -1, mine, mustChoose) { mutableStateOf<Int?>(null) }
     if (onPick != null) LaunchedEffect(selected, view.eventCount) { onPick(selected?.let { i -> mine.getOrNull(i) ?: drawn }) }
 
     @Composable
@@ -395,6 +403,11 @@ fun TableView(
     // The rivers' places on the table, px (the words over them are set by these).
     var rivers by remember { mutableStateOf(mapOf<Side, Rect>()) }
     var origin by remember { mutableStateOf(Offset.Zero) }
+    // The foot of the table and of the player's melds' line (px in the root), the melds' width and the choices' (dp).
+    var tableFoot by remember { mutableStateOf(0f) }
+    var meldFoot by remember { mutableStateOf(0f) }
+    var meldsW by remember { mutableStateOf(0f) }
+    var claimW by remember { mutableStateOf(0f) }
     @Composable
     fun river(side: Side, rows: Int, cols: Int) {
       val seat = seatAt(side, me)
@@ -449,6 +462,8 @@ fun TableView(
       Box(Modifier.fillMaxHeight().width(minOf(roomW, s.tableW).d).onGloballyPositioned {
         val o = it.positionInRoot()
         if (origin != o) origin = o
+        val foot = o.y + it.size.height
+        if (tableFoot != foot) tableFoot = foot
         host.area("table", Rect(o, Size(it.size.width.toFloat(), it.size.height.toFloat())))
         motion.table = Rect(o, Size(it.size.width.toFloat(), it.size.height.toFloat()))
       }) {
@@ -466,10 +481,13 @@ fun TableView(
             // the far left and each after it to its right, so that none moves when another comes, and the flowers.
             Column(Modifier.height(meH.d).fillMaxWidth().tourAnchor("hand").fxArea { host.area("seat-$me", it) }
               .padding(start = 16.dp, end = 8.dp, bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom)) {
-              Box(Modifier.height(s.meldLine.d).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
-                Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = false, seat = me, host = host, coming = coming[me] ?: -1)
+              Box(Modifier.height(s.meldLine.d).fillMaxWidth().onGloballyPositioned { meldFoot = it.positionInRoot().y + it.size.height },
+                contentAlignment = Alignment.BottomStart) {
+                Box(Modifier.onSizeChanged { meldsW = it.width / density.density }) {
+                  Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = false, seat = me, host = host, coming = coming[me] ?: -1)
+                }
               }
-              MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion)
+              MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion, pick = !mustChoose)
             }
           }
           Column(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 2).d).widthIn(max = (s.sideW - 12).d).then(measured(Side.BOTTOM)),
@@ -514,14 +532,19 @@ fun TableView(
                 }
                 Box(Modifier.align(Alignment.CenterVertically).then(measured(Side.BOTTOM))) { badge(me, null) }
               }
-              MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion)
+              MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion, pick = !mustChoose)
             }
           }
           if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 4).d)) { status() }
         }
         if (claims.isNotEmpty() && onAct != null) {
-          Box(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, start = 8.dp, bottom = (meH + 4).d)) {
-            ClaimBar(claims, s.hand, onAct, claimTile)
+          // Sideways, the choices low, off the next player's melds: level with the foot of the player's melds and
+          // flowers, at their right; only when those reach under where the choices would be, over them (as upright).
+          // (Not by the hand: its length changes often, the choices' place hardly.)
+          val low = s.wide && claimW > 0 && meldFoot > 0 && tableFoot > meldFoot && minOf(roomW, s.tableW) - 8 - claimW >= 16 + meldsW + 8
+          Box(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, start = 8.dp,
+            bottom = if (low) ((tableFoot - meldFoot) / density.density).d else (meH + 4).d)) {
+            Box(Modifier.onSizeChanged { claimW = it.width / density.density }) { ClaimBar(claims, s.hand, onAct, claimTile) }
           }
         }
         if (onNext != null) NextStep(onNext, s, meH, minOf(roomW, s.tableW), if (s.handRow > 0 && mine.size + (if (drawn != null) 1 else 0) > s.handRow) 2 else 1)
@@ -746,7 +769,7 @@ fun pulse(ms: Int): Float {
 fun MyHand(
   tiles: List<String>, drawn: String?, w: Float, perRow: Int, discardable: Set<String>, onDiscard: (String) -> Unit,
   selected: Int?, onSelect: (Int?) -> Unit, marks: Map<String, TileMark>? = null, tagH: Float = 0f, turn: Boolean = false,
-  motion: HandMotion? = null,
+  motion: HandMotion? = null, pick: Boolean = true,
 ) {
   val highlight = LocalTable.current.highlight
   val glow = if (turn) pulse(1100) else 0f
@@ -769,7 +792,7 @@ fun MyHand(
   val up = if (marks != null) 0f else h * LIFT
   fun tap(i: Int) {
     val t = all[i]
-    if (t !in discardable) return onSelect(if (selected == i) null else i)
+    if (t !in discardable) return onSelect(if (selected == i || !pick) null else i)
     if (selected == i) {
       onSelect(null)
       onDiscard(t)
@@ -810,6 +833,7 @@ fun MyHand(
               .semantics(mergeDescendants = true) {}
               .padding(start = if (isDrawn && row.size > 1) (w * DRAWN_GAP).d else 0.dp)
               .handSlide(motion, keys[i])
+              .then(if (isDrawn) Modifier.drawnIn(motion, keys[i], h * density.density) else Modifier)
               .layout { m, c ->
                 val up = reach.d.roundToPx()
                 val p = m.measure(if (c.hasBoundedHeight) c.copy(maxHeight = c.maxHeight + up) else c)

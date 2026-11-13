@@ -25,12 +25,15 @@
   import type { TileMark } from '../lib/review';
   import type { Tile as T } from '../lib/tiles';
   let { tiles, drawn = null, w, canDiscard = () => false, ondiscard, selected = $bindable(null), perRow = 0, oneClick = false,
-    marks = null, tagH = 0, turn = false, drawWait = 0 }: {
+    marks = null, tagH = 0, turn = false, drawWait = 0, pick = true }: {
     tiles: T[]; drawn?: T | null; w: number; canDiscard?: (t: T) => boolean; ondiscard?: (t: T) => void;
     selected?: number | null; perRow?: number; oneClick?: boolean; marks?: Map<T, TileMark> | null; tagH?: number;
     turn?: boolean;
     /** How long the drawn tile waits before it comes in (ms): another's discard still flying to its river. */
     drawWait?: number;
+    /** Whether a tap lifts a tile that may not be discarded (to see it, its figures): not while the player has a call
+     *  to decide on (吃, 碰, 胡, 過), no tile of the hand to play. */
+    pick?: boolean;
   } = $props();
 
   // The drawn tile last, as its own index.
@@ -61,7 +64,7 @@
       return;
     }
     if (!canDiscard(t)) {
-      selected = selected === i ? null : i;
+      selected = pick && selected !== i ? i : null;
       return;
     }
     if (selected === i) {
