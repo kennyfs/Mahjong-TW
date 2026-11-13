@@ -64,7 +64,8 @@ build/mahjong runtests
 Paths in the docs and scripts: `$WORK` is the directory for everything generated (APKs, screenshots, logs, models,
 runs), kept out of the repository; `$HOME` the one that holds the checkout and the tools (SDK, `env.sh`);
 `$THIRTEEN_WORK` the generated files of Thirteen (its emsdk, ONNX Runtime builds). The scripts under `scripts/` are
-copies of those the two machines of the training runs used, their paths as they were (docs/training.md).
+copies of those the machines of the training runs used (docs/training.md): `selfplay` and `helper` are ssh host
+aliases of the two self-play workstations, and `$HOME/mahjong_runs` is the training machine's run directory.
 
 ## Commands
 

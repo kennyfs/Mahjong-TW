@@ -290,7 +290,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     ready hand may be declared on any later turn too, with a concealed hand; it is locked and a win adds `baoting`
     tai. Off in every preset (the user's): the rules' list has it, the player turns it on. A declared hand's only
     discard plays by itself (at a computer player's pace). 聽牌提示 (the settings, off by default: a dot over each
-    discard that leaves the hand ready) and the hand and claim buttons as the user asked (aec7c21) came with it.
+    discard that leaves the hand ready) and the hand and claim buttons as the user asked (e359db8) came with it.
   - **The deal** (ui/DealFx.kt, the page's DealFx.svelte): a practice hand's 65 tiles shuffled face down in the
     middle of the table (`deal_shuffle`), a pause (`deal_pause`, 100 ms), then all dealt at once to their seats
     (`deal_fly`, each up to 90 ms apart), and the player's hand turning face up one tile after another from the left
