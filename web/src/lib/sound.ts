@@ -62,17 +62,19 @@ if (typeof window !== 'undefined') {
   window.addEventListener('keydown', unlock, true);
 }
 
-/** Plays a sound, `delay` ms from now (a discard's when it lands). Nothing when the settings have them off, before the
- *  first tap, or while the page is hidden. */
-export function playSound(name: SoundName, delay = 0) {
+/** Plays a sound, `delay` ms from now (a discard's when it lands, a meld's tile as it lands in its gap). Nothing when
+ *  the settings have them off, before the first tap, or while the page is hidden. Gives what calls it off if it has
+ *  not started yet (its moment let go before then). */
+export function playSound(name: SoundName, delay = 0): () => void {
+  const none = () => {};
   const level = LEVEL[settings.sound];
-  if (!level || !ctx || ctx.state !== 'running' || document.hidden) return;
+  if (!level || !ctx || ctx.state !== 'running' || document.hidden) return none;
   const f = FILES[name];
   const style = settings.soundStyle;
   const buf = buffers.get(`${style}/${f.files[Math.floor(Math.random() * f.files.length)]}`);
   if (!buf) {
     void load(style);
-    return;
+    return none;
   }
   const src = ctx.createBufferSource();
   src.buffer = buf;
@@ -81,5 +83,10 @@ export function playSound(name: SoundName, delay = 0) {
   const g = ctx.createGain();
   g.gain.value = f.gain * level;
   src.connect(g).connect(ctx.destination);
-  src.start(ctx.currentTime + Math.max(0, delay) / 1000);
+  const at = ctx.currentTime + Math.max(0, delay) / 1000;
+  src.start(at);
+  const c = ctx;
+  return () => {
+    if (c.currentTime < at) src.stop();
+  };
 }

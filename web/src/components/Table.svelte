@@ -270,17 +270,18 @@
     if (list.some(holds)) resultTap.tapped = false;
     calloutShown(list.reduce((t, m) => t + m.ms, 0));
   }
-  // Each moment's sound as it comes up: a call's, a kong's; who won (not after the player's own deal-in: its own sound
-  // says it); a draw.
+  // Each moment's sound: a call's, a kong's as the tile taken lands in its gap (SmallFx: at 0.82 of its drop); a win's
+  // as the winning tile lands (CallFx: at 0.44 of the moment) — not after the player's own deal-in, whose own sound
+  // (as its tile settles, SadFx: 0.36) says it; a draw's. A moment let go before its sound: none.
   $effect(() => {
     const c = cur;
     if (!c) return;
-    untrack(() => {
-      if (c.kind === 'call') playSound(c.type === 'chi' || c.type === 'pon' ? 'call' : 'kong');
-      else if (c.kind === 'sad') playSound('lose');
-      else if (c.kind === 'declare') playSound('call');
-      else if (c.type === 'exhausted' && (c.kind === 'drawn' || c.kind === 'small')) playSound('drawn');
-      else if ((c.kind === 'win' || c.kind === 'small') && c.id === winSound) playSound('win');
+    return untrack(() => {
+      if (c.kind === 'call') return playSound(c.type === 'chi' || c.type === 'pon' ? 'call' : 'kong', c.parts ? c.parts.in + 0.82 * c.parts.drop : 0);
+      if (c.kind === 'sad') return playSound('lose', 0.36 * c.ms);
+      if (c.kind === 'declare') return playSound('call');
+      if (c.type === 'exhausted' && (c.kind === 'drawn' || c.kind === 'small')) return playSound('drawn');
+      if ((c.kind === 'win' || c.kind === 'small') && c.id === winSound) return playSound('win', c.kind === 'win' && c.gap >= 0 ? 0.44 * c.ms : 0);
     });
   });
   function momentDone(id: number) {

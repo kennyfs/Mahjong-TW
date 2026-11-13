@@ -4,8 +4,9 @@
   a little tune for a win) and no more;
 - real: tiles as they sound, made from recordings of dice and a chip on felt (scripts/sounds-src/, Kenney's Casino
   Audio, CC0: LICENSE-Kenney.txt), lowered (tiles are larger than dice) and cut into single knocks, laid out again:
-  the shuffle in waves (hands pushing the tiles, dense; turning or lifted, sparse), a discard on the felt with the
-  weight of a tile, a call's tiles laid out, a win's hand pushed down.
+  the shuffle in waves (hands pushing the tiles, dense; turning or lifted, sparse), a discard on the felt a little
+  lower than the chip (a heavier thing), a call's tile knocking into the others, a win's hand laid down at once (on
+  felt: shorter and duller than on a hard table).
 
 Each sound: 44.1 kHz mono WAV into OUT/simple and OUT/real; then each to public/sounds as mp3:
 
@@ -139,7 +140,8 @@ def simple():
         d = env[min(len(env) - 1, int(t * SR))]
         if rng.random() < d:
             place(b, tick(pitch=rng.uniform(0.7, 1.0), dur=0.05), t, rng.uniform(0.25, 0.7) * (0.4 + 0.6 * d))
-    save('simple', 'shuffle', room(lowpass(b, 7000), 0.12), 0.6)
+    # (A semitone lower, the whole of it: the user found it high.)
+    save('simple', 'shuffle', room(lowpass(lower(b, 0.93), 7000), 0.12), 0.6)
     b = np.zeros(int(SR * 0.6))
     place(b, clack(), 0.0, 0.9)
     place(b, clack(pitch=1.05), 0.075, 0.8)
@@ -220,24 +222,39 @@ def real():
     knocks = [g for s in shakes for g in grains(lower(s, 0.74))]
     print('knocks', len(knocks))
 
-    def tile_down(f, weight=0.4, pitch=1.0):
-        """A tile set down on the felt: the chip's lay, lowered, and the thud of a heavier thing."""
-        x = lower(lay, f * pitch)
+    def tile_down(f=0.92, weight=0.12):
+        """A tile set down on the felt: the chip's lay a little lower (a tile is heavier), a faint thud under it."""
+        x = lower(lay, f)
         b = np.zeros(len(x) + int(0.05 * SR))
         place(b, x, 0, 1.0)
-        place(b, thump(140 / f * 0.8), 0.0, weight)
-        return lowpass(b, 9000)
+        place(b, thump(200, 0.02), 0.0, weight)
+        return lowpass(b, 14000)
 
-    for k, f in enumerate([0.8, 0.76, 0.84]):
-        save('real', f'discard-{k + 1}', room(tile_down(f), 0.1), 0.9)
-    # A packet of four dealt: picked off the wall, set down together (a few knocks and one lay).
+    def knock():
+        return knocks[rng.integers(len(knocks))]
+
+    def clatter(n, spread, gain=1.0, at=0.0, into=None):
+        """Tiles knocking into each other all at once (a meld pushed together, a hand laid down): `n` knocks within
+        `spread` s, most of them at the start, softer as they go."""
+        b = into if into is not None else np.zeros(int(SR * (at + spread + 0.15)))
+        ts = np.sort(spread * rng.random(n) ** 1.6)
+        ts[0] = 0
+        for k, t in enumerate(ts):
+            place(b, knock(), at + t, gain * rng.uniform(0.6, 1.0) * (1 - 0.5 * k / n))
+        return b
+
+    for k, f in enumerate([0.92, 0.9, 0.94]):
+        save('real', f'discard-{k + 1}', room(tile_down(f), 0.08), 0.9)
+    # A packet of four dealt: set down together, knocking into each other as they land.
     for k in range(2):
         b = np.zeros(int(SR * 0.3))
-        for i in range(4):
-            place(b, knocks[rng.integers(len(knocks))], i * 0.018 + rng.uniform(0, 0.008), rng.uniform(0.25, 0.5))
-        place(b, tile_down(0.82, 0.4), 0.06, 0.7)
-        save('real', f'deal-{k + 1}', room(b, 0.08), 0.65)
-    # The shuffle: the knocks in waves, a soft slide of tiles on the felt under the dense parts.
+        place(b, tile_down(0.91 + 0.02 * k), 0.0, 0.8)
+        clatter(4, 0.02, 0.35, 0.004, b)
+        save('real', f'deal-{k + 1}', room(b, 0.06), 0.65)
+    # The shuffle: the knocks in waves, a soft slide of tiles on the felt under the dense parts. The random draws start
+    # where they did for the take the user picked (2026-11-13), so that the other sounds can change without it.
+    rng.bit_generator.state = {'bit_generator': 'PCG64', 'has_uint32': 0, 'uinteger': 328313141, 'state': {
+        'state': 171114139180760816764104165298077797073, 'inc': 261136684632268670825940853076396136793}}
     sec = 1.6
     env = burst_env(sec, 3, 0.1)
     b = np.zeros(int(SR * (sec + 0.2)))
@@ -252,38 +269,31 @@ def real():
     slide[len(env):] = 0
     b += slide
     save('real', 'shuffle', room(b, 0.1), 0.75)
-    # A chow or a pung: two tiles of the hand laid out face up, beside the one taken.
-    b = np.zeros(int(SR * 0.45))
-    place(b, tile_down(0.8, 0.5), 0.0, 0.9)
-    place(b, tile_down(0.78, 0.5), 0.09, 0.85)
-    place(b, tile_down(0.82, 0.4), 0.17, 0.6)
-    save('real', 'call', room(b, 0.1), 0.85)
-    # A kong: four laid out.
-    b = np.zeros(int(SR * 0.55))
-    for i in range(4):
-        place(b, tile_down(0.78 + 0.02 * (i % 2), 0.5), i * 0.085, 0.9 - 0.08 * i)
-    save('real', 'kong', room(b, 0.1), 0.85)
-    # A win: the hand pushed down, tile after tile falling on its back along the row, ending on a thud.
-    def push(n, gap, gain):
-        b = np.zeros(int(SR * (n * gap + 0.4)))
-        for i in range(n):
-            g = gain * (0.55 + 0.45 * rng.random()) * (0.7 + 0.3 * i / n)
-            place(b, knocks[rng.integers(len(knocks))], i * gap + rng.uniform(0, gap * 0.4), g * 0.6)
-            if i % 3 == 0:
-                place(b, tile_down(0.8 + rng.uniform(-0.03, 0.03), 0.35), i * gap, g * 0.5)
-        place(b, thump(110, 0.05, 0.2), n * gap, 0.6 * gain)
-        return b
-    save('real', 'win', room(push(16, 0.018, 1.0), 0.12), 0.9)
-    # The player's own deal-in: the winner's hand pushed down all the same, a little slower.
-    save('real', 'lose', room(push(16, 0.024, 0.9), 0.12), 0.8)
-    # A draw: the hands shown, slower and softer.
-    save('real', 'drawn', room(push(12, 0.035, 0.7), 0.12), 0.7)
+    # A chow or a pung: the tile taken knocking into the two (the moment's tile landing in its gap).
+    save('real', 'call', room(clatter(3, 0.012), 0.06), 0.8)
+    # A kong: into three.
+    save('real', 'kong', room(clatter(5, 0.02), 0.06), 0.85)
+
+    def laid(n, spread, gain, dull):
+        """A hand laid down at once: its weight on the felt, the tiles knocking into each other, quickly still."""
+        b = np.zeros(int(SR * (spread + 0.3)))
+        place(b, tile_down(0.9, 0.25), 0.0, 0.9 * gain)
+        clatter(n, spread, 0.8 * gain, 0.002, b)
+        return lowpass(b, dull)
+    # A win: the winner's hand laid down (as the winning tile lands).
+    save('real', 'win', room(laid(14, 0.09, 1.0, 12000), 0.08), 0.9)
+    # The player's own deal-in: the winner's hand laid down all the same, duller.
+    save('real', 'lose', room(laid(12, 0.1, 0.9, 6000), 0.08), 0.8)
+    # A draw: the hands shown, two of them, softer.
+    b = np.zeros(int(SR * 0.6))
+    place(b, laid(8, 0.07, 0.8, 9000), 0.0, 1.0)
+    place(b, laid(8, 0.07, 0.6, 9000), 0.16, 1.0)
+    save('real', 'drawn', room(b, 0.08), 0.7)
     # A flower: put out on the table, its replacement drawn.
     b = np.zeros(int(SR * 0.35))
-    place(b, tile_down(0.86, 0.35), 0.0, 0.7)
-    place(b, knocks[rng.integers(len(knocks))], 0.16, 0.25)
-    save('real', 'flower', room(b, 0.1), 0.55)
-
+    place(b, tile_down(0.93), 0.0, 0.7)
+    place(b, knock(), 0.16, 0.25)
+    save('real', 'flower', room(b, 0.08), 0.55)
 
 simple()
 real()
