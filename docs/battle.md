@@ -104,17 +104,28 @@ curl -s http://127.0.0.1:8091/health   # ok
 ## The Docker images
 
 `server/Dockerfile` builds, from the repository root (`.dockerignore` keeps the context to `cpp/`, `protocol/`,
-`server/`, `web/` and the app's strings):
+`server/`, `web/` and the app's strings and times):
 
 - `--target runtime`: the battle server (a jlinked JRE, the server and the `mahjong` binary, which runs its unit tests
-  in the build), as user 10001, on port 8080.
-- `--target site`: Caddy with the web page (the engine built as WebAssembly with emsdk, then `npm run build`) and
-  `server/Caddyfile`.
+  in the build), as user 10001, on port 8080. No network: its bots play tile efficiency.
+- `--target site`: Caddy with the web page: the engine built as WebAssembly with emsdk, linked with ONNX Runtime for
+  WebAssembly (Thirteen's release asset `ort-wasm-1.31.1.tar.gz`, pinned by SHA-256), the network beside it, then
+  `npm run build`. Two Caddyfiles: `/etc/caddy/Caddyfile` (compose's: TLS for `DOMAIN`, `/ws` and `/health` to the
+  server) and `/etc/caddy/Caddyfile.static` (`:8080`, the page only, for running behind an ingress that routes `/ws`
+  and `/health` itself: `caddy run --config /etc/caddy/Caddyfile.static --adapter caddyfile`).
+
+The network: `server/model/actor.onnx` when the context has it (put there by hand; git ignores it), else the build
+argument `MODEL_URL` (this repository's release asset); either way it must match `MODEL_SHA256` (network 221 of `s3`,
+float16). A new network changes both arguments' defaults and the release.
 
 ```bash
-# JOBS caps each C++ build's jobs (by default every core; this host has 144).
-docker build -f server/Dockerfile --target runtime --build-arg JOBS=16 -t mahjong-server:dev . 2>&1 | tee $WORK/logs/docker-build.log
-docker build -f server/Dockerfile --target site --build-arg JOBS=16 -t mahjong-site:dev . 2>&1 | tee -a $WORK/logs/docker-build.log
+# The context: a commit's files (git archive), the network beside them.
+C=$(git rev-parse --short HEAD); CTX=$WORK/ctx-$C
+mkdir -p $CTX && git archive $C | tar -x -C $CTX && cp $WORK/models/actor_s3_221.fp16.onnx $CTX/server/model/actor.onnx
+cd $CTX
+# JOBS caps each C++ build's jobs (by default every core); --cpuset-cpus the cores the build may use.
+docker build --cpuset-cpus=0-23 --build-arg JOBS=16 -f server/Dockerfile --target runtime -t mahjong-server:dev . 2>&1 | tee $WORK/logs/docker-build.log
+docker build --cpuset-cpus=0-23 --build-arg JOBS=16 -f server/Dockerfile --target site -t mahjong-site:dev . 2>&1 | tee -a $WORK/logs/docker-build.log
 
 # A quick check: both on a network of their own, the site on port 8094 of this machine.
 docker network create mahjong-check
@@ -124,17 +135,34 @@ curl -s http://127.0.0.1:8094/health; curl -sI http://127.0.0.1:8094/ | head -3
 docker stop mahjong-site mahjong; docker network rm mahjong-check
 ```
 
-Both built and passed that check on 2026-11-09 (the server image 274 MB, the site 126 MB; about 10 minutes from a
-warm cache). This host's Docker is rootless with the legacy builder only (no BuildKit or buildx): the Dockerfile uses
-nothing else, and `.dockerignore` names the strings files by explicit paths because the legacy builder ignores a
-glob's re-include (`values*/`). With BuildKit elsewhere it should build the same; that is not verified.
+What was learned building them (a rootless Docker with the legacy builder only, no BuildKit or buildx):
+
+- The legacy builder builds **every stage before the target** in the file's order, not only those the target needs:
+  `--target runtime` builds the web stages too (the WebAssembly engine is the longest step). With BuildKit only the
+  needed stages run.
+- `.dockerignore`: under `*`, a re-included path with a wildcard (`values-*/strings.xml`) lets nothing in with the
+  legacy builder; each file is named (a new language: its `values-xx/strings.xml` on a line of its own). The page's
+  build reads `res/raw/timing.json` too.
+- No `COPY --from` an optional file, no `RUN --mount`: an optional input is a directory that always exists
+  (`server/model/` with its `.gitignore`), tested in a `RUN`.
+- Caddy's binary has a file capability (to bind ports below 1024) that a container without capabilities cannot run:
+  the image copies the binary, which drops it.
+- A build from the working tree would take in untracked files (`web/node_modules` is ignored, others are not): build
+  from a `git archive` of a commit.
+
+Both built from a cold cache on 2026-11-13 in 25 minutes (16 jobs; the WebAssembly engine about 15 of them): the
+server image 275 MB, the site 141 MB. The check above passed: `/health` ok; a `hello` of version 1 through Caddy's
+`/ws` answered `welcome`, another version `VERSION`; the engine's unit tests in the server image; the page, its engine
+(`engine-*.wasm`, `application/wasm`) and the network (the same SHA-256) served with `immutable`, the sounds; the
+static Caddyfile served the page on 8080 as user 10001 without capabilities (and no `/health`: the ingress's). With
+BuildKit elsewhere it should build the same; that is not verified.
 
 `server/compose.yml` runs both: the game server on an internal network only (no ports, no way out: it needs nothing
 from the internet), read-only, 2.5 CPUs and 384 MB; Caddy in front, which gets the TLS certificate for `DOMAIN` and
 is the only thing reachable:
 
 ```bash
-DOMAIN=mahjong.example.com docker compose -f server/compose.yml up -d --build
+DOMAIN=mahjong.1li.tw docker compose -f server/compose.yml up -d --build
 ```
 
 ### Environment
@@ -151,11 +179,11 @@ DOMAIN=mahjong.example.com docker compose -f server/compose.yml up -d --build
 | `TRUST_PROXY` | 0 | Proxies that append to X-Forwarded-For in front (1 behind Caddy, as in compose.yml). |
 | `CLAIM_WINDOW_MS`, `BOT_TURN_MS` | 1000, 900 | The pace (see above); shorter only to test. |
 
-## Hosting: not decided
+## Hosting: mahjong.1li.tw
 
-Nothing is deployed. Where to host the server (and whether) is the project owner's decision, to be asked before
-anything goes online. What it needs: a machine with Docker, ports 80 and 443, a domain name pointing at it; one or two
-cores and 512 MB are plenty for the defaults. Until then:
+The page and the battle server will share `mahjong.1li.tw` (the user's decision, 2026-11-13); deploying it is done
+from the release side, not here. Nothing is deployed yet. What it needs: one or two cores and 512 MB for the server
+with the defaults, little for the page. Until it is up:
 
 - The web page's battles connect to the page's own address (`/ws`): they work wherever the page is served with a
   battle server behind the same address (compose.yml, or `npm run dev` here). A page served alone shows the
