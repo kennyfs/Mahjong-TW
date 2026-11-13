@@ -4,6 +4,9 @@ The text of the store page, kept here so it changes with the app. Limits: title 
 80, full description 4000, release notes 500. Privacy policy:
 <https://github.com/kennyfs/Mahjong-TW/blob/main/docs/privacy.md>.
 
+Images: `icon-512.png` and `feature-zh.png` (1024 x 500) come from `images.py`, drawn with the app's own tiles. The
+phone screenshots (at least four at 1920 x 1080) are still to come from a store mode of the emulator scripts.
+
 The app is in Traditional Chinese (Taiwan) only, so is the listing. The words are the app's own (`strings.xml`).
 The game scores in 台 and points and shows no money, chips or bets: keep it that way here (no 賭, 籌碼, 錢, 現金,
 贏錢), and answer the content rating to match (no real-money and no simulated gambling).
