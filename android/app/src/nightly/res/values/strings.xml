@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A test build's name under its icon (MAHJONG_ID_SUFFIX set). -->
+<resources>
+  <string name="app_name">台麻測試</string>
+</resources>

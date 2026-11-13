@@ -48,6 +48,10 @@ fun git(vararg args: String): String? =
 
 // Release signing from the environment (build-apk.sh sets it); without it the release build uses the debug key.
 val keystorePath: String? = System.getenv("MAHJONG_KEYSTORE")
+// A build for testing beside the store's (signed with another key) takes another id, MAHJONG_ID_SUFFIX=.test
+// (io.github.kennyfs.mahjong.test), and the night icon and name of src/nightly. Only the release (the local session,
+// the release key) is built without it; the development machine's scripts always set it.
+val idSuffix: String? = System.getenv("MAHJONG_ID_SUFFIX")?.ifEmpty { null }
 
 android {
   namespace = "io.github.kennyfs.mahjong"
@@ -56,6 +60,7 @@ android {
 
   defaultConfig {
     applicationId = "io.github.kennyfs.mahjong"
+    idSuffix?.let { applicationIdSuffix = it }
     minSdk = 26
     targetSdk = 37
     // Minutes from 2026-01-01 to the last commit: rises with every commit, so a newer build installs over an older
@@ -128,6 +133,8 @@ android {
   sourceSets["main"].assets.directories += modelAssets.get().asFile.absolutePath
   // The sounds, copied by copySounds.
   sourceSets["main"].res.directories += soundRes.get().asFile.absolutePath
+  // A test build (another id): the night icon and name of src/nightly, over main's.
+  if (idSuffix != null) for (t in listOf("debug", "release")) sourceSets[t].res.directories += "src/nightly/res"
   // The reduced library goes in as it is; the AAR's comes with the AAR.
   if (ownOrt != null) sourceSets["main"].jniLibs.directories += ortDir.dir("jni").asFile.absolutePath
   packaging {

@@ -420,7 +420,8 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   標準, 大師 (docs/rules.md section 9, changed 2026-11-10 after this prototype); payments are "base + tai" per payer. The presets and every parameter's name and value come from the engine
   (`{"cmd":"rules"}`), never from a table in the UI.
 - **Names**: the app is 台灣麻將 (`app_name`); package `io.github.kennyfs.mahjong` (as Thirteen's
-  `io.github.kennyfs.thirteen`). The tabs: 練習, 對戰, 分析, 紀錄, 設定.
+  `io.github.kennyfs.thirteen`); a test build (`MAHJONG_ID_SUFFIX=.test`, android/README.md) is
+  `io.github.kennyfs.mahjong.test`, 台麻測試 under a night icon. The tabs: 練習, 對戰, 分析, 紀錄, 設定.
 - **Discarding**: a tap lifts a tile and a second tap discards it, or a tile dragged upwards is discarded: one tap
   alone never discards (a phone's mistaken tap). On a computer one click discards and the keyboard plays (← → Enter,
   H G P C, Space). Claims are buttons over the hand: win first, then kongs, pung, each way of a chow with its three

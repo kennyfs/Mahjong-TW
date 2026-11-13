@@ -25,7 +25,8 @@ OUT = os.environ.get('OUT', '$WORK/shots/android')
 SERVER = os.environ.get('BATTLE_SERVER', '')
 ONLY = [x for x in os.environ.get('ONLY', '').split(',') if x]
 STEPS = [x for x in os.environ.get('STEPS', '').split(',') if x]
-PKG = 'io.github.kennyfs.mahjong'
+# A test build's id has MAHJONG_ID_SUFFIX (.test) after it.
+PKG = 'io.github.kennyfs.mahjong' + os.environ.get('MAHJONG_ID_SUFFIX', '')
 
 
 def adb(*args, check=True, binary=False):

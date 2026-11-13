@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The icon of a test build (MAHJONG_ID_SUFFIX set, e.g. .test): the app's tile on the felt at night, a crescent
+     moon beside it, so that the two tell apart (Thirteen's test builds have theirs). -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+  <background android:drawable="@drawable/ic_launcher_night" />
+  <foreground android:drawable="@drawable/ic_launcher_foreground" />
+  <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>

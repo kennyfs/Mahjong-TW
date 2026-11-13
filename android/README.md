@@ -108,9 +108,18 @@ version name is a `vX.Y.Z` tag, or a beta after the latest tag (`0.0.N` before t
 ### Signing
 
 Updates install over an older version (keeping the records) only when every APK is signed with the same key: a
-keystore kept outside the repository, described by `~/.android/mahjong-release.txt` (or `$MAHJONG_SIGNING`) in lines
-`keystore PATH`, `alias NAME` and `password PASS`, which `build-apk.sh` reads. Without it the APK is signed with the
-debug key (as the prototype's is): fine for testing, but a later release key will not install over it.
+keystore kept outside the repository, the one Thirteen's releases are signed with (shared), described by
+`~/.android/thirteen-release.txt` (or `$MAHJONG_SIGNING`) in lines `keystore PATH`, `alias NAME` and `password PASS`,
+which `build-apk.sh` reads. Without it the APK is signed with the debug key: fine for testing, but the release key
+will not install over it.
+
+### Test builds: another id
+
+`MAHJONG_ID_SUFFIX=.test` builds the app as `io.github.kennyfs.mahjong.test`, named 台麻測試 under a night icon (the
+tile on dark felt with a crescent moon: `app/src/nightly/res`), so that a test build installs beside the store's and
+the two tell apart; `build-apk.sh` then names it `mahjong-X.Y.Z-test.apk`, and `scripts/shots.py` drives that id.
+Every build on the development machine is one (its scripts set it); only the release, with the release key, is built without it. (The APKs
+up to 0.8.0 had the store's id and the development machine's debug key: whoever installed one uninstalls it once before the release.)
 
 ## Screenshots and the emulator
 
