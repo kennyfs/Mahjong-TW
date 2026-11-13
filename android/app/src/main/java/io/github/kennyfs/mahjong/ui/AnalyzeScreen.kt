@@ -184,7 +184,7 @@ fun AnalyzeScreen(vm: AppModel) {
       if (mine == asked[0]) running = false
     }
   }
-  val marks: Map<String, TileMark>? = result?.takeIf { it.net }?.let { tileMarks(res, it, -1, null, vm.settings.tableMarks) }
+  val marks: Map<String, TileMark>? = result?.takeIf { it.net }?.let { tileMarks(res, it, -1, null) }
 
   fun pick(t: String) {
     if (ed.section.kind == Section.Kind.MELDS) {
@@ -250,7 +250,7 @@ fun AnalyzeScreen(vm: AppModel) {
         color = if (missing == null && error != null) LocalOutcome.current.bad else cs.onSurfaceVariant)
       result?.let { r ->
         Column(Modifier.fillMaxWidth().alpha(if (running) 0.7f else 1f).testTag("analyze_results"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-          DecisionPanel(r, mode = settings.listRows, w = sw, names = seatShort)
+          DecisionPanel(r, w = sw, names = seatShort)
           if (r.net) {
             val t = tables
             if (!showTables) FilledTonalButton(onClick = { showTables = true }, modifier = Modifier.testTag("analyze_whatif")) {

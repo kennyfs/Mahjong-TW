@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
@@ -7,12 +8,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -82,6 +87,13 @@ private fun tableFor(style: ColorStyle, scheme: ColorScheme, dark: Boolean): Tab
       if (dark) Color(0xFF81C784) else Color(0xFF2E7D32), if (dark) Color(0xFFE57373) else Color(0xFFC62828), scheme.primary, scheme.onPrimary,
       t[0], t[1], t[2], t[3], t[4], t[5],
     )
+    // Felt in the wallpaper's colors (Thirteen's): its primary, or in the dark its primary container.
+    ColorStyle.WALLPAPER -> {
+      val felt = if (dark) scheme.primaryContainer else scheme.primary
+      val on = if (dark) scheme.onPrimaryContainer else scheme.onPrimary
+      TableColors(felt, on, on.copy(alpha = 0.75f).compositeOver(felt), BRASS, Color(0xFFA8E6B0), Color(0xFFFFB4AB), on, felt,
+        t[0], t[1], t[2], t[3], t[4], t[5])
+    }
   }
 }
 
@@ -132,7 +144,10 @@ fun isDark(mode: DarkMode, system: Boolean) = when (mode) {
 @Composable
 fun MahjongTheme(style: ColorStyle, darkMode: DarkMode, textSize: TextSize, content: @Composable () -> Unit) {
   val dark = isDark(darkMode, isSystemInDarkTheme())
-  val scheme = if (dark) BrandDark else BrandLight
+  val context = LocalContext.current
+  val scheme = if (style == ColorStyle.WALLPAPER && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+  } else if (dark) BrandDark else BrandLight
   val outcome = if (dark) Outcome(Color(0xFF81C784), Color(0xFFEF9A9A)) else Outcome(Color(0xFF2E7D32), Color(0xFFC62828), Color(0xFF1B6E23), Color(0xFFA3191A))
   val density = LocalDensity.current
   CompositionLocalProvider(

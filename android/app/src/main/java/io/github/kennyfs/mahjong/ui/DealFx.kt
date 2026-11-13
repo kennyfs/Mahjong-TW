@@ -33,8 +33,13 @@ import kotlin.random.Random
 private const val N = 16 * 4 + 1
 /** How far apart the tiles leave (ms, at most): together, not as one block. */
 private const val SPREAD = 90L
+/** A shuffled tile's time from one spot to the next (ms, about): its pace, whatever deal_shuffle is (as many spots as
+ *  fill it). The web page's DealFx.svelte the same. */
+private const val LEG_MS = 470L
 private val SHUFFLE_EASING = CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
 private val FLY_EASING = CubicBezierEasing(0.45f, 0f, 0.3f, 1f)
+
+private fun legsOf(shuffleMs: Long) = max(1, Math.round(shuffleMs.toFloat() / LEG_MS))
 
 /** A hand's start in all, ms: the shuffle, its pause, the tiles flying, the player's hand turning up. */
 fun dealMs(): Long = Timing.ms("deal_shuffle") + Timing.ms("deal_pause") + Timing.ms("deal_fly") + SPREAD + Timing.ms("deal_flip")
@@ -70,11 +75,12 @@ fun BoxScope.DealFx(center: Rect, targets: List<Offset>, tw: Float, dealer: Int,
     val ry = min(center.height, center.width) * 0.3f
     // Whose each tile is: the dealer's 17, the others' 16, at random among the pile.
     val owner = IntArray(N) { if (it == N - 1) dealer else it % 4 }.also { it.shuffle() }
+    val spots = legsOf(Timing.ms("deal_shuffle")) + 1
     List(N) { k ->
-      val xs = FloatArray(4)
-      val ys = FloatArray(4)
-      val rs = FloatArray(4)
-      for (i in 0 until 4) {
+      val xs = FloatArray(spots)
+      val ys = FloatArray(spots)
+      val rs = FloatArray(spots)
+      for (i in 0 until spots) {
         val a = Random.nextFloat() * 2 * PI.toFloat()
         val d = sqrt(Random.nextFloat())
         xs[i] = center.center.x + cos(a) * rx * d
@@ -86,6 +92,7 @@ fun BoxScope.DealFx(center: Rect, targets: List<Offset>, tw: Float, dealer: Int,
     }
   }
   val shuffleMs = remember { Timing.ms("deal_shuffle") }
+  val legs = remember { legsOf(shuffleMs) }
   val flyAt = remember { shuffleMs + Timing.ms("deal_pause") }
   val fly = remember { Timing.ms("deal_fly") }
   var t by remember { mutableLongStateOf(0L) }
@@ -109,8 +116,8 @@ fun BoxScope.DealFx(center: Rect, targets: List<Offset>, tw: Float, dealer: Int,
       var s = 1f
       var a: Float
       // 1. Shuffled: among a few spots, turning (hands swirling them on the felt).
-      val p = SHUFFLE_EASING.transform((now.toFloat() / shuffleMs).coerceIn(0f, 1f)) * 3f
-      val i = min(2, floor(p).toInt())
+      val p = SHUFFLE_EASING.transform((now.toFloat() / shuffleMs).coerceIn(0f, 1f)) * legs
+      val i = min(legs - 1, floor(p).toInt())
       val f = p - i
       x = way.xs[i] + (way.xs[i + 1] - way.xs[i]) * f
       y = way.ys[i] + (way.ys[i + 1] - way.ys[i]) * f

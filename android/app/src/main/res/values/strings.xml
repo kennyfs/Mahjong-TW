@@ -33,11 +33,6 @@
   <string name="round_wind">%1$s風圈</string>
   <string name="hand_n">第 %1$d 局</string>
   <string name="wall_left">剩 %1$d 張</string>
-  <string name="wall_left_short">剩 %1$d</string>
-  <string name="your_turn">輪到你出牌</string>
-  <string name="tap_to_discard">再點一次打出，或拖上去</string>
-  <string name="claim_prompt">要吃、碰、槓或胡嗎？</string>
-  <string name="waiting_others">等其他人…</string>
   <string name="act_discard">打出</string>
   <string name="act_tsumo">自摸</string>
   <string name="act_ron">胡</string>
@@ -57,13 +52,11 @@
   <string name="call_baoting">報聽</string>
   <string name="rules_chip">%1$s・%2$s</string>
   <string name="hand_cards">%1$d 張</string>
-  <string name="last_hand">上一局</string>
 
   <!-- A hand's result -->
   <string name="result_tsumo">%1$s 自摸</string>
   <string name="result_ron">%1$s 胡牌</string>
   <string name="result_ron_from">%1$s 放槍</string>
-  <string name="result_rob_kong">%1$s 搶槓</string>
   <string name="result_exhausted">流局</string>
   <string name="result_flower_win">%1$s 花胡</string>
   <string name="result_tai_total">共 %1$d 台</string>
@@ -75,16 +68,13 @@
   <string name="result_next_dealer">下一局 %1$s 做莊</string>
   <string name="result_next_streak">下一局 %1$s 做莊，連 %2$d</string>
   <string name="result_hands">各家手牌</string>
-  <string name="result_win_tile">胡的牌</string>
   <string name="next_hand">下一局</string>
   <string name="review_hand">回顧與分析</string>
   <string name="favorite">收藏</string>
   <string name="game_over">牌局結束</string>
-  <string name="game_totals">總分</string>
   <string name="new_game">再開一局</string>
   <string name="see_totals">看總分</string>
   <string name="hands_played">共 %1$d 局</string>
-  <string name="points_tai">%1$s 台</string>
 
   <!-- Practice -->
   <string name="length_hand">一局</string>
@@ -92,7 +82,6 @@
   <string name="length_game">一將（四圈）</string>
   <string name="practice_new">重新開始</string>
   <string name="practice_new_confirm">放棄目前的牌局，重新開始？</string>
-  <string name="practice_hand_of">%1$s・%2$s</string>
 
   <!-- Rules -->
   <string name="rules_title">規則</string>
@@ -165,6 +154,7 @@
   <string name="settings_colors">配色</string>
   <string name="colors_table">牌桌綠</string>
   <string name="colors_minimal">簡約</string>
+  <string name="colors_wallpaper">跟隨桌布</string>
   <string name="settings_dark">深色模式</string>
   <string name="dark_system">跟隨系統</string>
   <string name="dark_light">淺色</string>
@@ -173,9 +163,7 @@
   <string name="text_small">小</string>
   <string name="text_normal">中</string>
   <string name="text_large">大</string>
-  <string name="settings_tiles">牌的大小</string>
   <string name="settings_about">關於</string>
-  <string name="about_text">台灣十六張麻將。電腦玩家目前用牌效率（向聽數與進張數）決定，之後會換成神經網路；分析同樣先用牌效率。程式以 GPLv3 授權釋出，牌面的字取自 Noto Serif CJK（SIL Open Font License）。</string>
 
   <!-- Records -->
   <string name="records_title">紀錄</string>
@@ -224,10 +212,8 @@
   <string name="replay_prev_decision">上一個決定</string>
   <string name="replay_next_decision">下一個決定</string>
   <string name="replay_show_all">顯示所有人的牌</string>
-  <string name="replay_analyze">分析這一步</string>
   <string name="replay_you_chose">你選了：%1$s</string>
   <string name="replay_seat_chose">%1$s 選了：%2$s</string>
-  <string name="replay_view_as">視角</string>
 
   <!-- Analysis -->
   <string name="analyze_title">分析</string>
@@ -243,9 +229,6 @@
   <string name="analysis_best">最佳</string>
   <string name="analysis_chosen">你的選擇</string>
   <string name="analysis_no_actions">這時不用做決定。</string>
-  <string name="analysis_setup">擺一個局面</string>
-  <string name="analysis_from_last">上一局的決定</string>
-  <string name="analysis_run">分析</string>
   <string name="analysis_hand">手牌</string>
   <string name="analysis_drawn">摸進的牌</string>
   <string name="analysis_situation">情況</string>
@@ -254,7 +237,6 @@
   <string name="analysis_claim_from">打出的人</string>
   <string name="analysis_claim_tile">打出的牌</string>
   <string name="analysis_melds">副露</string>
-  <string name="analysis_add_meld">加一組</string>
   <string name="analysis_flowers">花牌</string>
   <string name="analysis_discards">牌河</string>
   <string name="analysis_dealer">莊家</string>
@@ -273,20 +255,14 @@
   <string name="scores_title">分數</string>
   <string name="param_quanqiu_duting">全求人也算獨聽</string>
   <string name="param_dasixi_winds">大四喜仍算圈風、門風</string>
-  <string name="rules_value_flag_on">是</string>
-  <string name="rules_value_flag_off">否</string>
   <string name="records_battle_hands">%1$d 局</string>
   <string name="records_battle_left">中途離開</string>
   <string name="records_kind_online">線上</string>
   <string name="records_kind_nearby">附近</string>
   <string name="record_hand_of">第 %1$d 局</string>
-  <string name="replay_end">結果</string>
   <string name="replay_result">看結果</string>
   <string name="tap_to_continue">按一下以繼續</string>
   <string name="replay_nothing">這一手沒有紀錄。</string>
-  <string name="replay_pass">過</string>
-  <string name="analysis_title_decision">分析：%1$s的決定</string>
-  <string name="analysis_source_note">依據</string>
   <string name="analysis_turn_of">%1$s 的回合</string>
   <string name="analysis_your_turn">你的回合</string>
   <string name="analysis_seat_you">你（自己）</string>
@@ -295,10 +271,7 @@
   <string name="analysis_pon_of">碰 %1$s</string>
   <string name="analysis_kan_of">明槓 %1$s</string>
   <string name="analysis_ankan_of">暗槓 %1$s</string>
-  <string name="analysis_tap_to_edit">點一區來編輯</string>
-  <string name="analysis_results">每個選擇</string>
   <string name="analysis_error">這個局面不成立：%1$s</string>
-  <string name="analysis_ukeire_tiles">進張</string>
   <!-- Battles -->
   <string name="battle_title">對戰</string>
   <string name="battle_name">你的名字</string>
@@ -319,7 +292,6 @@
   <string name="battle_join">加入</string>
   <string name="battle_pin_bad">房號是六位數字。</string>
   <string name="battle_no_help">對戰時沒有任何提示或分析；打完可以在紀錄裡回顧與分析。</string>
-  <string name="battle_room_title">房間</string>
   <string name="battle_room_number">房號</string>
   <string name="battle_room_number_info">把房號或連結給朋友，他們就能加入。</string>
   <string name="battle_copy_link">複製連結</string>
@@ -355,7 +327,6 @@
   <string name="battle_place">第 %1$d 名</string>
   <string name="battle_done">完成</string>
   <string name="battle_your_hands">你的每一局</string>
-  <string name="battle_timeouts">電腦代打 %1$d 次</string>
   <string name="battle_reconnecting">連線中斷，重新連線中…</string>
   <string name="battle_err_version">網頁和伺服器的版本不同，請重新載入網頁。</string>
   <string name="battle_err_no_room">找不到這個房間。</string>
@@ -370,11 +341,8 @@
   <string name="battle_closed">房間已經關了。</string>
   <string name="battle_lost">和伺服器的連線斷了。</string>
   <!-- Battles: the app only (a server's address, phones nearby) -->
-  <string name="battle_server_none">還沒設定伺服器</string>
   <string name="battle_server_app_hint">例如 example.com（模擬器測試用 10.0.2.2:8091）</string>
-  <string name="battle_online">線上</string>
   <string name="battle_online_info">透過網路上的對戰伺服器，和任何地方的人對戰。</string>
-  <string name="battle_nearby">附近的手機</string>
   <string name="battle_nearby_info">不用網路：用藍牙和 Wi-Fi 和旁邊的手機連線。一支手機開房，其他手機找到房間、輸入房號加入。</string>
   <string name="battle_host_table">在這支手機開一桌</string>
   <string name="battle_host_contest">在這支手機開同牌賽</string>
@@ -392,23 +360,6 @@
   <string name="about_version">版本 %1$s・神經網路 %2$s</string>
   <string name="bot_net">神經網路</string>
   <string name="settings_analysis">分析</string>
-  <string name="settings_list_rows">「每個選擇」的清單怎麼顯示</string>
-  <string name="list_rows_numbers">數字</string>
-  <string name="list_rows_bars">長條</string>
-  <string name="list_rows_both">兩者</string>
-  <string name="list_rows_hint">數字：每個選擇的期望、胡牌、放槍等機率；長條：和最佳選擇相比，差在胡牌、放槍還是被自摸；兩者：都顯示（每一列比較高）。數字比最佳選擇明顯好的是綠色、明顯差的是紅色。</string>
-  <string name="settings_advanced">進階</string>
-  <string name="settings_advanced_row">清單、手牌標示、吃碰胡的效果</string>
-  <string name="advanced_title">進階設定</string>
-  <string name="settings_table_marks">回顧時手牌上的標示</string>
-  <string name="table_marks_both">損失與危險</string>
-  <string name="table_marks_loss">只有損失</string>
-  <string name="table_marks_none">不標示</string>
-  <string name="settings_call_fx">吃、碰、胡的效果</string>
-  <string name="call_fx_anim">全畫面動畫</string>
-  <string name="call_fx_words">只有字樣</string>
-  <string name="call_fx_hint">全畫面動畫：吃碰到的牌從牌河飛起、湊成面子，再飛到它在桌上的位置；胡的那張牌飛進胡牌的手牌（槓、補花只有字樣）。點一下畫面就跳過。</string>
-  <string name="table_marks_hint">損失：每張牌上方標出打它比最佳選擇差多少；危險：牌底部的色條，越紅越可能馬上放槍。點一下牌仍會顯示它的數字。</string>
   <string name="settings_level">失誤門檻</string>
   <string name="level_beginner">入門</string>
   <string name="level_mid">中級</string>
@@ -431,7 +382,6 @@
   <string name="review_now">目前期望</string>
   <string name="list_help">清單的數字</string>
   <string name="list_help_text">每一列右邊的數字是那個選擇的期望：照這樣打，這一局最後得分的平均（台）。前面括號裡的小字是它比最佳選擇少多少；差距小到算一樣好時不顯示。有實際選擇時，它排在最上面，其餘從最好的往下排。</string>
-  <string name="list_caption">每一列右邊：照這樣打的期望（台）</string>
   <string name="review_mistakes">%1$s %2$s</string>
   <string name="review_count_none">沒有%1$s</string>
   <string name="review_line">起手期望 %1$s・決策 %2$s・運氣 %3$s</string>
@@ -439,11 +389,9 @@
   <string name="review_next_key">下一個該看的決定</string>
   <string name="review_loading">神經網路分析中…</string>
   <string name="review_failed">神經網路載入失敗，只顯示牌效率：%1$s</string>
-  <string name="review_table">牌桌</string>
   <string name="review_panel">每個選擇</string>
   <string name="review_to_analysis">帶到分析頁</string>
   <string name="review_graph">期望的變化（點一下跳到那個決定）</string>
-  <string name="review_tap_tile">點手牌看那一張的數字</string>
   <string name="reason_win_less">胡牌期望少 %1$s</string>
   <string name="reason_win_more">胡牌期望多 %1$s</string>
   <string name="reason_deal_more">放槍多失分 %1$s</string>
@@ -468,7 +416,6 @@
   <string name="fig_others_tsumo">被自摸</string>
   <string name="fig_danger">當下危險</string>
   <string name="fig_tai">%1$s 台</string>
-  <string name="fig_policy">網路會選</string>
   <string name="bars_legend">和最佳相比，差在：</string>
   <string name="bars_win">胡牌</string>
   <string name="bars_deal">放槍</string>
@@ -479,10 +426,8 @@
   <string name="opp_ready">聽 %1$s</string>
   <string name="opp_one_away">一向聽 %1$s</string>
   <string name="opp_missed">過水</string>
-  <string name="opp_danger_tiles">危險牌</string>
   <string name="opp_no_danger">沒有明顯危險的牌</string>
   <string name="opp_truth">實際</string>
-  <string name="whatif_title">如果…</string>
   <string name="whatif_show">算出摸牌表與鳴牌表</string>
   <string name="whatif_draws">摸牌表</string>
   <string name="whatif_claims">鳴牌表</string>
@@ -493,7 +438,6 @@
   <string name="whatif_tsumogiri">摸切</string>
   <string name="whatif_no_claims">沒有值得吃碰槓的牌。</string>
   <string name="whatif_pass_better">有 %1$d 種能吃碰的牌，不理比較好。</string>
-  <string name="whatif_needs_draw">輪到自己時要先有摸進的牌。</string>
   <string name="analysis_source_network">神經網路的估計。期望：這一局最後得分的平均（台）。胡、放槍、被自摸：打到這一局結束的機率。當下危險：打出這張馬上放槍的機率。下面的向聽數與進張是牌效率。</string>
   <string name="analysis_palette_show">選牌</string>
   <string name="analysis_palette_hide">收起</string>

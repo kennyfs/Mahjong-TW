@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A test build's icon background: the felt at night, and a crescent moon left of the tile, inside the part every
-     mask shows (a circle of 36 about the middle of 108). -->
+<!-- A test build's icon background: the felt at night (the moon: ic_launcher_moon, over the tile). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
   android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
   <path android:fillColor="#0B2A20" android:pathData="M0,0h108v108h-108z" />
-  <path android:fillColor="#F0C058" android:pathData="M28.5,35.5a5.5,5.5 0,1 0,3.6 9.6a4.4,4.4 0,1 1,-3.6 -9.6z" />
 </vector>

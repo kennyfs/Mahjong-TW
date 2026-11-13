@@ -1,9 +1,9 @@
 <!--
   A decision's analysis by the network: every legal action from the best down, with what it costs against the best,
-  and what the network thinks of the three opponents. What a row shows for an action (the settings): `numbers`, its
-  figures; `bars`, where it differs from the best (what it wins, what it pays for dealing in, what it pays to others'
-  self-draws; hatched where it is worse than the best, filled where it is better) with the few figures that matter most; `both`. Without a network (it failed to load) the list is tile
-  efficiency's.
+  and what the network thinks of the three opponents. Each row shows, as bars, where the action differs from the best
+  (what it wins, what it pays for dealing in, what it pays to others' self-draws; hatched where it is worse than the
+  best, filled where it is better), with the few figures that matter most (the settings' choice of numbers or both is
+  gone: the user's, 2026-11-13). Without a network (it failed to load) the list is tile efficiency's.
 
   `played`: the index of the action taken (a review), or -1: its row comes first, the others from the best down. The
   best and the one taken are both set off (a filled row, a tag each: 最佳, and `who` took it: 你 or the seat's name);
@@ -30,9 +30,9 @@
   import Icon from './Icon.svelte';
   import Tile from './Tile.svelte';
 
-  let { analysis, played = -1, unit = undefined, mode = 'numbers', w = 32, names = null, truth = null, showTruth = false, picked = -1,
+  let { analysis, played = -1, unit = undefined, w = 32, names = null, truth = null, showTruth = false, picked = -1,
     brief = false, who = '' }: {
-    analysis: Analysis; played?: number; unit?: number; mode?: 'numbers' | 'bars' | 'both'; w?: number; names?: string[] | null;
+    analysis: Analysis; played?: number; unit?: number; w?: number; names?: string[] | null;
     truth?: Truth[] | null; showTruth?: boolean; picked?: number; brief?: boolean; who?: string;
   } = $props();
 
@@ -52,7 +52,7 @@
   const playedCost = $derived(net && played >= 0 ? costOf(analysis, played) : 0);
   const grade = $derived(gradeOf(playedCost, unit));
   // The figures of each row in fixed columns (FigureRuler): the bars' rows a few of them.
-  const figKeys = $derived(mode === 'bars' ? (['win', 'deal', 'danger', 'eff'] as const) : (['win', 'tsumo', 'deal', 'others', 'danger', 'who', 'eff'] as const));
+  const figKeys = ['win', 'deal', 'danger', 'eff'] as const;
   const figLines = $derived(net ? rows.map(({ f }) => figureCells(f, null, oppNames, analysis.actions[best])) : []);
   let figWidths = $state<Partial<Record<FigureKey, number>>>({});
   const oppNames = $derived((analysis.opponents ?? []).map((o, r) => names?.[o.seat] ?? [t('rel_next'), t('rel_opposite'), t('rel_prev')][r]));
@@ -104,15 +104,11 @@
       <div class="notable"><span class="star">★</span>{notableText(analysis, notable)}</div>
     {/if}
     <div class="legend body-small">
-      {#if mode !== 'numbers'}
-        <span>{t('bars_legend')}</span>
-        <span class="key"><i class="win"></i>{t('bars_win')}</span>
-        <span class="key"><i class="deal"></i>{t('bars_deal')}</span>
-        <span class="key"><i class="tsumo"></i>{t('bars_tsumo')}</span>
-        <span class="sides"><span class="key"><i class="worse"></i>{t('bars_worse')}</span><span class="key"><i class="better"></i>{t('bars_better')}</span></span>
-      {:else}
-        <span>{t('list_caption')}</span>
-      {/if}
+      <span>{t('bars_legend')}</span>
+      <span class="key"><i class="win"></i>{t('bars_win')}</span>
+      <span class="key"><i class="deal"></i>{t('bars_deal')}</span>
+      <span class="key"><i class="tsumo"></i>{t('bars_tsumo')}</span>
+      <span class="sides"><span class="key"><i class="worse"></i>{t('bars_worse')}</span><span class="key"><i class="better"></i>{t('bars_better')}</span></span>
       <!-- What the figure at each row's right is: said here, not on every row. -->
       <button class="btn icon text info" aria-label={t('list_help')} title={t('list_help')} aria-haspopup="dialog" onclick={() => (help = true)}>
         <Icon name="info" size={20} />
@@ -135,12 +131,10 @@
             {#if i !== best && cost >= EQUAL}<span class="less g{g}">({pts(-cost)})</span>{/if}{pts(f.q ?? 0)}
           </span>
         </div>
-        {#if mode !== 'numbers'}
-          <div class="bar" aria-hidden="true">
-            <span class="zero" style="left: {ZERO}%"></span>
-            {#each segments(diffs[k]) as sg}<span class="seg {sg.cls}" style="left: {sg.left}%; width: {sg.width}%"></span>{/each}
-          </div>
-        {/if}
+        <div class="bar" aria-hidden="true">
+          <span class="zero" style="left: {ZERO}%"></span>
+          {#each segments(diffs[k]) as sg}<span class="seg {sg.cls}" style="left: {sg.left}%; width: {sg.width}%"></span>{/each}
+        </div>
         <div class="figs body-small"><FigureLine cells={figLines[k]} keys={figKeys} widths={figWidths} /></div>
         {#if f.waits.length && f.shanten === 0}
           <div class="waits body-small">

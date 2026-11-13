@@ -180,11 +180,13 @@ def real():
         b = lowpass(clatter(12, 0.1, 0.8), 9000)
         save(f'deal-{k + 1}', room(b, 0.06), 0.65)
     # The shuffle: the knocks in waves, a soft slide of tiles on the felt under the dense parts. The random draws start
-    # where they did for the take the user picked (2026-11-13), so that the other sounds can change without it.
+    # where they did for the take the user picked (2026-11-13), so that the other sounds can change without it. Its
+    # length: deal_shuffle (2.5 s since 2026-11-13, a wave of pushes for each of the tiles' spots, DealFx) and a little
+    # more, its tail heard in deal_pause.
     rng.bit_generator.state = {'bit_generator': 'PCG64', 'has_uint32': 0, 'uinteger': 328313141, 'state': {
         'state': 171114139180760816764104165298077797073, 'inc': 261136684632268670825940853076396136793}}
-    sec = 1.6
-    env = burst_env(sec, 3, 0.1)
+    sec = 2.7
+    env = burst_env(sec, 5, 0.1)
     b = np.zeros(int(SR * (sec + 0.2)))
     t = 0.0
     while t < sec:
@@ -197,6 +199,9 @@ def real():
     slide[len(env):] = 0
     b += slide
     save('shuffle', room(b, 0.1), 0.75)
+    # The sounds after it from where they were before it changed (its 1.6 s take): the same as the user heard them.
+    rng.bit_generator.state = {'bit_generator': 'PCG64', 'has_uint32': 1, 'uinteger': 4198255125, 'state': {
+        'state': 47841476824944301602558690402175359218, 'inc': 261136684632268670825940853076396136793}}
     # A chow or a pung: the tile taken knocking into the two (the moment's tile landing in its gap).
     save('call', room(clatter(3, 0.012), 0.06), 0.8)
     # A kong: into three.

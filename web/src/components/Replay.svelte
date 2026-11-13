@@ -453,7 +453,7 @@
 <!-- A decision's list, with the way to the analysis screen. -->
 {#snippet panel()}
   {#if focus}
-    <DecisionPanel analysis={focus.analysis} played={focus.played} {unit} mode={settings.listRows} w={inlinePanel ? 34 : Math.max(30, hw * 0.8)}
+    <DecisionPanel analysis={focus.analysis} played={focus.played} {unit} w={inlinePanel ? 34 : Math.max(30, hw * 0.8)}
       names={names} truth={focus.truth} showTruth={showAll} picked={pickedIndex} brief={focus.seat === rec?.me && !!mine}
       who={focus.seat === rec?.me ? '' : names[focus.seat]} />
     <div class="panel-foot">

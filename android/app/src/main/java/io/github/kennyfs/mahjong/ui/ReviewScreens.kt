@@ -95,7 +95,6 @@ import io.github.kennyfs.mahjong.actionText
 import io.github.kennyfs.mahjong.costOf
 import io.github.kennyfs.mahjong.efficiencyText
 import io.github.kennyfs.mahjong.FigureKey
-import io.github.kennyfs.mahjong.TableMarks
 import io.github.kennyfs.mahjong.figureCells
 import io.github.kennyfs.mahjong.flowersOf
 import io.github.kennyfs.mahjong.fullAction
@@ -303,7 +302,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     }
 
     // On the table: the tiles' marks, the name plates' notes, the options that are not discards, the tile tapped.
-    val marks: Map<String, TileMark>? = if (!hasNet) null else if (mine != null) tileMarks(res, mine.analysis, mine.played, unit, vm.settings.tableMarks) else emptyMap()
+    val marks: Map<String, TileMark>? = if (!hasNet) null else if (mine != null) tileMarks(res, mine.analysis, mine.played, unit) else emptyMap()
     val notes: List<SeatNote?>? = mine?.analysis?.opponents?.let { opponents ->
       val out = arrayOfNulls<SeatNote>(4)
       for (o in opponents) {
@@ -542,7 +541,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     // A decision's list, with the way to the analysis screen.
     val panel = @Composable {
       if (focus != null) {
-        DecisionPanel(focus.analysis, played = focus.played, unit = unit, mode = settings.listRows, w = if (inlinePanel) 34f else maxOf(30f, hw * 0.8f),
+        DecisionPanel(focus.analysis, played = focus.played, unit = unit, w = if (inlinePanel) 34f else maxOf(30f, hw * 0.8f),
           names = names, truth = focus.truth, showTruth = showAll, picked = pickedIndex, brief = focus.seat == rec.me && mine != null,
           who = if (focus.seat == rec.me) "" else names[focus.seat])
         Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.End) {
@@ -660,8 +659,8 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         )
         var selected by remember(stepKey) { mutableStateOf<Int?>(null) }
         MyHand(tiles, drawn, hw, HAND_ROW, emptySet(), {}, selected, { i -> selected = i; picked = i?.let { tiles.getOrNull(it) ?: drawn } },
-          marks = focus?.let { tileMarks(res, it.analysis, it.played, unit, vm.settings.tableMarks) } ?: emptyMap(),
-          tagH = if (vm.settings.tableMarks == TableMarks.none) 0f else 17f)
+          marks = focus?.let { tileMarks(res, it.analysis, it.played, unit) } ?: emptyMap(),
+          tagH = 17f)
         val claim = pos.claim
         if (claim?.tile != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           Text("${names[claim.seat]} ${stringResource(R.string.act_discard)}", style = MaterialTheme.typography.bodyMedium)

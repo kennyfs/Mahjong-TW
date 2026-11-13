@@ -16,7 +16,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 | 對戰 Battles | A table game (1 to 4 people, bots in the empty seats) or a same-tiles contest, on a battle server; the app also with phones nearby. The entry asks first only a new room or joining one (the app: online or nearby too); a new room then offers its kinds, joining asks the PIN. Lobby with a 6-digit PIN, the host's settings, the table with a clock per decision, each hand's result with the standings, the final standings and the player's hands. docs/battle.md. |
 | 分析 Analysis | A position set up by hand, or a step of a review taken there, with the network's figures for each legal action as it changes, and the tables of draws and of claims (docs/analysis.md section 4). |
 | 紀錄 Records | Practice hands, table battles and contests (battles as groups of hands); favorites; statistics of the network's reviews; each hand opens its review: the graph of the value, the decisions worth a look, each decision's verdict and figures, everyone's tiles at a tap. |
-| 設定 Settings | Help (the rules explained, the tour), rules (tai preset, flower preset, base, every parameter with its explanation), practice's length, the bots and their pace, how a decision's list shows and the level of mistakes, 聽牌提示 (off by default: a dot over each discard that leaves the hand ready, on the player's turn), 音效 (off, soft, full), text size, colors (table green or minimal), dark mode, about (the version and the network's id). |
+| 設定 Settings | Help (the rules explained, the tour), rules (tai preset, flower preset, base, every parameter with its explanation), practice's length, the bots and their pace, the level of mistakes, 聽牌提示 (off by default: a dot over each discard that leaves the hand ready, on the player's turn), 音效 (off, soft, full), text size, colors (table green, minimal, or 跟隨桌布: the wallpaper's, Android 12 and later), dark mode, about (the version and the network's id). |
 
 - **Help** (0.2.0, as Thirteen's but not a copy): 規則說明, the rules explained in eight pages (`Guide.svelte`,
   `ui/GuideScreen.kt`): the rules to explain chosen first (the settings' at the start), then the goal with a winning
@@ -181,7 +181,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   - The network is no longer called a beta (測試版) in the settings, the about text and the analysis' note.
 
 - **0.6.0** (2026-11-12 evening, the user's requests; app and page alike):
-  - **A call's or a win's moment** over the whole window (CallFx; the advanced settings can keep to the words): a
+  - **A call's or a win's moment** over the whole window (CallFx; the advanced settings could keep to the words, till they went after 0.8.0): a
     dark veil, two black wedges from opposite corners, a band askew with speed lines over its whole width, the word
     on its plaque and whose it is. A chow or a pung: the tile called lifts off the river where it lies, drops into
     the gap between the caller's own tiles, and the meld flies to its exact place among the caller's melds, scaled
@@ -304,6 +304,20 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     mallet notes; the hands shown at a hand's end, by what it is to the player (their win, another's they pay for,
     another's, a draw); with the result's moment a jingle (success, failure, neither; without the moments 400 ms
     after the hands). The settings' 音效: 關, 小聲, 正常 (the page's levels). None while the app is not on the screen.
+- **After 0.8.0** (2026-11-13, the user's; its version the local session's, likely 1.0.0):
+  - **The advanced settings (設定 > 進階) are gone**, each fixed at what the user chose: a decision's list shows bars
+    (DecisionPanel), a review's hand shows each discard's cost and its danger (tileMarks), and the moments always
+    show (the words alone only with the system's animations off: FxClock.enabled; the page's reduced motion). Their
+    words went, and 39 more no code used; an old saved setting is ignored.
+  - **跟隨桌布** (Material You, Android 12 and later; as Thirteen's): the app's colors from the wallpaper
+    (dynamicLight/DarkColorScheme), the felt its primary (in the dark its primary container).
+  - **Records**: 清除紀錄 at the very bottom, beside 分數歸零 (not in the title bar).
+  - **The shuffle 2.5 s** (`deal_shuffle` 2500; the pause and the rest as before), at the same pace: a tile moves
+    between as many spots as fill it, one about every 470 ms (DealFx LEG_MS: five legs now, three before). Its sound
+    made again 2.7 s long, five waves of pushes (web/scripts/make_sounds.py; the other sounds byte for byte the
+    same).
+  - **A test build's icon**: the moon in its top right, over the tile's corner on a disc of the night felt (as
+    Thirteen's test icon).
 
 ## Built and checked
 

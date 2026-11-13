@@ -30,6 +30,9 @@
   const N = 16 * 4 + 1;
   /** How far apart the tiles leave (ms, at most): together, not as one block. */
   const SPREAD = 90;
+  /** A shuffled tile's time from one spot to the next (ms, about): its pace, whatever deal_shuffle is (as many spots
+   *  as fill it). The app's DealFx.kt the same. */
+  const LEG_MS = 470;
   const size = $derived(Math.max(14, Math.min(tw * 0.9, Math.sqrt((center.w * center.h * 0.5) / N / TILE_RATIO))));
   let els: HTMLElement[] = $state([]);
   let gone = $state(false);
@@ -61,9 +64,10 @@
     }
     // 1. Shuffled: each tile wanders among a few spots, turning (hands swirling them on the felt).
     const ends: { x: number; y: number; r: number }[] = [];
+    const legs = Math.max(1, Math.round(shuffleMs / LEG_MS));
     els.forEach((el, k) => {
-      const ps = [point(), point(), point(), point()];
-      ends[k] = ps[3];
+      const ps = Array.from({ length: legs + 1 }, point);
+      ends[k] = ps[legs];
       anims.push(el.animate(ps.map((p, i) => ({ transform: tf(p.x, p.y, p.r), opacity: i === 0 ? 0 : 1 })),
         { duration: shuffleMs, easing: 'ease-in-out', fill: 'forwards' }));
     });

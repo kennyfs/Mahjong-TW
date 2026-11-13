@@ -50,30 +50,21 @@ enum class Length { HAND, ROUND, GAME }
 /** The computer players' pace (its times: Timing, res/raw/timing.json); MANUAL: each of their steps waits for the
  *  player (Practice.kt). */
 enum class Speed { SLOW, NORMAL, FAST, MANUAL }
-enum class ColorStyle { TABLE, MINIMAL }
+/** The look of the table: the brand's green felt, plain surfaces, or felt in the wallpaper's colors (Material You,
+ *  Android 12 and later; as Thirteen's). */
+enum class ColorStyle { TABLE, MINIMAL, WALLPAPER }
 enum class DarkMode { SYSTEM, LIGHT, DARK }
 enum class TextSize(val scale: Float) { SMALL(0.88f), NORMAL(1f), LARGE(1.15f) }
 
 /** The bots: the network (the built-in one, playing the action it values most) and tile efficiency. */
 val BOTS = listOf(Engine.NET_BOT to R.string.bot_net, "greedy" to R.string.bot_greedy)
 
-/**
- * What a row of a decision's list shows for an action: its figures as numbers, bars of where its value differs from
- * the best action's, or both. (The hand's tiles always carry each discard's cost and danger.) Until it is chosen: both
- * where there is room for it (a tablet), the bars on a phone.
- */
-enum class ListRows { numbers, bars, both }
-
-/** What a review's hand shows on its tiles (the advanced settings): each discard's cost over it and its danger along its
- *  foot, the cost alone, or nothing (the list says it all the same). */
-enum class TableMarks { both, loss, none }
-
 /** The table's sounds (Sounds.kt): off, soft, or full, and how loud each is. */
 enum class SoundLevel(val gain: Float) { off(0f), soft(0.4f), full(1f) }
 
-/** A chow's, a pung's or a win's moment (the advanced settings): over the whole screen (ui/CallFx.kt), or the words
- *  over the player alone. */
-enum class CallFxMode { anim, words }
+// (The advanced settings are gone, the user's, 2026-11-13: a decision's list is always bars (ui/DecisionPanel.kt), a
+// review's hand always shows each discard's cost and danger (Review.kt tileMarks), and the moments always show, unless
+// the system's animations are off (FxClock.enabled).)
 
 /**
  * Which losses the review counts as mistakes and stops at: a beginner's only the large ones, an expert's the small
@@ -85,9 +76,7 @@ enum class Level(val grade: Int) { beginner(3), mid(2), expert(1) }
 private data class StoredSettings(
   val rules: RuleChoice = RuleChoice(), val length: Length = Length.GAME, val bot: String = Engine.NET_BOT, val speed: Speed = Speed.NORMAL,
   val colors: ColorStyle = ColorStyle.TABLE, val dark: DarkMode = DarkMode.SYSTEM, val text: TextSize = TextSize.NORMAL,
-  val name: String = "", val server: String = "", val listRows: ListRows? = null, val level: Level = Level.mid,
-  val tableMarks: TableMarks = TableMarks.both,
-  val callFx: CallFxMode = CallFxMode.anim,
+  val name: String = "", val server: String = "", val level: Level = Level.mid,
   /** 聽牌提示: marks on the discards that leave the hand ready (off unless asked for). */
   val readyHint: Boolean = false,
   val sound: SoundLevel = SoundLevel.full,
@@ -110,10 +99,7 @@ class Settings(context: Context) {
   var text by mutableStateOf(stored.text)
   var name by mutableStateOf(stored.name)
   var server by mutableStateOf(stored.server)
-  var listRows by mutableStateOf(stored.listRows ?: if (context.resources.configuration.smallestScreenWidthDp >= 600) ListRows.both else ListRows.bars)
   var level by mutableStateOf(stored.level)
-  var tableMarks by mutableStateOf(stored.tableMarks)
-  var callFx by mutableStateOf(stored.callFx)
   var readyHint by mutableStateOf(stored.readyHint)
   var sound by mutableStateOf(stored.sound)
 
@@ -125,7 +111,7 @@ class Settings(context: Context) {
     set(v) = prefs.edit().putBoolean("welcome.seen", v).apply()
 
   fun persist() {
-    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, listRows, level, tableMarks, callFx, readyHint, sound, version = 1)
+    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, level, readyHint, sound, version = 1)
     prefs.edit().putString("settings", EngineJson.encodeToString(s)).apply()
   }
 }

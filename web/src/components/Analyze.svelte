@@ -152,7 +152,7 @@
   </div>
   {#if result}
     <div class="results" class:stale={running}>
-      <DecisionPanel analysis={result} mode={settings.listRows} w={sw} {names} />
+      <DecisionPanel analysis={result} w={sw} {names} />
       {#if result.source === 'network'}
         <div class="whatif">
           {#if !showTables}

@@ -67,7 +67,6 @@ import io.github.kennyfs.mahjong.ui.MahjongTheme
 import io.github.kennyfs.mahjong.ui.PlayScreen
 import io.github.kennyfs.mahjong.ui.RecordsScreen
 import io.github.kennyfs.mahjong.ui.ReplayScreen
-import io.github.kennyfs.mahjong.ui.AdvancedScreen
 import io.github.kennyfs.mahjong.ui.RulesScreen
 import io.github.kennyfs.mahjong.ui.SettingsScreen
 import io.github.kennyfs.mahjong.ui.TOUR_STEPS
@@ -213,7 +212,6 @@ private fun App(vm: AppModel) {
     ) {
       when (vm.pages.lastOrNull()) {
         Page.RULES -> RulesScreen(vm, vm::back)
-        Page.ADVANCED -> AdvancedScreen(vm, vm::back)
         Page.REVIEW -> ReplayScreen(vm, vm::back)
         Page.GUIDE -> GuideScreen(
           vm, vm::back,

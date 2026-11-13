@@ -50,7 +50,6 @@ import io.github.kennyfs.mahjong.Action
 import io.github.kennyfs.mahjong.Analysis
 import io.github.kennyfs.mahjong.EQUAL
 import io.github.kennyfs.mahjong.GRADE_NAME
-import io.github.kennyfs.mahjong.ListRows
 import io.github.kennyfs.mahjong.R
 import io.github.kennyfs.mahjong.Tiles
 import io.github.kennyfs.mahjong.Truth
@@ -116,10 +115,10 @@ private fun DrawScope.hatch(at: Offset, area: Size) {
 
 /**
  * A decision's analysis by the network: every legal action from the best down, with what it costs against the best,
- * and what the network thinks of the three opponents. What a row shows for an action (the settings): `numbers`, its
- * figures; `bars`, where it differs from the best (what it wins, what it pays for dealing in, what it pays to others'
- * self-draws) with the few figures that matter most; `both`. Without a network (it failed to load) the list is tile
- * efficiency's. The web page's DecisionPanel.svelte.
+ * and what the network thinks of the three opponents. Each row shows, as bars, where the action differs from the best
+ * (what it wins, what it pays for dealing in, what it pays to others' self-draws), with the few figures that matter
+ * most (the settings' choice of numbers or both is gone: the user's, 2026-11-13). Without a network (it failed to
+ * load) the list is tile efficiency's. The web page's DecisionPanel.svelte.
  *
  * `played`: the index of the action taken (a review), or -1: its row comes first, the others from the best down. The
  * best and the one taken are both set off (a filled row, a tag each: 最佳, and `who` took it: 你 or the seat's name);
@@ -132,7 +131,7 @@ private fun DrawScope.hatch(at: Offset, area: Size) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DecisionPanel(
-  analysis: Analysis, modifier: Modifier = Modifier, played: Int = -1, unit: Double? = null, mode: ListRows = ListRows.numbers, w: Float = 32f,
+  analysis: Analysis, modifier: Modifier = Modifier, played: Int = -1, unit: Double? = null, w: Float = 32f,
   names: List<String>? = null, truth: List<Truth>? = null, showTruth: Boolean = false, picked: Int = -1, brief: Boolean = false,
   who: String = "",
 ) {
@@ -165,8 +164,7 @@ fun DecisionPanel(
   val perPoint = min(ZERO / worse, (100 - ZERO) / better)
   val partColors = listOf(Marks.found, Marks.danger3, Marks.danger2)
   // The figures of each row in fixed columns (Figures.kt): the bars' rows a few of them.
-  val figKeys = if (mode == ListRows.bars) listOf(FigureKey.WIN, FigureKey.DEAL, FigureKey.DANGER, FigureKey.EFF)
-    else listOf(FigureKey.WIN, FigureKey.TSUMO, FigureKey.DEAL, FigureKey.OTHERS, FigureKey.DANGER, FigureKey.WHO, FigureKey.EFF)
+  val figKeys = listOf(FigureKey.WIN, FigureKey.DEAL, FigureKey.DANGER, FigureKey.EFF)
   val figLines = remember(analysis, oppNames, res) { analysis.actions.map { figureCells(res, it, null, oppNames, analysis.actions[best]) } }
   val figStyle = small.tabular()
   // (Measured in bold: a green or red figure is bold.)
@@ -197,24 +195,22 @@ fun DecisionPanel(
     Row(Modifier.fillMaxWidth().padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
       FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
         itemVerticalAlignment = Alignment.CenterVertically) {
-        if (mode != ListRows.numbers) {
-          Text(stringResource(R.string.bars_legend), style = small, color = dim)
-          for ((k, label) in listOf(R.string.bars_win, R.string.bars_deal, R.string.bars_tsumo).withIndex()) {
+        Text(stringResource(R.string.bars_legend), style = small, color = dim)
+        for ((k, label) in listOf(R.string.bars_win, R.string.bars_deal, R.string.bars_tsumo).withIndex()) {
+          Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Box(Modifier.size(12.dp).background(partColors[k], RoundedCornerShape(3.dp)))
+            Text(stringResource(label), style = small, color = dim)
+          }
+        }
+        // Left of a bar's line the action is worse than the best there (hatched), right of it better (filled).
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+          for ((hatched, label) in listOf(true to R.string.bars_worse, false to R.string.bars_better)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-              Box(Modifier.size(12.dp).background(partColors[k], RoundedCornerShape(3.dp)))
+              Canvas(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(dim)) { if (hatched) hatch(Offset.Zero, size) }
               Text(stringResource(label), style = small, color = dim)
             }
           }
-          // Left of a bar's line the action is worse than the best there (hatched), right of it better (filled).
-          Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            for ((hatched, label) in listOf(true to R.string.bars_worse, false to R.string.bars_better)) {
-              Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Canvas(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(dim)) { if (hatched) hatch(Offset.Zero, size) }
-                Text(stringResource(label), style = small, color = dim)
-              }
-            }
-          }
-        } else Text(stringResource(R.string.list_caption), style = small, color = dim)
+        }
       }
       // What the figure at each row's right is: said here, not on every row.
       IconButton(onClick = { help = true }, Modifier.size(36.dp).testTag("list_help")) {
@@ -260,26 +256,24 @@ fun DecisionPanel(
               Text(pts(f.q ?: 0.0), fontWeight = FontWeight.Bold)
             }
           }
-          if (mode != ListRows.numbers) {
-            val track = cs.onSurface.copy(alpha = 0.08f)
-            val line = cs.onSurface.copy(alpha = 0.55f)
-            val d = diffs[k]
-            Canvas(Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp)).background(track)) {
-              var l = ZERO.toDouble()
-              var r = ZERO.toDouble()
-              for (part in 0..2) {
-                val wd = abs(d[part]) * perPoint
-                if (wd < 0.4) continue
-                val left = if (d[part] > 0) { l -= wd; l } else { val at = r; r += wd; at }
-                val at = Offset((left / 100 * size.width).toFloat(), 0f)
-                val area = Size((wd / 100 * size.width).toFloat(), size.height)
-                drawRect(partColors[part], at, area)
-                // Worse than the best there: hatched, so that a long green bar is not read as a good chance of winning.
-                if (d[part] > 0) hatch(at, area)
-              }
-              val x = ZERO / 100 * size.width
-              drawRect(line, Offset(x - 1.dp.toPx(), 0f), Size(2.dp.toPx(), size.height))
+          val track = cs.onSurface.copy(alpha = 0.08f)
+          val line = cs.onSurface.copy(alpha = 0.55f)
+          val d = diffs[k]
+          Canvas(Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp)).background(track)) {
+            var l = ZERO.toDouble()
+            var r = ZERO.toDouble()
+            for (part in 0..2) {
+              val wd = abs(d[part]) * perPoint
+              if (wd < 0.4) continue
+              val left = if (d[part] > 0) { l -= wd; l } else { val at = r; r += wd; at }
+              val at = Offset((left / 100 * size.width).toFloat(), 0f)
+              val area = Size((wd / 100 * size.width).toFloat(), size.height)
+              drawRect(partColors[part], at, area)
+              // Worse than the best there: hatched, so that a long green bar is not read as a good chance of winning.
+              if (d[part] > 0) hatch(at, area)
             }
+            val x = ZERO / 100 * size.width
+            drawRect(line, Offset(x - 1.dp.toPx(), 0f), Size(2.dp.toPx(), size.height))
           }
           FigureLine(figLines[i], figKeys, figWidths, figStyle, LocalContentColor.current, soft, outcome.figGood, outcome.figBad)
           if (f.waits.isNotEmpty() && f.shanten == 0) FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp),

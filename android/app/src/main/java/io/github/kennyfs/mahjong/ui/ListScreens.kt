@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -78,7 +79,6 @@ import androidx.compose.ui.unit.dp
 import io.github.kennyfs.mahjong.AppModel
 import io.github.kennyfs.mahjong.BOTS
 import io.github.kennyfs.mahjong.BattleGroup
-import io.github.kennyfs.mahjong.CallFxMode
 import io.github.kennyfs.mahjong.ColorStyle
 import io.github.kennyfs.mahjong.BuildConfig
 import io.github.kennyfs.mahjong.DarkMode
@@ -87,7 +87,6 @@ import io.github.kennyfs.mahjong.EngineException
 import io.github.kennyfs.mahjong.HandRecord
 import io.github.kennyfs.mahjong.Length
 import io.github.kennyfs.mahjong.Level
-import io.github.kennyfs.mahjong.ListRows
 import io.github.kennyfs.mahjong.LossKind
 import io.github.kennyfs.mahjong.Page
 import io.github.kennyfs.mahjong.R
@@ -99,7 +98,6 @@ import io.github.kennyfs.mahjong.RulesInfo
 import io.github.kennyfs.mahjong.SoundLevel
 import io.github.kennyfs.mahjong.Sounds
 import io.github.kennyfs.mahjong.Speed
-import io.github.kennyfs.mahjong.TableMarks
 import io.github.kennyfs.mahjong.TextSize
 import io.github.kennyfs.mahjong.levelOrWorse
 import io.github.kennyfs.mahjong.mistakesOf
@@ -159,9 +157,7 @@ fun RecordsScreen(vm: AppModel) {
     R.string.records_stats, all.size, all.count { it.me in it.winners }, all.count { it.loser == it.me }, signed(all.sumOf { it.points[it.me] }),
   )
   Column(Modifier.fillMaxSize()) {
-    TitleBar(stringResource(R.string.records_title)) {
-      TextButton(onClick = { confirmClear = true }, enabled = records.hands.any { !it.fav }) { Text(stringResource(R.string.records_clear)) }
-    }
+    TitleBar(stringResource(R.string.records_title))
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
       LazyColumn(Modifier.readable(760.dp).fillMaxWidth()) {
         item {
@@ -199,7 +195,8 @@ fun RecordsScreen(vm: AppModel) {
         }
         item(key = "dev") {
           ForDeveloper(records.hands.size, onShare = { scope.launch { shareRecords(context, records.exportText(BuildConfig.VERSION_NAME ?: "")) } },
-            onSave = { save.launch(exportName()) }, onReset = { confirmReset = true })
+            onSave = { save.launch(exportName()) }, onReset = { confirmReset = true },
+            canClear = records.hands.any { !it.fav }, onClear = { confirmClear = true })
         }
       }
     }
@@ -289,7 +286,7 @@ private suspend fun shareRecords(context: Context, text: String) {
 /** The records' end: every record as a file for the developer (shared or saved), and practice's scores set to zero. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ForDeveloper(count: Int, onShare: () -> Unit, onSave: () -> Unit, onReset: () -> Unit) {
+private fun ForDeveloper(count: Int, onShare: () -> Unit, onSave: () -> Unit, onReset: () -> Unit, canClear: Boolean, onClear: () -> Unit) {
   SectionHeader(stringResource(R.string.records_dev_title), Modifier.padding(top = 8.dp))
   Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
     Text(stringResource(R.string.records_dev_info), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -305,8 +302,14 @@ private fun ForDeveloper(count: Int, onShare: () -> Unit, onSave: () -> Unit, on
       }
     }
   }
-  TextButton(onClick = onReset, Modifier.padding(start = 8.dp, top = 8.dp, bottom = 24.dp).heightIn(min = 48.dp).testTag("records_reset_scores")) {
-    Text(stringResource(R.string.records_reset_scores))
+  // At the very bottom, the two that throw something away (the user's): the scores, the records not kept.
+  Row(Modifier.padding(start = 8.dp, top = 8.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    TextButton(onClick = onReset, Modifier.heightIn(min = 48.dp).testTag("records_reset_scores")) {
+      Text(stringResource(R.string.records_reset_scores))
+    }
+    TextButton(onClick = onClear, Modifier.heightIn(min = 48.dp).testTag("records_clear"), enabled = canClear) {
+      Text(stringResource(R.string.records_clear))
+    }
   }
 }
 
@@ -563,43 +566,6 @@ fun SettingsScreen(vm: AppModel) {
 
 }
 
-/** The advanced settings (設定 > 進階): ways of showing the analysis that are a matter of taste, each on its own: what a
- *  row of a decision's list shows, and what a review's hand shows on its tiles. The web page's Advanced.svelte. */
-@Composable
-fun AdvancedScreen(vm: AppModel, onBack: () -> Unit) {
-  val s = vm.settings
-  Column(Modifier.fillMaxSize()) {
-    TitleBar(stringResource(R.string.advanced_title), onBack)
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-      Column(Modifier.readable().fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-        Block(stringResource(R.string.settings_list_rows)) {
-          ToggleGroup(
-            listOf(ListRows.numbers to stringResource(R.string.list_rows_numbers), ListRows.bars to stringResource(R.string.list_rows_bars),
-              ListRows.both to stringResource(R.string.list_rows_both)),
-            s.listRows, { s.listRows = it; s.persist() }, Modifier.fillMaxWidth().testTag("settings_list_rows"),
-          )
-          Text(stringResource(R.string.list_rows_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Block(stringResource(R.string.settings_table_marks)) {
-          ToggleGroup(
-            listOf(TableMarks.both to stringResource(R.string.table_marks_both), TableMarks.loss to stringResource(R.string.table_marks_loss),
-              TableMarks.none to stringResource(R.string.table_marks_none)),
-            s.tableMarks, { s.tableMarks = it; s.persist() }, Modifier.fillMaxWidth().testTag("settings_table_marks"),
-          )
-          Text(stringResource(R.string.table_marks_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Block(stringResource(R.string.settings_call_fx)) {
-          ToggleGroup(
-            listOf(CallFxMode.anim to stringResource(R.string.call_fx_anim), CallFxMode.words to stringResource(R.string.call_fx_words)),
-            s.callFx, { s.callFx = it; s.persist() }, Modifier.fillMaxWidth().testTag("settings_call_fx"),
-          )
-          Text(stringResource(R.string.call_fx_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-      }
-    }
-  }
-}
-
 @Composable
 private fun SettingsList(vm: AppModel, desk: Boolean) {
   val s = vm.settings
@@ -654,9 +620,6 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
           )
           Text(stringResource(R.string.level_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        SettingRow(stringResource(R.string.settings_advanced), stringResource(R.string.settings_advanced_row), Modifier.testTag("settings_advanced")) {
-          vm.open(Page.ADVANCED)
-        }
         SectionHeader(stringResource(R.string.settings_look))
         Block(stringResource(R.string.settings_text)) {
           ToggleGroup(
@@ -667,7 +630,9 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
         }
         Block(stringResource(R.string.settings_colors)) {
           ToggleGroup(
-            listOf(ColorStyle.TABLE to stringResource(R.string.colors_table), ColorStyle.MINIMAL to stringResource(R.string.colors_minimal)),
+            // (The wallpaper's colors: Android 12 and later only.)
+            listOfNotNull(ColorStyle.TABLE to stringResource(R.string.colors_table), ColorStyle.MINIMAL to stringResource(R.string.colors_minimal),
+              (ColorStyle.WALLPAPER to stringResource(R.string.colors_wallpaper)).takeIf { Build.VERSION.SDK_INT >= Build.VERSION_CODES.S }),
             s.colors, { s.colors = it; save() }, Modifier.fillMaxWidth(),
           )
         }

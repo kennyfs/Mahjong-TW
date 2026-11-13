@@ -243,9 +243,8 @@ data class TileMark(val tag: String, val tone: Tone, val played: Boolean, val da
   enum class Tone { BEST, PLAIN, G1, G2, G3 }
 }
 
-/** The marks of a decision's discards by tile: what each costs against the best, and its danger; as much of them as
- *  `show` says (none: no tag, and the hand keeps no room for one). */
-fun tileMarks(res: Resources, a: Analysis, played: Int, unit: Double?, show: TableMarks = TableMarks.both): Map<String, TileMark> {
+/** The marks of a decision's discards by tile: what each costs against the best, and its danger. */
+fun tileMarks(res: Resources, a: Analysis, played: Int, unit: Double?): Map<String, TileMark> {
   val out = HashMap<String, TileMark>()
   val bi = a.best ?: return out
   a.actions.forEachIndexed { i, f ->
@@ -255,9 +254,9 @@ fun tileMarks(res: Resources, a: Analysis, played: Int, unit: Double?, show: Tab
     val mine = i == played
     val g = gradeOf(c, unit)
     out[tile] = TileMark(
-      if (show == TableMarks.none) "" else if (i == bi) res.getString(R.string.grade_best) else if (c < EQUAL) "≈" else tagCost(c),
-      if (show == TableMarks.none) TileMark.Tone.PLAIN else if (i == bi) TileMark.Tone.BEST else if (mine && g > 0) TileMark.Tone.entries[1 + g] else TileMark.Tone.PLAIN,
-      mine, if (show == TableMarks.both) dangerLevel(f.danger) else 0,
+      if (i == bi) res.getString(R.string.grade_best) else if (c < EQUAL) "≈" else tagCost(c),
+      if (i == bi) TileMark.Tone.BEST else if (mine && g > 0) TileMark.Tone.entries[1 + g] else TileMark.Tone.PLAIN,
+      mine, dangerLevel(f.danger),
     )
   }
   return out

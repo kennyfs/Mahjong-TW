@@ -1,8 +1,7 @@
 <!--
-  The settings: the game (the rules, practice's length, the computer players and their pace), the analysis (from which
-  loss on a decision is a mistake; the advanced page: what a row of a decision's list shows and what a review's hand
-  shows on its tiles), the look, and about. A computer shows the list at the left and the rules (or the advanced
-  page) beside it.
+  The settings: the game (the rules, practice's length, the computer players and their pace, sounds, 聽牌提示), the
+  analysis (from which loss on a decision is a mistake), the look, and about. A computer shows the list at the left
+  and the rules beside it.
 -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
@@ -13,7 +12,6 @@
   import { playSound } from '../lib/sound';
   import { tour } from '../lib/tour.svelte';
   import { ui } from '../lib/ui.svelte';
-  import Advanced from './Advanced.svelte';
   import Rules from './Rules.svelte';
   import SettingRow from './SettingRow.svelte';
   import TitleBar from './TitleBar.svelte';
@@ -50,7 +48,7 @@
       <SettingRow title={t('guide_title')} value={t('guide_row')} onclick={() => nav.open('guide')} />
       <SettingRow title={t('tour_title')} value={t('tour_row')} onclick={() => tour.start()} />
       <div class="section-header">{t('settings_game')}</div>
-      <SettingRow title={t('settings_rules')} value={rulesValue} onclick={desk ? (nav.sub === 'advanced' ? () => nav.back() : null) : () => nav.open('rules')} selected={desk && nav.sub !== 'advanced'} />
+      <SettingRow title={t('settings_rules')} value={rulesValue} onclick={desk ? null : () => nav.open('rules')} selected={desk} />
       <div class="block">
         <div class="body-large">{t('settings_length')}</div>
         <Toggle options={lengths} selected={settings.length} onselect={setLength} />
@@ -80,8 +78,6 @@
         <Toggle options={levels} selected={settings.level} onselect={setLevel} />
         <div class="body-small dim">{t('level_hint')}</div>
       </div>
-      <SettingRow title={t('settings_advanced')} value={t('settings_advanced_row')} onclick={() => nav.open('advanced')}
-        selected={desk && nav.sub === 'advanced'} />
 
       <div class="section-header">{t('settings_look')}</div>
       <div class="block">
@@ -106,10 +102,8 @@
 {#if ui.desk}
   <div class="desk">
     <div class="desk-list">{@render list(true)}</div>
-    <div class="desk-pane">{#if nav.sub === 'advanced'}<Advanced />{:else}<Rules />{/if}</div>
+    <div class="desk-pane"><Rules /></div>
   </div>
-{:else if nav.sub === 'advanced'}
-  <Advanced onback={() => nav.back()} />
 {:else if nav.sub === 'rules'}
   <Rules onback={() => nav.back()} />
 {:else}

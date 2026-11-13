@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 enum class Screen { PLAY, BATTLE, ANALYZE, RECORDS, SETTINGS }
 
 /** A page opened from a screen: Back returns to what was under it. GUIDE: the rules explained (ui/GuideScreen.kt). */
-enum class Page { RULES, REVIEW, GUIDE, ADVANCED }
+enum class Page { RULES, REVIEW, GUIDE }
 
 /**
  * What the screens share, for as long as the app runs: the settings, the records, practice, battles, the pages opened
@@ -32,7 +32,7 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
     Timing.speedOf = { s.speed }
     Sounds.level = { s.sound }
     // (Not with the system's animations off: the words alone, as the web page's reduced motion.)
-    FxClock.enabled = { s.callFx == CallFxMode.anim && android.animation.ValueAnimator.areAnimatorsEnabled() }
+    FxClock.enabled = { android.animation.ValueAnimator.areAnimatorsEnabled() }
   }
   val records = Records(app)
   var error by mutableStateOf<String?>(null)

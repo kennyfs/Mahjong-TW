@@ -135,9 +135,7 @@
 {/snippet}
 
 <div class="page">
-  <TitleBar title={t('records_title')} max={760}>
-    <button class="btn text" disabled={!records.hands.some((h) => !h.fav)} onclick={() => (confirmClear = true)}>{t('records_clear')}</button>
-  </TitleBar>
+  <TitleBar title={t('records_title')} max={760} />
   <div class="scroll"><div class="readable">
     <div class="head">
       <Toggle options={tabs} selected={tab} onselect={(v) => (tab = v)} />
@@ -190,7 +188,11 @@
           <Icon name="download" size={18} />{t('records_export')}
         </button>
       </div>
-      <button class="btn text reset" onclick={() => (confirmReset = true)}>{t('records_reset_scores')}</button>
+      <!-- (At the very bottom, the two that throw something away: the user's.) -->
+      <div class="resets">
+        <button class="btn text" onclick={() => (confirmReset = true)}>{t('records_reset_scores')}</button>
+        <button class="btn text" disabled={!records.hands.some((h) => !h.fav)} onclick={() => (confirmClear = true)}>{t('records_clear')}</button>
+      </div>
     </section>
   </div></div>
 </div>
@@ -244,5 +246,5 @@
   .dev p { margin: 0; }
   .dev-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .dev-actions .btn { display: inline-flex; align-items: center; gap: 8px; }
-  .dev .reset { align-self: flex-start; margin-left: -8px; }
+  .dev .resets { display: flex; flex-wrap: wrap; gap: 8px; margin-left: -8px; }
 </style>
