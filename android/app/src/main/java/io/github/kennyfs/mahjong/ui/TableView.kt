@@ -173,6 +173,7 @@ fun TableView(
   status: (@Composable () -> Unit)? = null, corner: (@Composable () -> Unit)? = null, overlay: (@Composable BoxScope.() -> Unit)? = null,
   marks: Map<String, TileMark>? = null, notes: List<SeatNote?>? = null, strip: (@Composable () -> Unit)? = null,
   onPick: ((String?) -> Unit)? = null, onNext: (() -> Unit)? = null, stay: Boolean = false, robbed: Int = -1, review: Boolean = false,
+  readyHint: Boolean = false,
 ) {
   val c = LocalTable.current
   val density = LocalDensity.current
@@ -487,7 +488,8 @@ fun TableView(
                   Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = false, seat = me, host = host, coming = coming[me] ?: -1)
                 }
               }
-              MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion, pick = !mustChoose)
+              MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion, pick = !mustChoose,
+                ready = if (readyHint && myTurn) view.ready else null)
             }
           }
           Column(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 2).d).widthIn(max = (s.sideW - 12).d).then(measured(Side.BOTTOM)),
@@ -532,7 +534,8 @@ fun TableView(
                 }
                 Box(Modifier.align(Alignment.CenterVertically).then(measured(Side.BOTTOM))) { badge(me, null) }
               }
-              MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion, pick = !mustChoose)
+              MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion, pick = !mustChoose,
+                ready = if (readyHint && myTurn) view.ready else null)
             }
           }
           if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 4).d)) { status() }
@@ -769,7 +772,7 @@ fun pulse(ms: Int): Float {
 fun MyHand(
   tiles: List<String>, drawn: String?, w: Float, perRow: Int, discardable: Set<String>, onDiscard: (String) -> Unit,
   selected: Int?, onSelect: (Int?) -> Unit, marks: Map<String, TileMark>? = null, tagH: Float = 0f, turn: Boolean = false,
-  motion: HandMotion? = null, pick: Boolean = true,
+  motion: HandMotion? = null, pick: Boolean = true, ready: Map<String, List<String>>? = null,
 ) {
   val highlight = LocalTable.current.highlight
   val glow = if (turn) pulse(1100) else 0f
@@ -866,7 +869,15 @@ fun MyHand(
                 drawContent()
                 drawRect(Color.Black.copy(alpha = 0.42f), blendMode = BlendMode.SrcAtop)
               }
-            Box(Modifier.offset { IntOffset(0, lift.roundToInt()) }.then(dim)) {
+            // 聽牌提示: a small dot over a discard that leaves the hand ready, above the turn's frame.
+            val dotDp = maxOf(5f, w * 0.15f)
+            val dot = if (ready?.containsKey(all[i]) != true) Modifier else Modifier.drawBehind {
+              val d = dotDp.dp.toPx()
+              val at = Offset(center.x, -10.dp.toPx() - d / 2)
+              drawCircle(Color.Black.copy(alpha = 0.45f), d / 2 + 1.5.dp.toPx(), at)
+              drawCircle(Color(0xFF8FE3FF), d / 2, at)
+            }
+            Box(Modifier.offset { IntOffset(0, lift.roundToInt()) }.then(dot).then(dim)) {
               TileView(all[i], w.d, selected = selected == i, glow = mark?.played == true, danger = mark?.danger ?: 0)
               if (mark != null && mark.tag.isNotEmpty()) TileTag(mark, w, if (tagH > 0) tagH else TAG_H, Modifier.align(Alignment.TopCenter))
             }

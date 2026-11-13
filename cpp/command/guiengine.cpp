@@ -437,13 +437,39 @@ static json viewOf(const Game& game, int seat, int since, bool reveal) {
   bool myTurn = find(pending.begin(), pending.end(), seat) != pending.end();
   v["my_turn"] = myTurn;
   json legal = json::array();
+  bool mayDiscard[Tiles::NUM_KINDS] = {};
   if(myTurn) {
     vector<Action> acts;
     game.legalActions(seat, acts);
-    for(const Action& a : acts)
+    for(const Action& a : acts) {
       legal.push_back(GuiJson::action(a, game.claimTile()));
+      if(a.type == Action::DISCARD)
+        mayDiscard[a.kind] = true;
+    }
   }
   v["legal"] = legal;
+  // The discards (legal ones) that leave the hand ready, each with what it then waits on (the player's own turn to
+  // discard; the page and the app show them only when the player asks for it in the settings: 聽牌提示).
+  json ready = json::object();
+  if(myTurn && game.phase() == Game::SELF && game.current() == seat) {
+    const SeatState& st = game.seat(seat);
+    Counts c = st.hand;
+    for(int k = 0; k < Tiles::NUM_KINDS; k++) {
+      if(c[k] == 0 || !mayDiscard[k])
+        continue;
+      c[k]--;
+      uint64_t w = Tai::waits(c, st.melds);
+      c[k]++;
+      if(w == 0)
+        continue;
+      json ws = json::array();
+      for(int x = 0; x < Tiles::NUM_KINDS; x++)
+        if(w >> x & 1)
+          ws.push_back(Tiles::name(x));
+      ready[Tiles::name(k)] = ws;
+    }
+  }
+  v["ready"] = ready;
   json events = json::array();
   const vector<Event>& evs = game.events();
   for(size_t i = max(0, since); i < evs.size(); i++)

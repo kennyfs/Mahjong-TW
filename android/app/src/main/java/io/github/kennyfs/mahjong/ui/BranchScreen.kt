@@ -351,7 +351,7 @@ fun BranchScreen(vm: AppModel, source: GameRecord, me: Int, names: List<String>,
         if (view == null) Loading()
         else TableView(
           view, me, names, revealed = if (over) final?.hands else null, interactive = view.myTurn && !b.deciding, onAct = { b.act(it) },
-          maxHand = 56f, robbed = b.robbed,
+          maxHand = 56f, robbed = b.robbed, readyHint = settings.readyHint,
           overlay = {
             if (over && (held || fxOn)) TapOn(letGo)
             if (sheet && final != null) Sheet {

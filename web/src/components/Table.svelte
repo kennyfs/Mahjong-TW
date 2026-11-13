@@ -857,7 +857,7 @@
           <Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} wrap={false} seat={me} hide={hideMeld(me)} />
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={settings.readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected oneClick={keys} {marks} {tagH} />{/if}
       </div>
     {:else}
@@ -869,7 +869,7 @@
           <span class="me-badge" bind:clientWidth={meBadgeW}>{@render myBadge()}</span>
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={settings.readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected perRow={s.handRow} {marks} {tagH} />{/if}
       </div>
       {#if status}<div class="status tall" style="bottom: {meH + 4}px">{@render status()}</div>{/if}

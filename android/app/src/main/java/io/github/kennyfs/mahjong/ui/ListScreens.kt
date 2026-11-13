@@ -631,6 +631,11 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
           )
           Text(stringResource(R.string.speed_manual_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        Block(stringResource(R.string.settings_ready_hint)) {
+          ToggleGroup(listOf(false to stringResource(R.string.sound_off), true to stringResource(R.string.ready_hint_on)),
+            s.readyHint, { s.readyHint = it; save() }, Modifier.fillMaxWidth().testTag("settings_ready_hint"))
+          Text(stringResource(R.string.ready_hint_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         SectionHeader(stringResource(R.string.settings_analysis))
         Block(stringResource(R.string.settings_level)) {
           ToggleGroup(

@@ -21,11 +21,12 @@
 <script lang="ts">
   import Tile, { TILE_RATIO } from './Tile.svelte';
   import { fly } from 'svelte/transition';
+  import { t } from '../lib/i18n.svelte';
   import { DRAWN_GAP, LIFT, ROW_GAP } from '../lib/layout';
   import type { TileMark } from '../lib/review';
   import type { Tile as T } from '../lib/tiles';
   let { tiles, drawn = null, w, canDiscard = () => false, ondiscard, selected = $bindable(null), perRow = 0, oneClick = false,
-    marks = null, tagH = 0, turn = false, drawWait = 0, pick = true }: {
+    marks = null, tagH = 0, turn = false, drawWait = 0, pick = true, ready = null }: {
     tiles: T[]; drawn?: T | null; w: number; canDiscard?: (t: T) => boolean; ondiscard?: (t: T) => void;
     selected?: number | null; perRow?: number; oneClick?: boolean; marks?: Map<T, TileMark> | null; tagH?: number;
     turn?: boolean;
@@ -34,6 +35,8 @@
     /** Whether a tap lifts a tile that may not be discarded (to see it, its figures): not while the player has a call
      *  to decide on (吃, 碰, 胡, 過), no tile of the hand to play. */
     pick?: boolean;
+    /** 聽牌提示 (the settings'): the discards that leave the hand ready, each with its waits; a mark over each. */
+    ready?: Record<string, string[]> | null;
   } = $props();
 
   // The drawn tile last, as its own index.
@@ -114,6 +117,7 @@
               {@const m = marks.get(all[i])!}
               <span class="tag {m.tone}" class:played={m.played} style="font-size: {Math.min(13, Math.max(10, w * 0.27))}px; height: {tagH - 2}px">{m.tag}</span>
             {/if}
+            {#if ready?.[all[i]]}<span class="ready" style="--d: {Math.max(5, Math.round(w * 0.15))}px" title={t('ready_waits', ready[all[i]].join(' '))}></span>{/if}
             <Tile tile={all[i]} {w} selected={selected === i} glow={!!marks?.get(all[i])?.played} danger={marks?.get(all[i])?.danger ?? 0} />
           </span>
         </button>
@@ -139,6 +143,9 @@
     -webkit-tap-highlight-color: transparent; touch-action: none; position: relative; }
   .slot.up::before, .slot.hover:hover::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--lift); }
   .lifted { display: block; position: relative; transition: transform 0.08s; }
+  /* 聽牌提示: a small dot over the tile, above the turn's frame. */
+  .ready { position: absolute; left: 50%; top: calc(-10px - var(--d)); width: var(--d); height: var(--d); translate: -50% 0; border-radius: 50%;
+    background: #8fe3ff; box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.45); pointer-events: auto; }
   /* On the player's turn, a tile that may not be discarded (a declared ready hand keeps its tiles): darker. */
   .slot.held .lifted { filter: brightness(0.58) saturate(0.8); }
   .tag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 1px; padding: 0 3px; border-radius: 5px;

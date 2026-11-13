@@ -107,6 +107,8 @@ data class View(
   @SerialName("event_count") val eventCount: Int = 0,
   val result: HandResult? = null,
   val hands: List<String>? = null,
+  /** On the player's own turn to discard: each discard that leaves the hand ready, with what it then waits on. */
+  val ready: Map<String, List<String>> = emptyMap(),
 )
 
 @Serializable

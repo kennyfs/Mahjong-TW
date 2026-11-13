@@ -52,7 +52,9 @@
 //       What seat s sees  -> {"rules": full spec, "position": POSITION, "phase": self|react|rob_kong|over,
 //                             "current": s, "seat_winds": [4], "my_turn": bool, "legal": [ACTION],
 //                             "events": [EVENT from index `since`], "event_count": n, "result": RESULT|null,
-//                             "hands": [TILES x4] when over or with reveal}
+//                             "hands": [TILES x4] when over or with reveal,
+//                             "ready": {T: [T]}: on the seat's own turn to discard, each legal discard that leaves
+//                             the hand ready, with what it then waits on (聽牌提示; {} otherwise)}
 //   {"cmd": "act", "game": RECORD, "seat": s, "action": ACTION}      checked, appended -> {"game": RECORD}
 //   {"cmd": "bot", "game": RECORD, "seat": s, "player": SPEC, "seed": S?}   -> {"action": ACTION}
 //   {"cmd": "advance", "game": RECORD, "players": [SPEC|null x4], "seed": S?, "steps": n?}

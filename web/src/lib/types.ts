@@ -73,6 +73,8 @@ export interface View {
   event_count: number;
   result: Result | null;
   hands?: string[];
+  /** On the player's own turn to discard: each discard that leaves the hand ready, with what it then waits on. */
+  ready?: Record<Tile, Tile[]>;
 }
 
 export interface Pending { phase: Phase; current: number; pending: number[]; actions: number; event_count: number }

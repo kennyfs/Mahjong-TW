@@ -38,6 +38,8 @@
   function setColors(v: Colors) { settings.colors = v; settings.persist(); }
   function setDark(v: Dark) { settings.dark = v; settings.persist(); }
   function setSound(v: SoundLevel) { settings.sound = v; settings.persist(); playSound('discard'); }
+  const onOff: [string, string][] = [['off', t('sound_off')], ['on', t('ready_hint_on')]];
+  function setReady(v: string) { settings.readyHint = v === 'on'; settings.persist(); }
   function setStyle(v: SoundStyle) { settings.soundStyle = v; settings.persist(); playSound('discard'); }
   function setText(v: TextSize) { settings.text = v; settings.persist(); }
 </script>
@@ -69,6 +71,11 @@
         <Toggle options={sounds} selected={settings.sound} onselect={setSound} />
         {#if settings.sound !== 'off'}<Toggle options={styles} selected={settings.soundStyle} onselect={setStyle} />{/if}
         <div class="body-small dim">{t('sound_hint')}</div>
+      </div>
+      <div class="block">
+        <div class="body-large">{t('settings_ready_hint')}</div>
+        <Toggle options={onOff} selected={settings.readyHint ? 'on' : 'off'} onselect={setReady} />
+        <div class="body-small dim">{t('ready_hint_text')}</div>
       </div>
 
       <div class="section-header">{t('settings_analysis')}</div>

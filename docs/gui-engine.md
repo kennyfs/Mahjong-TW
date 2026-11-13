@@ -106,6 +106,10 @@ winners, the first after the discarder). A seat with nothing to claim is not ask
 actions then include `pass`. A chow is `{"type":"chi","tile":LOWEST,"tiles":[...]}`; the claimed tile of ron, pon
 and kan is filled in by the engine. `rob_kong` is the same for a 加槓 that someone may rob (ron or pass).
 
+On the seat's own turn to discard, the view's `ready` maps each legal discard that leaves the hand ready to the kinds
+it then waits on (`{"3m": ["2p", "5p"], ...}`; `{}` otherwise). The page and the app mark those tiles only when the
+player turns on 聽牌提示 in the settings (off by default: deciding is the player's part).
+
 ## Analysis
 
 ```

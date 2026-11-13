@@ -85,6 +85,8 @@ private data class StoredSettings(
   val name: String = "", val server: String = "", val listRows: ListRows? = null, val level: Level = Level.mid,
   val tableMarks: TableMarks = TableMarks.both,
   val callFx: CallFxMode = CallFxMode.anim,
+  /** 聽牌提示: marks on the discards that leave the hand ready (off unless asked for). */
+  val readyHint: Boolean = false,
   /** 1: saved by a version with the network (before it, the bot could only be tile efficiency). */
   val version: Int = 0,
 )
@@ -108,6 +110,7 @@ class Settings(context: Context) {
   var level by mutableStateOf(stored.level)
   var tableMarks by mutableStateOf(stored.tableMarks)
   var callFx by mutableStateOf(stored.callFx)
+  var readyHint by mutableStateOf(stored.readyHint)
 
   val spec: String get() = rules.spec
 
@@ -117,7 +120,7 @@ class Settings(context: Context) {
     set(v) = prefs.edit().putBoolean("welcome.seen", v).apply()
 
   fun persist() {
-    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, listRows, level, tableMarks, callFx, version = 1)
+    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, listRows, level, tableMarks, callFx, readyHint, version = 1)
     prefs.edit().putString("settings", EngineJson.encodeToString(s)).apply()
   }
 }

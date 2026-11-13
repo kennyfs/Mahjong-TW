@@ -54,6 +54,7 @@ interface Stored {
   callFx?: CallFxMode;
   sound?: SoundLevel;
   soundStyle?: SoundStyle;
+  readyHint?: boolean;
 }
 
 const DEFAULTS: Stored = {
@@ -77,6 +78,9 @@ class Settings {
   callFx = $state<CallFxMode>('anim');
   sound = $state<SoundLevel>('full');
   soundStyle = $state<SoundStyle>('real');
+  /** Marks on the discards that leave the hand ready (聽牌提示): off unless the player asks (the game tests their
+   *  judgement; whether a hand is ready is only a check). */
+  readyHint = $state(false);
 
   constructor() {
     const s = { ...DEFAULTS, ...load<Partial<Stored>>(KEYS.settings, {}) };
@@ -95,6 +99,7 @@ class Settings {
     this.callFx = s.callFx === 'words' ? 'words' : 'anim';
     this.sound = s.sound && SOUND_LEVELS.includes(s.sound) ? s.sound : 'full';
     this.soundStyle = s.soundStyle === 'simple' ? 'simple' : 'real';
+    this.readyHint = s.readyHint === true;
   }
 
   get spec(): string { return ruleSpec(this.rules); }
@@ -104,6 +109,7 @@ class Settings {
       rules: this.rules, length: this.length, bot: this.bot, speed: this.speed, colors: this.colors, dark: this.dark,
       text: this.text, name: this.name, server: this.server, listRows: this.listRows, level: this.level,
       tableMarks: this.tableMarks, callFx: this.callFx, sound: this.sound, soundStyle: this.soundStyle,
+      readyHint: this.readyHint,
     } satisfies Stored);
   }
 }

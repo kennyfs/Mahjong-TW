@@ -527,7 +527,7 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
           TableView(
             table.view, table.seat, names, scores = battle.totalsAt(table.seats), away = battle.awayAt(table.seats),
             revealed = if (handOver) table.view.hands else null, interactive = table.view.myTurn && !handOver,
-            onAct = { battle.act(it) }, handLabel = if (wide) handLabel else "",
+            onAct = { battle.act(it) }, handLabel = if (wide) handLabel else "", readyHint = vm.settings.readyHint,
             status = if (wide) clock else null,
             // The table's top-right corner: the rules over the way out.
             corner = if (wide) ({
