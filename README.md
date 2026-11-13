@@ -61,6 +61,11 @@ build/mahjong runtests
 `lib/`) enables the `net` player and `selfplay`. Data files are compressed when zlib is found. The build also makes
 `libmahjong_data.so`, which the Python side loads.
 
+Paths in the docs and scripts: `$WORK` is the directory for everything generated (APKs, screenshots, logs, models,
+runs), kept out of the repository; `$HOME` the one that holds the checkout and the tools (SDK, `env.sh`);
+`$THIRTEEN_WORK` the generated files of Thirteen (its emsdk, ONNX Runtime builds). The scripts under `scripts/` are
+copies of those the two machines of the training runs used, their paths as they were (docs/training.md).
+
 ## Commands
 
 ```bash

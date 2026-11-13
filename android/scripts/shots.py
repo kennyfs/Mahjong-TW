@@ -21,7 +21,7 @@ import time
 import xml.etree.ElementTree as ET
 
 ADB = os.path.join(os.environ.get('ANDROID_HOME', os.path.expanduser('~/Android/Sdk')), 'platform-tools', 'adb')
-OUT = os.environ.get('OUT', '$WORK/shots/android')
+OUT = os.environ.get('OUT', os.path.join(os.environ.get('WORK', 'build'), 'shots', 'android'))
 SERVER = os.environ.get('BATTLE_SERVER', '')
 ONLY = [x for x in os.environ.get('ONLY', '').split(',') if x]
 STEPS = [x for x in os.environ.get('STEPS', '').split(',') if x]

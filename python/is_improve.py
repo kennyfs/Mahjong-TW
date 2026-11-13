@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mahjong.data import DEFAULT_LIB, Library, batches
 from mahjong.losses import payment_unit
 J = int(sys.argv[1]); KS = [int(x) for x in sys.argv[2:]]
-RUN = os.environ.get("RUN", "$HOME/mahjong_remote/share/s2")
+RUN = os.path.expandvars(os.environ.get("RUN", "$HOME/mahjong_remote/share/s2"))
 DATA = os.environ.get("DATA", os.path.join(RUN, "selfplay"))
 HERE = os.path.dirname(os.path.abspath(__file__))
 M = os.path.join(RUN, "models", "actor_%d.onnx")
