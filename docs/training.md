@@ -188,6 +188,29 @@ network: the largest difference of any output is 0), the new action starts from 
 optimizer's statistics stay. Self-play files, the data library and the `.onnx` networks of the two versions do not
 mix: a run is taken over as a whole (its newest checkpoints and the earlier networks it plays against).
 
+## Features version 3 (報聽)
+
+Version 3 (2026-11-13) adds 報聽 (docs/rules.md 5.1): a third declared feature of a seat, the rule `baoting` (at the
+end of the rules) and its tai item; the action `declare` is the same. `upgrade_features.py` now takes a checkpoint
+from version 1 or 2 to 3 a step at a time; `python/check_upgrade.py` runs the old network with the old code and the
+upgraded one with the new code on the same inputs (s2's network 211: at most 5e-5 apart, float rounding). The run
+`s3` (`scripts/migrate_v3_desk.sh`, `run_s3.sh`, `run_selfplay_s3.sh`) goes on from s2's network 211 with 報聽 on in
+every preset (off in a fifth of the training hands), to teach the network when to declare it.
+
+`s3` ran 2026-11-13 14:53 to 15:50: networks 212 to 221 (ten iterations of 100,000 hands, 1.5 forks a hand; the
+helper helped until 15:42). Matches of network 221 (one seat) against 211 (three), the policy's first choice, 8,000 deals
+each (the difference to the three's mean, its standard error about 0.02 and 0.027):
+
+| Rules | 報聽 on (`baoting=1`) | 報聽 off (`baoting=0`) |
+|---|---:|---:|
+| `simple1,none` | +0.043 | +0.004 |
+| `simple2,see` | +0.041 | +0.066 |
+
+So it is no weaker without 報聽, and perhaps a little stronger with it (two standard errors at most). Of 1,000
+hands (four seats of the same network), 211 declared 報聽 180 and 185 times (won 75 and 79 of them), 221 187 and 205
+times (won 71 and 85): ten iterations changed little of when it declares. The web page and the app ship network 221
+(`mahjong-files/models/actor_s3_221.fp16.onnx`).
+
 ## Starting, stopping and watching a run
 
 Each machine has one script for its side of a run (copies of `scripts/`; the paths inside are those of the two
