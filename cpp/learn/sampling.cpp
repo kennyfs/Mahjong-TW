@@ -55,6 +55,9 @@ Rules Learn::sampleRules(const string& spec, Rand& rand) {
     if(!r.hasFlowers())
       r.eightFlowers = r.sevenRobOne = 0;
   }
+  // 報聽 (on in every preset) off in a fifth of the hands: a setting the players may turn off.
+  if(rand.nextDouble() < 0.2)
+    r.baoting = 0;
   // The settings the app offers, varied in a quarter of the hands.
   if(rand.nextDouble() < 0.25) {
     r.base = 1 + (int)rand.nextUInt(5);

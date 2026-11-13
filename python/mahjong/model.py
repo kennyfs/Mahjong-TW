@@ -30,7 +30,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-FEATURES_VERSION = 2
+FEATURES_VERSION = 3
 NUM_KINDS = 34
 NUM_SEATS = 4
 NUM_TOKENS = NUM_KINDS + NUM_SEATS
@@ -56,7 +56,7 @@ KO_CLAIM = 5
 # Training-only heads.
 PAIR_OUT = 9          # per (seat, kind): danger, its tai, copies held (5 classes), next discard, winning tile
 SEAT_OUT = 10         # per seat: from ready (4 classes), shanten at the end (5 classes), no winning tile
-NUM_TAI_ITEMS = 40
+NUM_TAI_ITEMS = 41
 TAI_CLASSES = 33      # my win's tai, 0 to 32 or more
 ME_OUT = NUM_TAI_ITEMS + TAI_CLASSES + 4 + 1  # items, tai, ready within 1, 2, 4, 8 draws, draws left
 DRAWS_SCALE = 40.0
@@ -77,8 +77,8 @@ class ModelConfig:
     # The sizes of the inputs, from the data library (Features::VERSION and its sizes).
     features: int = FEATURES_VERSION
     kind_obs: int = 93
-    seat_obs: int = 28
-    global_obs: int = 171
+    seat_obs: int = 29
+    global_obs: int = 172
     kind_full: int = 34
     seat_full: int = 15
     global_full: int = 1

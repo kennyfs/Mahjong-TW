@@ -153,6 +153,14 @@ static Discard parseDiscard(const json& j) {
   return d;
 }
 
+// A declared ready hand's name in the JSON (1 天聽, 2 地聽, 3 報聽), and back (0: none).
+static const char* declaredName(int d) {
+  return d == 1 ? "tianting" : d == 2 ? "diting" : "baoting";
+}
+static int declaredOf(const string& name) {
+  return name == "tianting" ? 1 : name == "diting" ? 2 : name == "baoting" ? 3 : 0;
+}
+
 static json eventJson(const Event& e, int viewer, bool reveal) {
   json j;
   j["seat"] = e.seat;
@@ -167,7 +175,7 @@ static json eventJson(const Event& e, int viewer, bool reveal) {
   if(e.type == Event::DISCARD)
     j["drawn"] = e.extra != 0;
   if(e.type == Event::DECLARE)
-    j["declared"] = e.extra == 1 ? "tianting" : "diting";
+    j["declared"] = declaredName(e.extra);
   if(e.type == Event::CHI)
     j["tiles"] = json::array({Tiles::name(e.extra), Tiles::name(e.extra + 1), Tiles::name(e.extra + 2)});
   return j;
@@ -275,7 +283,7 @@ json GuiJson::position(const Position& p) {
       discards.push_back(discardJson(d));
     json player{{"melds", melds}, {"flowers", flowersString(pl.flowers)}, {"discards", discards}};
     if(pl.declared)
-      player["declared"] = pl.declared == 1 ? "tianting" : "diting";
+      player["declared"] = declaredName(pl.declared);
     players.push_back(player);
   }
   j["players"] = players;
@@ -311,7 +319,7 @@ Position GuiJson::parsePosition(const json& j) {
           pl.melds.push_back(parseMeld(m));
       pl.flowers = parseFlowers(getString(ps[s], "flowers", ""));
       const string declared = getString(ps[s], "declared", "");
-      pl.declared = declared == "tianting" ? 1 : declared == "diting" ? 2 : 0;
+      pl.declared = (uint8_t)declaredOf(declared);
       if(ps[s].contains("discards"))
         for(const json& d : ps[s]["discards"])
           pl.discards.push_back(parseDiscard(d));
@@ -723,7 +731,7 @@ json GuiEngine::handle(const json& req) {
     w.replacement = getBool(req, "replacement");
     w.heavenly = getBool(req, "heavenly");
     const string declared = getString(req, "declared", "");
-    w.declared = declared == "tianting" ? 1 : declared == "diting" ? 2 : 0;
+    w.declared = declaredOf(declared);
     w.earthly = getBool(req, "earthly");
     w.human = getBool(req, "human");
     w.seatWind = getInt(req, "seat_wind", 0);

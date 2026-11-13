@@ -66,6 +66,7 @@ namespace Tai {
     SEVEN_ROB_ONE,
     TIANTING,
     DITING,
+    BAOTING,
     NUM_ITEMS
   };
   extern const char* const NAMES[NUM_ITEMS];          // Chinese
@@ -84,7 +85,7 @@ namespace Tai {
     bool heavenly = false;     // 天胡
     bool earthly = false;      // 地胡
     bool human = false;        // 人胡
-    int declared = 0;          // 1: 天聽, 2: 地聽 (declared ready)
+    int declared = 0;          // 1: 天聽, 2: 地聽, 3: 報聽 (declared ready)
     int seatWind = 0;          // 0-3: east, south, west, north
     int roundWind = 0;
   };

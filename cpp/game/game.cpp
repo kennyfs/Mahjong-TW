@@ -34,7 +34,7 @@ string Event::toString() const {
   if(type == EXHAUSTED)
     return s;
   if(type == DECLARE)
-    return s + (extra == 1 ? " tianting" : " diting");
+    return s + (extra == 1 ? " tianting" : extra == 2 ? " diting" : " baoting");
   if(type == CHI)
     return s + " " + Tiles::name(tile) + " -> " + Tiles::toString(vector<int>{extra, extra + 1, extra + 2});
   s += " " + Tiles::name(tile);
@@ -340,7 +340,21 @@ void Game::legalActions(int s, vector<Action>& out) const {
       out.push_back(Action(Action::TSUMO));
     if(st.declared) {
       // A locked hand: win, or discard the tile drawn (any tile when a position entered by hand does not say which
-      // one it was).
+      // one it was); or a concealed kong of the tile drawn that leaves the same waits.
+      if(drawn_ >= 0 && st.hand[drawn_] == 4 && !afterCall_ && wallLeft() >= 1) {
+        Counts before = st.hand, after = st.hand;
+        before[drawn_]--;
+        after[drawn_] = 0;
+        vector<Meld> melds = st.melds;
+        Meld kong;
+        kong.type = Meld::ANKAN;
+        kong.kind = kong.called = (uint8_t)drawn_;
+        kong.from = -1;
+        melds.push_back(kong);
+        const uint64_t waits = Tai::waits(before, st.melds);
+        if(waits != 0 && Tai::waits(after, melds) == waits)
+          out.push_back(Action(Action::ANKAN, drawn_));
+      }
       if(drawn_ >= 0 && st.hand[drawn_] > 0)
         out.push_back(Action(Action::DISCARD, drawn_));
       else
@@ -482,9 +496,18 @@ void Game::act(int s, const Action& a) {
 
 int Game::declareType(int s) const {
   const SeatState& st = seats_[s];
-  if(phase_ != SELF || s != cur_ || st.declared || st.hasDiscarded || anyCall_ || !st.melds.empty())
+  if(phase_ != SELF || s != cur_ || st.declared || st.declaring)
     return 0;
-  if(rules_.tianting <= 0 && rules_.diting <= 0)
+  // 天聽, 地聽: on the first turn, nobody having called; 報聽: else (or when those are not played), with a concealed
+  // hand (no chow, pung or exposed kong; concealed kongs are fine).
+  const bool first = !st.hasDiscarded && !anyCall_ && st.melds.empty();
+  bool concealed = true;
+  for(const Meld& m : st.melds)
+    concealed = concealed && m.type == Meld::ANKAN;
+  const int later = rules_.baoting > 0 && concealed ? 3 : 0;
+  if(!first && later == 0)
+    return 0;
+  if(first && later == 0 && rules_.tianting <= 0 && rules_.diting <= 0)
     return 0;
   // Ready after some discard. 天聽: the dealer, or a player whose dealt tiles were ready before the first draw;
   // 地聽: another player whose first discard leaves the hand ready. Nobody has called so far.
@@ -499,6 +522,8 @@ int Game::declareType(int s) const {
   }
   if(!ready)
     return 0;
+  if(!first)
+    return later;
   bool heavenly = s == setup_.dealer;
   if(!heavenly && drawn_ >= 0) {
     c[drawn_]--;
@@ -506,7 +531,7 @@ int Game::declareType(int s) const {
     c[drawn_]++;
   }
   int type = heavenly ? 1 : 2;
-  return (type == 1 ? rules_.tianting : rules_.diting) > 0 ? type : 0;
+  return (type == 1 ? rules_.tianting : rules_.diting) > 0 ? type : later;
 }
 
 void Game::afterDiscard(int d, int kind) {

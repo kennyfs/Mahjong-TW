@@ -358,9 +358,9 @@ fun TableView(
     fun badge(seat: Int, count: Int?) = SeatBadge(
       Tiles.wind(winds[seat]), names[seat], scores?.get(seat), setup.dealer == seat, setup.streak, turnSeat == seat, count,
       compact = !s.wide, away = away[seat], font = s.font,
-      // A review's words; in play, a declared ready hand (天聽, 地聽).
+      // A review's words; in play, a declared ready hand (天聽, 地聽, 報聽).
       note = (if (seat == me) null else notes?.getOrNull(seat))
-        ?: pos.players.getOrNull(seat)?.declared?.let { SeatNote(stringResource(if (it == "diting") R.string.call_diting else R.string.call_tianting), 0) },
+        ?: pos.players.getOrNull(seat)?.declared?.let { SeatNote(stringResource(when (it) { "diting" -> R.string.call_diting; "baoting" -> R.string.call_baoting; else -> R.string.call_tianting }), 0) },
     )
 
     @Composable
@@ -1037,7 +1037,7 @@ private const val CALLOUT_OUT = 160
 private val WORDS = mapOf(
   "chi" to R.string.act_chi, "pon" to R.string.act_pon, "kan" to R.string.act_kan, "ankan" to R.string.act_ankan, "kakan" to R.string.act_kakan,
   "tsumo" to R.string.act_tsumo, "ron" to R.string.act_ron, "flower" to R.string.call_flower, "flower_win" to R.string.call_flower_win,
-  "exhausted" to R.string.call_exhausted, "declare:tianting" to R.string.call_tianting, "declare:diting" to R.string.call_diting,
+  "exhausted" to R.string.call_exhausted, "declare:tianting" to R.string.call_tianting, "declare:diting" to R.string.call_diting, "declare:baoting" to R.string.call_baoting,
 )
 private val ROB_WORDS = mapOf("chi" to R.string.rob_chi, "pon" to R.string.rob_pon, "kan" to R.string.rob_kan, "ron" to R.string.rob_ron)
 private val CALLS = setOf("chi", "pon", "kan", "ron")

@@ -419,13 +419,100 @@ static void testDeclare() {
   out << g.result().toString(rules.base) << endl;
 
   // With the items off nobody can declare.
-  for(const char* spec : {"simple2,none", "standard,none,tianting=0"}) {
+  for(const char* spec : {"simple2,none,baoting=0", "standard,none,tianting=0,baoting=0"}) {
     Rules r = Rules::parse(spec);
     Game g2(r);
     g2.start(setup, buildWall(r));
     testAssert(g2.declareType(0) == 0);
     g2.legalActions(0, legal);
     testAssert(!has(legal, Action::DECLARE));
+  }
+
+  // 報聽: where 天聽 and 地聽 are not played, the same declarations are 報聽, a win after one adds its tai.
+  {
+    Rules r = Rules::parse("simple2,none");
+    testAssert(Rules::parse("simple1").baoting == 1 && Rules::parse("standard").baoting == 1);
+    Game g3(r);
+    g3.start(setup, buildWall(r));
+    testAssert(g3.declareType(0) == 3);
+    g3.act(0, Action(Action::DECLARE));
+    g3.act(0, Action(Action::DISCARD, z));
+    passAll(g3);
+    g3.act(1, Action(Action::DECLARE));
+    testAssert(g3.seat(1).declared == 3);
+    g3.act(1, Action(Action::DISCARD, z + 1));
+    passAll(g3);
+    testAssert(g3.declareType(2) == 3 && g3.declareType(3) == 0);
+    g3.act(2, Action(Action::DISCARD, Tiles::parse("9p")[0]));
+    passAll(g3);
+    g3.act(3, Action(Action::DISCARD, Tiles::parse("9m")[0]));
+    passAll(g3);
+    g3.act(0, Action(Action::DISCARD, z + 6));
+    passAll(g3);
+    g3.act(1, Action(Action::TSUMO));
+    const Tai::Result& res = g3.result().tai.at(0);
+    bool baoting = false;
+    for(const auto& item : res.items)
+      baoting = baoting || (item.first == Tai::BAOTING && item.second == 1);
+    testAssert(baoting);
+  }
+  // Later than the first turn: 報聽 also with 天聽 and 地聽 played; the hand is locked after it.
+  {
+    Rules r = Rules::parse("standard,none,baoting=2");
+    Game g4(r);
+    g4.start(setup, buildWall(r));
+    testAssert(g4.declareType(0) == 1);
+    g4.act(0, Action(Action::DISCARD, z));
+    passAll(g4);
+    g4.act(1, Action(Action::DISCARD, z + 1));
+    passAll(g4);
+    g4.act(2, Action(Action::DISCARD, Tiles::parse("9p")[0]));
+    passAll(g4);
+    g4.act(3, Action(Action::DISCARD, Tiles::parse("9m")[0]));
+    passAll(g4);
+    // The dealer drew 7z and is still ready: now 報聽.
+    testAssert(g4.current() == 0 && g4.declareType(0) == 3);
+    g4.act(0, Action(Action::DECLARE));
+    testAssert(g4.declareType(0) == 0);
+    g4.act(0, Action(Action::DISCARD, z + 6));
+    testAssert(g4.seat(0).declared == 3 && g4.positionOf(1).players[0].declared == 3);
+  }
+  // 報聽 needs a concealed hand; a declared hand may make a concealed kong of the tile drawn when its waits stay.
+  {
+    Rules r = Rules::parse("simple2,none,baoting=1");
+    Rand rand("declare");
+    auto load = [&](const char* hand, uint8_t declared, bool pung) {
+      Position p;
+      p.me = 0;
+      p.hand = Tiles::countsOf(Tiles::parse(hand));
+      p.drawn = Tiles::parse("1m")[0];
+      p.players[0].declared = declared;
+      for(int q = 0; q < 4; q++)
+        p.players[q].discards.push_back(Discard{(uint8_t)Tiles::parse("9p")[0], false, false});
+      if(pung) {
+        Meld m;
+        m.type = Meld::PON;
+        m.kind = m.called = (uint8_t)Tiles::parse("7z")[0];
+        m.from = 3;
+        p.players[0].melds.push_back(m);
+      }
+      Game g5(r);
+      g5.loadPosition(p, rand);
+      return g5;
+    };
+    // 1111m 234p 567p 789s 45s 11z: waiting on 3s 6s with the kong or without.
+    Game a = load("1111m234567p78945s11z", 3, false);
+    a.legalActions(0, legal);
+    testAssert(has(legal, Action::ANKAN) && has(legal, Action::DISCARD) && legal.size() == 2);
+    // 1111m 2m 345p 678p 999s 111z: 2m 3m; with the kong only 2m.
+    Game b = load("11112m345678p999s111z", 3, false);
+    b.legalActions(0, legal);
+    testAssert(!has(legal, Action::ANKAN) && legal.size() == 1);
+    // Not declared: ready, so it may declare 報聽; with a pung it may not.
+    Game c = load("1111m234567p78945s11z", 0, false);
+    testAssert(c.declareType(0) == 3);
+    Game d = load("1111m234p78945s11z", 0, true);
+    testAssert(d.declareType(0) == 0);
   }
   cout << out.str();
   cout << "declare ok" << endl;

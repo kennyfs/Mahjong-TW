@@ -377,7 +377,8 @@ void Features::observation(const Game& game, int me, float* kind, float* seats, 
         float* g = special(Learn::A_DECLARE);
         g[GA_LEGAL] = 1.0f;
         oneHotShanten(g + GA_SHANTEN, 0);
-        const float v = taiFeature(game.declareType(me) == 1 ? rules.tianting : rules.diting);
+        const int type = game.declareType(me);
+        const float v = taiFeature(type == 1 ? rules.tianting : type == 2 ? rules.diting : rules.baoting);
         g[GA_READY + 1] = v;
         g[GA_READY + 2] = v;
       }

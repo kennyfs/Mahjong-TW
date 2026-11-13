@@ -80,11 +80,10 @@ namespace {
       Counts visible = game.visibleCounts(seat);
 
       if(game.phase() == Game::SELF) {
-        // A ready hand is declared whenever it may be; a declared hand has one discard, or only those that keep it
-        // ready (the first of them with the most winning tiles left).
-        if(const Action* a = findType(legal, Action::DECLARE))
-          return *a;
-        if(st.declared) {
+        // A ready hand is declared whenever it may be (報聽: with at least 5 winning tiles left after the best
+        // discard); a declared hand has one discard, or only those that keep it ready (the first of them with the
+        // most winning tiles left).
+        auto bestReady = [&](int* outLeft) {
           int best = -1, bestLeft = -1;
           for(const Action& a : legal) {
             if(a.type != Action::DISCARD)
@@ -92,6 +91,8 @@ namespace {
             Counts c = st.hand;
             c[a.kind]--;
             uint64_t waits = Tai::waits(c, st.melds);
+            if(waits == 0)
+              continue;
             int left = 0;
             for(int k = 0; k < Tiles::NUM_KINDS; k++)
               if(waits & ((uint64_t)1 << k))
@@ -101,6 +102,22 @@ namespace {
               best = a.kind;
             }
           }
+          *outLeft = bestLeft;
+          return best;
+        };
+        if(const Action* a = findType(legal, Action::DECLARE)) {
+          int left;
+          bestReady(&left);
+          if(game.declareType(seat) != 3 || left >= 5)
+            return *a;
+        }
+        if(st.declared) {
+          int left;
+          int best = bestReady(&left);
+          if(best < 0)
+            for(const Action& a : legal)
+              if(a.type == Action::DISCARD)
+                best = a.kind;
           return Action(Action::DISCARD, best);
         }
         if(eps_ > 0.0 && rand.nextDouble() < eps_) {

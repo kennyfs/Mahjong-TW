@@ -37,7 +37,7 @@
 //           "claim": {"seat": s, "tile": T, "rob_kong": bool}|null,
 //           "players": [{"melds": [MELD], "flowers": TILES, "discards": [DISCARD]} x4], "wall_left": n}
 //          On its own turn (claim null) the hand has 17 tiles less 3 per meld, 16 less 3 per meld otherwise.
-//          A player that declared a ready hand also has "declared": tianting|diting; "declaring": true when the
+//          A player that declared a ready hand also has "declared": tianting|diting|baoting; "declaring": true when the
 //          deciding seat has declared and its discard is due.
 // EVENT    {"seat": s, "type": draw|flower|discard|chi|pon|kan|ankan|kakan|tsumo|ron|flower_win|exhausted|declare,
 //           "tile": T|null}, plus "replacement" (draw), "drawn" (discard), "tiles" (chi), "declared" (declare). Others' draws and concealed

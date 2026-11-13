@@ -15,7 +15,7 @@ namespace Learn {
   constexpr int A_PON = 71;
   constexpr int A_MINKAN = 72;
   constexpr int A_CHI = 73;     // + where the claimed tile sits in the chow: 0 lowest, 1 middle, 2 highest
-  constexpr int A_DECLARE = 76; // a ready hand (天聽, 地聽), before the discard that goes with it
+  constexpr int A_DECLARE = 76; // a ready hand (天聽, 地聽, 報聽), before the discard that goes with it
   constexpr int NUM_SPECIAL = 9;  // the outputs from A_TSUMO on
 
   // The index of a legal action of `game` (the claimed tile tells the three chows apart).

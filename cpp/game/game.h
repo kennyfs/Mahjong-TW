@@ -45,7 +45,7 @@ struct Event {
   int8_t seat;
   uint8_t tile;   // DRAW, FLOWER, DISCARD, kongs, wins: the tile; CHI: the called tile
   uint8_t extra;  // DRAW: 1 for a replacement draw; DISCARD: 1 when it was the tile just drawn; CHI: the lowest kind;
-                  // DECLARE: 1 天聽, 2 地聽
+                  // DECLARE: 1 天聽, 2 地聽, 3 報聽
   std::string toString() const;
 };
 
@@ -64,7 +64,7 @@ struct SeatState {
   int draws = 0;           // ordinary draws so far
   bool hasDiscarded = false;
   bool declaredKong = false;
-  // Declared ready (docs/rules.md 6): 0 no, 1 天聽, 2 地聽. From the declaration on the hand is locked: the seat
+  // Declared ready (docs/rules.md 6): 0 no, 1 天聽, 2 地聽, 3 報聽. From the declaration on the hand is locked: the seat
   // discards what it draws and may only win. `declaring`: declared, and the discard that goes with it is still due.
   uint8_t declared = 0;
   bool declaring = false;
@@ -98,7 +98,7 @@ struct Position {
     std::vector<Meld> melds;
     uint8_t flowers = 0;
     std::vector<Discard> discards;
-    uint8_t declared = 0;  // 1: 天聽, 2: 地聽
+    uint8_t declared = 0;  // 1: 天聽, 2: 地聽, 3: 報聽
   };
   HandSetup setup;
   int me = 0;
@@ -182,7 +182,8 @@ class Game {
   // The tai `seat` would score by winning now: on its drawn tile in SELF, or on the claim tile in REACT and ROB_KONG.
   // -1 when it cannot win (not complete, missed win, or below min_tai).
   int winTai(int seat) const;
-  // What `seat` may declare on its turn now (Action::DECLARE): 0 nothing, 1 天聽, 2 地聽.
+  // What `seat` may declare on its turn now (Action::DECLARE): 0 nothing, 1 天聽, 2 地聽, 3 報聽 (later, or on the
+  // first turn when 天聽 or 地聽 is not played).
   int declareType(int seat) const;
   Tai::WinInfo winInfo(int seat, int tile, bool selfDraw, bool robbedKong) const;
 

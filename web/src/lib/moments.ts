@@ -15,7 +15,7 @@ export interface Parts { in: number; drop: number; hold: number; out: number }
 export interface Moment {
   id: number;
   /** call: a chow, a pung, a kong; dealin: who dealt in (another); small: a win's words by the winner (a review's end,
-   *  small); sad: the player's own deal-in; win: a win (on a discard, self-drawn, by flowers); declare: 天聽, 地聽;
+   *  small); sad: the player's own deal-in; win: a win (on a discard, self-drawn, by flowers); declare: 天聽, 地聽, 報聽;
    *  drawn: an exhaustive draw; gap: nothing shown, a pause at a hand's end (`hide`: before the hands are shown, a
    *  draw's; else after, before the result's moment). */
   kind: 'call' | 'dealin' | 'small' | 'sad' | 'win' | 'declare' | 'drawn' | 'gap';

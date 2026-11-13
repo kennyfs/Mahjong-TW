@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Takes a checkpoint of features version 1 to version 2 (declared ready hands), keeping what the network computes.
+"""Takes a checkpoint to the current features version (one step after another), keeping what the network computes.
 
     python upgrade_features.py OLD.pt NEW.pt [--export NEW.onnx]
 
 Version 2 adds (cpp/learn/features.h, actions.h): the action `declare` (the ninth special action, with its block of
 the global vector after the other eight), two features of a seat (declared 天聽, 地聽), two rules (tianting, diting,
-at the end of the rules) and two tai items (at the end). The new inputs get weights of zero, so every old position
-gives the same outputs as before; the new action starts from the embedding of `tsumo` (an action taken nearly always
-when it is legal); the new items of the tai head start at "does not happen". The optimizer's statistics are kept, with
-zeros for the new weights.
+at the end of the rules) and two tai items (at the end). Version 3 adds 報聽: a feature of a seat (declared 報聽, after
+the other two), a rule (baoting, at the end of the rules) and a tai item (at the end).
+
+The new inputs get weights of zero, so every old position gives the same outputs as before; a new action starts from
+the embedding of `tsumo` (an action taken nearly always when it is legal); the new items of the tai head start at
+"does not happen". The optimizer's statistics are kept, with zeros for the new weights.
 """
 
 import argparse
@@ -18,14 +20,14 @@ import sys
 import torch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mahjong.model import (FEATURES_VERSION, NUM_SPECIAL, NUM_TAI_ITEMS, MahjongNet, ModelConfig,  # noqa: E402
-                           export_onnx, save_checkpoint)
+from mahjong.model import FEATURES_VERSION, ME_OUT, MahjongNet, ModelConfig, export_onnx  # noqa: E402
 
-OLD_SPECIAL = 8
-OLD_TAI_ITEMS = 38
-NEW_SEAT = 2
-NEW_RULES = 2
-
+# Each step from version v to v + 1: the special actions before it and how many it adds, the seat features, the rules
+# and the tai items before it and how many it adds (all at the ends of their parts).
+STEPS = {
+    1: dict(special=8, new_special=1, new_seat=2, new_rules=2, tai=38, new_tai=2),
+    2: dict(special=9, new_special=0, new_seat=1, new_rules=1, tai=40, new_tai=1),
+}
 
 def insert(t, dim, at, n, fill=0.0):
     shape = list(t.shape)
@@ -35,37 +37,36 @@ def insert(t, dim, at, n, fill=0.0):
     return torch.cat([a, new, b], dim=dim)
 
 
-def upgrade_tensor(name, t, old, weights):
+def upgrade_tensor(name, t, old, step, weights):
     """One parameter (weights=True) or a statistic of the optimizer for it (zeros where it grows)."""
-    ga, rules_at = old["ga_size"], old["go_actions"] + OLD_SPECIAL * old["ga_size"]
+    ga, rules_at = old["ga_size"], old["go_actions"] + step["special"] * old["ga_size"]
     if name == "seat_in.weight":
-        return insert(t, 1, old["seat_obs"], NEW_SEAT)
+        return insert(t, 1, old["seat_obs"], step["new_seat"])
     if name == "global_in.0.weight":
-        t = insert(t, 1, old["global_obs"], NEW_RULES)   # the later place first, so the earlier one stays valid
-        return insert(t, 1, rules_at, ga)
-    if name.endswith("special_emb"):
+        t = insert(t, 1, old["global_obs"], step["new_rules"])   # the later place first, so the earlier one stays valid
+        return insert(t, 1, rules_at, ga * step["new_special"])
+    if name.endswith("special_emb") and step["new_special"]:
         row = t[0:1].clone() if weights else torch.zeros_like(t[0:1])
-        return torch.cat([t, row], dim=0)
+        return torch.cat([t] + [row] * step["new_special"], dim=0)
     if name == "me_out.weight":
-        return insert(t, 0, OLD_TAI_ITEMS, NUM_TAI_ITEMS - OLD_TAI_ITEMS)
+        return insert(t, 0, step["tai"], step["new_tai"])
     if name == "me_out.bias":
-        return insert(t, 0, OLD_TAI_ITEMS, NUM_TAI_ITEMS - OLD_TAI_ITEMS, -6.0 if weights else 0.0)
+        return insert(t, 0, step["tai"], step["new_tai"], -6.0 if weights else 0.0)
     return t
 
 
-def upgrade_state(sd, old, weights=True):
-    return {k: upgrade_tensor(k, v, old, weights) for k, v in sd.items()}
+def upgrade_state(sd, old, step, weights=True):
+    return {k: upgrade_tensor(k, v, old, step, weights) for k, v in sd.items()}
 
 
-def upgrade(state):
+def upgrade_step(state):
     old = dict(state["config"])
-    if old.get("features", 1) != 1:
-        raise SystemExit(f"This checkpoint has features version {old.get('features')}, not 1")
-    assert NUM_SPECIAL == OLD_SPECIAL + 1 and FEATURES_VERSION == 2
+    version = old.get("features", 1)
+    step = STEPS[version]
     config = dict(old)
-    config["features"] = FEATURES_VERSION
-    config["seat_obs"] = old["seat_obs"] + NEW_SEAT
-    config["global_obs"] = old["global_obs"] + old["ga_size"] + NEW_RULES
+    config["features"] = version + 1
+    config["seat_obs"] = old["seat_obs"] + step["new_seat"]
+    config["global_obs"] = old["global_obs"] + old["ga_size"] * step["new_special"] + step["new_rules"]
     # The optimizer numbers the parameters as train0.py and train1.py group them: those with weight decay first.
     named = [(n, p.ndim) for n, p in MahjongNet(ModelConfig(**config)).named_parameters()]
 
@@ -74,9 +75,9 @@ def upgrade(state):
     names = [n for n, d in named if decays(n, d)] + [n for n, d in named if not decays(n, d)]
     out = dict(state)
     out["config"] = config
-    out["model"] = upgrade_state(state["model"], old)
+    out["model"] = upgrade_state(state["model"], old, step)
     if "ema" in state:
-        out["ema"] = upgrade_state(state["ema"], old)
+        out["ema"] = upgrade_state(state["ema"], old, step)
     if "optimizer" in state:
         # The optimizer keeps its statistics by the parameters' order.
         opt = state["optimizer"]
@@ -87,10 +88,20 @@ def upgrade(state):
                 if st:
                     for key, value in st.items():
                         if torch.is_tensor(value) and value.dim() > 0:
-                            st[key] = upgrade_tensor(name, value.cpu(), old, False).to(value.device)
+                            st[key] = upgrade_tensor(name, value.cpu(), old, step, False).to(value.device)
         else:
             del out["optimizer"]
     return out
+
+
+def upgrade(state):
+    version = state["config"].get("features", 1)
+    if version >= FEATURES_VERSION:
+        raise SystemExit(f"This checkpoint has features version {version} already")
+    while state["config"].get("features", 1) < FEATURES_VERSION:
+        state = upgrade_step(state)
+    assert state["model"]["me_out.bias"].shape[0] == ME_OUT
+    return state
 
 
 def main():

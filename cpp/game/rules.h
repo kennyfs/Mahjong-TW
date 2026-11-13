@@ -54,6 +54,7 @@ struct Rules {
   int ankongTai = 0;
   int tianting = 0;  // 天聽 (0: it cannot be declared)
   int diting = 0;    // 地聽
+  int baoting = 1;   // 報聽: a ready hand declared later (0: it cannot be)
 
   // --- Play ---
   double base = 2.0;

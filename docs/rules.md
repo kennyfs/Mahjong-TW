@@ -85,7 +85,7 @@ Terms used throughout:
 5. A win needs at least `min_tai` tai (default 0: a win without tai, 屁胡, is allowed). Winning is always optional.
 6. A hand without a winner when the wall ends (3.4) is an exhaustive draw (流局). Nobody pays.
 
-### 5.1 Declared ready hands (天聽, 地聽)
+### 5.1 Declared ready hands (天聽, 地聽, 報聽)
 
 With `tianting` or `diting` above 0 (`standard` and `masters`: 8 and 4; added 2026-11-11), a player may declare a
 ready hand on their first turn:
@@ -98,9 +98,16 @@ ready hand on their first turn:
    discard. Each can be declared only when its own item is above 0.
 3. **How:** the player declares, then discards a tile that leaves the hand ready (any such tile). The declaration is
    public. It is optional.
-4. **After it** the hand is locked: the player discards every tile drawn, declares no kong and claims no discard
-   except to win. Winning stays optional, and the missed-win rule (5.4) applies as usual.
+4. **After it** the hand is locked: the player discards every tile drawn and claims no discard (no chow, pung or
+   exposed kong) except to win. The one exception (2026-11-13): a concealed kong of the tile just drawn (the fourth
+   copy), when the hand waits on exactly the same kinds after it as before the draw. Winning stays optional, and the
+   missed-win rule (5.4) applies as usual.
 5. A win of a declared hand adds the item's tai to everything else it scores.
+6. **報聽** (`baoting`, added 2026-11-13 at the players' request, not a usual Taiwanese rule; 1 in every preset, 0 turns
+   it off): with `baoting` above 0 a player may declare a ready hand on any later turn too, with a concealed
+   hand (no chow, pung or exposed kong so far; concealed kongs are fine), as in 1 and 3 otherwise. On the first turn
+   a declaration that qualifies as 天聽 or 地聽 (with its item above 0) is that; otherwise it is 報聽. The hand is
+   locked as in 4, and a win adds `baoting` tai.
 
 ## 6. The hand's end and the next dealer
 
@@ -129,7 +136,7 @@ Points are zero-sum. Results are reported in tai, so `base` only changes how a b
 
 ## 8. Not implemented
 
-Declaring a ready hand later than the first turn (宣告聽牌), 嚦咕嚦咕, special draws (four kongs, four winds), penalties (詐胡,
+嚦咕嚦咕, special draws (four kongs, four winds), penalties (詐胡,
 相公), dora and other online-only items (寶牌, 一發, 斷么九, …).
 
 ## 9. Scoring: tai (台數)
@@ -185,6 +192,7 @@ The columns are the tai presets (section 11), listed in this order:
 | 人胡 Human hand | `renhu` | 0 | 0 | 0 | 16 | Another player wins on a discard before their first discard, with no chow, pung or kong so far. Replaces concealed. |
 | 天聽 Declared ready, heavenly | `tianting` | 0 | 0 | 8 | 8 | Section 5.1. |
 | 地聽 Declared ready, earthly | `diting` | 0 | 0 | 4 | 4 | Section 5.1. |
+| 報聽 Declared ready, later | `baoting` | 1 | 1 | 1 | 1 | Section 5.1. |
 | 見風見台 Any wind pung | `any_wind` | 0 | 1 | 0 | 0 | Per wind pung, instead of 圈風 and 門風 (明星3缺1's 見花見字 option). |
 | 無字無花 No honors, no flowers | `no_honor_flower` | 0 | 0 | 0 | 0 | (見花見字 option.) |
 | 明槓 Kong | `kong_tai` | 0 | 0 | 0 | 0 | Per exposed or added kong (見花見字 option). |
