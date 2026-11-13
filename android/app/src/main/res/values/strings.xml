@@ -143,6 +143,9 @@
   <string name="sound_off">關</string>
   <string name="sound_soft">小聲</string>
   <string name="sound_full">正常</string>
+  <string name="sound_simple">簡潔</string>
+  <string name="sound_real">擬真</string>
+  <string name="sound_hint">簡潔：只表達發生了什麼（輕敲、短音）；擬真：像真的麻將牌在桌上的聲音。</string>
   <string name="speed_slow">慢</string>
   <string name="speed_normal">中</string>
   <string name="speed_fast">快</string>

@@ -30,6 +30,8 @@ export type CallFxMode = 'anim' | 'words';
 /** The table's sounds (lib/sound.ts): off, soft, or full. */
 export type SoundLevel = 'off' | 'soft' | 'full';
 export const SOUND_LEVELS: SoundLevel[] = ['off', 'soft', 'full'];
+/** Which set: simple (what happened, no more) or real (tiles as they sound). */
+export type SoundStyle = 'simple' | 'real';
 export const TABLE_MARKS: TableMarks[] = ['both', 'loss', 'none'];
 /** Which losses the review counts as mistakes and stops at: a beginner's only the large ones, an expert's the small
  *  ones too (lib/review.ts). */
@@ -51,6 +53,7 @@ interface Stored {
   tableMarks?: TableMarks;
   callFx?: CallFxMode;
   sound?: SoundLevel;
+  soundStyle?: SoundStyle;
 }
 
 const DEFAULTS: Stored = {
@@ -73,6 +76,7 @@ class Settings {
   tableMarks = $state<TableMarks>('both');
   callFx = $state<CallFxMode>('anim');
   sound = $state<SoundLevel>('full');
+  soundStyle = $state<SoundStyle>('real');
 
   constructor() {
     const s = { ...DEFAULTS, ...load<Partial<Stored>>(KEYS.settings, {}) };
@@ -90,6 +94,7 @@ class Settings {
     this.tableMarks = s.tableMarks && TABLE_MARKS.includes(s.tableMarks) ? s.tableMarks : 'both';
     this.callFx = s.callFx === 'words' ? 'words' : 'anim';
     this.sound = s.sound && SOUND_LEVELS.includes(s.sound) ? s.sound : 'full';
+    this.soundStyle = s.soundStyle === 'simple' ? 'simple' : 'real';
   }
 
   get spec(): string { return ruleSpec(this.rules); }
@@ -98,7 +103,7 @@ class Settings {
     save(KEYS.settings, {
       rules: this.rules, length: this.length, bot: this.bot, speed: this.speed, colors: this.colors, dark: this.dark,
       text: this.text, name: this.name, server: this.server, listRows: this.listRows, level: this.level,
-      tableMarks: this.tableMarks, callFx: this.callFx, sound: this.sound,
+      tableMarks: this.tableMarks, callFx: this.callFx, sound: this.sound, soundStyle: this.soundStyle,
     } satisfies Stored);
   }
 }

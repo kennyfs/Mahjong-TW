@@ -1,8 +1,8 @@
-// The table's sounds (public/sounds/, made for this game: scripts and notes in docs/app.md): the shuffle, a packet of
+// The table's sounds (public/sounds/simple, public/sounds/real: scripts/make_sounds.py): the shuffle, a packet of
 // tiles dealt, a tile discarded (a few takes, one at random each time), a call's, a kong's, a win's, the player's own
-// deal-in, a draw, a flower. Web Audio: the files are fetched and decoded once, the first time a sound is asked for
-// after a tap or a key (a browser lets a page make sound only after one); a sound asked for before that is not played
-// late. The settings' level: off, soft, full.
+// deal-in, a draw, a flower. Two sets, the settings' style: simple (what happened, no more) and real (tiles as they
+// sound). Web Audio: a set's files are fetched and decoded once, after the first tap or key (a browser lets a page
+// make sound only after one); a sound asked for before they are in is not played late. The level: off, soft, full.
 
 import { settings } from './settings.svelte';
 
@@ -24,26 +24,28 @@ const LEVEL = { off: 0, soft: 0.4, full: 1 };
 
 let ctx: AudioContext | null = null;
 const buffers = new Map<string, AudioBuffer>();
-let loading: Promise<void> | null = null;
+const loading = new Map<string, Promise<void>>();
 
 function base(): string {
   const b = (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? '/';
   return b.endsWith('/') ? b : b + '/';
 }
 
-function load(): Promise<void> {
-  if (loading || !ctx) return loading ?? Promise.resolve();
+function load(style = settings.soundStyle): Promise<void> {
+  const had = loading.get(style);
+  if (had || !ctx) return had ?? Promise.resolve();
   const c = ctx;
   const names = [...new Set(Object.values(FILES).flatMap((f) => f.files))];
-  loading = Promise.all(names.map(async (n) => {
+  const p = Promise.all(names.map(async (n) => {
     try {
-      const r = await fetch(`${base()}sounds/${n}.mp3`);
-      buffers.set(n, await c.decodeAudioData(await r.arrayBuffer()));
+      const r = await fetch(`${base()}sounds/${style}/${n}.mp3`);
+      buffers.set(`${style}/${n}`, await c.decodeAudioData(await r.arrayBuffer()));
     } catch {
       // (A sound that does not load is not played.)
     }
   })).then(() => undefined);
-  return loading;
+  loading.set(style, p);
+  return p;
 }
 
 /** The first tap or key: sound may start (and the files load). */
@@ -66,8 +68,12 @@ export function playSound(name: SoundName, delay = 0) {
   const level = LEVEL[settings.sound];
   if (!level || !ctx || ctx.state !== 'running' || document.hidden) return;
   const f = FILES[name];
-  const buf = buffers.get(f.files[Math.floor(Math.random() * f.files.length)]);
-  if (!buf) return;
+  const style = settings.soundStyle;
+  const buf = buffers.get(`${style}/${f.files[Math.floor(Math.random() * f.files.length)]}`);
+  if (!buf) {
+    void load(style);
+    return;
+  }
   const src = ctx.createBufferSource();
   src.buffer = buf;
   // A little life in the repeated ones: the pitch a shade up or down.
