@@ -316,6 +316,8 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     between as many spots as fill it, one about every 470 ms (DealFx LEG_MS: five legs now, three before). Its sound
     made again 2.7 s long, five waves of pushes (web/scripts/make_sounds.py; the other sounds byte for byte the
     same).
+  - **The battle server's default `mahjong.1li.tw`** (app and page, the user's): where none was set; the page's
+    cleared field is still its own server.
   - **A test build's icon**: the moon in its top right, over the tile's corner on a disc of the night felt (as
     Thirteen's test icon).
 

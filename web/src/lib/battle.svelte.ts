@@ -104,6 +104,9 @@ export function rankOf(r: RoomView, p: PlayerView): number {
   return 1 + standings(r).filter((x) => x.total > p.total + 1e-9).length;
 }
 
+/** The battle server where none was ever set (the user's, 2026-11-13): the public one, the same host as the page's. */
+export const DEFAULT_SERVER = 'mahjong.1li.tw';
+
 const NAME_KEY = 'mahjong.battle.name';
 const SERVER_KEY = 'mahjong.battle.server';
 const CHOICES_KEY = 'mahjong.battle.choices';
@@ -115,8 +118,8 @@ class Battle {
   name = $state(load<string>(NAME_KEY, ''));
   /** The name of a player who gives none: "玩家" and a number of their own. */
   readonly defaultName: string;
-  /** Empty: the server of this page. */
-  server = $state(load<string>(SERVER_KEY, ''));
+  /** Empty: the server of this page (the player cleared it); never set: DEFAULT_SERVER. */
+  server = $state(load<string>(SERVER_KEY, DEFAULT_SERVER));
   pin = $state('');
   /** Connecting, or waiting for the room's answer. */
   busy = $state(false);

@@ -188,8 +188,9 @@ with the defaults, little for the page. Until it is up:
 - The web page's battles connect to the page's own address (`/ws`): they work wherever the page is served with a
   battle server behind the same address (compose.yml, or `npm run dev` here). A page served alone shows the
   connection error.
-- The app has no default server: the player types an address on the Battle screen (it is kept in the settings).
-  Once hosting is decided, put the address as the default (`Settings.kt`, `server`) and say so on the screen.
+- The app and the page default to `mahjong.1li.tw` (`DEFAULT_SERVER` in `Settings.kt` and `battle.svelte.ts`); the
+  player may type another (kept in the settings). On the page an empty field means the page's own server; in the app
+  an empty field comes back to the default.
 - Phones nearby need no server at all.
 
 ## Tests

@@ -56,6 +56,10 @@ enum class ColorStyle { TABLE, MINIMAL, WALLPAPER }
 enum class DarkMode { SYSTEM, LIGHT, DARK }
 enum class TextSize(val scale: Float) { SMALL(0.88f), NORMAL(1f), LARGE(1.15f) }
 
+/** The battle server where none is set (the user's, 2026-11-13): the public one, the web page's host. A cleared field
+ *  comes back to it (the app has no server of its own to fall back on). */
+const val DEFAULT_SERVER = "mahjong.1li.tw"
+
 /** The bots: the network (the built-in one, playing the action it values most) and tile efficiency. */
 val BOTS = listOf(Engine.NET_BOT to R.string.bot_net, "greedy" to R.string.bot_greedy)
 
@@ -98,7 +102,7 @@ class Settings(context: Context) {
   var dark by mutableStateOf(stored.dark)
   var text by mutableStateOf(stored.text)
   var name by mutableStateOf(stored.name)
-  var server by mutableStateOf(stored.server)
+  var server by mutableStateOf(stored.server.ifBlank { DEFAULT_SERVER })
   var level by mutableStateOf(stored.level)
   var readyHint by mutableStateOf(stored.readyHint)
   var sound by mutableStateOf(stored.sound)
