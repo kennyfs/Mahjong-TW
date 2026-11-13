@@ -124,6 +124,8 @@ data class TableSizes(
   val tableW: Float,
   /** The words' size on the table, sp. */
   val font: Float,
+  /** The line over the player's hand that holds their melds and flowers (a tall table's, their name plate too). */
+  val meldLine: Float = 30f,
 )
 
 private fun h(w: Float) = w * TILE_RATIO
@@ -162,9 +164,12 @@ fun tableSizes(width: Float, height: Float, maxHand: Float = 64f, top: Float = 0
   if (wide) w = min(w, height * 2.3f)
   if (wide) {
     val hand = max(24f, minOf(maxHand, (w - 24) / (17 + DRAWN_GAP + 0.3f), (height * 0.165f) / TILE_RATIO))
-    val meld = hand * 0.78f
+    val meld = hand * 0.7f
     val opp = max(22f, min(hand * 0.66f, if (height >= 900) 44f else 36f))
-    val meH = h(hand) * (1 + LIFT) + 10
+    // The player's melds and flowers in a line over the hand, at its left (the user: over the hand and at the left,
+    // whatever the screen); the hand under it.
+    val meldLine = max(30f, h(meld))
+    val meH = meldLine + 4 + h(hand) * (1 + LIFT) + 10
     val topH = h(opp) + 12
     val centerH = height - meH - topH - 6
     val sideMin = max(opp * 3.4f + 16, 128f)
@@ -194,16 +199,18 @@ fun tableSizes(width: Float, height: Float, maxHand: Float = 64f, top: Float = 0
     val sideRows = max(4, floor((centerH - 4) / h(b.river)).toInt())
     return TableSizes(
       wide, hand, 0, meld, b.river, opp, if (height < LOW) 0f else max(10f, opp * 0.66f), b.acrossCols, b.acrossRows, b.sideCols, sideRows, sideW, topH, meH,
-      0f, MID_ROWS * h(b.river), tableW, max(14f, min(18f, opp * 0.46f)),
+      0f, MID_ROWS * h(b.river), tableW, max(14f, min(18f, opp * 0.46f)), meldLine = meldLine,
     )
   }
   // Tall (a phone upright): the others along the top, each in a column over their river; the rivers the whole width;
-  // the player's name plate, melds and flowers in a line over the hand, which wraps after HAND_ROW tiles.
+  // the player's melds and flowers (at the left) and name plate (at the right) in a line over the hand, which wraps
+  // after HAND_ROW tiles.
   // The rivers: 3 columns at the sides, 5 across in 3 rows; as wide as the table allows, unless its height says less.
   val sideCols = 3
   val acrossCols = 5
   val acrossRows = 3
-  data class Fit(val hand: Float, val meld: Float, val opp: Float, val meH: Float, val topH: Float, val centerH: Float, val river: Float)
+  data class Fit(val hand: Float, val meld: Float, val opp: Float, val meH: Float, val topH: Float, val centerH: Float, val river: Float,
+    val meldLine: Float)
   fun tall(hand: Float, more: Float = 0f): Fit {
     val meld = min(hand * 0.72f, 40f)
     val opp = max(22f, min(hand * 0.6f, 32f))
@@ -217,7 +224,7 @@ fun tableSizes(width: Float, height: Float, maxHand: Float = 64f, top: Float = 0
     val centerH = height - meH - topH - 4 - (if (more > own) SHOWN_GAP else 0f)
     var river = min(hand * 0.9f, (w - 24) / (acrossCols + 2 * sideCols))
     while (river > 16 && (2 * acrossRows + BOX_ROWS) * h(river) + 14 > centerH) river -= 0.5f
-    return Fit(hand, meld, opp, meH, topH, centerH, river)
+    return Fit(hand, meld, opp, meH, topH, centerH, river, meldLine)
   }
   var fit = tall(max(30f, min(maxHand, (w - 10) / (HAND_ROW + DRAWN_GAP + 1))))
   while (fit.river < MIN_RIVER && fit.hand > 30) fit = tall(max(30f, fit.hand - 1))
@@ -227,6 +234,6 @@ fun tableSizes(width: Float, height: Float, maxHand: Float = 64f, top: Float = 0
   val mid = max(h(fit.river) * BOX_ROWS, min(h(fit.river) * 2, fit.centerH - 2 * acrossRows * h(fit.river) - 14))
   return TableSizes(
     wide, fit.hand, HAND_ROW, fit.meld, fit.river, fit.opp, 0f, acrossCols, acrossRows, sideCols, sideRows, (w - 8) / 3, fit.topH,
-    fit.meH, acrossCols * fit.river, mid, w, 14f,
+    fit.meH, acrossCols * fit.river, mid, w, 14f, meldLine = fit.meldLine,
   )
 }

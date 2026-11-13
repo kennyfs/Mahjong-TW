@@ -67,8 +67,9 @@ fun SadFx(m: Moment, host: FxHost) {
     // 放槍, sinking in; the tile dealt under it.
     val fs = (0.12f * vmin).coerceIn(41.6f, 96f)
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((0.03f * maxHeight.value).coerceIn(14f, 28f).dp)) {
+      // (Room in its layer for the plaque's shade: Moments.kt roomyLayer.)
       Column(
-        Modifier.graphicsLayer {
+        Modifier.roomyLayer((fs * 0.3f).dp) {
           val p = time.p
           val em = fs * density
           val y = when {

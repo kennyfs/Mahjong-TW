@@ -11,9 +11,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import io.github.kennyfs.mahjong.Side
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -26,7 +29,9 @@ private val IN_OUT = CubicBezierEasing(0.65f, 0f, 0.35f, 1f)
  * river (`discard_move`); once it is halfway there the hand closes the gap it left (`hand_move`: the drawn tile to its
  * place, the tiles between it and the gap a tile over). Slow at both ends. TableView arms it as the view with the discard is composed,
  * before it is laid out (the tiles' places before are still known); the hand's tiles and the river's new tile then move
- * themselves as they are placed (handSlide, discardFly).
+ * themselves as they are placed (handSlide, discardFly). Another player's discard flies in to their river from the
+ * table's edge on their side (armIn, discardIn; the web page's flyIn), in the last `discard_move` of a computer
+ * player's pace (Claims.kt BotPace).
  */
 class HandMotion {
   /** Each hand tile's place when last laid out (its centre, px in the root) and its width (px), by its key (tileKeys). */
@@ -39,6 +44,14 @@ class HandMotion {
   var seen = -1
   /** The moves: their number (each tile starts its own once per number), when they started and how long they take. */
   var token by mutableIntStateOf(0)
+  /** Any move started (the player's or another's discard): the table's ticker runs while any moves. */
+  var ticks by mutableIntStateOf(0)
+  /** Another player's discard in flight: its index in their river, the side it comes in from, its start and length. */
+  class InFlight(val index: Int, val side: Side, val start: Long, val ms: Long)
+  /** By seat (read as the river's tiles are placed). */
+  val ins = HashMap<Int, InFlight>()
+  /** The table's box in the root, px: the others' discards come in from its edges. */
+  var table: Rect? = null
   var start = 0L
   var handMs = 1L
   var flyMs = 1L
@@ -58,6 +71,17 @@ class HandMotion {
   val handWait: Long get() = flyMs / 2
 
   val moving: Boolean get() = SystemClock.uptimeMillis() - start < max(handWait + handMs, flyMs)
+
+  /** The player's moves, or another's discard, still going. */
+  val anyMoving: Boolean get() = moving || ins.values.any { SystemClock.uptimeMillis() - it.start < it.ms }
+
+  /** `seat` (at `side` of the table) discarded the tile `index` of their river: it flies in, for `ms`. */
+  fun armIn(seat: Int, side: Side, index: Int, ms: Long) {
+    if (side == Side.BOTTOM || table == null) return
+    ins[seat] = InFlight(index, side, SystemClock.uptimeMillis(), max(1L, ms))
+    flying = true
+    ticks++
+  }
 
   /** The player discarded `tile` (the river's tile `index`): the moves from the hand as it was last laid out. */
   fun arm(tile: String, index: Int, handMs: Long, flyMs: Long) {
@@ -86,6 +110,7 @@ class HandMotion {
     start = SystemClock.uptimeMillis()
     flying = true
     token++
+    ticks++
   }
 
   companion object {
@@ -133,8 +158,9 @@ fun Modifier.handSlide(motion: HandMotion?, key: String): Modifier = if (motion 
   }
 }
 
-/** A part of the table that holds the player's river (or holds what does): drawn over the parts beside it while their
- *  discard flies, so that the tile goes over the hand it leaves, not under it. Read as it is placed (no recomposition). */
+/** A part of the table that holds the rivers (or holds what does): drawn over the parts beside it while a discard
+ *  flies, so that the tile goes over the hand it leaves (or the seat it passes), not under it. Read as it is placed (no
+ *  recomposition). */
 fun Modifier.overWhileFlying(motion: HandMotion): Modifier = layout { m, c ->
   val p = m.measure(c)
   layout(p.width, p.height) { p.place(0, 0, zIndex = if (motion.flying) 1f else 0f) }
@@ -176,6 +202,53 @@ fun Modifier.discardFly(motion: HandMotion?, index: Int): Modifier = if (motion 
         translationY = off.y
         scaleX = k
         scaleY = k
+      }
+    }
+  }
+}
+
+/** Another player's new discard in their river (`seat`'s tile `index`): in from the table's edge on their side (the
+ *  top, the left, the right), along the line to its place, fading in as it comes; slow at both ends. */
+fun Modifier.discardIn(motion: HandMotion?, seat: Int, index: Int): Modifier = if (motion == null) this else composed {
+  class State(var f: HandMotion.InFlight? = null, var d: Offset? = null)
+  val st = remember { State() }
+  layout { m, c ->
+    val p = m.measure(c)
+    layout(p.width, p.height) {
+      var off = Offset.Zero
+      var a = 1f
+      val fl = motion.ins[seat]
+      val co = coordinates
+      if (co != null && fl != null && fl.index == index) {
+        if (st.f !== fl) {
+          st.f = fl
+          val t = motion.table
+          val at = co.positionInRoot()
+          // From just inside the table's edge: the tile's outer side on it.
+          st.d = if (t == null || SystemClock.uptimeMillis() - fl.start >= fl.ms) null else when (fl.side) {
+            Side.TOP -> Offset(0f, t.top - at.y)
+            Side.LEFT -> Offset(t.left - at.x, 0f)
+            Side.RIGHT -> Offset(t.right - (at.x + p.width), 0f)
+            Side.BOTTOM -> null
+          }
+        }
+        val d = st.d
+        if (d != null) {
+          motion.frame
+          val f = ((SystemClock.uptimeMillis() - fl.start).toFloat() / fl.ms).coerceIn(0f, 1f)
+          if (f >= 1f) st.d = null
+          else {
+            off = d * (1 - IN_OUT.transform(f))
+            a = (f / 0.2f).coerceAtMost(1f)
+          }
+        }
+      }
+      p.placeWithLayer(0, 0) {
+        translationX = off.x
+        translationY = off.y
+        alpha = a
+        // (Not drawn apart at its own size while it fades in: its light around it would be cut.)
+        compositingStrategy = CompositingStrategy.ModulateAlpha
       }
     }
   }

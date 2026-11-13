@@ -86,6 +86,8 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   private var ahead: Ahead? = null
   /** The call the player just made on another's tile, until what came of it is known. */
   private var claimed: String? = null
+  /** The computer players' pace (Claims.kt BotPace): their turns, their discards' flights, their answers to a tile. */
+  private val pace = BotPace()
   private var noticeJob: Job? = null
 
   /** Another game or hand: nothing held from the last. */
@@ -93,6 +95,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     epoch++
     // (What the last game's loop waits for goes at once: it sees the game is gone.)
     CalloutClock.release()
+    pace.reset()
     ahead = null
     waiting = false
     claimed = null
@@ -202,7 +205,6 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
             // Another's tile the player could claim: the computer players decide on it first (Claims), the player's
             // buttons held back meanwhile.
             busy = true
-            val shown = android.os.SystemClock.uptimeMillis()
             val pc = Claims.preclaim(g, ME, bots, seed) ?: break
             if (e != epoch || game !== g) break
             val r = pc.robbed
@@ -224,9 +226,9 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
               waiting = true
               break
             }
-            // The discard stays a while first (Claims.robPause, counted from when it showed), its words done.
-            CalloutClock.done()
-            delay(maxOf(0L, Claims.robPause() - (android.os.SystemClock.uptimeMillis() - shown)))
+            // The discard stays a while first (rob_show, from when it came: BotPace), its words done.
+            pace.settle(before)
+            pace.rob()
             if (e != epoch || game !== g) break
             robbed = at
             game = pc.game
@@ -255,34 +257,36 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
             continue
           }
           busy = true
-          // A bot's own turn takes the pace (bot_turn; after its own chow or pung bot_after_call: the moment showed
-          // it). Deciding on a discard (nobody else may): a call shows after the tile's stay (bot_claim), no call at
-          // once (Claims.othersCall). The pace counts once a call's moment or words (碰, 槓, 天聽) are over (a touch
-          // anywhere lets them go).
+          // A bot's own turn takes its pace (bot_turn; after its own chow or pung bot_after_call), its discard flying
+          // in to the river in the last of it, and is over when the tile lands. Deciding on a discard (nobody else may):
+          // a call shows after the tile's stay (bot_claim), no call at once (Claims.othersCall). Each counts once a
+          // call's moment or words (碰, 槓, 天聽) are over (a touch anywhere lets them go). (BotPace.)
           val claim = p.phase != "self"
-          CalloutClock.done()
+          pace.settle(before)
           if (e != epoch || game == null) break
-          if (!claim) {
-            delay(Timing.ms(if (Claims.justCalled(g, p.current)) "bot_after_call" else "bot_turn"))
-            if (e != epoch || game == null) break
-          }
           val from = android.os.SystemClock.uptimeMillis()
           val next = Engine.advance(g, bots, seed, 1)
           var nextView: View? = null
+          var fly = 0L
           if (claim) {
             val v = Engine.view(next, ME)
             if (e != epoch) break
-            if (Claims.othersCall(v, before, ME)) delay(maxOf(0L, Timing.ms("bot_claim") - (android.os.SystemClock.uptimeMillis() - from)))
+            if (Claims.othersCall(v, before, ME)) pace.call()
             nextView = v
-          }
+          } else fly = pace.turn(g, p.current, next, from)
           // (Another game came meanwhile: this one's step is no more.)
           if (e != epoch) break
           game = next
+          pace.came(next, fly)
           persist()
           if (nextView != null) view = nextView else refresh()
           if (claimed != null) {
             view?.let { sayOverridden(shownSince(it, before)) }
             claimed = null
+          }
+          if (fly > 0) {
+            pace.land()
+            if (e != epoch) break
           }
         }
       } catch (ex: EngineException) {
@@ -339,6 +343,8 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
         claimed = null
       }
       game = next
+      // The player's discard flies to the river: the computer player after them discards once it has landed (BotPace).
+      pace.came(next, pace.flight())
       view = w
     } catch (e: EngineException) {
       onError(e.message ?: "")

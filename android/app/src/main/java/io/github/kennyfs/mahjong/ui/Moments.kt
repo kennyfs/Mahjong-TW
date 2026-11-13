@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
@@ -42,7 +43,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import io.github.kennyfs.mahjong.CalloutClock
 import io.github.kennyfs.mahjong.FxClock
 import io.github.kennyfs.mahjong.R
@@ -116,6 +119,20 @@ fun Modifier.fxAnchor(onPlace: (FxAnchor) -> Unit): Modifier = onGloballyPositio
 fun Modifier.fxArea(onPlace: (Rect) -> Unit): Modifier = onGloballyPositioned {
   onPlace(Rect(it.positionInRoot(), androidx.compose.ui.geometry.Size(it.size.width.toFloat(), it.size.height.toFloat())))
 }
+
+/**
+ * A graphics layer (`block`) with `room` around its content: Android draws a layer that is not wholly opaque apart, at
+ * the layer's size, and loses what its content draws outside it. A call's plaque and the caller's name, which stand
+ * out of its panel, were cut off as the panel slid in, and a win's words and the slant of the panel as they faded (the
+ * web page's opacity cuts nothing). The layer is `room` larger on every side; the content keeps its own place and size.
+ */
+fun Modifier.roomyLayer(room: Dp, block: GraphicsLayerScope.() -> Unit): Modifier = this
+  .layout { m, c ->
+    val r = room.roundToPx()
+    val p = m.measure(c.offset(2 * r, 2 * r))
+    layout(p.width - 2 * r, p.height - 2 * r) { p.placeWithLayer(-r, -r, layerBlock = block) }
+  }
+  .padding(room)
 
 /**
  * The table's moments (TableView makes one and keeps it): the queue, the one held for a tap, and where the table's

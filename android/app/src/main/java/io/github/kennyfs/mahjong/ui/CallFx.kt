@@ -236,9 +236,10 @@ fun CallFx(m: Moment, host: FxHost) {
     val tw = minOf(host.w, room / (if (two) ceil(n / 2) else maxOf(4f, n)))
     val th = tw * TILE_RATIO
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy((0.06f * hDp).coerceIn(26f, 48f).dp)) {
-      // The plaque: in, larger, settling (quiet: from a little above); out.
+      // The plaque: in, larger, settling (quiet: from a little above); out. (Room in its layer for its tilt and
+      // shade: Moments.kt roomyLayer.)
       Column(
-        Modifier.graphicsLayer {
+        Modifier.roomyLayer((fs * 0.3f).dp) {
           val p = time.p
           val out = seg(p, 0.8f, 1f)
           if (quiet) {

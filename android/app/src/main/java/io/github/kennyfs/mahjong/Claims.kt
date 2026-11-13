@@ -1,8 +1,10 @@
 package io.github.kennyfs.mahjong
 
+import android.os.SystemClock
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -31,8 +33,8 @@ object Claims {
   fun othersCall(view: View, before: Int, me: Int): Boolean =
     view.events.takeLast((view.eventCount - before).coerceIn(0, view.events.size)).any { it.seat != me && it.type in setOf("chi", "pon", "kan", "ron") }
 
-  /** Whether `seat`, to play now, came to it by a chow or a pung (since the last discard): its discard then follows the
-   *  call's moment (or words) at once, without the pace of a turn of its own; the moment already showed what it took. */
+  /** Whether `seat`, to play now, came to it by a chow or a pung (since the last discard): its discard then takes the
+   *  pace that follows a call (bot_after_call), counted from the end of the call's moment (or words). */
   fun justCalled(game: GameRecord, seat: Int): Boolean {
     for (k in game.actions.indices.reversed()) {
       val a = game.actions[k]
@@ -42,6 +44,9 @@ object Claims {
     }
     return false
   }
+
+  /** The type of the last action of `game` (a step of the computer players: what it did). */
+  fun lastType(game: GameRecord): String? = game.actions.lastOrNull()?.get(1)?.jsonPrimitive?.content
 
   /** null: nothing to decide first (the player's own turn, or the player is not to decide). */
   suspend fun preclaim(game: GameRecord, me: Int, bots: List<String?>, seed: String): Preclaim? {
@@ -80,4 +85,61 @@ object Claims {
    *  events. */
   fun robbedEvent(events: List<GameEvent>, from: Int, seat: Int): Int =
     (from until events.size).firstOrNull { events[it].seat == seat && events[it].type in setOf("chi", "pon", "kan", "ron") } ?: -1
+}
+
+/**
+ * The computer players' pace as the table shows it (Practice, BranchRun; the web page's lib/claims.ts BotPace). A
+ * computer player's own turn takes its pace (bot_turn; after its own chow or pung bot_after_call), counted from when it
+ * came, once the words or moment of what came before are over. A discard of theirs flies in to their river in the last
+ * discard_move of it (when the moments show: ui/HandMotion.kt), never before the tile before it has landed, and the turn
+ * is over when it lands (with a pace of 900 and a flight of 500: still for 400, then 500 in flight). What they answer
+ * to a tile, a call (bot_claim) or a claim taken from the player (rob_show), shows that long after the tile came, its
+ * flight included, or after the words or moment over it.
+ */
+class BotPace {
+  /** When the last discard (or added kong) came, or the words or moment over it ended; when the last discard lands. */
+  private var shownAt = 0L
+  private var landAt = 0L
+  private fun now() = SystemClock.uptimeMillis()
+
+  /** A discard's flight to its river, ms: discard_move when the moments show; else none (it is there at once). */
+  fun flight(): Long = if (FxClock.enabled()) Timing.ms("discard_move") else 0L
+
+  /** Another game: nothing of the last one's tiles to wait for. */
+  fun reset() {
+    shownAt = 0L
+    landAt = 0L
+  }
+
+  /** The table's view of `count` events: returns once the table has it and the words and moments it brings are over. */
+  suspend fun settle(count: Int) {
+    CalloutClock.settle(count)
+    if (CalloutClock.done()) shownAt = now()
+  }
+
+  /** What `next` added came now: a discard (in flight for `fly`) or an added kong is a tile the others may answer. */
+  fun came(next: GameRecord, fly: Long) {
+    val type = Claims.lastType(next)
+    if (type != "discard" && type != "kakan") return
+    shownAt = now()
+    landAt = shownAt + (if (type == "discard") fly else 0L)
+  }
+
+  /** A computer player's own turn (`seat`, in `game`; `next`: what it does), come at `from`: waits its pace, less the
+   *  flight of its discard. Returns that flight (0: none, or not a discard). */
+  suspend fun turn(game: GameRecord, seat: Int, next: GameRecord, from: Long): Long {
+    val fly = if (Claims.lastType(next) == "discard") flight() else 0L
+    val pace = Timing.ms(if (Claims.justCalled(game, seat)) "bot_after_call" else "bot_turn")
+    delay(maxOf(0L, from + pace - fly - now(), landAt - now()))
+    return fly
+  }
+
+  /** A computer player's call on the tile: after its stay (bot_claim). */
+  suspend fun call() = delay(maxOf(0L, shownAt + Timing.ms("bot_claim") - now(), landAt - now()))
+
+  /** A claim taken from the player: after the tile's stay (rob_show; Claims.robPause). */
+  suspend fun rob() = delay(maxOf(0L, shownAt + Claims.robPause() - now(), landAt - now()))
+
+  /** The tile just discarded lands: a computer player's turn is over then. */
+  suspend fun land() = delay(maxOf(0L, landAt - now()))
 }

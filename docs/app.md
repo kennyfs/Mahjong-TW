@@ -257,10 +257,54 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     river are drawn over the hand (overWhileFlying), and the hand's moving tiles over the ones that stay, as on the
     page. With the system's animations off the words alone (as the page's reduced motion). Practice's and the
     branch's loops by number, as the page's.
+- **0.7.1** (2026-11-13; the user's report on 0.7.0 and their requests):
+  - **A computer player's pace** 900 ms for all four (`bot_turn`, `bot_claim`, `bot_after_call`, `rob_show`; the
+    user's). **Another's discard flies in** to their river from the table's edge on their side (the top, the left,
+    the right; fading in at first, slow at both ends) in the last `discard_move` of the computer player's pace: at
+    900 and 500, still for 400, then 500 in flight; their turn is over when it lands, and none flies before the
+    tile before it has landed. (A discard nobody may claim comes in one view with the next player's draw, and
+    flowers: the last discard of a view flies when only those come after it.) A call on it (`bot_claim`) or a claim taken from the player (`rob_show`) shows that
+    long after the discard, its flight included, or after the words or moment over it (an added kong's). With the
+    moments off (the settings, the system's animations, the page's reduced motion) nothing flies and the pace is
+    whole (the page's own small slide of a new discard is gone: the two move alike). Claims.kt and lib/claims.ts
+    `BotPace` for practice and a review's branch on both. (A table battle's computer players keep the server's own
+    pace, protocol's `BOT_TURN_MS`, 700.)
+  - **The player's melds over the hand, at its left** (the user: whatever the screen), the first at the far left and
+    each after it to its right (none moves when another comes), the flowers after them. Wide: a line of its own over
+    the hand (the name plate over it at the left, as before; the melds' tiles 0.7 of the hand's), which a phone held
+    sideways pays for with about 50 px of the rivers' height. Tall: the line over the hand had them, at its right
+    end; now at its left, the name plate at the right end.
+  - Fixed in the app: a computer player's discard after its own chow or pung came with the call's moment, not after
+    it: the loop asked whether words or a moment were up before the table, a composition later, had started them
+    (CalloutClock.saw / settle: it waits for the table to have looked; the page's engine answers after its effects).
+  - Fixed in the app: a moment's parts that stand out of its box (a call's plaque, the caller's name, the slant of
+    the panel, a plaque's tilt and shade) were cut off while it slid in or faded: Android draws a layer that is not
+    wholly opaque apart, at its own size. Those layers have room around them now (Moments.kt roomyLayer).
+  - Fixed in the app: a call's meld showed at its place before its moment brought it, for the frame before the
+    moment started (the moments start in an effect, a frame after the view; longer for the session's first moment on
+    a slow device). The melds that the new events' calls made are out of sight from that first frame (TableView
+    comingMelds), as on the page (whose effect runs before the browser paints).
 
 ## Built and checked
 
 - What was built, in `$WORK/` (not in the repository):
+  - `apk/mahjong-0.7.1.apk` (2026-11-13): 0.7.1 above, network 211 (arm64-v8a, the debug key as 0.7.0's). On the
+    emulator with the system's animations on, screen recordings looked at frame by frame:
+    - a test build with the moments' slides and fades ten times as long (`call_in` 1500, `call_out` 2500, a deal-in's
+      alike): the player's pung's panel slid in and faded whole (its plaque, the name over it and the panel's slant
+      not cut off); a review stepped to its end: who dealt in, then the win, each faded whole (no shade left).
+    - the debug build, sideways and upright (simple2 with flowers): practice hands to their ends, the player chowing;
+      a computer player's chow, its moment, then its discard; the melds over the hand at the left (sideways under the
+      name plate; upright with the plate at the right end).
+    - a test build with the flight six times as long (`discard_move` 3000, `bot_turn` 3500): the others' discards in
+      from the right and the top edges, also one that came with the next player's draw, which the first try had
+      missed (put right on both; the page then: 25 of 25 others' discards in a hand flew, 12 of them with a draw).
+    - the release build's x86_64 twin (`MAHJONG_ABIS=x86_64`, not kept): a hand with three of the player's chows to
+      its end, its result and review; a call's meld out of sight from the first frame till its moment brings it (it
+      had shown for a frame: put right); no crash. The arm64 APK itself was not run.
+    The page: built, `svelte-check` clean; headless Firefox: the pace (a computer player's discards 900 apart; its
+    discard after its call's moment, still for 400, then 500 in flight), the flights' frames, the melds over the hand
+    sideways, upright and at 1920×1080.
   - `apk/mahjong-0.7.0.apk` (2026-11-13): 0.7.0 above, network 211. Its debug twin on the emulator, sideways, with
     the system's animations on (the emulator's script turns them off): two practice hands played by a script, the
     player pung and chowing where it could; at each hand's end the result's moment stopped at 78% with ≫

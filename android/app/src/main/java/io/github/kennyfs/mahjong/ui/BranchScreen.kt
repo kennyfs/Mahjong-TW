@@ -57,7 +57,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.kennyfs.mahjong.Action
 import io.github.kennyfs.mahjong.AppModel
-import io.github.kennyfs.mahjong.CalloutClock
+import io.github.kennyfs.mahjong.BotPace
 import io.github.kennyfs.mahjong.Claims
 import io.github.kennyfs.mahjong.Engine
 import io.github.kennyfs.mahjong.EngineException
@@ -68,7 +68,6 @@ import io.github.kennyfs.mahjong.R
 import io.github.kennyfs.mahjong.Timing
 import io.github.kennyfs.mahjong.View
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -107,6 +106,8 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
   /** The computer players' loop (`run`): its number and its epoch. One of another epoch (waiting out a pace when the
    *  branch started again) ends at its next look: it holds back neither this one nor its state. */
   private var running = false
+  /** The computer players' pace (Claims.kt BotPace): their turns, their discards' flights, their answers to a tile. */
+  private val pace = BotPace()
   private var loop = 0
   private var loopEpoch = -1
 
@@ -124,6 +125,7 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
   /** From the decision again (the first time, 從分支點再打一次, or 重洗 turned on or off). */
   fun restart() {
     epoch++
+    pace.reset()
     game = root
     cursor = start
     final = null
@@ -180,7 +182,6 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
           val seedNow = "$seed/${g.actions.size}"
           if (me in p.pending) {
             deciding = true
-            val shown = android.os.SystemClock.uptimeMillis()
             val pc = Claims.preclaim(g, me, bots, seedNow)
             if (e != epoch || pc == null) break
             val r = pc.robbed
@@ -190,10 +191,11 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
               view = Engine.view(pc.game, me)
               break
             }
-            CalloutClock.done()
-            delay(maxOf(0L, Claims.robPause() - (android.os.SystemClock.uptimeMillis() - shown)))
-            if (e != epoch) break
             val before = view?.eventCount ?: 0
+            // The discard stays a while first (rob_show, from when it came: BotPace), its words done.
+            pace.settle(before)
+            pace.rob()
+            if (e != epoch) break
             val v = Engine.view(pc.game, me)
             if (e != epoch) break
             robbed = Claims.robbedEvent(v.events, before, r.seat)
@@ -204,29 +206,29 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
             if (v.phase == "over") final = Engine.view(pc.game, me, 0, reveal = true)
             continue
           }
-          // A computer player's turn at its pace (Timing; the manual pace: the normal one), counted once a call's moment
-          // or words are over; their answers to a tile: a call after the tile's stay, none at once (Claims.othersCall).
+          // A computer player's turn at its pace (Timing; the manual pace: the normal one), its discard flying in to the
+          // river in the last of it, over when the tile lands; their answers to a tile: a call after the tile's stay,
+          // none at once (Claims.othersCall). Each counts once a call's moment or words are over. (BotPace.)
           val claim = p.phase != "self"
-          CalloutClock.done()
-          if (e != epoch) break
-          if (!claim) {
-            delay(Timing.ms(if (Claims.justCalled(g, p.current)) "bot_after_call" else "bot_turn"))
-            if (e != epoch) break
-          }
           val before = view?.eventCount ?: 0
+          pace.settle(before)
+          if (e != epoch) break
           val from = android.os.SystemClock.uptimeMillis()
           val next = Engine.advance(g, bots, seedNow, 1)
           if (e != epoch) break
           val v = Engine.view(next, me)
           if (e != epoch) break
-          if (claim && Claims.othersCall(v, before, me)) {
-            delay(maxOf(0L, Timing.ms("bot_claim") - (android.os.SystemClock.uptimeMillis() - from)))
-            if (e != epoch) break
-          }
+          var fly = 0L
+          if (claim) {
+            if (Claims.othersCall(v, before, me)) pace.call()
+          } else fly = pace.turn(g, p.current, next, from)
+          if (e != epoch) break
           game = next
+          pace.came(next, fly)
           cursor = next.actions.size
           view = v
           if (v.phase == "over") final = Engine.view(next, me, 0, reveal = true)
+          if (fly > 0) pace.land()
         }
       } catch (x: EngineException) {
         error = x.message ?: ""
@@ -259,6 +261,8 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
           if (over != null) robbed = v.events.indexOf(over)
         }
         game = g
+        // The player's discard flies to the river: the computer player after them discards once it has landed.
+        pace.came(g, pace.flight())
         cursor = g.actions.size
         showResult = true
         show()

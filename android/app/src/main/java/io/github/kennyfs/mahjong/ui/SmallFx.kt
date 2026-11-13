@@ -126,12 +126,15 @@ fun SmallFx(m: Moment, host: FxHost, origin: Offset) {
   /** The decoration's fading as the meld flies off. */
   fun deco(): Float = if (dst != null) 1 - seg(now(), holdEnd, holdEnd + parts.out * 0.6f, EASE_IN) else 1f
 
+  // Room around it in its layer (Moments.kt roomyLayer): the word and the name stand out of the panel.
+  val room = (tw * 1.5f).dp
   Box(
     Modifier.testTag("small_fx").layout { measurable, _ ->
+      val r = room.roundToPx()
       val p = measurable.measure(Constraints())
       layout(0, 0) {
-        val bw = p.width.toFloat()
-        val bh = p.height.toFloat()
+        val bw = (p.width - 2 * r).toFloat()
+        val bh = (p.height - 2 * r).toFloat()
         val c = area?.center ?: table?.center ?: Offset(origin.x + bw, origin.y + bh)
         var x = c.x - bw / 2
         var y = c.y - bh / 2
@@ -139,7 +142,7 @@ fun SmallFx(m: Moment, host: FxHost, origin: Offset) {
           x = x.coerceIn(table.left + 6 * density, max(table.left + 6 * density, table.right - 6 * density - bw))
           y = y.coerceIn(table.top + 6 * density, max(table.top + 6 * density, table.bottom - 6 * density - bh))
         }
-        p.placeWithLayer((x - origin.x).roundToInt(), (y - origin.y).roundToInt()) {
+        p.placeWithLayer((x - origin.x).roundToInt() - r, (y - origin.y).roundToInt() - r) {
           val t = now()
           // In: from the left by part of its width, slowing to its place. Out without a place to land: fading.
           val fin = seg(t, 0f, come, SLIDE)
@@ -148,9 +151,10 @@ fun SmallFx(m: Moment, host: FxHost, origin: Offset) {
           alpha = fin * (1 - fout)
         }
       }
-    },
+    }.padding(room),
   ) {
-    Box(Modifier.matchParentSize().graphicsLayer { alpha = deco() }.drawBehind { slantPanel(look.edge, density) })
+    // (The panel leans out of its box: room for that as it fades.)
+    Box(Modifier.matchParentSize().roomyLayer((tw * 0.6f).dp) { alpha = deco() }.drawBehind { slantPanel(look.edge, density) })
     Row(Modifier.padding(start = (fs * (chars * 1.04f + 0.68f) * 0.78f + tw * 0.25f).dp, top = (tw * 0.34f).dp, end = (tw * 0.75f).dp, bottom = (tw * 0.34f).dp)) {
       Row(
         Modifier.fxAnchor { if (row?.center != it.center || row?.width != it.width) row = it }.graphicsLayer {
@@ -219,7 +223,7 @@ fun SmallFx(m: Moment, host: FxHost, origin: Offset) {
       Modifier.align(Alignment.BottomStart).layout { measurable, _ ->
         val p = measurable.measure(Constraints())
         layout(0, 0) { p.place((-tw * 0.3f * density).roundToInt(), (-p.height + tw * 0.42f * density).roundToInt()) }
-      }.graphicsLayer { alpha = deco(); rotationZ = -6f },
+      }.roomyLayer((tw * 0.3f).dp) { alpha = deco(); rotationZ = -6f },
     ) { Plaque(m.word, look.kind, fs, len, "", robInk = look.rob, tilt = 0f) }
     if (m.who.isNotEmpty()) {
       val f = with(LocalDensity.current) { (tw * 0.32f).coerceIn(12f, 16f).dp.toSp() }

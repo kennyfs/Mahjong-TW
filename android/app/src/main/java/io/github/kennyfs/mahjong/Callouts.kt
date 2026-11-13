@@ -25,9 +25,25 @@ object CalloutClock {
   /** The touches that let the words go: the table drops its words (and its moments) when this changes. */
   val skips = MutableStateFlow(0)
 
+  /** The events the table has looked at (ui/TableView.kt TableEvents: their words and moments are up by then). */
+  private val seen = MutableStateFlow(-1)
+
   /** Words or moments went up for `ms`, to be waited for. */
   fun shown(ms: Long) {
     until.value = maxOf(until.value, SystemClock.uptimeMillis() + ms)
+  }
+
+  /** The table looked at the view of `count` events. */
+  fun saw(count: Int) {
+    seen.value = count
+  }
+
+  /** Returns once the table has looked at the view of `count` events, so that the words and moments that view brings
+   *  are up and `done` waits for them: the table looks a composition after the view changed, and without this a
+   *  computer player's discard after its chow or pung came with the call's moment, not after it. At most
+   *  FxClock.START: a table not on the screen never looks. */
+  suspend fun settle(count: Int) {
+    withTimeoutOrNull(FxClock.START) { seen.first { it >= count } }
   }
 
   /** The words were let go (a touch anywhere). */
@@ -41,12 +57,14 @@ object CalloutClock {
     until.value = 0L
   }
 
-  /** Returns when no words that are waited for are up: at once when there are none. */
-  suspend fun done() {
+  /** Returns when no words that are waited for are up: at once (false) when there are none, else (true) at their end. */
+  suspend fun done(): Boolean {
+    var waited = false
     while (true) {
       val end = until.value
       val left = end - SystemClock.uptimeMillis()
-      if (left <= 0) return
+      if (left <= 0) return waited
+      waited = true
       // Until their time is up, or it changed: a touch (none are up then) or other words (later).
       withTimeoutOrNull(left) { until.first { it != end } }
     }

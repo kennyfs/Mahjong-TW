@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -89,6 +88,7 @@ import io.github.kennyfs.mahjong.Action
 import io.github.kennyfs.mahjong.CalloutClock
 import io.github.kennyfs.mahjong.FxClock
 import io.github.kennyfs.mahjong.Discard
+import io.github.kennyfs.mahjong.GameEvent
 import io.github.kennyfs.mahjong.Meld
 import io.github.kennyfs.mahjong.R
 import io.github.kennyfs.mahjong.Side
@@ -196,10 +196,14 @@ fun TableView(
   val unseen = host.seen >= 0 && view.eventCount - host.seen in 1..8 && FxClock.enabled() &&
     view.events.takeLast(view.eventCount - host.seen).any { it.type == "ron" || it.type == "exhausted" }
   val shownAll = if (unseen || host.moments.indexOfFirst { it.kind == MomentKind.GAP && !it.hide } > 0) null else revealed
+  // The melds that calls just made, which their moments will bring: out of sight already in this first frame (Melds),
+  // as on the page, not shown for the frame before TableEvents starts the moments.
+  val coming = if (host.seen >= 0 && view.eventCount - host.seen in 1..8 && FxClock.enabled())
+    comingMelds(view, view.events.takeLast(view.eventCount - host.seen)) else emptyMap()
   val motion = remember { HandMotion() }
-  LaunchedEffect(motion.token) {
-    if (motion.token == 0) return@LaunchedEffect
-    while (motion.moving) withFrameMillis { motion.frame = it }
+  LaunchedEffect(motion.ticks) {
+    if (motion.ticks == 0) return@LaunchedEffect
+    while (motion.anyMoving) withFrameMillis { motion.frame = it }
     motion.frame = -1
     motion.flying = false
   }
@@ -308,8 +312,15 @@ fun TableView(
       val count = view.eventCount
       val n = count - motion.seen
       if (motion.seen >= 0 && n in 1..8 && shownAll == null && FxClock.enabled()) {
-        val d = view.events.takeLast(n).lastOrNull { it.type == "discard" && it.seat == me }
+        val fresh = view.events.takeLast(n)
+        val d = fresh.lastOrNull { it.type == "discard" && it.seat == me }
         if (d?.tile != null) motion.arm(d.tile, pos.players[me].discards.size - 1, Timing.ms("hand_move"), Timing.ms("discard_move"))
+        // Another's discard, the last that came, the next player's draw (and flowers) after it or nothing: a discard
+        // nobody may claim comes with that draw (a review's step over several: the others' before it are in place).
+        val k = fresh.indexOfLast { it.type == "discard" }
+        val o = if (k >= 0 && fresh.drop(k + 1).all { it.type == "draw" || it.type == "flower" }) fresh[k] else null
+        if (o != null && o.seat != me && o.seat in pos.players.indices)
+          motion.armIn(o.seat, sideOf(o.seat, me), pos.players[o.seat].discards.size - 1, Timing.ms("discard_move"))
       }
       motion.seen = count
       motion.hand = handNow
@@ -323,12 +334,12 @@ fun TableView(
     val claimTile = if (claims.any { it.type != "pass" } && view.phase != "self") pos.claim?.tile else null
     val claimSeat = if (claimTile != null && view.phase == "react") pos.claim?.seat ?: -1 else -1
     val myFlowers = flowersOf(pos.players[me])
-    /** The player's melds: a wide table's in the hand's row, smaller when they would take the hand's room (kongs); a
-     *  tall one's in the line over the hand beside the name plate, smaller rather than in a second line. */
+    /** The player's melds and flowers, in the line over the hand (a wide table's as wide as the table; a tall one's
+     *  beside the name plate): smaller rather than in a second line. */
     val myMeldW = run {
       val counts = pos.players[me].melds.map { meldTiles(it).size }
-      if (counts.isEmpty()) s.meld
-      else if (s.wide) fitShownRow(counts, 0, 0, minOf(roomW, s.tableW) - 28 - (mine.size + 1 + DRAWN_GAP) * s.hand, s.meld)
+      if (counts.isEmpty() && myFlowers.isEmpty()) s.meld
+      else if (s.wide) fitMelds(counts, myFlowers.size, minOf(roomW, s.tableW) - 28, 1, s.meld, 16f)
       else fitMelds(counts, myFlowers.size, minOf(roomW, s.tableW) - 16 - (plates[Side.BOTTOM]?.first ?: 90f), 1, s.meld, 22f)
     }
     var selected by remember(view.eventCount) { mutableStateOf<Int?>(null) }
@@ -356,7 +367,7 @@ fun TableView(
           horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
           Box(measured(side)) { badge(seat, count) }
           Row(horizontalArrangement = Arrangement.spacedBy(RACK_GAP_ROW.d), verticalAlignment = Alignment.Bottom) {
-            Melds(p.melds, flowersOf(p), ow, wrap = false, seat = seat, host = host)
+            Melds(p.melds, flowersOf(p), ow, wrap = false, seat = seat, host = host, coming = coming[seat] ?: -1)
             if (shown != null) Rack(shown, ow, wrap = false)
             else if (s.back > 0) Row { repeat(hidden) { TileView(null, s.back.d) } }
           }
@@ -374,7 +385,8 @@ fun TableView(
       ) {
         Box(measured(side)) { badge(seat, count) }
         Melds(p.melds, flowersOf(p), ow, wrap = true,
-          arrangement = if (!s.wide) Arrangement.Center else if (end) Arrangement.End else Arrangement.Start, seat = seat, host = host)
+          arrangement = if (!s.wide) Arrangement.Center else if (end) Arrangement.End else Arrangement.Start, seat = seat, host = host,
+          coming = coming[seat] ?: -1)
         if (shown != null) Rack(shown, ow, wrap = true, end = end)
         else if (s.back > 0) FlowRow(horizontalArrangement = if (end) Arrangement.End else Arrangement.Start) { repeat(hidden) { TileView(null, s.back.d) } }
       }
@@ -394,7 +406,7 @@ fun TableView(
         host.area("river-$seat", r)
       }) {
         River(pos.players[seat].discards, s.river, cols, rows, lastDiscard == seat, claim = claimSeat == seat, onLast = { host.river(seat, it) },
-          fly = if (seat == me) motion else null)
+          fly = motion, seat = seat, mine = seat == me)
       }
     }
 
@@ -438,6 +450,7 @@ fun TableView(
         val o = it.positionInRoot()
         if (origin != o) origin = o
         host.area("table", Rect(o, Size(it.size.width.toFloat(), it.size.height.toFloat())))
+        motion.table = Rect(o, Size(it.size.width.toFloat(), it.size.height.toFloat()))
       }) {
         if (s.wide) {
           // The player opposite along the whole top (the screen's corner button, if any, before them), the other two
@@ -449,20 +462,19 @@ fun TableView(
               center(Modifier.weight(1f).fillMaxHeight())
               seat(Side.RIGHT, Modifier.width(s.sideW.d).fillMaxHeight())
             }
-            // The hand to the left (a discard leaves the rest in place); the melds at the right end, the first at the far
-            // right and each after it to its left, so that none moves when another comes.
-            Row(Modifier.height(meH.d).fillMaxWidth().tourAnchor("hand").fxArea { host.area("seat-$me", it) }
-              .padding(start = 16.dp, end = 8.dp, bottom = 6.dp),
-              horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
+            // The hand to the left (a discard leaves the rest in place); over it, at its left, the melds, the first at
+            // the far left and each after it to its right, so that none moves when another comes, and the flowers.
+            Column(Modifier.height(meH.d).fillMaxWidth().tourAnchor("hand").fxArea { host.area("seat-$me", it) }
+              .padding(start = 16.dp, end = 8.dp, bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom)) {
+              Box(Modifier.height(s.meldLine.d).fillMaxWidth(), contentAlignment = Alignment.BottomStart) {
+                Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = false, seat = me, host = host, coming = coming[me] ?: -1)
+              }
               MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion)
-              Spacer(Modifier.weight(1f))
-              Melds(pos.players[me].melds, emptyList(), snap(myMeldW), wrap = false, seat = me, host = host, reverse = true)
             }
           }
           Column(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 2).d).widthIn(max = (s.sideW - 12).d).then(measured(Side.BOTTOM)),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             status?.invoke()
-            if (myFlowers.isNotEmpty()) Box(Modifier.padding(start = 4.dp)) { Melds(emptyList(), myFlowers, s.opp, wrap = true, seat = me, host = host) }
             badge(me, null)
           }
           // The corners: the round, the wall and the streak; the screen's buttons.
@@ -494,11 +506,13 @@ fun TableView(
             Column(Modifier.height(meH.d).fillMaxWidth().tourAnchor("hand").fxArea { host.area("seat-$me", it) }
               .padding(start = 4.dp, end = 4.dp, bottom = 6.dp),
               horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom)) {
-              // The melds at the right end, the first at the far right (none moves when another comes).
+              // The melds at the left, the first at the far left (none moves when another comes), the flowers after them;
+              // the name plate at the right end.
               Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+                Box(Modifier.weight(1f)) {
+                  Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = true, seat = me, host = host, coming = coming[me] ?: -1)
+                }
                 Box(Modifier.align(Alignment.CenterVertically).then(measured(Side.BOTTOM))) { badge(me, null) }
-                Spacer(Modifier.weight(1f))
-                Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = true, arrangement = Arrangement.End, seat = me, host = host, reverse = true)
               }
               MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion)
             }
@@ -612,20 +626,19 @@ fun signed(x: Double): String {
 
 /**
  * A player's melds, each a group of tiles, and their flowers after them (each on its own, so a line breaks between).
- * A chow's taken tile lies in the middle (meldTiles), tinted. `reverse`: from the right, the first at the right end and
- * each after it to its left (the player's own, at the hand's right end: none moves when another comes).
+ * A chow's taken tile lies in the middle (meldTiles), tinted.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun Melds(
   melds: List<Meld>, flowers: List<String>, w: Float, wrap: Boolean, arrangement: Arrangement.Horizontal = Arrangement.Start,
-  seat: Int = -1, host: FxHost? = null, reverse: Boolean = false,
+  seat: Int = -1, host: FxHost? = null, coming: Int = -1,
 ) {
   if (melds.isEmpty() && flowers.isEmpty()) return
   val g = meldGaps(w)
   // `host`: where each meld and flower is, for a moment to land at or start from; the meld a call's moment is bringing
-  // is out of sight till then.
-  val hide = host?.hideMeld(seat) ?: -1
+  // is out of sight till then, and from the frame before it starts (`coming`, comingMelds).
+  val hide = (host?.hideMeld(seat) ?: -1).let { if (it >= 0) it else coming }
   val content: @Composable () -> Unit = {
     @Composable
     fun meld(i: Int, m: Meld) = Row(
@@ -633,13 +646,8 @@ fun Melds(
     ) { for ((k, t) in meldTiles(m).withIndex()) TileView(t, w.d, mark = m.type == "chi" && m.called != null && k == 1) }
     @Composable
     fun flower(f: String) = TileView(f, (w * FLOWER_SCALE).d, modifier = if (host == null) Modifier else Modifier.fxAnchor { host.flower(f, it) })
-    if (reverse) {
-      for (f in flowers.asReversed()) flower(f)
-      for (i in melds.indices.reversed()) meld(i, melds[i])
-    } else {
-      for ((i, m) in melds.withIndex()) meld(i, m)
-      for (f in flowers) flower(f)
-    }
+    for ((i, m) in melds.withIndex()) meld(i, m)
+    for (f in flowers) flower(f)
   }
   if (wrap) FlowRow(horizontalArrangement = Arrangement.spacedBy(g.col.d, if (arrangement == Arrangement.End) Alignment.End else if (arrangement == Arrangement.Center) Alignment.CenterHorizontally else Alignment.Start),
     verticalArrangement = Arrangement.spacedBy(g.row.d), itemVerticalAlignment = Alignment.Bottom) { content() }
@@ -648,12 +656,13 @@ fun Melds(
 
 /**
  * One player's discards in order, `cols` a row; the tiles taken by a meld faded, the last discard lit. `claim`: the
- * player may claim the last discard: it stands out, larger and pulsing.
+ * player may claim the last discard: it stands out, larger and pulsing. `fly`: the table's moves; a new discard comes
+ * from the hand (`mine`: discardFly) or in from the table's edge (`seat`'s: discardIn).
  */
 @Composable
 fun River(
   discards: List<Discard>, w: Float, cols: Int, rows: Int, last: Boolean, claim: Boolean = false, onLast: ((FxAnchor) -> Unit)? = null,
-  fly: HandMotion? = null,
+  fly: HandMotion? = null, seat: Int = -1, mine: Boolean = false,
 ) {
   val fit = if (rows > 0 && discards.size > cols * rows) ceil(discards.size.toFloat() / rows).toInt() else cols
   val tw = w * cols / fit
@@ -668,7 +677,8 @@ fun River(
           // The last tile's place: a call's or a win's moment lifts it off from there.
           val anchor = if (onLast != null && i == discards.size - 1) Modifier.fxAnchor(onLast) else Modifier
           Box(anchor.then(if (out) Modifier.zIndex(1f).scale(1.25f + 0.15f * pulse) else Modifier)
-            .then(if (fly != null && i == discards.size - 1) Modifier.zIndex(2f).discardFly(fly, i) else Modifier)) {
+            .then(if (fly != null && i == discards.size - 1) Modifier.zIndex(2f).then(if (mine) Modifier.discardFly(fly, i) else Modifier.discardIn(fly, seat, i))
+              else Modifier)) {
             TileView(d.tile, tw.d, dim = d.called, glow = (last || out) && i == discards.size - 1 && !d.called)
           }
         }
@@ -998,6 +1008,19 @@ private val ROB_WORDS = mapOf("chi" to R.string.rob_chi, "pon" to R.string.rob_p
 private val CALLS = setOf("chi", "pon", "kan", "ron")
 private val RESULTS = setOf("ron", "tsumo", "flower_win", "exhausted")
 
+/** Seat → the meld that a call among `fresh` made, as TableEvents gives its moment (the meld it brings). */
+private fun comingMelds(view: View, fresh: List<GameEvent>): Map<Int, Int> {
+  val out = HashMap<Int, Int>()
+  for (e in fresh) {
+    val melds = view.position.players.getOrNull(e.seat)?.melds ?: continue
+    when (e.type) {
+      "chi", "pon", "kan", "ankan" -> out[e.seat] = melds.size - 1
+      "kakan" -> out[e.seat] = melds.indexOfFirst { it.type == "kakan" && it.tile == e.tile }
+    }
+  }
+  return out
+}
+
 /**
  * What the events that came since the last view bring (the web page's Table.svelte, its effect over the events): the
  * moments (ui/Moments.kt), one after another, unless the settings (or the system's animations off) keep to the words;
@@ -1021,12 +1044,16 @@ private fun TableEvents(host: FxHost, view: View, me: Int, names: List<String>, 
       words.clear()
       host.clear()
       FxClock.tapped = false
+      CalloutClock.saw(count)
       return@LaunchedEffect
     }
     val evs = view.events
     val fresh = evs.takeLast((count - seen).coerceIn(0, evs.size))
     host.seen = count
-    if (fresh.size > 8) return@LaunchedEffect
+    if (fresh.size > 8) {
+      CalloutClock.saw(count)
+      return@LaunchedEffect
+    }
     val anim = FxClock.enabled()
     val pos = view.position
     fun str(id: Int) = context.getString(id)
@@ -1183,6 +1210,8 @@ private fun TableEvents(host: FxHost, view: View, me: Int, names: List<String>, 
       }
     }
     host.start(list)
+    // (The computer players of a practice game wait for what is up now: CalloutClock.settle.)
+    CalloutClock.saw(count)
   }
 }
 
@@ -1252,7 +1281,7 @@ private fun BoxScope.Callouts(
         list.remove(co)
       }
       val t = a.value
-      val alpha = when { t < 0.5f -> t / 0.5f; t > 1f -> 2f - t; else -> 1f }
+      val fade = when { t < 0.5f -> t / 0.5f; t > 1f -> 2f - t; else -> 1f }
       val scale = when { t < 0.5f -> 0.5f + t / 0.5f * 0.65f; t < 1f -> 1.15f - (t - 0.5f) / 0.5f * 0.15f; else -> 1f }
       // The point the plaque is set at (px), and which point of the plaque lies there (0 to 1 across and down).
       val wPx = w * density
@@ -1286,7 +1315,12 @@ private fun BoxScope.Callouts(
           val p = m.measure(Constraints())
           layout(0, 0) { p.place((at.x - p.width * pivot.x).roundToInt(), (at.y - p.height * pivot.y).roundToInt()) }
           // Under a call's or a win's moment: out of sight (they keep their time).
-        }.scale(scale).alpha(if (hidden) 0f else alpha).testTag("callout"),
+          // (Room in its layer for the plaque's tilt and shade: Moments.kt roomyLayer.)
+        }.roomyLayer((fs * 0.2f).dp) {
+          scaleX = scale
+          scaleY = scale
+          alpha = if (hidden) 0f else fade
+        }.testTag("callout"),
       ) { Plaque(co.text, co.kind, fs, len, co.who) }
     }
   }
