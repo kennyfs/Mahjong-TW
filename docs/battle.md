@@ -49,7 +49,7 @@ The room (on the server, or on the hosting phone) is the only authority:
 - **The pace tells nothing**: after every discard (and added kong) the room waits the same claim window
   (`CLAIM_WINDOW_MS`, 1 s) whether anyone may claim it or not, so a pause does not tell who could; the engine's
   `view` with `"hold": true` stops at the discard for everyone meanwhile (docs/gui-engine.md). A bot's own turn takes
-  `BOT_TURN_MS` (0.7 s).
+  `BOT_TURN_MS` (0.9 s, as practice's computer players).
 - **Running out of time**, or leaving, gives the room's bot's decision (the same bot as the empty seats'). A
   disconnected player is waited for 30 s on each decision, then the bot decides at once; the seat can be taken back
   with its token (only its SHA-256 is kept, compared in constant time). A resume elsewhere closes the old connection.
@@ -149,7 +149,7 @@ DOMAIN=mahjong.example.com docker compose -f server/compose.yml up -d --build
 | `MAX_ROOMS` | 200 | Rooms open at once. |
 | `MAX_CONNECTIONS`, `CONNECTIONS_PER_ADDRESS` | 2000, 16 | WebSocket connections. |
 | `TRUST_PROXY` | 0 | Proxies that append to X-Forwarded-For in front (1 behind Caddy, as in compose.yml). |
-| `CLAIM_WINDOW_MS`, `BOT_TURN_MS` | 1000, 700 | The pace (see above); shorter only to test. |
+| `CLAIM_WINDOW_MS`, `BOT_TURN_MS` | 1000, 900 | The pace (see above); shorter only to test. |
 
 ## Hosting: not decided
 

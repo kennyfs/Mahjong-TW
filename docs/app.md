@@ -267,8 +267,9 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     long after the discard, its flight included, or after the words or moment over it (an added kong's). With the
     moments off (the settings, the system's animations, the page's reduced motion) nothing flies and the pace is
     whole (the page's own small slide of a new discard is gone: the two move alike). Claims.kt and lib/claims.ts
-    `BotPace` for practice and a review's branch on both. (A table battle's computer players keep the server's own
-    pace, protocol's `BOT_TURN_MS`, 700.)
+    `BotPace` for practice and a review's branch on both. (A table battle's computer players: the server's own
+    pace, protocol's `BOT_TURN_MS`, 900 too, the claim window 1 s as before; the table shows their moves as they
+    come.)
   - **The player's melds over the hand, at its left** (the user: whatever the screen), the first at the far left and
     each after it to its right (none moves when another comes), the flowers after them. Wide: a line of its own over
     the hand (the name plate over it at the left, as before; the melds' tiles 0.7 of the hand's), which a phone held

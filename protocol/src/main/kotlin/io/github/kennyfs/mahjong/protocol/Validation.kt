@@ -13,7 +13,7 @@ object Limits {
    */
   const val CLAIM_WINDOW_MS = 1_000L
   /** A bot's own turn takes this long, so people can follow it. */
-  const val BOT_TURN_MS = 700L
+  const val BOT_TURN_MS = 900L
   /** A disconnected player is waited for this long on each decision; after that the bot decides at once. */
   const val AWAY_GRACE_MS = 30_000L
   /** The result of a hand stays up this long at most before the next one. */
