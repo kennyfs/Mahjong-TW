@@ -180,6 +180,22 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     view = Engine.view(g, ME)
   }
 
+  /** A declared ready hand (天聽, 地聽, 報聽) whose only choice is the tile it drew: discarded by itself at a computer
+   *  player's pace (bot_turn), as there is nothing to decide. A win or a concealed kong it may make waits for the
+   *  player. */
+  private fun forcedDiscard(e: Int) {
+    val v = view ?: return
+    val g = game ?: return
+    if (!v.myTurn || v.phase != "self" || v.legal.size != 1 || v.legal[0].type != "discard") return
+    if (v.position.players.getOrNull(ME)?.declared == null) return
+    val a = v.legal[0]
+    val n = g.actions.size
+    scope.launch {
+      delay(Timing.ms("bot_turn"))
+      if (e == epoch && game?.actions?.size == n && view?.myTurn == true) act(a)
+    }
+  }
+
   /** The bots decide, a decision point at a time, until the player must decide or the hand is over. Each bot's turn
    *  waits the pace of the settings (Timing), and the words or moment of a call (CalloutClock), so it can be followed;
    *  at the manual pace, what shows waits for `step` (see the top). */
@@ -212,6 +228,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
               game = pc.game
               persist()
               refresh()
+              forcedDiscard(e)
               break
             }
             // A claim came before all of the player's: made at once, as the computer players' step, after the discard

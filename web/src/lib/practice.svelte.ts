@@ -210,6 +210,7 @@ class Practice {
             this.game = pc.game;
             this.persist();
             await this.refresh();
+            this.forcedDiscard(epoch);
             break;
           }
           // A claim came before all of the player's: made at once, as the computer players' step.
@@ -305,6 +306,22 @@ class Practice {
         this.running = false;
       }
     }
+  }
+
+  /**
+   * A declared ready hand (天聽, 地聽, 報聽) whose only choice is the tile it drew: discarded by itself at a computer
+   * player's pace (bot_turn), as there is nothing to decide. A win or a concealed kong it may make waits for the player.
+   */
+  private forcedDiscard(epoch: number) {
+    const v = this.view;
+    const g = this.game;
+    if (!v || !g || !v.my_turn || v.phase !== 'self' || v.legal.length !== 1 || v.legal[0].type !== 'discard') return;
+    if (!v.position.players[ME]?.declared) return;
+    const a = v.legal[0];
+    const n = g.actions.length;
+    later(() => {
+      if (epoch === this.epoch && this.game?.actions.length === n && this.view?.my_turn) void this.act(a);
+    }, ms('bot_turn'));
   }
 
   /** The manual pace: the computer players' next step, now. */
