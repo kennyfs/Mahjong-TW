@@ -125,6 +125,7 @@ class MainActivity : ComponentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    StoreMode.read(intent)
     enableEdgeToEdge()
     setContent {
       val vm: AppModel = viewModel()

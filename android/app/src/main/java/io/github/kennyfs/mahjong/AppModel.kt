@@ -33,6 +33,7 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
     Sounds.level = { s.sound }
     // (Not with the system's animations off: the words alone, as the web page's reduced motion.)
     FxClock.enabled = { android.animation.ValueAnimator.areAnimatorsEnabled() }
+    StoreMode.rules?.let { s.rules = it; s.persist() }
   }
   val records = Records(app)
   var error by mutableStateOf<String?>(null)

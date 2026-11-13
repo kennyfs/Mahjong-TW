@@ -52,7 +52,8 @@ the `protocol/` module shared with the server. Status and the decisions behind i
 | `ui/*Screen*.kt`, `ui/HandResultCard.kt`, `ui/Components.kt`, `ui/Theme.kt` | The screens, a hand's result, shared pieces, the colors (Thirteen's). |
 | `ui/ReviewScreens.kt`, `ui/DecisionPanel.kt`, `ui/ValueGraph.kt`, `ui/WhatIfTables.kt`, `ui/AnalyzeScreen.kt` | The review, the list of a decision's actions, the graph of the value, the tables of draws and claims, the analysis screen. |
 | `ui/GuideScreen.kt`, `ui/Tour.kt` | The rules explained; the tour (the elements it lights mark themselves with `tourAnchor`) and the welcome card. The web page's `Guide.svelte`, `Tour.svelte`. |
-| `scripts/shots.py` | Drives the app over adb for the screenshots (`device-tests.sh`). |
+| `scripts/shots.py` | Drives the app over adb for the screenshots (`device-tests.sh`); `STORE=1` the store's. |
+| `scripts/store_plan.py`, `store-plan.json` | The store screenshots' game: its seed and the player's moves. |
 | `build-ort.sh`, `ort-ops.config` | A reduced ONNX Runtime: only the network's operators (below). |
 
 ## Building
@@ -156,6 +157,31 @@ STEPS=battle_table BATTLE_SERVER=10.0.2.2:8091 OUT=$WORK/tmp/shots/check python3
 ```
 
 The emulator has no Nearby Connections: rooms nearby need two real phones.
+
+### The store's screenshots
+
+Google Play's phone screenshots are 1920 x 1080, sideways, and the same game every time. `STORE=1` makes them:
+
+```bash
+STORE=1 GRADLE_FLAGS=--offline OUT=$WORK/shots/store-X.Y.Z ./device-tests.sh
+```
+
+It builds a test build (`.test`), and uses its own AVD, `mahjong-store-$API` (`-d pixel_2`: 1080 x 1920, no cutout),
+so that the phone above keeps its settings: 1080 x 1920 at 400 dpi, font scale 1, light mode, no animations, and the
+system's demo status bar (12:00, a full battery, full signal, no notifications), turned off at the end. `shots.py`
+starts the app with the extras `store_seed` and `store_rules` (`StoreMode.kt`: a debug build only; the release never
+reads them), so that practice deals the same hands and the computer players decide the same, and makes the
+player's moves of `scripts/store-plan.json`, which `scripts/store_plan.py` wrote by playing the same game with the
+engine (`cpp/build/mahjong`, built with ONNX Runtime) and the network the app ships: the seed, the rules, and each
+hand's moves (a discard by its place in the sorted hand, a call, a win). If a move does not come where the plan has it
+(another network, a change to the engine or to practice), `shots.py` stops; play the plan again
+(`python3 scripts/store_plan.py`, which searches seeds for a first hand the player wins with a few 台 and a mistake
+in its review, or `--pick N` for seed N). The shots, in store order:
+`1-table` (mid-hand, calls and flowers on the table, a tile lifted), `2-result` (the hand the player wins, with its
+台 and the network's summary), `3-review` (its review at a mistake: the loss, the best choice, the graph),
+`4-figures` (that decision's choices and their figures), `5-analysis` (the decision on the analysis screen),
+`6-records` (the game's hands and their statistics), `7-battle` (a table game on the battle server: the app's own,
+or `BATTLE_SERVER`), `8-rules` (the rules explained, its page of tai). Each is checked to be 1920 x 1080.
 
 ## Versions
 

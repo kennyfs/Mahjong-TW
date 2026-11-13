@@ -12,6 +12,12 @@ only those shots; STEPS=step,... runs only those steps (practice, practice_resul
 guide, tour, battle, battle_table), e.g. STEPS=battle_table.
 
 Usage: python3 android/scripts/shots.py   (ANDROID_SERIAL picks the emulator, e.g. emulator-5556)
+
+STORE=1: Google Play's screenshots instead (device-tests.sh STORE=1 sets up the emulator: 1920 x 1080 sideways), in
+store order into OUT (default $WORK/shots/store): the game of store-plan.json (store_plan.py: a fixed seed, the
+player's moves made as planned) with the table mid-hand, the hand the player wins, its review at a mistake, a
+decision's figures, the analysis screen with a step of it, the records with their statistics, a table game on the
+battle server (BATTLE_SERVER, default the app's own), and the rules explained. Each file is checked to be 1920 x 1080.
 """
 import os
 import re
@@ -21,7 +27,11 @@ import time
 import xml.etree.ElementTree as ET
 
 ADB = os.path.join(os.environ.get('ANDROID_HOME', os.path.expanduser('~/Android/Sdk')), 'platform-tools', 'adb')
-OUT = os.environ.get('OUT', os.path.join(os.environ.get('WORK', 'build'), 'shots', 'android'))
+STORE = os.environ.get('STORE', '0') == '1'
+OUT = os.environ.get('OUT', os.path.join(os.environ.get('WORK', 'build'), 'shots', 'store' if STORE else 'android'))
+PLAN = os.environ.get('PLAN', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'store-plan.json'))
+# The store's screenshots: Google Play's size, sideways.
+STORE_SIZE = (1920, 1080)
 SERVER = os.environ.get('BATTLE_SERVER', '')
 ONLY = [x for x in os.environ.get('ONLY', '').split(',') if x]
 STEPS = [x for x in os.environ.get('STEPS', '').split(',') if x]
@@ -67,7 +77,8 @@ class Node:
 def ui():
   """The screen's nodes (tries again: a dump fails while the screen is changing)."""
   for _ in range(5):
-    out = sh('uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; cat /sdcard/ui.xml')
+    # (A dump can fail while the screen changes, and then there is no file: not an error, try again.)
+    out = adb('shell', 'uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; cat /sdcard/ui.xml', check=False)
     if out.startswith('<?xml'):
       try:
         return [Node(e) for e in ET.fromstring(out).iter('node')]
@@ -546,15 +557,338 @@ def battle_table(orient):
   time.sleep(1.0)
 
 
+def png_size(path):
+  with open(path, 'rb') as f:
+    head = f.read(24)
+  return int.from_bytes(head[16:20], 'big'), int.from_bytes(head[20:24], 'big')
+
+
+def wait_gone(rid, timeout=10):
+  end = time.time() + timeout
+  while time.time() < end:
+    if not find(ui(), rid=rid):
+      return True
+    time.sleep(0.3)
+  return False
+
+
+def play_planned(moves, table_at=None, name=None):
+  """A hand to its end by the plan's moves (store_plan.py), each when the screen asks for it: a claim's buttons, or the
+  player's own turn (a tile more than a whole hand). At move `table_at` the tile is lifted first and the table shot."""
+  k = 0
+  for _ in range(3000):
+    nodes = ui()
+    if find(nodes, rid='result_skip') or find(nodes, rid='result_next'):
+      if k != len(moves):
+        raise RuntimeError(f'the hand ended after {k} of {len(moves)} planned moves')
+      return
+    if k >= len(moves):
+      time.sleep(0.5)
+      continue
+    m = moves[k]
+    asked = find(nodes, rid='claim_pass')
+    mine = hand_tiles(nodes)
+    own = not asked and len(mine) % 3 == 2
+    if m['phase'] == 'claim':
+      if not asked:
+        if own:
+          raise RuntimeError(f'move {k}: planned a claim ({m}), the screen has the player\'s own turn')
+        time.sleep(0.3)
+        continue
+      n = find(nodes, rid=f"claim_{m['type']}")
+      if not n:
+        raise RuntimeError(f'move {k}: no button for {m}')
+      tap_node(n)
+      if not wait_gone('claim_pass'):
+        raise RuntimeError(f'move {k}: the claim did not go')
+      k += 1
+      continue
+    if asked:
+      raise RuntimeError(f'move {k}: planned the player\'s own turn ({m}), the screen asks about a claim')
+    if not own:
+      time.sleep(0.3)
+      continue
+    if m['type'] != 'discard':
+      n = wait_for(lambda ns: find(ns, rid=f"claim_{m['type']}"), 5)
+      if not n:
+        raise RuntimeError(f'move {k}: no button for {m}')
+      tap_node(n)
+      time.sleep(1.0)
+      k += 1
+      continue
+    rid = 'hand_drawn' if m['index'] == 'drawn' else f"hand_{m['index']}"
+    t = find(nodes, rid=rid)
+    if not t:
+      raise RuntimeError(f'move {k}: no tile {rid} for {m}')
+    tap_node(t)
+    if k == table_at:
+      # The words of the last call gone, the lifted tile at rest.
+      time.sleep(3.0)
+      shot(name)
+      t = find(ui(), rid=rid) or t
+    else:
+      time.sleep(0.25)
+    tap_node(t)
+    # The discard taken: the tiles back to a whole hand.
+    end = time.time() + 10
+    while time.time() < end and len(hand_tiles(ui())) % 3 == 2:
+      time.sleep(0.2)
+    k += 1
+  raise RuntimeError('the hand did not end')
+
+
+def to_result():
+  """From the table at a hand's end to its result, with the network's review in its line."""
+  n = wait_for(lambda ns: find(ns, rid='result_skip') or find(ns, rid='result_next'), 30)
+  if isinstance(n, Node) and n.rid == 'result_skip':
+    tap_node(n)
+  if not wait_for(lambda ns: find(ns, rid='result_next'), 20):
+    raise RuntimeError('no result')
+  if not wait_for(lambda ns: find(ns, rid='result_review_line'), 120):
+    raise RuntimeError('the review did not come')
+
+
+def store_review():
+  """The first hand's review: at its first mistake (3-review), then the player's last discard before the win with every
+  choice's figures (4-figures), and that decision on the analysis screen (5-analysis)."""
+  tap_id('result_review')
+  if not wait_for(lambda ns: find(ns, rid='replay_mistakes'), 120):
+    raise RuntimeError('the review did not open')
+  # To the decisions worth a look, until one is a mistake (its grade's words).
+  for _ in range(12):
+    n = find(ui(), rid='replay_next_key')
+    if not n or not n.enabled:
+      raise RuntimeError('no mistake in the review')
+    tap_node(n)
+    time.sleep(1.2)
+    g = find(ui(), rid='replay_grade')
+    if g and '失誤' in g.text:
+      break
+  else:
+    raise RuntimeError('no mistake found')
+  time.sleep(1.0)
+  shot('3-review')
+  # The player's decisions on to the win, and back one: the discard that left the hand ready (its danger now is more
+  # than nothing, late in the hand).
+  for _ in range(40):
+    c = find(ui(), rid='replay_choice')
+    if c and '胡' in c.text:
+      break
+    tap_id('replay_next_mine')
+    time.sleep(0.6)
+  else:
+    raise RuntimeError('no win in the review')
+  tap_id('replay_prev_mine')
+  time.sleep(1.0)
+  if not find(ui(), text='當下危險'):
+    tap_id('replay_panel')
+  wait_for(lambda ns: find(ns, text='當下危險'), 20)
+  time.sleep(1.0)
+  shot('4-figures')
+  # The list's end (its middle column), and the step to the analysis screen.
+  n = None
+  for _ in range(12):
+    n = find(ui(), rid='replay_to_analysis')
+    if n:
+      break
+    sh('input swipe 1030 900 1030 250 300')
+    time.sleep(0.6)
+  if not n:
+    raise RuntimeError('not found: replay_to_analysis')
+  # Found by its first sliver: a little further, so that the tap lands on it.
+  sh('input swipe 1030 900 1030 700 300')
+  time.sleep(0.6)
+  tap_node(find(ui(), rid='replay_to_analysis') or n)
+  if not wait_for(lambda ns: find(ns, rid='analyze_results'), 60):
+    raise RuntimeError('no analysis')
+  time.sleep(1.5)
+  # The right column (the palette, then the figures) moved up so that the figures' legend comes right under its bar,
+  # the palette's last row out of sight above it.
+  if not find(ui(), text='和最佳相比，差在：'):
+    sh('input swipe 1500 950 1500 450 1500')
+    time.sleep(0.8)
+  if not nudge('和最佳相比，差在：', 155, x=1500):
+    log('the figures did not come where they should')
+  shot('5-analysis')
+
+
+def store():
+  import json
+  plan = json.load(open(PLAN))
+  hands = plan['hands']
+  first = hands[0]
+  table_at = max(first['turns'], key=lambda t: sum(t['melds']) * 2 + sum(t['flowers']) + (3 if t['melds'][0] else 0)
+                 if 18 <= t['wall_left'] <= 45 else -1)['move']
+  log('plan', plan['seed'], plan['rules'], len(hands), 'hands; the table at move', table_at)
+  sh(f'am force-stop {PKG}')
+  sh(f'pm clear {PKG}')
+  time.sleep(2)
+  # A new task and a new process (-S, --activity-clear-task): the system restarts an app it has just updated (Android
+  # 17), without the extras, and a start without these flags only comes to that one. The store's rules on the screen
+  # say the extras were read.
+  for _ in range(3):
+    sh(f"am start -S -W --activity-clear-task -n {PKG}/io.github.kennyfs.mahjong.MainActivity "
+       f"--es store_seed {plan['seed']} --es store_rules {plan['rules']}")
+    # (The first start's welcome card is a window of its own: the table's nodes are not in the dump under it.)
+    if wait_for(lambda ns: find(ns, rid='welcome_skip') or find(ns, rid='nav_PLAY'), 20):
+      if wait_for(lambda ns: find(ns, rid='welcome_skip'), 8):
+        tap_id('welcome_skip')
+      if wait_for(lambda ns: find(ns, text='見花見台', exact=False), 10):
+        break
+    log('the app did not start with the store\'s game; starting it again')
+    sh(f'am force-stop {PKG}')
+    sh(f'pm clear {PKG}')
+    time.sleep(2)
+  else:
+    raise RuntimeError('the app did not start with the store\'s game')
+  rotate(True)
+  w, h = screen_size()
+  log('screen', w, h)
+  play_planned(first['moves'], table_at, '1-table')
+  to_result()
+  time.sleep(1.0)
+  shot('2-result')
+  store_review()
+  store_rest(hands)
+  rotate(False)
+  bad = []
+  for f in sorted(os.listdir(OUT)):
+    if f.endswith('.png'):
+      size = png_size(os.path.join(OUT, f))
+      log('size', f, size)
+      if size != STORE_SIZE:
+        bad.append(f)
+  if bad:
+    raise RuntimeError(f'not {STORE_SIZE}: {bad}')
+
+
+def store_rest(hands):
+  """Back to practice from the analysis screen (the review under it stays on practice's tab), the game's other hands,
+  then the records, a battle and the rules explained."""
+  go('練習')
+  if wait_for(lambda ns: find(ns, rid='replay_back'), 5):
+    tap_id('replay_back')
+  for i, hd in enumerate(hands[1:], 2):
+    tap_id('result_next', 30)
+    log('hand', i)
+    play_planned(hd['moves'])
+    to_result()
+  go('紀錄')
+  wait_for(lambda ns: find(ns, rid='records_stats'), 10)
+  time.sleep(1.0)
+  shot('6-records')
+  store_battle()
+  store_rules()
+
+
+def nudge(text, y_want, x=1000, tries=4):
+  """Scrolls what is under x until the node with this text has its top at y_want (slow swipes, which do not fling;
+  a swipe moves the page by its length less the touch slop)."""
+  for _ in range(tries):
+    n = find(ui(), text=text)
+    if not n:
+      return False
+    d = n.box[1] - y_want
+    if abs(d) <= 6:
+      return True
+    slop = 20 if d > 0 else -20
+    sh(f'input swipe {x} 700 {x} {max(150, min(1000, 700 - d - slop))} 1200')
+    time.sleep(0.8)
+  return False
+
+
+def store_battle():
+  """A table game on the battle server: the player and three bots. The player discards the tile drawn (and lets
+  every claim go) for a few turns, so that the rivers fill, and the table is shot on the player's turn."""
+  go('對戰')
+  tap_text('線上')
+  tap_id('battle_create')
+  if SERVER:
+    nodes = ui()
+    if not find(nodes, rid='battle_server'):
+      n = find(nodes, text='更改')
+      if n:
+        tap_node(n)
+    field = wait_for(lambda ns: find(ns, rid='battle_server'), 10)
+    if field and SERVER not in (field.text or ''):
+      tap_node(field)
+      sh(f'input text {SERVER}')
+      sh('input keyevent KEYCODE_BACK')
+      time.sleep(0.5)
+  tap_id('battle_create_table')
+  allow = ('com.android.permissioncontroller:id/permission_allow_button',
+           'com.android.permissioncontroller:id/permission_allow_foreground_only_button')
+  n = wait_for(lambda ns: find(ns, rid='battle_start') or next((x for x in ns if x.rid in allow), None), 30)
+  if n and n.rid in allow:
+    tap_node(n)
+  if not wait_for(lambda ns: find(ns, rid='battle_start'), 30):
+    raise RuntimeError('not found: battle_start')
+  tap_id('battle_start')
+  wait_for(lambda ns: len(hand_tiles(ns)) >= 16, 40)
+  turns = 0
+  end = time.time() + 120
+  while time.time() < end:
+    nodes = ui()
+    p = find(nodes, rid='claim_pass')
+    if p:
+      tap_node(p)
+      time.sleep(0.5)
+      continue
+    mine = hand_tiles(nodes)
+    if len(mine) % 3 != 2:
+      time.sleep(0.4)
+      continue
+    if turns >= 6:
+      # The words of the last call gone.
+      time.sleep(3.0)
+      shot('7-battle')
+      break
+    t = find(nodes, rid='hand_drawn') or (mine[-1] if mine else None)
+    tap_node(t)
+    time.sleep(0.25)
+    tap_node(t)
+    turns += 1
+    end_wait = time.time() + 10
+    while time.time() < end_wait and len(hand_tiles(ui())) % 3 == 2:
+      time.sleep(0.2)
+  else:
+    raise RuntimeError('the battle did not come to the player six times')
+  back()
+  n = wait_for(lambda ns: [x for x in ns if x.text == '離開'], 10)
+  if n:
+    tap_node(n[-1])
+  time.sleep(1.0)
+
+
+def store_rules():
+  """The rules explained (from the settings): its page of ready hands and their waits, a little up so that its last
+  row clears the buttons."""
+  go('設定')
+  tap_id('settings_guide')
+  wait_for(lambda ns: find(ns, rid='guide_next'), 10)
+  for _ in range(4):
+    tap_id('guide_next')
+    time.sleep(0.5)
+  time.sleep(0.8)
+  if not nudge('單吊：等一張湊成對。', 822):
+    log('the page of waits did not come where it should')
+  shot('8-rules')
+  back()
+
+
 def main():
   log('device', adb('get-serialno').strip())
+  if STORE:
+    store()
+    log('done')
+    return
   sh(f'am force-stop {PKG}')
   sh(f'pm clear {PKG}')
   # pm clear kills the app on its own time: a start right after can lose that race and leave the splash screen up
   # with no process behind it. So wait, and start again until the app shows its navigation.
   time.sleep(2)
   for _ in range(3):
-    sh(f'am start -W -n {PKG}/.MainActivity')
+    sh(f'am start -W -n {PKG}/io.github.kennyfs.mahjong.MainActivity')
     if wait_for(lambda ns: find(ns, rid='nav_PLAY') or find(ns, text='練習') or find(ns, rid='welcome_skip'), 20):
       break
     log('the app did not show; starting it again')

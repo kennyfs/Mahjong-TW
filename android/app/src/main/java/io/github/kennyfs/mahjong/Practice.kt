@@ -163,13 +163,15 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
 
   private suspend fun newGameNow() {
     reset()
-    val startDealer = Random.nextInt(4)
-    meta = Meta(Records.newId(), settings.length, settings.spec, settings.bot, startDealer)
+    // (The store's screenshots: a fixed game, the player dealing first. StoreMode.)
+    val store = StoreMode.seed
+    val startDealer = if (store != null) 0 else Random.nextInt(4)
+    meta = Meta(store ?: Records.newId(), settings.length, settings.spec, settings.bot, startDealer)
     final = null
     lastRecord = null
     stage = Stage.PLAYING
     try {
-      game = Engine.newHand(settings.spec, Setup(dealer = startDealer))
+      game = Engine.newHand(settings.spec, Setup(dealer = startDealer), StoreMode.firstDeal())
     } catch (e: EngineException) {
       onError(e.message ?: "")
       return
@@ -421,7 +423,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
       persist()
       return@launch
     }
-    val (next, gameOver) = Engine.nextHand(g, m.startDealer)
+    val (next, gameOver) = Engine.nextHand(g, m.startDealer, StoreMode.nextDeal(m.hands))
     val roundOver = next.setup.round != g.setup.round
     if (gameOver || (m.length == Length.ROUND && roundOver)) {
       meta = m.copy(over = true)

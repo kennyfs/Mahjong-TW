@@ -5,7 +5,8 @@ The text of the store page, kept here so it changes with the app. Limits: title 
 <https://github.com/kennyfs/Mahjong-TW/blob/main/docs/privacy.md>.
 
 Images: `icon-512.png` and `feature-zh.png` (1024 x 500) come from `images.py`, drawn with the app's own tiles. The
-phone screenshots (at least four at 1920 x 1080) are still to come from a store mode of the emulator scripts.
+phone screenshots (eight at 1920 x 1080, sideways, in store order) come from the emulator scripts' store mode,
+`STORE=1 ./device-tests.sh` (android/README.md, "The store's screenshots"); they are not kept in the repository.
 
 The app is in Traditional Chinese (Taiwan) only, so is the listing. The words are the app's own (`strings.xml`).
 The game scores in 台 and points and shows no money, chips or bets: keep it that way here (no 賭, 籌碼, 錢, 現金,
