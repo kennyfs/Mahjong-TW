@@ -55,6 +55,8 @@ data class HandRecord(
   val index: Int? = null,
   val fav: Boolean = false,
   val rev: ReviewSummary? = null,
+  /** Played with the analysis shown (practice's 顯示分析): kept to review, out of the statistics and the game's totals. */
+  val hints: Boolean = false,
 )
 
 @Serializable

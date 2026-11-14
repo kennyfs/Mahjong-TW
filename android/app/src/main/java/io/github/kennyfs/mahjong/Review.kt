@@ -1,6 +1,7 @@
 package io.github.kennyfs.mahjong
 
 import android.content.res.Resources
+import io.github.kennyfs.mahjong.ui.SeatNote
 import io.github.kennyfs.mahjong.ui.actionLabel
 import java.util.Locale
 import kotlin.math.abs
@@ -260,6 +261,50 @@ fun tileMarks(res: Resources, a: Analysis, played: Int, unit: Double?): Map<Stri
     )
   }
   return out
+}
+
+/** What a choice's button shows at a decision (a branch's, a practice hand's with the analysis shown): what the choice
+ *  costs against the best, in its grade's tone; whether it was the one made there. */
+data class ChoiceMark(val tag: String, val tone: TileMark.Tone, val played: Boolean)
+
+/** The marks of a decision's choices that are not discards, by the action as the engine lists it as legal. */
+fun choiceMarks(res: Resources, a: Analysis, played: Int, unit: Double?): (Action) -> ChoiceMark? = { x ->
+  val bi = a.best
+  var i = a.actions.indexOfFirst { it.action.type == x.type && it.action.tile == x.tile }
+  if (i < 0) i = a.actions.indexOfFirst { it.action.type == x.type }
+  if (bi == null || i < 0) null else {
+    val c = costOf(a, i)
+    val g = gradeOf(c, unit)
+    ChoiceMark(
+      if (i == bi) res.getString(R.string.grade_best) else if (c < EQUAL) "≈" else tagCost(c),
+      if (i == bi) TileMark.Tone.BEST else if (g > 0) TileMark.Tone.entries[1 + g] else TileMark.Tone.PLAIN,
+      i == played,
+    )
+  }
+}
+
+/** From this chance of being ready a name plate says the tile the opponent most likely waits on. */
+private const val SAY_WAIT = 0.3
+
+/** A name plate's note at a decision: how likely the opponent is ready (from 10%), and when that is likely the tile it
+ *  most likely waits on (the discard most likely to deal in to it, from 3%): 「聽 40%・可能聽五筒」. */
+fun opponentNote(res: Resources, o: Opponent): SeatNote? {
+  val r = o.ready.getOrElse(0) { 0.0 }
+  if (r < 0.1) return null
+  val level = readyLevel(r)
+  if (r >= SAY_WAIT && o.danger.isNotEmpty()) {
+    val k = o.danger.indices.maxBy { o.danger[it] }
+    if (o.danger[k] >= 0.03) return SeatNote(res.getString(R.string.opp_ready_wait, pct(r), tilesShort(listOf(Tiles.KINDS[k]))), level)
+  }
+  return SeatNote(res.getString(R.string.opp_ready, pct(r)), level)
+}
+
+/** Each seat's note at a decision (null where none): the opponents'. */
+fun opponentNotes(res: Resources, a: Analysis?): List<SeatNote?>? {
+  val os = a?.opponents ?: return null
+  val out = arrayOfNulls<SeatNote>(4)
+  for (o in os) out[o.seat] = opponentNote(res, o)
+  return out.toList()
 }
 
 /** An action's figures in words, for a line: label and value. `names`: the three opponents', for the danger. */

@@ -81,9 +81,12 @@ private data class StoredSettings(
   val rules: RuleChoice = RuleChoice(), val length: Length = Length.GAME, val bot: String = Engine.NET_BOT, val speed: Speed = Speed.NORMAL,
   val colors: ColorStyle = ColorStyle.TABLE, val dark: DarkMode = DarkMode.SYSTEM, val text: TextSize = TextSize.NORMAL,
   val name: String = "", val server: String = "", val level: Level = Level.mid,
-  /** 聽牌提示: marks on the discards that leave the hand ready (off unless asked for). */
+  /** 聽牌提示: marks on the discards that leave the hand ready, and a ready hand's tiles it waits with (off unless asked
+   *  for; practice and a branch, never a battle). */
   val readyHint: Boolean = false,
   val sound: SoundLevel = SoundLevel.full,
+  /** 顯示分析: practice with the analysis shown. */
+  val practiceHints: Boolean = false,
   /** 1: saved by a version with the network (before it, the bot could only be tile efficiency). */
   val version: Int = 0,
 )
@@ -105,6 +108,9 @@ class Settings(context: Context) {
   var server by mutableStateOf(stored.server.ifBlank { DEFAULT_SERVER })
   var level by mutableStateOf(stored.level)
   var readyHint by mutableStateOf(stored.readyHint)
+  /** 顯示分析 (練習輔助): practice's decisions with the analysis shown, as a branch's; the hands played so count for
+   *  nothing (Practice.kt). */
+  var practiceHints by mutableStateOf(stored.practiceHints)
   var sound by mutableStateOf(stored.sound)
 
   val spec: String get() = rules.spec
@@ -115,7 +121,7 @@ class Settings(context: Context) {
     set(v) = prefs.edit().putBoolean("welcome.seen", v).apply()
 
   fun persist() {
-    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, level, readyHint, sound, version = 1)
+    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, level, readyHint, sound, practiceHints, version = 1)
     prefs.edit().putString("settings", EngineJson.encodeToString(s)).apply()
   }
 }

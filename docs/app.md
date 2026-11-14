@@ -320,7 +320,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     cleared field is still its own server.
   - **A test build's icon**: the moon in its top right, over the tile's corner on a disc of the night felt (as
     Thirteen's test icon).
-- **Play with the analysis** (2026-11-14, the user's; the page first, the app to follow):
+- **Play with the analysis** (2026-11-14, the user's; the page first, then the app):
   - **練習時顯示分析** (the settings; on in a hand at any point, on till its end, and that hand counts for
     nothing): the costs and dangers on the tiles, the choices' costs on their buttons, the opponents' chances of
     being ready on their plates with the tile each most likely waits on (可能聽, from 30%), a chosen tile's figures
@@ -346,6 +346,24 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     deal. Another's win waits `win_wait` (900 ms, the hands still hidden; a discard flying in that step lands first)
     before its moment, a self-draw's and a deal-in's alike. The branch's 重洗看不到的牌 is on at first. The about
     text says what the app does.
+  - **And** (the user's): with the analysis shown the opponents' notes stay as the player's last decision left them
+    while the computer players play (no new figures till the next decision: the network is trained on the
+    player's own turns). A practice hand with it shows the player's expected result (期望) by their plate, kept the
+    same way, where there is room: a tall table's in the melds' line where the melds keep their size; a wide table's
+    beside the plate, else over it where the left player's tiles keep their size.
+  - **Also** (the user's): the turn's frame goes around the tiles' tags too, under the tiles and their tags (a lifted
+    one is not crossed by it). Upright, a decision's list in place of the table keeps the tiles put over the list,
+    which scrolls alone (a tile's row brought into sight at the first tap took the tile away from under the second).
+    電腦玩家's 牌效率 says what it is behind an ⓘ (its brackets were long).
+  - **The app** has all of the above: the branch and 從這裡打 (BranchScreen, DecisionView), the skeletons
+    (Skeletons.kt), the settings in Thirteen's order (colors and dark mode a row each, their choices in a small
+    window; the ⓘ; 練習輔助; About with the source, the web page and the privacy policy), the tour's step on the
+    hints (its section brought into sight first), a review's step loaded whole before it shows, ≫ 按一下以繼續 gone at
+    the tap, a list's chosen row kept off its edges. The branch is kept by the app's model (AppModel.branchRun): turned
+    sideways (the activity made again), it goes on where it was (it closed before). The player's own plate on a wide
+    table has the score by the name and the standing on a line of its own (the score was cut off). A plate's wind is
+    centered in its disc by the glyph's ink (the user's: it sat low, by a tenth of the disc; a CJK glyph's line is
+    taller above it than below).
 
 ## Built and checked
 

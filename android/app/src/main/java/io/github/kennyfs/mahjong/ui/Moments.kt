@@ -347,7 +347,8 @@ fun FxOverlay() {
         else -> SmallFx(m, h, origin)
       }
     }
-    if (FxStage.tapOn && (m == null || h.holds(m))) TapHint(h, origin)
+    // (Gone at the tap, while the moment it held plays out.)
+    if (FxStage.tapOn && (m == null || (h.holds(m) && h.released != m.id))) TapHint(h, origin)
   }
 }
 

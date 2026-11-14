@@ -37,6 +37,9 @@ object Engine {
 
   /** The bot that plays the network's most valued action, as the settings and the records name it. */
   const val NET_BOT = "net"
+  /** The network's bot as a room on this phone asks the engine for it (Engine.raw puts the file's path in). */
+  private const val MODEL_MARK = "@actor@"
+  const val NET_SPEC = "net:model=$MODEL_MARK,mode=policy"
   /** Which network this build has (the start of its file's SHA-256): another one reviews a record again. */
   val MODEL_ID: String = BuildConfig.MODEL_ID
 
@@ -80,8 +83,11 @@ object Engine {
   /** A request that names the network: `build` gets its path. */
   private suspend fun withModel(build: (String) -> JsonObject): JsonObject = withContext(dispatcher) { handleOn(build(model())) }
 
-  /** One request line to one answer line, errors as {"error": ...}: for the battle rooms' EngineClient. */
-  suspend fun raw(line: String): String = withContext(dispatcher) { nativeHandle(handle, line) }
+  /** One request line to one answer line, errors as {"error": ...}: for the battle rooms' EngineClient. NET_SPEC in it
+   *  (a nearby room's bots) names the network's file. */
+  suspend fun raw(line: String): String = withContext(dispatcher) {
+    nativeHandle(handle, if (MODEL_MARK in line) line.replace(MODEL_MARK, model()) else line)
+  }
 
   /** An answer as the app's type; one that does not read is an engine error like any other (the screens catch those). */
   private inline fun <reified T> decode(e: JsonElement): T = try {

@@ -42,7 +42,6 @@ import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import io.github.kennyfs.mahjong.Practice
 import androidx.compose.material3.FilledIconButton
@@ -114,6 +113,7 @@ import io.github.kennyfs.mahjong.reviewOf
 import io.github.kennyfs.mahjong.summarize
 import io.github.kennyfs.mahjong.tagCost
 import io.github.kennyfs.mahjong.tileMarks
+import io.github.kennyfs.mahjong.opponentNote
 import io.github.kennyfs.mahjong.tilesShort
 import kotlinx.coroutines.launch
 
@@ -162,7 +162,10 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
   val settings = vm.settings
   val level = settings.level
   val n = rec.game.actions.size
+  /** The step shown, and the one asked for (go): everything a step shows comes from the engine first, and the step is
+   *  shown when all of it is there (the load below), so that nothing of it comes in a moment later and moves the rest. */
   var step by remember(rec.id) { mutableIntStateOf(vm.reviewStep.coerceIn(0, n)) }
+  var want by remember(rec.id) { mutableIntStateOf(step) }
   LaunchedEffect(step) { vm.reviewStep = step }
   var showAll by remember { mutableStateOf(false) }
   var showResult by remember(rec.id) { mutableStateOf(false) }
@@ -185,13 +188,6 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
       revError = e.message ?: ""
     }
   }
-  LaunchedEffect(rec.id, step, showAll) {
-    try {
-      view = Engine.view(rec.game.cut(step), rec.me, 0, reveal = showAll || step == n)
-    } catch (e: EngineException) {
-      vm.error = e.message
-    }
-  }
 
   val you = stringResource(R.string.you)
   val names = rec.names.mapIndexed { i, x -> if (i == rec.me) you else x }
@@ -207,17 +203,18 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
    *  action that took effect. */
   val last = steps?.last?.takeIf { it >= 0 } ?: (stopList.lastOrNull() ?: 0)
   fun go(k: Int) {
-    step = k.coerceIn(0, n)
+    want = k.coerceIn(0, n)
     showResult = false
   }
-  fun next() { var k = step + 1; while (k < n && !isStop(k)) k++; go(k) }
-  fun prev() { var k = step - 1; while (k > 0 && !isStop(k)) k--; go(k) }
-  fun nextMine() { var k = step + 1; while (k < n && !isMine(k)) k++; go(k) }
-  fun prevMine() { var k = step - 1; while (k > 0 && !isMine(k)) k--; go(k) }
+  // (From the step asked for last: steps asked for quickly add up.)
+  fun next() { var k = want + 1; while (k < n && !isStop(k)) k++; go(k) }
+  fun prev() { var k = want - 1; while (k > 0 && !isStop(k)) k--; go(k) }
+  fun nextMine() { var k = want + 1; while (k < n && !isMine(k)) k++; go(k) }
+  fun prevMine() { var k = want - 1; while (k > 0 && !isMine(k)) k--; go(k) }
   /** To the last step; from there to the table at the end. */
-  fun toEnd() = go(if (step < last) last else n)
+  fun toEnd() = go(if (want < last) last else n)
   fun openResult() {
-    step = n
+    go(n)
     showResult = true
   }
   /** Whose tile a claim at step k answers: the discard (or added kong) before it. */
@@ -265,11 +262,10 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
   val stepKey = "${rec.id}/$step"
 
   // The review's branch (BranchScreen): from the step of one of the player's decisions; back at that step after.
-  var branchFrom by remember(rec.id) { mutableStateOf<Int?>(null) }
   val canBranch = step < n && isMine(step)
-  branchFrom?.let { k ->
-    BranchScreen(vm, rec.game.cut(k), rec.me, names) {
-      branchFrom = null
+  vm.branchFrom?.takeIf { it.first == rec.id && it.second in 0..n }?.let { (_, k) ->
+    BranchScreen(vm, rec.game.cut(k), rec.me, names, unit = unit) {
+      vm.branchFrom = null
       go(k)
     }
     return
@@ -284,15 +280,32 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     val w = maxWidth.value
     val hw = if (side) minOf(44f, ((w - 208) * 0.46f - 24) / 9.3f) else minOf(44f, (minOf(w, 720f) - 28) / 9.3f)
 
-    // Another seat's decision (or one of the player's without a choice): analyzed when its list is shown.
+    // Another seat's decision (or one of the player's without a choice): analyzed when its list is shown. The list in
+    // place of the table (a phone): the deciding seat's own tiles over it.
     val listShown = inlinePanel || panelOpen
+    val listView = panelOpen && !inlinePanel && deciding != null
     var other by remember { mutableStateOf<Pair<String, Analysis>?>(null) }
-    LaunchedEffect(stepKey, listShown, mine == null) {
-      if (deciding == null || mine != null || !listShown || other?.first == stepKey) return@LaunchedEffect
+    var seatViewOf by remember { mutableStateOf<Pair<String, View>?>(null) }
+    // A step asked for (or the list opened, or every hand shown): what it shows, all of it, then the step at once. (A
+    // newer request cancels an older one's load.)
+    val panelWanted = panelOpen && !inlinePanel
+    LaunchedEffect(rec.id, want, showAll, listShown, panelWanted) {
+      val k = want
+      val d = if (k < n) actions[k].first else null
+      val own = r?.decisions?.any { it.step == k } ?: false
+      val cut = rec.game.cut(k)
+      val key = "${rec.id}/$k"
       try {
-        other = stepKey to Engine.analyzeGame(rec.game.cut(step), deciding.first)
+        val v = Engine.view(cut, rec.me, 0, reveal = showAll || k == n)
+        val sv = if (panelWanted && d != null) try { Engine.view(cut, d) } catch (e: EngineException) { null } else null
+        val a = if (listShown && d != null && !own) other?.takeIf { it.first == key }?.second
+          ?: try { Engine.analyzeGame(cut, d) } catch (e: EngineException) { null } else null
+        view = v
+        seatViewOf = sv?.let { key to it }
+        if (a != null) other = key to a
+        step = k
       } catch (e: EngineException) {
-        // The list stays empty: the table still shows the step.
+        vm.error = e.message
       }
     }
     val focus: Focus? = when {
@@ -307,13 +320,11 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
       val out = arrayOfNulls<SeatNote>(4)
       for (o in opponents) {
         val tr = if (showAll) mine.truth.firstOrNull { it.seat == o.seat } else null
-        val ready = o.ready.getOrElse(0) { 0.0 }
         out[o.seat] = when {
           tr != null && tr.missed -> SeatNote(res.getString(R.string.opp_missed), 0)
           tr != null && tr.shanten == 0 -> SeatNote(res.getString(R.string.opp_ready, tilesShort(tr.waits.map { it.tile })), 3)
           tr != null -> SeatNote(res.getString(R.string.analysis_shanten, tr.shanten), 0)
-          ready >= 0.1 -> SeatNote(res.getString(R.string.opp_ready, pct(ready)), readyLevel(ready))
-          else -> null
+          else -> opponentNote(res, o)
         }
       }
       out.toList()
@@ -325,17 +336,6 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     val pickedIndex = if (focus != null && pickedTile != null) focus.analysis.actions.indexOfFirst { it.action.type == "discard" && it.action.tile == pickedTile } else -1
     val oppNames = focus?.let { f -> (1..3).map { names[(f.seat + it) % 4] } } ?: emptyList()
 
-    // The list in place of the table (a phone): the deciding seat's own tiles over it.
-    val listView = panelOpen && !inlinePanel && deciding != null
-    var seatViewOf by remember { mutableStateOf<Pair<String, View>?>(null) }
-    LaunchedEffect(stepKey, listView) {
-      if (deciding == null || !listView || seatViewOf?.first == stepKey) return@LaunchedEffect
-      try {
-        seatViewOf = stepKey to Engine.view(rec.game.cut(step), deciding.first)
-      } catch (e: EngineException) {
-        // The list is shown without the seat's hand.
-      }
-    }
     val seatView = seatViewOf?.takeIf { it.first == stepKey }?.second
 
     // The list over a step: scrolled near its end (where the opponents' figures are, to watch them change from step
@@ -382,7 +382,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
 
     val toggleColors = IconButtonDefaults.iconToggleButtonColors(checkedContainerColor = cs.secondaryContainer, checkedContentColor = cs.onSecondaryContainer)
     val branchButton = @Composable {
-      TextButton(onClick = { branchFrom = step }, enabled = canBranch, modifier = Modifier.testTag("replay_branch")) {
+      TextButton(onClick = { vm.branchFrom = rec.id to step }, enabled = canBranch, modifier = Modifier.testTag("replay_branch")) {
         Text(stringResource(R.string.branch_title))
       }
     }
@@ -551,7 +551,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
             Text(stringResource(R.string.review_to_analysis))
           }
         }
-      } else if (deciding != null) Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+      } else if (deciding != null) PanelSkeleton(w = if (inlinePanel) 34f else maxOf(30f, hw * 0.8f))
     }
 
     // Over the hand on the table: the options that are not discards, and the figures of the tile tapped (with the
@@ -608,7 +608,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     val table = @Composable { mod: Modifier ->
       Box(mod) {
         val v = view
-        if (v == null) Loading()
+        if (v == null) TableSkeleton()
         else TableView(
           v, rec.me, names, revealed = if (showAll || step == n) v.hands else null, interactive = false, maxHand = 56f, review = true,
           marks = marks, notes = notes, strip = strip, onPick = { picked = it },

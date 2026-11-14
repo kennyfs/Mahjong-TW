@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import androidx.compose.ui.text.style.TextDecoration
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -107,6 +108,13 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
 
 private val TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
@@ -139,7 +147,8 @@ fun RecordsScreen(vm: AppModel) {
   var openBattle by remember { mutableStateOf<String?>(null) }
   val hands = records.hands.filter { it.kind == tab && (!favOnly || it.fav) }.asReversed()
   val battles = records.battles.filter { b -> b.kind == tab && (!favOnly || b.fav || records.ofGroup(b.id).any { it.fav }) }.asReversed()
-  val all = records.hands.filter { it.kind == tab }
+  // (A hand played with the analysis shown, 顯示分析, counts in neither.)
+  val all = records.hands.filter { it.kind == tab && !it.hints }
   // The reviews of this tab's hands, added up; the hands not reviewed by this network can be, one after another.
   val reviewed = all.filter { it.rev?.m == Engine.MODEL_ID }
   val pending = all.filter { it.rev?.m != Engine.MODEL_ID }
@@ -335,13 +344,20 @@ private fun HandLine(h: HandRecord, onOpen: () -> Unit, onFav: () -> Unit) {
       Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
         Text(summary, style = MaterialTheme.typography.bodyLarge,
           color = if (h.me in h.winners) outcome.good else if (h.loser == h.me) outcome.bad else MaterialTheme.colorScheme.onSurface)
-        Text(
-          localTime(h.time) + "・" + rulesOf(h.game.rules) + (h.index?.let { "・" + stringResource(R.string.record_hand_of, it) } ?: "") +
-            (h.rev?.let { "・" + stringResource(R.string.record_loss, pts(it.loss, false)) } ?: ""),
-          style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          // A hand played with the analysis shown: marked, its points counting for nothing.
+          if (h.hints) Text(stringResource(R.string.practice_hints), Modifier.padding(end = 6.dp)
+            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Medium)
+          Text(
+            localTime(h.time) + "・" + rulesOf(h.game.rules) + (h.index?.let { "・" + stringResource(R.string.record_hand_of, it) } ?: "") +
+              (h.rev?.let { "・" + stringResource(R.string.record_loss, pts(it.loss, false)) } ?: ""),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
       }
-      Text(signed(me), color = pointsColor(me), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+      Text(signed(me), color = if (h.hints) MaterialTheme.colorScheme.onSurfaceVariant else pointsColor(me), fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.titleMedium, textDecoration = if (h.hints) TextDecoration.LineThrough else null)
       IconButton(onClick = onFav) { Icon(if (h.fav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite)) }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -570,56 +586,20 @@ fun SettingsScreen(vm: AppModel) {
 private fun SettingsList(vm: AppModel, desk: Boolean) {
   val s = vm.settings
   fun save() = s.persist()
+  val uri = LocalUriHandler.current
+  // A setting's longer words, behind its ⓘ (Block).
+  var helped by remember { mutableStateOf<Pair<String, String>?>(null) }
+  val help = { title: String, text: String -> helped = title to text }
+  // The tour's step on the hints lights their section: it is brought into sight first (low on the page).
+  val tour = LocalTour.current
+  val hintsInView = remember { BringIntoViewRequester() }
+  LaunchedEffect(tour.step) { if (TOUR_STEPS.getOrNull(tour.step)?.target == "hints") runCatching { hintsInView.bringIntoView() } }
+  val onOff = listOf(false to stringResource(R.string.sound_off), true to stringResource(R.string.ready_hint_on))
   Column(Modifier.fillMaxSize()) {
     TitleBar(stringResource(R.string.settings_title))
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
       Column(Modifier.readable().fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-        SectionHeader(stringResource(R.string.settings_help))
-        SettingRow(stringResource(R.string.guide_title), stringResource(R.string.guide_row), Modifier.testTag("settings_guide")) { vm.open(Page.GUIDE) }
-        SettingRow(stringResource(R.string.tour_title), stringResource(R.string.tour_row), Modifier.testTag("settings_tour")) { vm.tour.start() }
-        SectionHeader(stringResource(R.string.settings_game))
-        SettingRow(stringResource(R.string.settings_rules), rulesChip(s.rules.tai, s.rules.flowers, s.rules.overrides.isNotEmpty()),
-          onClick = if (desk) null else ({ vm.open(Page.RULES) }))
-        Block(stringResource(R.string.settings_length)) {
-          ToggleGroup(
-            listOf(Length.HAND to stringResource(R.string.length_hand), Length.ROUND to stringResource(R.string.length_round),
-              Length.GAME to stringResource(R.string.length_game)),
-            s.length, { s.length = it; save(); vm.practice.settingsChanged() }, Modifier.fillMaxWidth(),
-          )
-        }
-        Block(stringResource(R.string.settings_bot)) {
-          ToggleGroup(BOTS.map { it.first to stringResource(it.second) }, s.bot, { s.bot = it; save(); vm.practice.settingsChanged() },
-            Modifier.fillMaxWidth().testTag("settings_bot"))
-        }
-        Block(stringResource(R.string.settings_speed)) {
-          ToggleGroup(
-            listOf(Speed.SLOW to stringResource(R.string.speed_slow), Speed.NORMAL to stringResource(R.string.speed_normal),
-              Speed.FAST to stringResource(R.string.speed_fast), Speed.MANUAL to stringResource(R.string.speed_manual)),
-            s.speed, { s.speed = it; save(); vm.practice.paceChanged() }, Modifier.fillMaxWidth().testTag("settings_speed"),
-          )
-          Text(stringResource(R.string.speed_manual_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Block(stringResource(R.string.settings_sound)) {
-          ToggleGroup(
-            listOf(SoundLevel.off to stringResource(R.string.sound_off), SoundLevel.soft to stringResource(R.string.sound_soft),
-              SoundLevel.full to stringResource(R.string.sound_full)),
-            s.sound, { s.sound = it; save(); Sounds.play(Sounds.Name.DISCARD) }, Modifier.fillMaxWidth().testTag("settings_sound"),
-          )
-        }
-        Block(stringResource(R.string.settings_ready_hint)) {
-          ToggleGroup(listOf(false to stringResource(R.string.sound_off), true to stringResource(R.string.ready_hint_on)),
-            s.readyHint, { s.readyHint = it; save() }, Modifier.fillMaxWidth().testTag("settings_ready_hint"))
-          Text(stringResource(R.string.ready_hint_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        SectionHeader(stringResource(R.string.settings_analysis))
-        Block(stringResource(R.string.settings_level)) {
-          ToggleGroup(
-            listOf(Level.beginner to stringResource(R.string.level_beginner), Level.mid to stringResource(R.string.level_mid),
-              Level.expert to stringResource(R.string.level_expert)),
-            s.level, { s.level = it; save() }, Modifier.fillMaxWidth().testTag("settings_level"),
-          )
-          Text(stringResource(R.string.level_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        // (In Thirteen's order: the look, the game, help, about; the analysis after the game.)
         SectionHeader(stringResource(R.string.settings_look))
         Block(stringResource(R.string.settings_text)) {
           ToggleGroup(
@@ -628,35 +608,143 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
             s.text, { s.text = it; save() }, Modifier.fillMaxWidth(),
           )
         }
-        Block(stringResource(R.string.settings_colors)) {
+        // Colors and dark mode: a row each, their choices in a small window (as Thirteen's).
+        SelectRow(
+          stringResource(R.string.settings_colors),
+          // (The wallpaper's colors: Android 12 and later only.)
+          listOfNotNull(ColorStyle.TABLE to stringResource(R.string.colors_table), ColorStyle.MINIMAL to stringResource(R.string.colors_minimal),
+            (ColorStyle.WALLPAPER to stringResource(R.string.colors_wallpaper)).takeIf { Build.VERSION.SDK_INT >= Build.VERSION_CODES.S }),
+          s.colors, { s.colors = it; save() }, Modifier.testTag("settings_colors"),
+        )
+        SelectRow(
+          stringResource(R.string.settings_dark),
+          listOf(DarkMode.SYSTEM to stringResource(R.string.dark_system), DarkMode.LIGHT to stringResource(R.string.dark_light),
+            DarkMode.DARK to stringResource(R.string.dark_dark)),
+          s.dark, { s.dark = it; save() }, Modifier.testTag("settings_dark"),
+        )
+
+        SectionHeader(stringResource(R.string.settings_game))
+        SettingRow(stringResource(R.string.settings_rules), rulesChip(s.rules.tai, s.rules.flowers, s.rules.overrides.isNotEmpty()),
+          onClick = if (desk) null else ({ vm.open(Page.RULES) }))
+        Block(stringResource(R.string.settings_length), stringResource(R.string.length_help), help) {
           ToggleGroup(
-            // (The wallpaper's colors: Android 12 and later only.)
-            listOfNotNull(ColorStyle.TABLE to stringResource(R.string.colors_table), ColorStyle.MINIMAL to stringResource(R.string.colors_minimal),
-              (ColorStyle.WALLPAPER to stringResource(R.string.colors_wallpaper)).takeIf { Build.VERSION.SDK_INT >= Build.VERSION_CODES.S }),
-            s.colors, { s.colors = it; save() }, Modifier.fillMaxWidth(),
+            listOf(Length.HAND to stringResource(R.string.length_hand), Length.ROUND to stringResource(R.string.length_round),
+              Length.GAME to stringResource(R.string.length_game)),
+            s.length, { s.length = it; save(); vm.practice.settingsChanged() }, Modifier.fillMaxWidth(),
           )
         }
-        Block(stringResource(R.string.settings_dark)) {
+        Block(stringResource(R.string.settings_bot), stringResource(R.string.bot_help), help) {
+          ToggleGroup(BOTS.map { it.first to stringResource(it.second) }, s.bot, { s.bot = it; save(); vm.practice.settingsChanged() },
+            Modifier.fillMaxWidth().testTag("settings_bot"))
+        }
+        Block(stringResource(R.string.settings_speed), stringResource(R.string.speed_manual_hint), help) {
           ToggleGroup(
-            listOf(DarkMode.SYSTEM to stringResource(R.string.dark_system), DarkMode.LIGHT to stringResource(R.string.dark_light),
-              DarkMode.DARK to stringResource(R.string.dark_dark)),
-            s.dark, { s.dark = it; save() }, Modifier.fillMaxWidth(),
+            listOf(Speed.SLOW to stringResource(R.string.speed_slow), Speed.NORMAL to stringResource(R.string.speed_normal),
+              Speed.FAST to stringResource(R.string.speed_fast), Speed.MANUAL to stringResource(R.string.speed_manual)),
+            s.speed, { s.speed = it; save(); vm.practice.paceChanged() }, Modifier.fillMaxWidth().testTag("settings_speed"),
           )
         }
+        Block(stringResource(R.string.settings_sound)) {
+          ToggleGroup(
+            listOf(SoundLevel.off to stringResource(R.string.sound_off), SoundLevel.soft to stringResource(R.string.sound_soft),
+              SoundLevel.full to stringResource(R.string.sound_full)),
+            s.sound, { s.sound = it; save(); Sounds.play(Sounds.Name.DISCARD) }, Modifier.fillMaxWidth().testTag("settings_sound"),
+          )
+        }
+        // What helps in practice (and a review's branch); never in a battle.
+        Column(Modifier.tourAnchor("hints").bringIntoViewRequester(hintsInView)) {
+          SectionHeader(stringResource(R.string.settings_practice_aids))
+          Block(stringResource(R.string.settings_ready_hint), stringResource(R.string.ready_hint_text), help) {
+            ToggleGroup(onOff, s.readyHint, { s.readyHint = it; save() }, Modifier.fillMaxWidth().testTag("settings_ready_hint"))
+          }
+          Block(stringResource(R.string.settings_practice_hints), stringResource(R.string.practice_hints_text), help) {
+            // (Turned on while a practice hand is in play: that hand has had it, and keeps it till its end.)
+            ToggleGroup(onOff, s.practiceHints, { s.practiceHints = it; save(); if (it) vm.practice.markHinted() },
+              Modifier.fillMaxWidth().testTag("settings_practice_hints"))
+          }
+        }
+
+        SectionHeader(stringResource(R.string.settings_analysis))
+        Block(stringResource(R.string.settings_level), stringResource(R.string.level_hint), help) {
+          ToggleGroup(
+            listOf(Level.beginner to stringResource(R.string.level_beginner), Level.mid to stringResource(R.string.level_mid),
+              Level.expert to stringResource(R.string.level_expert)),
+            s.level, { s.level = it; save() }, Modifier.fillMaxWidth().testTag("settings_level"),
+          )
+        }
+
+        SectionHeader(stringResource(R.string.settings_help))
+        SettingRow(stringResource(R.string.guide_title), stringResource(R.string.guide_row), Modifier.testTag("settings_guide")) { vm.open(Page.GUIDE) }
+        SettingRow(stringResource(R.string.tour_title), stringResource(R.string.tour_row), Modifier.testTag("settings_tour")) { vm.tour.start() }
+
+        // About: the source, the web version (the app's way to it; the web page has Google Play's), the privacy policy.
         SectionHeader(stringResource(R.string.settings_about))
-        Text(stringResource(R.string.about_text_net), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium)
+        SettingRow(stringResource(R.string.app_name), stringResource(R.string.about_source), Modifier.testTag("about_source"), arrow = false,
+          trailing = { LinkIcon() }) { uri.openUri(SOURCE_URL) }
+        SettingRow(stringResource(R.string.about_web), stringResource(R.string.about_web_note, WEB_URL.removePrefix("https://").trimEnd('/')),
+          Modifier.testTag("about_web"), arrow = false, trailing = { LinkIcon() }) { uri.openUri(WEB_URL) }
+        SettingRow(stringResource(R.string.privacy_policy), null, Modifier.testTag("about_privacy"), arrow = false, trailing = { LinkIcon() }) {
+          uri.openUri(PRIVACY_URL)
+        }
+        Text(stringResource(R.string.about_text_net), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME, Engine.MODEL_ID),
-          Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp).testTag("about_version"), style = MaterialTheme.typography.bodySmall,
+          Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp).testTag("about_version"), style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant)
       }
     }
   }
+  helped?.let { (title, text) ->
+    AlertDialog(
+      onDismissRequest = { helped = null },
+      confirmButton = { TextButton(onClick = { helped = null }) { Text(stringResource(R.string.close)) } },
+      title = { Text(title) },
+      text = { Text(text, style = MaterialTheme.typography.bodyLarge) },
+      modifier = Modifier.testTag("settings_help_dialog"),
+    )
+  }
+}
+
+private const val SOURCE_URL = "https://github.com/kennyfs/Mahjong-TW"
+private const val WEB_URL = "https://mahjong.1li.tw/"
+private const val PRIVACY_URL = "https://github.com/kennyfs/Mahjong-TW/blob/main/docs/privacy.md"
+
+@Composable
+private fun LinkIcon() = Icon(Icons.AutoMirrored.Filled.OpenInNew, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+
+/** A setting's choice as a row (its title, the choice under it); a tap opens the choices in a small window. */
+@Composable
+private fun <T> SelectRow(title: String, options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit, modifier: Modifier = Modifier) {
+  var open by remember { mutableStateOf(false) }
+  SettingRow(title, options.firstOrNull { it.first == selected }?.second, modifier, arrow = false) { open = true }
+  if (open) AlertDialog(
+    onDismissRequest = { open = false },
+    confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } },
+    title = { Text(title) },
+    text = {
+      Column(Modifier.selectableGroup()) {
+        for ((v, label) in options) Row(
+          Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(v == selected, role = Role.RadioButton) { onSelect(v); open = false },
+          verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+          RadioButton(selected = v == selected, onClick = null)
+          Text(label, style = MaterialTheme.typography.bodyLarge)
+        }
+      }
+    },
+  )
 }
 
 @Composable
-private fun Block(title: String, content: @Composable () -> Unit) {
+private fun Block(title: String, help: String? = null, onHelp: ((String, String) -> Unit)? = null, content: @Composable () -> Unit) {
   Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    Text(title, style = MaterialTheme.typography.bodyLarge)
+    if (help != null && onHelp != null) Row(verticalAlignment = Alignment.CenterVertically) {
+      Text(title, style = MaterialTheme.typography.bodyLarge)
+      // ⓘ: the setting's longer words in a small window (the page stays short).
+      IconButton(onClick = { onHelp(title, help) }, Modifier.size(40.dp)) {
+        Icon(Icons.Outlined.Info, stringResource(R.string.rules_help) + "：" + title, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+      }
+    } else Text(title, style = MaterialTheme.typography.bodyLarge)
     content()
   }
 }

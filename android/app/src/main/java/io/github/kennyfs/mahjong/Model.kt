@@ -109,6 +109,13 @@ data class View(
   val hands: List<String>? = null,
   /** On the player's own turn to discard: each discard that leaves the hand ready, with what it then waits on. */
   val ready: Map<String, List<String>> = emptyMap(),
+  /** With each of those, the tiles the hand then waits with (聽的相關牌組, the engine's Shape::waitTiles). */
+  @SerialName("ready_tiles") val readyTiles: Map<String, String> = emptyMap(),
+  /** The player's own standing: 0 ready (聽牌), -1 complete, else how many tiles from ready (向聽); on their own turn
+   *  after the best discard. Null from an engine before it. */
+  val shanten: Int? = null,
+  /** Between the player's turns, a ready hand's tiles that it waits with ("" otherwise). */
+  @SerialName("wait_tiles") val waitTiles: String = "",
 )
 
 @Serializable

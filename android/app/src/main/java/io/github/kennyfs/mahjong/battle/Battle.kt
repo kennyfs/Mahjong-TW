@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.kennyfs.mahjong.Action
 import io.github.kennyfs.mahjong.BattleGroup
+import io.github.kennyfs.mahjong.CalloutClock
 import io.github.kennyfs.mahjong.Engine
 import io.github.kennyfs.mahjong.EngineJson
 import io.github.kennyfs.mahjong.GameRecord
@@ -31,6 +32,7 @@ import io.github.kennyfs.mahjong.protocol.Join
 import io.github.kennyfs.mahjong.protocol.Joined
 import io.github.kennyfs.mahjong.protocol.Leave
 import io.github.kennyfs.mahjong.protocol.Mode
+import io.github.kennyfs.mahjong.protocol.Pace
 import io.github.kennyfs.mahjong.protocol.PROTOCOL_VERSION
 import io.github.kennyfs.mahjong.protocol.Phase
 import io.github.kennyfs.mahjong.protocol.PlayerView
@@ -103,6 +105,9 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
   private var joined: Joined? = null
   /** Sent once the room says welcome: create, join or resume. */
   private var pending: ClientMsg? = null
+  /** The room's views not shown yet (when each came), and whether they are being shown (showViews). */
+  private val views = ArrayDeque<Pair<TableView, Long>>()
+  private var showingViews = false
   private var url: String? = null
   private var startedAt = 0L
   private var beforeAct: MyTable? = null
@@ -172,8 +177,8 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
     val prefs = context.getSharedPreferences("battle", Context.MODE_PRIVATE)
     return RoomSettings(
       mode, RoomLength.valueOf(settings.length.name), prefs.getInt("hands", 4), RoomRules(settings.rules.tai, settings.rules.flowers, settings.rules.overrides),
-      // A room's bots are the room's (protocol Validation.BOTS): tile efficiency, until the rooms have the network.
-      prefs.getInt("time", 15), "greedy",
+      // The network's bot (protocol Validation.BOTS); a server without it plays tile efficiency, and says so.
+      prefs.getInt("time", 15), Engine.NET_BOT,
     )
   }
 
@@ -201,7 +206,11 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
     if (busy || inRoom) return
     start(Create(defaults(mode)))
     via = "nearby"
-    val h = Hub(EngineClient { Engine.raw(it) }, scope, HubLimits.NEARBY)
+    // Paced as practice is (the app's timing.json), its bots the network's or tile efficiency (Engine.raw finds the
+    // network's file).
+    val timing = context.resources.openRawResource(R.raw.timing).bufferedReader().use { it.readText() }
+    val h = Hub(EngineClient { Engine.raw(it) }, scope,
+      HubLimits.nearby(Pace.fromTiming(timing), mapOf("greedy" to "greedy", Engine.NET_BOT to Engine.NET_SPEC)))
     hub = h
     host = NearbyHost(context, h, scope, playerName, onError)
     hosting = true
@@ -315,6 +324,7 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
     lastSeen = false
     busy = false
     beforeAct = null
+    views.clear()
     via = "online"
     host?.stop()
     host = null
@@ -345,13 +355,8 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
         }
       }
       is TableView -> {
-        val v = runCatching { EngineJson.decodeFromJsonElement<View>(msg.view) }.getOrNull() ?: return
-        val cur = table
-        val view = if (msg.full || cur == null || cur.hand != msg.hand) v else v.copy(events = cur.view.events + v.events)
-        table = MyTable(msg.hand, msg.seat, msg.step, msg.seats, view,
-          msg.remainingMs?.takeIf { view.myTurn }?.let { System.currentTimeMillis() + it })
-        beforeAct = null
-        forcedDiscard()
+        views.addLast(msg to System.currentTimeMillis())
+        showViews()
       }
       is ResultMsg -> addOutcomes(listOf(msg.outcome))
       is History -> addOutcomes(msg.outcomes)
@@ -364,6 +369,12 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
             return onError(str(R.string.battle_closed))
           }
           return roomGone(str(R.string.battle_closed))
+        }
+        // A room asked for the network's bots that does not know them (a server older than this app): tile efficiency.
+        val create = pending as? Create
+        if (msg.code == ErrorCode.BAD_SETTINGS && joined == null && create != null && create.settings.bot != "greedy") {
+          pending = Create(create.settings.copy(bot = "greedy"))
+          return link.send(pending!!)
         }
         // A decision refused: the view it was made on, again; or it came too late (the bot made it): nothing to say.
         if ((msg.code == ErrorCode.BAD_ACTION || msg.code == ErrorCode.NOT_ALLOWED) && room?.phase == Phase.PLAYING) {
@@ -383,6 +394,34 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
       is Closed -> {
         if (msg.reason == "resumed elsewhere" || msg.reason == "left") return
         roomGone(if (room?.phase == Phase.OVER) null else str(R.string.battle_closed))
+      }
+    }
+  }
+
+  /**
+   * The room's views, one at a time: each once the words and moments of the one before are over (the deal's too), as
+   * practice shows them. The room sends them at that pace already (protocol Pace); a slower pace in the settings waits
+   * here. The time to decide counts from when a view came.
+   */
+  private fun showViews() {
+    if (showingViews) return
+    showingViews = true
+    scope.launch {
+      try {
+        while (views.isNotEmpty()) {
+          val (msg, at) = views.removeFirst()
+          val v = runCatching { EngineJson.decodeFromJsonElement<View>(msg.view) }.getOrNull() ?: continue
+          val cur = table
+          val view = if (msg.full || cur == null || cur.hand != msg.hand) v else v.copy(events = cur.view.events + v.events)
+          table = MyTable(msg.hand, msg.seat, msg.step, msg.seats, view, msg.remainingMs?.takeIf { view.myTurn }?.let { at + it })
+          beforeAct = null
+          forcedDiscard()
+          // (The table looks at it a composition later: what it brings is up then.) A view that comes meanwhile waits.
+          CalloutClock.settle(view.eventCount)
+          CalloutClock.done()
+        }
+      } finally {
+        showingViews = false
       }
     }
   }

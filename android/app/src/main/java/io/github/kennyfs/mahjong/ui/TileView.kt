@@ -40,11 +40,12 @@ private object Faces {
  * A tile, standing: its face (or its back for a null tile: another player's, a concealed kong), the edge of its back
  * under it. `w` wide, w * TILE_RATIO high. The web page's Tile.svelte, drawn the same way (a 60 x 87 box).
  * `danger` (1 to 3): a band along its foot, how likely a discard of it is to deal in (an analysis' figure).
+ * `wait`: one of the tiles a ready hand waits with (聽的相關牌組, 聽牌提示): a blue face.
  */
 @Composable
 fun TileView(
   tile: String?, w: Dp, modifier: Modifier = Modifier, selected: Boolean = false, dim: Boolean = false, glow: Boolean = false,
-  mark: Boolean = false, danger: Int = 0,
+  mark: Boolean = false, danger: Int = 0, wait: Boolean = false,
 ) {
   val c = LocalTable.current
   val label = tile?.let(Tiles::name)
@@ -60,10 +61,11 @@ fun TileView(
       val face = when {
         selected -> c.tileSelected
         mark -> c.tileMark
+        wait -> c.tileWait
         else -> c.tileFace
       }
       drawRoundRect(face, Offset(0.6f, 0.6f), Size(58.8f, 79.4f), CornerRadius(6.6f), alpha = alpha)
-      val edge = if (selected || glow) c.highlight else c.tileEdge
+      val edge = if (selected || glow) c.highlight else if (wait) c.tileWaitEdge else c.tileEdge
       drawRoundRect(edge, Offset(0.6f, 0.6f), Size(58.8f, 79.4f), CornerRadius(6.6f), alpha = alpha,
         style = Stroke(if (glow) 4f else if (selected) 3f else 1.2f))
       // The art (60 x 80) in the face's 54 x 72 at (3, 3.2).

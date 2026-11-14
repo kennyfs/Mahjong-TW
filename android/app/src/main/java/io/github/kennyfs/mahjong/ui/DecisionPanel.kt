@@ -71,6 +71,11 @@ import io.github.kennyfs.mahjong.tilesShort
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 
 /** A grade's label on its color: "最佳", "一樣好", "疑問手", "失誤", "大失誤". */
 @Composable
@@ -223,8 +228,16 @@ fun DecisionPanel(
       title = { Text(stringResource(R.string.list_help)) },
       text = { Text(stringResource(R.string.list_help_text), style = MaterialTheme.typography.bodyLarge) },
     )
+    // The row of the tile chosen in the hand comes into sight, kept off the list's edges by a fifth of the window's
+    // height (the web page keeps it within 20% to 80% of the list's: lib/scroll.ts).
     val bring = remember { BringIntoViewRequester() }
-    LaunchedEffect(picked) { if (picked >= 0) runCatching { bring.bringIntoView() } }
+    var pickedSize by remember { mutableStateOf(IntSize.Zero) }
+    val band = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * 0.2f).coerceAtMost(200.dp.toPx()) }
+    LaunchedEffect(picked, pickedSize) {
+      if (picked >= 0 && pickedSize.height > 0) runCatching {
+        bring.bringIntoView(Rect(0f, -band, pickedSize.width.toFloat(), pickedSize.height + band))
+      }
+    }
     for ((k, i) in rows.withIndex()) {
       val f = analysis.actions[i]
       val cost = costOf(analysis, i)
@@ -239,8 +252,9 @@ fun DecisionPanel(
       Surface(
         shape = shape, color = tint ?: if (strong) cs.secondaryContainer else cs.surfaceContainer,
         contentColor = if (strong) cs.onSecondaryContainer else cs.onSurface,
-        // The row of the tile chosen in the hand comes into sight (the list may be scrolled away from it).
-        modifier = Modifier.fillMaxWidth().let { if (i == picked) it.border(2.dp, LocalTable.current.highlight, shape).bringIntoViewRequester(bring) else it },
+        modifier = Modifier.fillMaxWidth().let {
+          if (i == picked) it.border(2.dp, LocalTable.current.highlight, shape).bringIntoViewRequester(bring).onSizeChanged { sz -> pickedSize = sz } else it
+        },
       ) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
           Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

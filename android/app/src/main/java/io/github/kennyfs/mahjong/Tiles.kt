@@ -65,6 +65,26 @@ object Tiles {
 
   fun wind(w: Int): String = HONORS.getOrNull(w)?.toString() ?: "?"
 
+  /**
+   * Where a hand's tiles that its waits use (the engine's wait_tiles, ready_tiles: 聽的相關牌組) are: indices into `tiles`
+   * (sorted) and then the drawn tile, the tile at `skip` (the one to be discarded) left out. Of a kind it has more of
+   * than the group, the hand's own before the drawn one, and those next to the group's neighbouring kind. The web
+   * page's groupIndices.
+   */
+  fun groupIndices(tiles: List<String>, drawn: String?, group: List<String>, skip: Int?): Set<Int> {
+    val out = HashSet<Int>()
+    val need = group.groupingBy { it }.eachCount()
+    for ((x, c) in need) {
+      val at = tiles.indices.filter { tiles[it] == x && it != skip }
+      val n = x[0].digitToIntOrNull() ?: 0
+      fun next(d: Int) = x[1] != 'z' && need.containsKey("${n + d}${x[1]}")
+      val mine = if (next(1) && !next(-1)) at.takeLast(c) else at.take(c)
+      out += mine
+      if (mine.size < c && drawn == x && skip != tiles.size) out += tiles.size
+    }
+    return out
+  }
+
   /** `tiles` without one copy of each of `remove`. */
   fun without(tiles: List<String>, remove: List<String>): List<String> {
     val out = tiles.toMutableList()

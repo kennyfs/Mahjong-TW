@@ -63,6 +63,8 @@ data class TableColors(
   val felt: Color, val onFelt: Color, val onFeltDim: Color, val highlight: Color, val good: Color, val bad: Color,
   val action: Color, val onAction: Color,
   val tileFace: Color, val tileEdge: Color, val tileBack: Color, val tileBackLight: Color, val tileSelected: Color, val tileMark: Color,
+  /** The tiles a ready hand waits with (聽牌提示): a blue face, its edge. */
+  val tileWait: Color, val tileWaitEdge: Color,
 )
 
 @Immutable
@@ -73,26 +75,26 @@ data class Outcome(val good: Color, val bad: Color, val figGood: Color = good, v
 private val BRASS = Color(0xFFF0C058)
 
 private fun tableFor(style: ColorStyle, scheme: ColorScheme, dark: Boolean): TableColors {
-  val tiles = if (!dark) listOf(0xFFFDFBF3, 0xFFCFC8B4, 0xFF28559B, 0xFF3B6DB5, 0xFFFFF3C4, 0xFFE3F2FD)
-  else listOf(0xFFF3EFE3, 0xFFB9B29C, 0xFF234B88, 0xFF315EA3, 0xFFFFE9A8, 0xFFD4E7FA)
+  val tiles = if (!dark) listOf(0xFFFDFBF3, 0xFFCFC8B4, 0xFF28559B, 0xFF3B6DB5, 0xFFFFF3C4, 0xFFE3F2FD, 0xFFB9D8FB, 0xFF7FA9D8)
+  else listOf(0xFFF3EFE3, 0xFFB9B29C, 0xFF234B88, 0xFF315EA3, 0xFFFFE9A8, 0xFFD4E7FA, 0xFFA9CBF2, 0xFF6F98C8)
   val t = tiles.map { Color(it) }
   return when (style) {
     ColorStyle.TABLE ->
       if (!dark) TableColors(FELT, Color(0xFFEEF7F2), Color(0xFFB9D9C8), BRASS, Color(0xFFA8E6B0), Color(0xFFFFB4AB), Color(0xFFEEF7F2), FELT,
-        t[0], t[1], t[2], t[3], t[4], t[5])
+        t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7])
       else TableColors(Color(0xFF164F3D), Color(0xFFE3F0E9), Color(0xFFA3C4B3), Color(0xFFE8B954), Color(0xFFA8E6B0), Color(0xFFFFB4AB),
-        Color(0xFFE3F0E9), Color(0xFF164F3D), t[0], t[1], t[2], t[3], t[4], t[5])
+        Color(0xFFE3F0E9), Color(0xFF164F3D), t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7])
     ColorStyle.MINIMAL -> TableColors(
       scheme.surface, scheme.onSurface, scheme.onSurfaceVariant, scheme.primary,
       if (dark) Color(0xFF81C784) else Color(0xFF2E7D32), if (dark) Color(0xFFE57373) else Color(0xFFC62828), scheme.primary, scheme.onPrimary,
-      t[0], t[1], t[2], t[3], t[4], t[5],
+      t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7],
     )
     // Felt in the wallpaper's colors (Thirteen's): its primary, or in the dark its primary container.
     ColorStyle.WALLPAPER -> {
       val felt = if (dark) scheme.primaryContainer else scheme.primary
       val on = if (dark) scheme.onPrimaryContainer else scheme.onPrimary
       TableColors(felt, on, on.copy(alpha = 0.75f).compositeOver(felt), BRASS, Color(0xFFA8E6B0), Color(0xFFFFB4AB), on, felt,
-        t[0], t[1], t[2], t[3], t[4], t[5])
+        t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7])
     }
   }
 }

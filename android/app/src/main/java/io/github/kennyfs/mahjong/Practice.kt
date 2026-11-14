@@ -36,6 +36,8 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     val hands: Int = 0, val totals: List<Double> = listOf(0.0, 0.0, 0.0, 0.0), val over: Boolean = false,
     /** The hand already recorded (its wall's start and its record's length), so a restart does not record it again. */
     val recorded: String? = null,
+    /** The hand in play had the analysis shown (Settings.practiceHints) at some point: it counts for nothing (finish). */
+    val hinted: Boolean = false,
   )
 
   @Serializable
@@ -402,14 +404,24 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
       return
     }
     val hands = m.hands + 1
-    val rec = Records.handRecord(RecordKind.practice, g, result, ME, names(), bots, m.id, hands)
+    // A hand played with the analysis shown counts for nothing: not in the totals, nor the records' statistics.
+    val rec = Records.handRecord(RecordKind.practice, g, result, ME, names(), bots, m.id, hands).let { if (m.hinted) it.copy(hints = true) else it }
     records.add(rec)
     lastRecord = rec.id
     // The network's review of the hand, in short, for the result's sheet and the records.
     scope.launch { keepSummary(records, rec) }
-    meta = m.copy(recorded = key, hands = hands, totals = m.totals.mapIndexed { i, t -> t + result.points[i] },
+    meta = m.copy(recorded = key, hands = hands, totals = if (m.hinted) m.totals else m.totals.mapIndexed { i, t -> t + result.points[i] },
       over = m.length == Length.HAND)
     stage = Stage.RESULT
+    persist()
+  }
+
+  /** The analysis is shown on the hand in play (Settings.practiceHints): it counts for nothing (finish), and keeps it
+   *  till its end (turned off meanwhile it would only have been a peek at one turn). */
+  fun markHinted() {
+    val m = meta ?: return
+    if (m.hinted || stage != Stage.PLAYING) return
+    meta = m.copy(hinted = true)
     persist()
   }
 
@@ -433,6 +445,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     }
     reset()
     game = next
+    meta = m.copy(hinted = false)
     final = null
     stage = Stage.PLAYING
     persist()

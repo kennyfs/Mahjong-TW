@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.kennyfs.mahjong.battle.Battle
+import io.github.kennyfs.mahjong.ui.BranchRun
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -50,6 +51,23 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
   var reviewId by mutableStateOf<String?>(null)
   /** The review's step, kept while another screen is shown over it (a step taken to the analysis screen). */
   var reviewStep by mutableIntStateOf(0)
+  /** The review's branch (ui/BranchScreen.kt): the record and the step it was taken from; the analysis' position played
+   *  on (從這裡打: its record, the player's seat). Here, not in the screens: they outlive the screens' turning sideways. */
+  var branchFrom by mutableStateOf<Pair<String, Int>?>(null)
+  var playFrom by mutableStateOf<Pair<GameRecord, Int>?>(null)
+  /** The branch in play (its computer players run in this model's scope): the same one for the same start. */
+  private var branch: Pair<Pair<GameRecord, Int>, BranchRun>? = null
+
+  fun branchRun(source: GameRecord, me: Int): BranchRun {
+    branch?.let { (key, run) -> if (key.first == source && key.second == me) return run }
+    return BranchRun(viewModelScope, source, me) { settings.bot }.also { branch = (source to me) to it }
+  }
+
+  /** The branch is left: its computer players stop. */
+  fun endBranch() {
+    branch?.second?.close()
+    branch = null
+  }
 
   fun open(p: Page) {
     if (pages.lastOrNull() != p) stacks = stacks + (tab to pages + p)

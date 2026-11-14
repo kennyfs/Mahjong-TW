@@ -101,6 +101,10 @@ import io.github.kennyfs.mahjong.meldTiles
 import io.github.kennyfs.mahjong.seatAt
 import io.github.kennyfs.mahjong.sideOf
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.AlignmentLine
+import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -112,6 +116,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import io.github.kennyfs.mahjong.TileMark
+import io.github.kennyfs.mahjong.ChoiceMark
 import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
@@ -125,6 +130,8 @@ import androidx.compose.ui.platform.LocalContext
 import io.github.kennyfs.mahjong.Timing
 import io.github.kennyfs.mahjong.Sounds
 import kotlin.math.roundToLong
+import androidx.compose.material3.LocalTextStyle
+import io.github.kennyfs.mahjong.pts
 
 private val Float.d: Dp get() = this.dp
 
@@ -133,6 +140,9 @@ data class SeatNote(val text: String, val level: Int)
 
 /** The room kept over each row of the hand for the tiles' tags, when there may be some. */
 private const val TAG_H = 17f
+
+/** A chosen tile's rise (of its height) where the tiles have tags. */
+private const val MARKED_LIFT = 0.1f
 
 /** What another seat shows: its melds' tile counts, its flowers, and its concealed tiles when they are shown. */
 private class Shown(val counts: List<Int>, val flowers: Int, val concealed: Int)
@@ -175,7 +185,13 @@ fun TableView(
   status: (@Composable () -> Unit)? = null, corner: (@Composable () -> Unit)? = null, overlay: (@Composable BoxScope.() -> Unit)? = null,
   marks: Map<String, TileMark>? = null, notes: List<SeatNote?>? = null, strip: (@Composable () -> Unit)? = null,
   onPick: ((String?) -> Unit)? = null, onNext: (() -> Unit)? = null, stay: Boolean = false, robbed: Int = -1, review: Boolean = false,
-  readyHint: Boolean = false, deal: String? = null,
+  readyHint: Boolean = false, deal: String? = null, choiceMarks: ((Action) -> ChoiceMark?)? = null,
+  /** The tags' room kept over the hand whether it has tags now or not (the analysis shown as one plays: they come
+   *  and go with the turns, and the table keeps its size). */
+  tagRoom: Boolean = false,
+  /** The player's expected result (a practice hand with its hints), by their name plate where there is room for it
+   *  (ValueAt). */
+  value: Double? = null,
 ) {
   val c = LocalTable.current
   val density = LocalDensity.current
@@ -197,7 +213,7 @@ fun TableView(
   // them), and before the pause that leads to the result's moment; not before the events are seen (their moments start
   // a frame later).
   val unseen = host.seen >= 0 && view.eventCount - host.seen in 1..8 && FxClock.enabled() &&
-    view.events.takeLast(view.eventCount - host.seen).any { it.type == "ron" || it.type == "exhausted" }
+    view.events.takeLast(view.eventCount - host.seen).any { it.type == "ron" || it.type == "exhausted" || it.type == "tsumo" || it.type == "flower_win" }
   val shownAll = if (unseen || host.moments.indexOfFirst { it.kind == MomentKind.GAP && !it.hide } > 0) null else revealed
   // A hand's end: one sound as the hands are shown, by what it is to the player: their own win; another's they pay for
   // (on their discard, or self-drawn); another's they neither gain nor lose by; a draw. Without the moments (words
@@ -298,7 +314,7 @@ fun TableView(
       return Shown(p.melds.map { meldTiles(it).size }, flowersOf(p).size, if (shownAll != null) Tiles.parse(shownAll[seat]).size else 0)
     }
     // Room over the hand's tiles for their tags, where they have any (the settings may show none).
-    val tagH = if (marks != null && marks.values.any { it.tag.isNotEmpty() }) TAG_H else 0f
+    val tagH = if (tagRoom || (marks != null && marks.values.any { it.tag.isNotEmpty() })) TAG_H else 0f
 
     // The sizes. The tags' room comes off the table's height: what the hand's own lift does not already leave them.
     // A tall table's others' strip with everyone's tiles shown: as high as the three need at the largest tiles (20 dp
@@ -337,7 +353,7 @@ fun TableView(
     /** The player's own name plate (with their flowers over it, and a battle's clock) lies over the foot of the left
      *  column of a wide table: the column ends above it. The right one ends as high as the plate alone would be. */
     val cornerR = if (s.wide) s.font * density.fontScale * 1.7f + 12 else 0f
-    val cornerH = if (s.wide) maxOf(cornerR, (plates[Side.BOTTOM]?.second ?: 0f) + 8) else 0f
+    val cornerBase = if (s.wide) maxOf(cornerR, (plates[Side.BOTTOM]?.second ?: 0f) + 8) else 0f
     /** Whole pixels, so that a line of tiles is as wide as counted. */
     fun snap(w: Float) = floor(w * density.density) / density.density
 
@@ -345,7 +361,7 @@ fun TableView(
     // With everyone's tiles shown: as large as fits each one's room with the concealed tiles too: the player opposite
     // in one line along a wide table's top (the corner kept clear and the name plate off its width), the others in
     // their columns under their name plates.
-    fun oppW(side: Side, seat: Int): Float {
+    fun oppWith(side: Side, seat: Int, cornerH: Float): Float {
       val o = shownOf(seat)
       if (!s.wide) {
         // Smaller also where the lines would not fit under the name plate: a FlowRow leaves out what does not fit
@@ -365,6 +381,25 @@ fun TableView(
       val taken = if (side == Side.LEFT) cornerH + belowL else cornerR + belowR
       return fitShown(o.counts, o.flowers, o.concealed, width, roomH - s.topH - meH - taken - plateH(side) - 12 - backsH, s.opp)
     }
+    // The expected result by the player's plate, where it leaves everything else its size: a wide table's in the left
+    // column's foot, beside the plate where the column is wide enough, else over the plate's corner where the left
+    // player's tiles keep their size in what is left to them (the rivers come down beside the column); a tall one's in
+    // the melds' line before the plate, where the melds keep their size. Measured unseen where it has no room.
+    var valueSize by remember { mutableStateOf(0f to 0f) }
+    var myPlate by remember { mutableStateOf(0f to 0f) }
+    val wideValueAt: ValueAt? = run {
+      val (vw, vh) = valueSize
+      val bw = myPlate.first
+      if (value == null || !s.wide || vw <= 0f || bw <= 0f) return@run null
+      if (bw + 6 + vw <= s.sideW - 12) return@run ValueAt.SIDE
+      if (vw > s.sideW - 12) return@run null
+      val left = seatAt(Side.LEFT, me)
+      val free = roomH - s.topH - meH - cornerBase - belowL - plateH(Side.LEFT) - 12 - vh - 4
+      if (free >= 0 && oppWith(Side.LEFT, left, cornerBase + vh + 4) >= oppWith(Side.LEFT, left, cornerBase)) ValueAt.OVER else null
+    }
+    /** The left column ends above the corner (and the expected result over it). */
+    val cornerH = cornerBase + if (wideValueAt == ValueAt.OVER) valueSize.second + 4 else 0f
+    fun oppW(side: Side, seat: Int) = oppWith(side, seat, cornerH)
 
     val lastDiscard = remember(view.events) {
       var seat = -1
@@ -419,6 +454,15 @@ fun TableView(
       else if (s.wide) fitMelds(counts, myFlowers.size, minOf(roomW, s.tableW) - 28, 1, s.meld, 16f)
       else fitMelds(counts, myFlowers.size, minOf(roomW, s.tableW) - 16 - (plates[Side.BOTTOM]?.first ?: 90f), 1, s.meld, 22f)
     }
+    val valueAt: ValueAt? = if (s.wide) wideValueAt else run {
+      val vw = valueSize.first
+      val bw = plates[Side.BOTTOM]?.first ?: 0f
+      if (value == null || vw <= 0f || bw <= 0f) return@run null
+      val counts = pos.players[me].melds.map { meldTiles(it).size }
+      val room = minOf(roomW, s.tableW) - 16 - bw - 8 - vw
+      if (counts.isEmpty() && myFlowers.isEmpty()) { if (room >= 0) ValueAt.SIDE else null }
+      else if (room > 0 && fitMelds(counts, myFlowers.size, room, 1, s.meld, 22f) >= s.meld) ValueAt.SIDE else null
+    }
     // A call to decide on with no tile of the hand to play (吃, 碰, 胡, 過): a tap on the hand lifts nothing, and what was
     // lifted goes down. Else a lifted tile stays up while the others play (the player may have chosen it already: one
     // tap plays it on their turn), till the hand itself changes (a tile drawn is apart: not a change). A review: each
@@ -427,13 +471,31 @@ fun TableView(
     var selected by remember(if (marks != null) view.eventCount else -1, mine, mustChoose) { mutableStateOf<Int?>(null) }
     if (onPick != null) LaunchedEffect(selected, view.eventCount) { onPick(selected?.let { i -> mine.getOrNull(i) ?: drawn }) }
 
+    /** On the player's plate while playing: how far the hand is from ready, from 3 向聽 (聽牌 at 0). */
+    val myStanding = view.shanten?.takeIf { it in 0..3 && !review && !dealOn && shownAll == null && view.phase != "over" }?.let {
+      SeatNote(if (it == 0) stringResource(R.string.analysis_ready) else stringResource(R.string.analysis_shanten, it), 0)
+    }
+    /** 聽牌提示: the tiles a ready hand waits with, blue (on the player's turn, after the tile chosen is discarded, else
+     *  the drawn one). */
+    val waitAt: Set<Int>? = if (!readyHint || review || shownAll != null) null else if (view.phase == "self" && view.current == me) {
+      val i = selected ?: if (drawn != null) mine.size else null
+      val x = i?.let { mine.getOrNull(it) ?: drawn }
+      x?.let { view.readyTiles[it] }?.let { Tiles.groupIndices(mine, drawn, Tiles.parse(it), i) }
+    } else view.waitTiles.takeIf { it.isNotEmpty() }?.let { Tiles.groupIndices(mine, drawn, Tiles.parse(it), null) }
+    // A lifted tile goes down at a tap anywhere but the hand (before what was tapped acts); not in a review, whose
+    // tiles are tapped to see their figures.
+    val drop = rememberUpdatedState { if (selected != null) selected = null }
+
     @Composable
     fun badge(seat: Int, count: Int?) = SeatBadge(
       Tiles.wind(winds[seat]), names[seat], scores?.get(seat), setup.dealer == seat, setup.streak, turnSeat == seat, count,
       compact = !s.wide, away = away[seat], font = s.font,
-      // A review's words; in play, a declared ready hand (天聽, 地聽, 報聽).
+      // A review's words; in play, a declared ready hand (天聽, 地聽, 報聽); the player's own standing.
       note = (if (seat == me) null else notes?.getOrNull(seat))
-        ?: pos.players.getOrNull(seat)?.declared?.let { SeatNote(stringResource(when (it) { "diting" -> R.string.call_diting; "baoting" -> R.string.call_baoting; else -> R.string.call_tianting }), 0) },
+        ?: pos.players.getOrNull(seat)?.declared?.let { SeatNote(stringResource(when (it) { "diting" -> R.string.call_diting; "baoting" -> R.string.call_baoting; else -> R.string.call_tianting }), 0) }
+        ?: if (seat == me) myStanding else null,
+      // (The player's plate keeps the room of its longest standing, shown or not: it does not change size.)
+      room = if (seat == me && !review) stringResource(R.string.analysis_shanten, 3) else null,
     )
 
     @Composable
@@ -478,6 +540,8 @@ fun TableView(
     // The rivers' places on the table, px (the words over them are set by these).
     var rivers by remember { mutableStateOf(mapOf<Side, Rect>()) }
     var origin by remember { mutableStateOf(Offset.Zero) }
+    /** The player's hand, in the root (a press outside it puts a lifted tile down). */
+    var handRect by remember { mutableStateOf(Rect.Zero) }
     // The foot of the table and of the player's melds' line (px in the root), the melds' width and the choices' (dp).
     var tableFoot by remember { mutableStateOf(0f) }
     var meldFoot by remember { mutableStateOf(0f) }
@@ -534,7 +598,17 @@ fun TableView(
 
     val discard = { t: String -> onAct?.invoke(Action("discard", t)); Unit }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-      Box(Modifier.fillMaxHeight().width(minOf(roomW, s.tableW).d).onGloballyPositioned {
+      Box(Modifier.fillMaxHeight().width(minOf(roomW, s.tableW).d).pointerInput(review) {
+        // A press anywhere but on the hand puts a lifted tile down (seen first, taken by nothing: what was pressed acts).
+        if (review) return@pointerInput
+        awaitPointerEventScope {
+          while (true) {
+            val e = awaitPointerEvent(PointerEventPass.Initial)
+            val at = e.changes.firstOrNull()?.position ?: continue
+            if (e.type == PointerEventType.Press && !handRect.contains(at + origin)) drop.value()
+          }
+        }
+      }.onGloballyPositioned {
         val o = it.positionInRoot()
         if (origin != o) origin = o
         val foot = o.y + it.size.height
@@ -563,13 +637,23 @@ fun TableView(
                 }
               }
               if (!dealHide) MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion,
-                pick = !mustChoose, ready = if (readyHint && myTurn) view.ready else null, flip = dealing)
+                pick = !mustChoose, ready = if (readyHint && myTurn) view.ready else null, flip = dealing,
+                waitAt = waitAt, modifier = Modifier.onGloballyPositioned { handRect = it.boundsInRoot() })
             }
           }
           Column(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 2).d).widthIn(max = (s.sideW - 12).d).then(measured(Side.BOTTOM)),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             status?.invoke()
-            badge(me, null)
+            Box(Modifier.onSizeChanged { val v = it.width / density.density to it.height / density.density; if (myPlate != v) myPlate = v }) { badge(me, null) }
+          }
+          if (value != null) {
+            val vh = valueSize.second
+            val at = if (valueAt == ValueAt.SIDE) Modifier.padding(start = (8 + myPlate.first + 6).d, bottom = (meH + 2 + (myPlate.second - vh) / 2).coerceAtLeast(0f).d)
+              else Modifier.padding(start = 8.dp, bottom = (meH + 2 + (plates[Side.BOTTOM]?.second ?: 0f) + 4).d)
+            Box(Modifier.align(Alignment.BottomStart).then(at).alpha(if (valueAt != null) 1f else 0f)
+              .onSizeChanged { val v = it.width / density.density to it.height / density.density; if (valueSize != v) valueSize = v }) {
+              ValueChip(value, s.font, compact = false, if (valueAt != null) Modifier.testTag("my_value") else Modifier)
+            }
           }
           // The corners: the round, the wall and the streak; the screen's buttons.
           Column(
@@ -606,13 +690,20 @@ fun TableView(
                 Box(Modifier.weight(1f)) {
                   Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = true, seat = me, host = host, coming = coming[me] ?: -1)
                 }
+                if (value != null && valueAt == ValueAt.SIDE) Box(Modifier.align(Alignment.CenterVertically)) { ValueChip(value, s.font, compact = true, Modifier.testTag("my_value")) }
                 Box(Modifier.align(Alignment.CenterVertically).then(measured(Side.BOTTOM))) { badge(me, null) }
               }
               if (!dealHide) MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn,
-                motion = motion, pick = !mustChoose, ready = if (readyHint && myTurn) view.ready else null, flip = dealing)
+                motion = motion, pick = !mustChoose, ready = if (readyHint && myTurn) view.ready else null, flip = dealing,
+                waitAt = waitAt, modifier = Modifier.onGloballyPositioned { handRect = it.boundsInRoot() })
             }
           }
           if (status != null) Box(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 4).d)) { status() }
+          // (The expected result measured, unseen: whether the melds' line has room for it.)
+          if (value != null) Box(Modifier.align(Alignment.TopStart).alpha(0f)
+            .onSizeChanged { val v = it.width / density.density to it.height / density.density; if (valueSize != v) valueSize = v }) {
+            ValueChip(value, s.font, compact = true)
+          }
         }
         if (claims.isNotEmpty() && onAct != null) {
           // Sideways, the choices low, off the next player's melds: level with the foot of the player's melds and
@@ -621,7 +712,7 @@ fun TableView(
           val low = s.wide && claimW > 0 && meldFoot > 0 && tableFoot > meldFoot && minOf(roomW, s.tableW) - 8 - claimW >= 16 + meldsW + 8
           Box(Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, start = 8.dp,
             bottom = if (low) ((tableFoot - meldFoot) / density.density).d else (meH + 4).d)) {
-            Box(Modifier.onSizeChanged { claimW = it.width / density.density }) { ClaimBar(claims, s.hand, onAct, claimTile) }
+            Box(Modifier.onSizeChanged { claimW = it.width / density.density }) { ClaimBar(claims, s.hand, onAct, claimTile, choiceMarks) }
           }
         }
         if (onNext != null) NextStep(onNext, s, meH, minOf(roomW, s.tableW), if (s.handRow > 0 && mine.size + (if (drawn != null) 1 else 0) > s.handRow) 2 else 1)
@@ -672,7 +763,7 @@ private fun Rack(tiles: List<String>, w: Float, wrap: Boolean, end: Boolean = fa
 @Composable
 fun SeatBadge(
   wind: String, name: String, score: Double?, dealer: Boolean, streak: Int, turn: Boolean, count: Int?, compact: Boolean = false,
-  away: Boolean = false, font: Float = 16f, note: SeatNote? = null,
+  away: Boolean = false, font: Float = 16f, note: SeatNote? = null, room: String? = null,
 ) {
   val c = LocalTable.current
   val f = (if (compact) font * 0.86f else font).sp
@@ -683,29 +774,59 @@ fun SeatBadge(
       .padding(start = 2.dp, end = if (compact) 6.dp else 8.dp, top = 2.dp, bottom = 2.dp),
     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp),
   ) {
-    val d = with(LocalDensity.current) { (f.toDp() * 1.7f) }
-    Box(Modifier.size(d).background(if (dealer) c.highlight else c.onFelt, CircleShape), contentAlignment = Alignment.Center) {
-      Text(wind, color = if (dealer) Color(0xFF3A2A00) else c.felt, fontWeight = FontWeight.Bold, fontSize = f)
+    val density = LocalDensity.current
+    val d = with(density) { (f.toDp() * 1.7f) }
+    // The wind centered in its disc by its ink: a CJK glyph sits low in its line (the line keeps the fallback font's
+    // tall ascent, and the style's line height), so the line's middle was below the disc's.
+    val ink = remember(wind, f, density) {
+      android.graphics.Rect().also { r ->
+        android.graphics.Paint().apply { textSize = with(density) { f.toPx() }; typeface = android.graphics.Typeface.DEFAULT_BOLD }
+          .getTextBounds(wind, 0, wind.length, r)
+      }
     }
+    Box(Modifier.size(d).background(if (dealer) c.highlight else c.onFelt, CircleShape), contentAlignment = Alignment.Center) {
+      Text(wind, Modifier.layout { m, cs ->
+        val p = m.measure(cs)
+        val base = p[FirstBaseline]
+        val dy = if (base == AlignmentLine.Unspecified || ink.isEmpty) 0 else (p.height / 2f - (base + ink.exactCenterY())).roundToInt()
+        layout(p.width, p.height) { p.place(0, dy) }
+      }, color = if (dealer) Color(0xFF3A2A00) else c.felt, fontWeight = FontWeight.Bold, fontSize = f)
+    }
+    val scoreText: @Composable () -> Unit = {
+      if (score != null) Text(signed(score), color = if (score > 0) c.good else if (score < 0) c.bad else c.onFelt, fontWeight = FontWeight.Bold,
+        fontSize = f, maxLines = 1)
+    }
+    // The player's own plate on a wide table: the score by the name, the standing (the room of its longest) on a line of
+    // its own (beside each other they did not fit the side column: the score was cut off).
+    val scoreByName = room != null && !compact
     val nameLine: @Composable RowScope.() -> Unit = {
       Text(name, color = c.onFelt, fontWeight = FontWeight.Medium, fontSize = f, maxLines = 1, overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f, fill = false))
       if (dealer) Text(stringResource(R.string.dealer_mark) + if (streak > 0) stringResource(R.string.streak_n, streak) else "",
         color = c.highlight, fontWeight = FontWeight.Bold, fontSize = f, maxLines = 1)
+      if (scoreByName) scoreText()
     }
     val figures: @Composable RowScope.() -> Unit = {
-      if (note != null) Text(
+      if (room != null) Box(
+        Modifier.background(if (note == null) Color.Transparent else if (note.level > 0) Marks.danger(note.level) else Color.Black.copy(alpha = 0.3f),
+          RoundedCornerShape(8.dp)).padding(horizontal = 6.dp),
+        contentAlignment = Alignment.Center,
+      ) {
+        // The room's words, unseen, keep the width; the note over them.
+        Text(room, Modifier.alpha(0f), fontWeight = FontWeight.Bold, fontSize = f, maxLines = 1)
+        if (note != null) Text(note.text, color = if (note.level > 0) Marks.on(note.level) else c.onFelt, fontWeight = FontWeight.Bold, fontSize = f,
+          maxLines = 1)
+      } else if (note != null) Text(
         note.text, color = if (note.level > 0) Marks.on(note.level) else c.onFelt, fontWeight = FontWeight.Bold, fontSize = f, maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(1f, fill = false).background(if (note.level > 0) Marks.danger(note.level) else Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
           .padding(horizontal = 6.dp),
       ) else if (count != null) Text(stringResource(R.string.hand_cards, count), color = c.onFeltDim, fontSize = f, maxLines = 1)
-      if (score != null) Text(signed(score), color = if (score > 0) c.good else if (score < 0) c.bad else c.onFelt, fontWeight = FontWeight.Bold,
-        fontSize = f, maxLines = 1)
+      if (!scoreByName) scoreText()
     }
     val gap = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)
     // A third of an upright phone's width: the name over the figures (a name of a battle's player has room then).
-    if (compact && (count != null || note != null)) Column(Modifier.weight(1f, fill = false)) {
+    if (compact && (count != null || note != null || room != null)) Column(Modifier.weight(1f, fill = false)) {
       Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { nameLine() }
       Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { figures() }
     } else {
@@ -713,9 +834,29 @@ fun SeatBadge(
       // at a large font): the name stays whole.
       FlowRow(Modifier.weight(1f, fill = false), horizontalArrangement = gap, itemVerticalAlignment = Alignment.CenterVertically) {
         Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { nameLine() }
-        if (note != null || count != null || score != null) Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { figures() }
+        if (note != null || room != null || count != null || score != null) Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { figures() }
       }
     }
+  }
+}
+
+/** Where the player's expected result goes by their plate (TableView's `value`). */
+private enum class ValueAt { SIDE, OVER }
+
+/** The player's expected result (期望 +0.31): a pill of its own beside their plate, as tall as it, in its tone. */
+@Composable
+private fun ValueChip(value: Double, font: Float, compact: Boolean, modifier: Modifier = Modifier) {
+  val c = LocalTable.current
+  val f = (if (compact) font * 0.86f else font).sp
+  val h = with(LocalDensity.current) { f.toDp() * 1.7f } + 8.dp
+  Row(
+    modifier.heightIn(min = h).background(Color.Black.copy(alpha = 0.16f), RoundedCornerShape(16.dp))
+      .padding(horizontal = if (compact) 8.dp else 10.dp, vertical = 2.dp),
+    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
+  ) {
+    Text(stringResource(R.string.fig_value), color = c.onFeltDim, fontSize = f, maxLines = 1)
+    Text(pts(value), color = if (value > 0.005) c.good else if (value < -0.005) c.bad else c.onFelt, fontWeight = FontWeight.Bold, fontSize = f,
+      maxLines = 1, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
   }
 }
 
@@ -849,6 +990,7 @@ fun MyHand(
   tiles: List<String>, drawn: String?, w: Float, perRow: Int, discardable: Set<String>, onDiscard: (String) -> Unit,
   selected: Int?, onSelect: (Int?) -> Unit, marks: Map<String, TileMark>? = null, tagH: Float = 0f, turn: Boolean = false,
   motion: HandMotion? = null, pick: Boolean = true, ready: Map<String, List<String>>? = null, flip: Dealing? = null,
+  waitAt: Set<Int>? = null, modifier: Modifier = Modifier,
 ) {
   val highlight = LocalTable.current.highlight
   val glow = if (turn) pulse(1100) else 0f
@@ -866,9 +1008,9 @@ fun MyHand(
   var dragging by remember { mutableIntStateOf(-1) }
   var dy by remember { mutableStateOf(0f) }
   val density = LocalDensity.current
-  // How far a chosen tile rises. In a review (to see a tile's figures) it does not: its tag would run into the row
-  // above; its face and frame say it is chosen.
-  val up = if (marks != null) 0f else h * LIFT
+  // How far a chosen tile rises. With tags (a review, the analysis shown) a little (MARKED_LIFT), its tag with it as far
+  // as it may go over the row above's foot; its face and frame say it is chosen too.
+  val up = if (marks != null) h * MARKED_LIFT else h * LIFT
   val flipMs = remember { Timing.ms("deal_flip") }
   fun tap(i: Int) {
     val t = all[i]
@@ -879,14 +1021,16 @@ fun MyHand(
     } else onSelect(i)
   }
   Column(
-    Modifier.padding(top = maxOf(h * LIFT, tagH).d).let { if (perRow > 0) it.width(((perRow + DRAWN_GAP + 1) * w).d) else it }
-      // The turn's frame, around the tiles (not the room over them for a lifted tile): a line and its glow.
+    modifier.padding(top = maxOf(h * LIFT, tagH).d).let { if (perRow > 0) it.width(((perRow + DRAWN_GAP + 1) * w).d) else it }
+      // The turn's frame, around the tiles and the tags over them (not the room over them for a lifted tile): a line and
+      // its glow, under the tiles and their tags (a lifted one is not crossed by it).
       .then(if (turn) Modifier.drawBehind {
         val out = 5.dp.toPx()
+        val tags = tagH.dp.toPx()
         val corner = CornerRadius(10.dp.toPx())
-        val at = Offset(-out, -out)
+        val at = Offset(-out, -out - tags)
         val area = this.size
-        val box = Size(area.width + 2 * out, area.height + 2 * out)
+        val box = Size(area.width + 2 * out, area.height + 2 * out + tags)
         for (k in 3 downTo 1) drawRoundRect(highlight.copy(alpha = 0.10f * glow), at - Offset(k * 2.dp.toPx(), k * 2.dp.toPx()),
           Size(box.width + k * 4.dp.toPx(), box.height + k * 4.dp.toPx()), CornerRadius(10.dp.toPx() + k * 2.dp.toPx()), Stroke(4.dp.toPx()))
         drawRoundRect(highlight.copy(alpha = 0.45f + 0.55f * glow), at, box, corner, Stroke(3.dp.toPx()))
@@ -960,7 +1104,7 @@ fun MyHand(
               drawCircle(Color(0xFF8FE3FF), d / 2, at)
             }
             Box(Modifier.offset { IntOffset(0, lift.roundToInt()) }.then(dot).then(dim)) {
-              TileView(all[i], w.d, selected = selected == i, glow = mark?.played == true, danger = mark?.danger ?: 0)
+              TileView(all[i], w.d, selected = selected == i, glow = mark?.played == true, danger = mark?.danger ?: 0, wait = waitAt?.contains(i) == true)
               if (mark != null && mark.tag.isNotEmpty()) TileTag(mark, w, if (tagH > 0) tagH else TAG_H, Modifier.align(Alignment.TopCenter))
             }
           }
@@ -977,13 +1121,7 @@ fun MyHand(
 @Composable
 fun TileTag(mark: TileMark, w: Float, tagH: Float, modifier: Modifier = Modifier) {
   val c = LocalTable.current
-  val bg = when (mark.tone) {
-    TileMark.Tone.BEST -> Marks.found
-    TileMark.Tone.G1 -> Marks.danger1
-    TileMark.Tone.G2 -> Marks.danger2
-    TileMark.Tone.G3 -> Marks.danger3
-    TileMark.Tone.PLAIN -> Color(0xC214201A)
-  }
+  val bg = toneColor(mark.tone)
   val fg = if (mark.tone == TileMark.Tone.G1 || mark.tone == TileMark.Tone.G2) Marks.on(1) else Color.White
   // In dp, whatever the font scale: the tag has a fixed room.
   val size = with(LocalDensity.current) { (w * 0.27f).coerceIn(10f, 13f).dp.toSp() }
@@ -1002,6 +1140,15 @@ fun TileTag(mark: TileMark, w: Float, tagH: Float, modifier: Modifier = Modifier
     Text(mark.tag, Modifier.wrapContentHeight(Alignment.CenterVertically, unbounded = true), color = fg, fontSize = size, lineHeight = size,
       fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
   }
+}
+
+/** A tag's color by its tone: the best, the grades of a loss, or plain. */
+fun toneColor(tone: TileMark.Tone): Color = when (tone) {
+  TileMark.Tone.BEST -> Marks.found
+  TileMark.Tone.G1 -> Marks.danger1
+  TileMark.Tone.G2 -> Marks.danger2
+  TileMark.Tone.G3 -> Marks.danger3
+  TileMark.Tone.PLAIN -> Color(0xC214201A)
 }
 
 /**
@@ -1061,15 +1208,18 @@ fun actionLabel(type: String) = when (type) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ClaimBar(actions: List<Action>, w: Float, onAct: (Action) -> Unit, claimed: String? = null) {
+fun ClaimBar(actions: List<Action>, w: Float, onAct: (Action) -> Unit, claimed: String? = null, marks: ((Action) -> ChoiceMark?)? = null) {
   val shown = actions.filter { it.type != "discard" }.sortedBy { ORDER.indexOf(it.type) }
   FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     val c = LocalTable.current
     for (a in shown) {
       val win = a.type == "ron" || a.type == "tsumo"
       val pass = a.type == "pass"
+      val m = marks?.invoke(a)
       Surface(
-        onClick = { onAct(a) }, shape = RoundedCornerShape(24.dp), shadowElevation = 4.dp, modifier = Modifier.testTag("claim_${a.type}"),
+        onClick = { onAct(a) }, shape = RoundedCornerShape(24.dp), shadowElevation = 4.dp,
+        // The one made there (a step gone back to): its edge lit.
+        modifier = Modifier.testTag("claim_${a.type}").let { if (m?.played == true) it.border(3.dp, c.highlight, RoundedCornerShape(24.dp)) else it },
         color = when { win -> Color(0xFFD84315); pass -> MaterialTheme.colorScheme.surfaceContainerHighest; else -> c.action },
         contentColor = when { win -> Color.White; pass -> MaterialTheme.colorScheme.onSurface; else -> c.onAction },
       ) {
@@ -1081,6 +1231,10 @@ fun ClaimBar(actions: List<Action>, w: Float, onAct: (Action) -> Unit, claimed: 
           if (ts.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
             for ((k, t) in ts.withIndex()) TileView(t, (w * 0.8f).d, glow = k == at)
           }
+          // What the choice costs against the best (the analysis shown), in its grade's tone.
+          if (m != null) Text(m.tag, Modifier.background(toneColor(m.tone), RoundedCornerShape(8.dp)).padding(horizontal = 6.dp),
+            color = if (m.tone == TileMark.Tone.G1 || m.tone == TileMark.Tone.G2) Marks.on(1) else Color.White, fontWeight = FontWeight.Bold,
+            fontSize = 15.sp, maxLines = 1)
         }
       }
     }
@@ -1334,6 +1488,13 @@ private fun TableEvents(host: FxHost, view: View, me: Int, names: List<String>, 
         fun gap(key: String, hide: Boolean) = Moment(host.nextId(), MomentKind.GAP, if (drawn) "exhausted" else "ron", me, Side.BOTTOM, "",
           hide = hide, ms = fullMs(key))
         list.addAll(at, if (drawn) listOf(gap("show_wait", true), gap("reveal", false)) else listOf(gap("reveal", false)))
+        // Another's win (not one the player made): a pause first, the hands still hidden, as a player draws and looks
+        // (or sees the discard land) before showing their hand; a discard flying in this step lands first (win_wait).
+        val won = fresh.filter { it.type == "tsumo" || it.type == "ron" || it.type == "flower_win" }.map { it.seat }
+        if (!drawn && !review && won.isNotEmpty() && me !in won) {
+          val w = gap("win_wait", true)
+          list.add(0, if (fresh.any { it.type == "discard" }) w.copy(ms = w.ms + Timing.ms("discard_move")) else w)
+        }
       }
     }
     // The result's jingle: with its first moment over the whole screen.

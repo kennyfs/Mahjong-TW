@@ -48,6 +48,13 @@ import io.github.kennyfs.mahjong.Rules
 import io.github.kennyfs.mahjong.Speed
 import androidx.compose.ui.graphics.Color
 import io.github.kennyfs.mahjong.Tiles
+import io.github.kennyfs.mahjong.tileMarks
+import io.github.kennyfs.mahjong.opponentNotes
+import io.github.kennyfs.mahjong.choiceMarks
+import io.github.kennyfs.mahjong.GameRecord
+import io.github.kennyfs.mahjong.Engine
+import io.github.kennyfs.mahjong.Analysis
+import androidx.compose.ui.platform.LocalContext
 
 /** The rules in a few words: "簡單台數・無花", and "自訂" when values were changed. */
 @Composable
@@ -58,9 +65,15 @@ fun rulesChip(tai: String, flowers: String, custom: Boolean = false): String =
 /**
  * Practice: the table against three bots; a bar over it (a phone upright) with the hand, the rules and a new game; the
  * hand's result over the table when it ends (with the network's review of it in a line, once it is there), and the
- * game's totals when the game does. No hint or analysis while the hand is in play: the review (and each decision's
- * analysis) is a button on the result. At the manual pace (the settings) the computer players' steps wait for the
- * player's button (Practice.kt), and so does the table at a hand's end. The web page's Play.svelte.
+ * game's totals when the game does. The review (and each decision's analysis) is a button on the result. At the manual
+ * pace (the settings) the computer players' steps wait for the player's button (Practice.kt), and so does the table at
+ * a hand's end. The web page's Play.svelte.
+ *
+ * 顯示分析 (the settings' 練習輔助): the player's decisions with the analysis shown as a branch shows it: what each
+ * discard costs and its danger on the hand's tiles, what each choice costs on its button, how likely each opponent is
+ * ready on the name plates (and the tile it most likely waits on), a chosen tile's figures over the hand. (The list of
+ * every action is the web page's on a large screen only.) A hand that had it on at any point counts for nothing and
+ * keeps it on till its end (Practice.markHinted).
  */
 @Composable
 fun PlayScreen(vm: AppModel) {
@@ -89,6 +102,28 @@ fun PlayScreen(vm: AppModel) {
   val shown = if (stage != Practice.Stage.PLAYING && final != null) final else view
   val last = practice.lastRecord?.let { vm.records.get(it) }
   val lastFav = last?.fav ?: false
+  val res = LocalContext.current.resources
+  // The analysis shown: from when it is turned on (the hand in play keeps it, Practice.markHinted).
+  val playing = stage == Practice.Stage.PLAYING
+  val hintsOn = settings.practiceHints || (playing && meta?.hinted == true)
+  LaunchedEffect(settings.practiceHints, playing, meta?.id, meta?.hands) { if (settings.practiceHints && playing) practice.markHinted() }
+  // The player's decision, analyzed (the game it was for: a later one does not show it).
+  var hint by remember { mutableStateOf<Pair<GameRecord, Analysis>?>(null) }
+  val game = practice.game
+  LaunchedEffect(game, hintsOn, view?.myTurn) {
+    val g = game
+    if (!hintsOn || g == null || view?.myTurn != true || hint?.first === g) return@LaunchedEffect
+    hint = runCatching { g to Engine.analyzeGame(g, Practice.ME) }.getOrNull()
+  }
+  val mine = hint?.takeIf { hintsOn && playing && it.first === game && view?.myTurn == true }?.second
+  val marks = if (hintsOn && playing) mine?.let { tileMarks(res, it, -1, null) } ?: emptyMap() else null
+  var picked by remember { mutableStateOf<String?>(null) }
+  // The opponents' notes and the player's expected result stay as the player's last decision left them while the
+  // others play (a short while: a little out of date at most), till the next decision's; a new hand starts without.
+  var keptNotes by remember { mutableStateOf<List<SeatNote?>?>(null) }
+  var keptValue by remember { mutableStateOf<Double?>(null) }
+  LaunchedEffect(mine) { if (mine != null) { keptNotes = opponentNotes(res, mine); keptValue = mine.value } }
+  LaunchedEffect(practice.deal) { keptNotes = null; keptValue = null }
 
   BoxWithConstraints(Modifier.fillMaxSize()) {
     val wide = maxWidth > maxHeight
@@ -104,13 +139,17 @@ fun PlayScreen(vm: AppModel) {
         }
       }
       Box(Modifier.weight(1f).fillMaxWidth()) {
-        if (shown == null) Loading()
+        if (shown == null) TableSkeleton()
         else TableView(
           shown, Practice.ME, names, scores = totals,
           revealed = if (stage != Practice.Stage.PLAYING) final?.hands else null,
           interactive = stage == Practice.Stage.PLAYING && !practice.busy,
           onAct = { practice.act(it) }, handLabel = if (wide) handLabel else "", onNext = onNext, stay = manual, robbed = practice.robbed,
           readyHint = settings.readyHint, deal = if (stage == Practice.Stage.PLAYING) practice.deal else null,
+          marks = marks, notes = if (hintsOn && playing) keptNotes else null, tagRoom = hintsOn && playing,
+          value = if (hintsOn && playing) keptValue else null,
+          choiceMarks = mine?.let { choiceMarks(res, it, -1, null) }, onPick = { picked = it },
+          strip = if (mine != null && picked != null) ({ PickedFigures(mine, Practice.ME, names, picked!!) }) else null,
           status = if (notice != null) ({
             Text(notice, Modifier.background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 4.dp),
               color = Color.White, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
@@ -127,6 +166,8 @@ fun PlayScreen(vm: AppModel) {
               stage == Practice.Stage.RESULT && (held || fxOn) -> TapOn(letGo)
               stage == Practice.Stage.RESULT && final?.result != null && !hideResult -> Sheet {
                 HandResultCard(final, names, Practice.ME, resultTileW(wide, w), rev = last?.rev, level = settings.level) {
+                  if (last?.hints == true) Text(stringResource(R.string.result_hints_note), Modifier.weight(1f, fill = false),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                   IconButton(onClick = { practice.lastRecord?.let { vm.records.setFav(it, !lastFav) } }) {
                     Icon(if (lastFav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite))
                   }

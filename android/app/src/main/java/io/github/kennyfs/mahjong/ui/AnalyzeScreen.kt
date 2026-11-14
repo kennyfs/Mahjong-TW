@@ -69,6 +69,12 @@ import io.github.kennyfs.mahjong.meldOf
 import io.github.kennyfs.mahjong.tileMarks
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+import androidx.compose.material3.Button
+import io.github.kennyfs.mahjong.GameRecord
+import io.github.kennyfs.mahjong.Position
+import io.github.kennyfs.mahjong.EngineJson
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** A small field of the position: its name over a chip that opens the choices. */
 @Composable
@@ -186,6 +192,31 @@ fun AnalyzeScreen(vm: AppModel) {
   }
   val marks: Map<String, TileMark>? = result?.takeIf { it.net }?.let { tileMarks(res, it, -1, null) }
 
+  // 從這裡打: the position played on (BranchScreen, with the analysis shown at each decision), the player at `me` (a
+  // review's step: its seat; else 0), the computer players at the others, what the player cannot see dealt at random.
+  // A step of a review is played on from its hand's position, with its history and the hand as it stands here; a
+  // position of its own from itself. (The branch gives the base its own seed.)
+  fun playFrom() {
+    val p = position ?: return
+    val src = source
+    vm.playFrom = if (src != null) GameRecord(src.first.rules, src.first.setup, actions = emptyList(), base = buildJsonObject {
+      put("game", EngineJson.encodeToJsonElement(GameRecord.serializer(), src.first))
+      put("seat", src.second)
+      put("seed", "")
+      put("hand", p.hand)
+      p.drawn?.let { put("drawn", it) }
+    }) to src.second
+    else GameRecord(spec, p.setup, actions = emptyList(), base = buildJsonObject {
+      put("position", EngineJson.encodeToJsonElement(Position.serializer(), p))
+      put("seed", "")
+    }) to 0
+  }
+  vm.playFrom?.let { (g, me) ->
+    BranchScreen(vm, g, me, (0..3).map { seatShort[(it - me + 4) % 4] }, title = stringResource(R.string.analysis_play_from),
+      backLabel = stringResource(R.string.analysis_play_back)) { vm.playFrom = null }
+    return
+  }
+
   fun pick(t: String) {
     if (ed.section.kind == Section.Kind.MELDS) {
       meldTile = t
@@ -250,6 +281,12 @@ fun AnalyzeScreen(vm: AppModel) {
         color = if (missing == null && error != null) LocalOutcome.current.bad else cs.onSurfaceVariant)
       result?.let { r ->
         Column(Modifier.fillMaxWidth().alpha(if (running) 0.7f else 1f).testTag("analyze_results"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.analysis_play_hint), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+            Button(onClick = ::playFrom, enabled = !running && position != null, modifier = Modifier.testTag("analyze_play")) {
+              Text(stringResource(R.string.analysis_play_from))
+            }
+          }
           DecisionPanel(r, w = sw, names = seatShort)
           if (r.net) {
             val t = tables

@@ -72,6 +72,8 @@ val TOUR_STEPS = listOf(
   TourStep(Screen.BATTLE, "nav_BATTLE", R.string.tour_battle_title, R.string.tour_battle),
   TourStep(Screen.RECORDS, "nav_RECORDS", R.string.tour_records_title, R.string.tour_records),
   TourStep(Screen.SETTINGS, "nav_SETTINGS", R.string.tour_settings_title, R.string.tour_settings),
+  // (In the settings, where many would not look for them: their section is brought into sight first.)
+  TourStep(Screen.SETTINGS, "hints", R.string.tour_hints_title, R.string.tour_hints),
   TourStep(Screen.PLAY, null, R.string.tour_end_title, R.string.tour_end),
 )
 

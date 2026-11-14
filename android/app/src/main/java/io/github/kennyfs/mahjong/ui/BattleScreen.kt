@@ -521,13 +521,16 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
         TextButton(onClick = onLeave) { Text(stringResource(R.string.battle_leave)) }
       }
       Box(Modifier.weight(1f).fillMaxWidth()) {
-        if (table == null) Loading()
+        if (table == null) TableSkeleton()
         else {
           val names = battle.namesAt(table.seats)
           TableView(
             table.view, table.seat, names, scores = battle.totalsAt(table.seats), away = battle.awayAt(table.seats),
             revealed = if (handOver) table.view.hands else null, interactive = table.view.myTurn && !handOver,
-            onAct = { battle.act(it) }, handLabel = if (wide) handLabel else "", readyHint = vm.settings.readyHint,
+            onAct = { battle.act(it) }, handLabel = if (wide) handLabel else "",
+            // (No hints in a battle.) A hand's deal shows at its start, as in practice (not on coming back to a hand
+            // under way).
+            deal = if (table.view.events.any { it.type == "discard" }) null else "${battle.battleId}/${table.hand}",
             status = if (wide) clock else null,
             // The table's top-right corner: the rules over the way out.
             corner = if (wide) ({
