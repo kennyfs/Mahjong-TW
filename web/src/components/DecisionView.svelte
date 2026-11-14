@@ -6,11 +6,12 @@
   its shape (PanelSkeleton). On a wide window the tiles at the left, the list at the right.
 
   `view`: the deciding seat's view (or the player's, meanwhile); `heading`: whose turn it is, in a few words.
-  `canPlay`: the player's decision, now (`view` is theirs). `waitShown`: the tiles a ready hand waits with have blue
+  `canPlay`: the player's decision, now (`view` is theirs). With 聽牌提示 the tiles a ready hand waits with have blue
   faces (as on the table, Table.svelte).
 -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
+  import { settings } from '../lib/settings.svelte';
   import { DRAWN_GAP } from '../lib/layout';
   import { tileMarks, type ChoiceMark, type TileMark } from '../lib/review';
   import { flowersOf, meldTiles } from '../lib/seats';
@@ -23,10 +24,10 @@
   import Tile from './Tile.svelte';
 
   let { view, heading, analysis, played = -1, unit = undefined, names, who = '', canPlay = false, onact, choices = null,
-    selected = $bindable(null), wide = false, hw, waitShown = false }: {
+    selected = $bindable(null), wide = false, hw }: {
     view: View | null; heading: string; analysis: Analysis | null; played?: number; unit?: number; names: string[];
     who?: string; canPlay?: boolean; onact: (a: Action) => void; choices?: ((a: Action) => ChoiceMark | null) | null;
-    selected?: number | null; wide?: boolean; hw: number; waitShown?: boolean;
+    selected?: number | null; wide?: boolean; hw: number;
   } = $props();
 
   const NO_MARKS = new Map<T, TileMark>();
@@ -48,7 +49,7 @@
   /** The tile chosen, its row lit in the list. */
   const picked = $derived(hand && selected !== null ? (selected < hand.tiles.length ? hand.tiles[selected] : hand.drawn) : null);
   const waitAt = $derived.by(() => {
-    if (!waitShown || !view || !hand) return null;
+    if (!settings.readyHint || !view || !hand) return null;
     if (view.phase === 'self' && view.current === view.position.me) {
       const i = selected ?? (hand.drawn ? hand.tiles.length : null);
       const x = i === null ? null : i < hand.tiles.length ? hand.tiles[i] : hand.drawn;

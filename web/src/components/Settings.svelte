@@ -1,9 +1,9 @@
 <!--
   The settings, in Thirteen's order: the look (text size; the colors and dark theme, each a menu), the game (the
-  rules, practice's length, the computer players and their pace, sounds, 聽牌提示), the analysis (from which loss on
-  a decision is a mistake), help, and about (the source, the app, the privacy policy). A computer shows the list at
-  the left and the rules beside it. A setting's longer words are behind an ⓘ by its name (a dialog), so that the
-  list stays short.
+  rules, practice's length, the computer players and their pace, sounds), what helps in practice (聽牌提示, 顯示分析),
+  the analysis (from which loss on a decision is a mistake), help, and about (the source, the app, the privacy
+  policy). A computer shows the list at the left and the rules beside it. A setting's longer words are behind an ⓘ by
+  its name (a dialog), so that the list stays short.
 -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
@@ -101,7 +101,9 @@
         <div class="body-large">{t('settings_sound')}</div>
         <Toggle options={sounds} selected={settings.sound} onselect={setSound} />
       </div>
+      <!-- What helps in practice (and a review's branch); never in a battle. -->
       <div class="hints" data-tour="hints">
+      <div class="section-header">{t('settings_practice_aids')}</div>
       <div class="block">
         {@render head(t('settings_ready_hint'), t('ready_hint_text'))}
         <Toggle options={onOff} selected={settings.readyHint ? 'on' : 'off'} onselect={setReady} />

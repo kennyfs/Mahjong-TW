@@ -18,6 +18,7 @@
   import { tick } from 'svelte';
   import { actionText, actionTiles } from '../lib/actions';
   import { t } from '../lib/i18n.svelte';
+  import { keepInBand } from '../lib/scroll';
   import { costOf, efficiencyText, EQUAL, figureCells, gradeOf, GRADE_NAME, notableOf, notableText, pct, pts, readyLevel, reasonOf,
     tilesShort } from '../lib/review';
   import { KINDS } from '../lib/tiles';
@@ -36,11 +37,14 @@
     truth?: Truth[] | null; showTruth?: boolean; picked?: number; brief?: boolean; who?: string;
   } = $props();
 
-  /** The row of the tile chosen in the hand comes into sight (the list may be scrolled away from it). */
+  /** The row of the tile chosen in the hand comes into the middle of the list's height (lib/scroll.ts). */
   let panelEl = $state<HTMLElement | null>(null);
   $effect(() => {
     if (picked < 0 || !panelEl) return;
-    void tick().then(() => panelEl?.querySelector('.row.picked')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    void tick().then(() => {
+      const row = panelEl?.querySelector<HTMLElement>('.row.picked');
+      if (row) keepInBand(row);
+    });
   });
   /** The explanation of a row's figures, open. */
   let help = $state(false);

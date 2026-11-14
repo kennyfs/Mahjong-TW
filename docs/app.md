@@ -340,6 +340,12 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     練習時顯示分析; the level of mistakes); 一將（四圈） is 一將.
   - A lifted tile goes down at a tap anywhere else; with the tags, a chosen tile rises a little (and under a
     computer's mouse).
+  - **Then** (the user's): the settings' 練習輔助 holds 聽牌提示 (the dots, and now the blue wait tiles; never in a
+    battle: Table `hints`) and 顯示分析. The list beside the table keeps the chosen tile's row within 20 to 80% of
+    its height and goes back to its top when the mouse goes far from the hand (lib/scroll.ts); it is grey through the
+    deal. Another's win waits `win_wait` (900 ms, the hands still hidden; a discard flying in that step lands first)
+    before its moment, a self-draw's and a deal-in's alike. The branch's 重洗看不到的牌 is on at first. The about
+    text says what the app does.
 
 ## Built and checked
 

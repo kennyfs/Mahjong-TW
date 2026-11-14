@@ -102,6 +102,8 @@
   let picked = $state<T | null>(null);
   // The list beside the table, where the window has room for the panel (wider with the hints on).
   let asideShown = $state(false);
+  /** The hand's deal going on (Table): the list in grey till its tiles are turned up. */
+  let inDeal = $state(false);
   const pickedIndex = $derived(mine && picked ? mine.actions.findIndex((f) => f.action.type === 'discard' && f.action.tile === picked) : -1);
   const lastHinted = $derived(practice.lastRecord ? !!records.get(practice.lastRecord)?.hints : false);
 </script>
@@ -111,10 +113,10 @@
   {#if mine && picked && !asideShown}<PickedFigures analysis={mine} seat={ME} {names} tile={picked} />{/if}
 {/snippet}
 
-<!-- The panel's list with the hints on: its shape in grey while the computer players play. -->
+<!-- The panel's list with the hints on: its shape in grey while the computer players play, and through the deal. -->
 {#snippet hintList()}
   <div class="p-list">
-    {#if mine}
+    {#if mine && !inDeal}
       <DecisionPanel analysis={mine} w={32} {names} picked={pickedIndex} />
     {:else}
       <PanelSkeleton w={32} rows={4} />
@@ -142,7 +144,7 @@
         interactive={stage === 'playing' && !practice.busy} onact={act} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64}
         keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined} robbed={practice.robbed}
         deal={stage === 'playing' ? practice.deal : null} {marks} {notes} {strip} onpick={(x) => (picked = x)} choiceMarks={choices}
-        tagRoom={hintsOn && stage === 'playing'} waitShown={hintsOn && stage === 'playing'} asideW={hintsOn ? 400 : 300} bind:asideShown>
+        tagRoom={hintsOn && stage === 'playing'} asideW={hintsOn ? 400 : 300} bind:asideShown bind:inDeal>
         {#snippet corner()}
           {#if ui.wide}
             <span class="corner-buttons" data-tour="top">

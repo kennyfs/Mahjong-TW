@@ -3,10 +3,10 @@
   the hand is played on, the player at their seat and the computer players (the settings' bot) at the others, however
   the hand was first played (a practice game, a table battle, a contest). Nothing is recorded or scored.
 
-  The tiles are the hand's own (its wall, the others' hands): the branch says what would have come of another choice.
-  With 重洗看不到的牌 what the player could not see there (the others' concealed tiles, the wall) is dealt again by the
+  With 重洗看不到的牌 (on at first, the user's) what the player could not see there (the others' concealed tiles, the wall) is dealt again by the
   branch's seed (the engine's record from a base position, docs/gui-engine.md). A position of the analysis has no hand
-  of its own: what the player cannot see there is always dealt by the seed.
+  of its own: what the player cannot see there is always dealt by the seed. Turned off, the tiles are the hand's own
+  (its wall, the others' hands): the branch says what would have come of another choice.
 
   The analysis is there as the review shows it, before the player decides: on the hand's tiles what each discard costs
   against the best and its danger, on each choice's button (胡, 碰, 吃...) what it costs, on the name plates how likely
@@ -39,6 +39,7 @@
   import { fxDone, fxOn, resultTap } from '../lib/fx.svelte';
   import { t } from '../lib/i18n.svelte';
   import { choiceMarks, opponentNotes, pts, tileMarks, type TileMark } from '../lib/review';
+  import { topWhenAway } from '../lib/scroll';
   import { settings } from '../lib/settings.svelte';
   import type { Tile as T } from '../lib/tiles';
   import { recordAction, type Action, type Analysis, type GameRecord, type View } from '../lib/types';
@@ -63,7 +64,8 @@
   } = $props();
 
   const newSeed = () => Math.random().toString(36).slice(2, 10);
-  let reshuffle = $state(false);
+  // (On by default, the user's: a branch is for trying another way, not for knowing what comes.)
+  let reshuffle = $state(true);
   let seed = $state(newSeed());
   /** A position with no hand of its own (the analysis'): what the player cannot see is always dealt by the seed. */
   const dealt = $derived(!!source.base);
@@ -112,6 +114,12 @@
   const inlinePanel = $derived(ui.wide && ui.w >= 1180 && ui.h >= 600);
   let panelOpen = $state(false);
   const listShown = $derived(inlinePanel || panelOpen);
+  // The list beside the table back at its top when the mouse goes far from the hand (lib/scroll.ts).
+  let inlineEl = $state<HTMLElement | null>(null);
+  $effect(() => {
+    const el = inlineEl;
+    if (el) return topWhenAway(el, () => document.querySelector<HTMLElement>('.table .me .hand'));
+  });
   const listView = $derived(panelOpen && !inlinePanel && !over);
   $effect(() => { void listView; selected = null; });
 
@@ -452,12 +460,12 @@
   <div class="main">
     {#if listView}
       <DecisionView view={look?.seatView ?? view} heading={listHeading} analysis={look?.analysis ?? null} {played} {unit} {names}
-        who={look && look.seat !== me ? names[look.seat] : ''} {canPlay} onact={act} {choices} bind:selected wide={ui.wide} {hw} waitShown />
+        who={look && look.seat !== me ? names[look.seat] : ''} {canPlay} onact={act} {choices} bind:selected wide={ui.wide} {hw} />
     {:else}
       <div class="table-wrap">
         {#if view}
           <Table {view} {me} {names} revealed={view.phase === 'over' ? (final?.hands ?? null) : null} interactive={!!view.my_turn && !deciding} {robbed}
-            onact={act} maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom waitShown>
+            onact={act} maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom>
             {#snippet overlay()}
               {#if over && (held || fxOn.on)}<TapOn onnext={() => (held = false)} />{/if}
               {#if sheet && final}
@@ -493,7 +501,7 @@
       {#if inlinePanel}
         {@render info()}
         {@render buttons()}
-        <div class="inline-panel">{@render panel()}</div>
+        <div class="inline-panel" bind:this={inlineEl}>{@render panel()}</div>
       {:else}
         {@render info()}
         <div class="foot">{@render buttons()}</div>

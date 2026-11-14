@@ -57,6 +57,7 @@
   import { FULL, total, type Moment, type Parts } from '../lib/moments';
   import { ms, REVIEW_END, type TimingKey } from '../lib/timing';
   import ClaimBar from './ClaimBar.svelte';
+  import { topWhenAway } from '../lib/scroll';
   import { settings } from '../lib/settings.svelte';
   import Melds from './Melds.svelte';
   import MyHand from './MyHand.svelte';
@@ -68,7 +69,7 @@
     view, me, names, scores = null, revealed: revealedIn = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
     marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null, review = false, deal = null,
-    choiceMarks = null, tagRoom = false, asideShown = $bindable(false), waitShown = false,
+    choiceMarks = null, tagRoom = false, asideShown = $bindable(false), hints = true, inDeal = $bindable(false),
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
     onact?: (a: Action) => void; handLabel?: string; maxHand?: number; keys?: boolean; away?: boolean[];
@@ -86,9 +87,12 @@
     choiceMarks?: ((a: Action) => ChoiceMark | null) | null;
     tagRoom?: boolean;
     asideShown?: boolean;
-    /** With the hints: the tiles a ready hand waits with (聽的相關牌組) have blue faces; on the player's turn, those it
-     *  would wait with after the tile chosen (or under the mouse) is discarded, else after the drawn one. */
-    waitShown?: boolean;
+    /** 聽牌提示 (the settings') may show here (not in a battle): a dot over each discard that leaves the hand ready,
+     *  and the tiles a ready hand waits with (聽的相關牌組) on blue faces (on the player's turn, those it would wait
+     *  with after the tile chosen, or under the mouse, is discarded, else after the drawn one). */
+    hints?: boolean;
+    /** A hand's deal going on (its tiles not turned up yet): what shows its analysis waits for it. */
+    inDeal?: boolean;
   } = $props();
   let tableEl = $state<HTMLElement>();
   /** The moments (below): one after another. */
@@ -195,8 +199,17 @@
     if (review || dealing || revealed || view.phase === 'over' || n === undefined || n < 0 || n > 3) return null;
     return { text: n === 0 ? t('analysis_ready') : t('analysis_shanten', n), level: 0 };
   });
+  const readyHint = $derived(hints && !review && settings.readyHint);
+  // The panel beside the table with the analysis shown: back at its top when the mouse goes far from the hand.
+  let asideEl = $state<HTMLElement | null>(null);
+  const analysed = $derived(!!marks && !review);
+  $effect(() => {
+    const el = asideEl;
+    if (el && analysed) return topWhenAway(el, () => tableEl?.querySelector<HTMLElement>('.me .hand'));
+  });
+  $effect(() => { inDeal = !!dealing; });
   const waitAt = $derived.by(() => {
-    if (!waitShown || revealed) return null;
+    if (!readyHint || revealed) return null;
     if (view.phase === 'self' && view.current === me) {
       const i = selected ?? hovered ?? (mine.drawn ? mine.tiles.length : null);
       const x = i === null ? null : i < mine.tiles.length ? mine.tiles[i] : mine.drawn;
@@ -739,6 +752,14 @@
             tiles: [], gap: -1, tile: null, src: null, from: null, dst: null, meld: -1, anchor: null, key, hide,
             ms: Math.round(ms(key) * (review ? REVIEW_END : 1)) });
           list.splice(at, 0, ...(drawn ? [gap('show_wait', true), gap('reveal', false)] : [gap('reveal', false)]));
+          // Another's win (not one the player made): a pause first, the hands still hidden, as a player draws and looks
+          // (or sees the discard land) before showing their hand; a discard flying in this step lands first.
+          const won = fresh.filter((x) => x.type === 'tsumo' || x.type === 'ron' || x.type === 'flower_win').map((x) => x.seat);
+          if (!drawn && !review && won.length && !won.includes(me)) {
+            const w = gap('win_wait', true);
+            if (fresh.some((x) => x.type === 'discard')) w.ms += ms('discard_move');
+            list.unshift(w);
+          }
         }
       }
       if (list.length) startMoments(list);
@@ -913,7 +934,7 @@
           <Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} wrap={false} seat={me} hide={hideMeld(me)} />
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={settings.readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected oneClick={keys} {marks} {tagH} dropOutside={!review} onhover={(i) => (hovered = i)} {waitAt} />{/if}
       </div>
     {:else}
@@ -925,7 +946,7 @@
           <span class="me-badge" bind:clientWidth={meBadgeW}>{@render myBadge()}</span>
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
-        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={settings.readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
+        <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
           bind:selected perRow={s.handRow} {marks} {tagH} dropOutside={!review} onhover={(i) => (hovered = i)} {waitAt} />{/if}
       </div>
       {#if status}<div class="status tall" style="bottom: {meH + 4}px">{@render status()}</div>{/if}
@@ -960,7 +981,7 @@
     {/if}
   {/if}
 </div>
-{#if withAside && aside}<div class="aside" style="width: {asideW}px">{@render aside()}</div>{/if}
+{#if withAside && aside}<div class="aside" style="width: {asideW}px" bind:this={asideEl}>{@render aside()}</div>{/if}
 {#if W > 0 && overlay}{@render overlay()}{/if}
 </div>
 

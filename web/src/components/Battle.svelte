@@ -305,7 +305,7 @@
         <Table view={table.view} me={table.seat} {names} scores={battle.totalsAt(table.seats)} away={battle.awayAt(table.seats)}
           revealed={handOver ? (table.view.hands ?? null) : null} interactive={table.view.my_turn && !handOver}
           onact={(a) => battle.act(a)} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64} keys={ui.desk}
-          deal={dealOf(table)}>
+          deal={dealOf(table)} hints={false}>
           {#snippet status()}{#if ui.wide}{@render clock()}{/if}{/snippet}
           {#snippet corner()}
             {#if ui.wide}

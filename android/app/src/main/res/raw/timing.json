@@ -21,6 +21,7 @@
     "dealin_out": 400,
     "show_wait": 1200,
     "reveal": 1200,
+    "win_wait": 900,
     "sad": 1500,
     "win": 3000,
     "tsumo": 3000,
