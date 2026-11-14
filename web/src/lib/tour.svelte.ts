@@ -14,6 +14,8 @@ export const STEPS: TourStep[] = [
   { screen: 'BATTLE', target: 'nav-BATTLE', title: 'tour_battle_title', text: 'tour_battle' },
   { screen: 'RECORDS', target: 'nav-RECORDS', title: 'tour_records_title', text: 'tour_records' },
   { screen: 'SETTINGS', target: 'nav-SETTINGS', title: 'tour_settings_title', text: 'tour_settings' },
+  // (In the settings, where many would not look for them.)
+  { screen: 'SETTINGS', target: 'hints', title: 'tour_hints_title', text: 'tour_hints' },
   { screen: 'PLAY', target: null, title: 'tour_end_title', text: 'tour_end' },
 ];
 

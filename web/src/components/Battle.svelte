@@ -24,6 +24,7 @@
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
   import Table from './Table.svelte';
+  import TableSkeleton from './TableSkeleton.svelte';
   import TitleBar from './TitleBar.svelte';
   import Toggle from './Toggle.svelte';
 
@@ -380,10 +381,10 @@
           {/snippet}
         </Table>
       {:else}
-        <div class="loading"><span class="spinner"></span></div>
+        <TableSkeleton />
       {/if}
       {#if battle.reconnecting}
-        <div class="reconnect"><span class="spinner small"></span>{t('battle_reconnecting')}</div>
+        <div class="reconnect"><span class="spinner"></span>{t('battle_reconnecting')}</div>
       {/if}
     </div>
   </div>
@@ -509,9 +510,7 @@
   .p-pts.bad { color: var(--felt-bad); }
   .p-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
   .keys { font-size: 0.9rem; line-height: 1.5; }
-  .loading { height: 100%; display: flex; align-items: center; justify-content: center; }
-  .spinner { width: 40px; height: 40px; border-radius: 50%; border: 4px solid transparent; border-top-color: var(--primary); animation: spin 0.9s linear infinite; }
-  .spinner.small { width: 20px; height: 20px; border-width: 3px; }
+  .spinner { width: 20px; height: 20px; border-radius: 50%; border: 3px solid transparent; border-top-color: var(--primary); animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* The standings */

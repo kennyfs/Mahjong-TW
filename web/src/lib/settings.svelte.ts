@@ -63,7 +63,7 @@ class Settings {
   /** Marks on the discards that leave the hand ready (聽牌提示): off unless the player asks (the game tests their
    *  judgement; whether a hand is ready is only a check). */
   readyHint = $state(false);
-  /** 打牌時顯示分析: practice's decisions with the analysis shown, as a branch's; the hands played so count for
+  /** 練習時顯示分析: practice's decisions with the analysis shown, as a branch's; the hands played so count for
    *  nothing (lib/practice.svelte.ts). */
   practiceHints = $state(false);
 

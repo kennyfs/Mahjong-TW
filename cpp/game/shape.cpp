@@ -155,6 +155,51 @@ void Shape::readings(const Counts& c, int numSets, vector<Reading>& out) {
   readRec(a, -1, 0, false, cur, out);
 }
 
+Counts Shape::waitTiles(const Counts& c, int numSets, uint64_t waits) {
+  Counts out{};
+  if(waits == 0)
+    return out;
+  // The groups (by type and kind) kept by every way to win, as counts: the least over the ways.
+  constexpr int KEYS = 3 * 34;
+  int kept[KEYS];
+  bool any = false;
+  vector<Reading> rds;
+  for(int w = 0; w < 34; w++) {
+    if(!(waits >> w & 1))
+      continue;
+    Counts d = c;
+    d[w]++;
+    readings(d, numSets, rds);
+    for(const Reading& rd : rds) {
+      for(int g = 0; g < rd.n; g++) {
+        if(!rd.groups[g].contains(w))
+          continue;
+        int these[KEYS] = {0};
+        for(int h = 0; h < rd.n; h++)
+          if(h != g)
+            these[rd.groups[h].type * 34 + rd.groups[h].kind]++;
+        for(int i = 0; i < KEYS; i++)
+          kept[i] = any ? min(kept[i], these[i]) : these[i];
+        any = true;
+      }
+    }
+  }
+  out = c;
+  if(!any)
+    return out;
+  for(int i = 0; i < KEYS; i++) {
+    int k = i % 34;
+    for(int n = 0; n < kept[i]; n++) {
+      switch(i / 34) {
+        case Group::CHOW: out[k]--; out[k + 1]--; out[k + 2]--; break;
+        case Group::PUNG: out[k] -= 3; break;
+        default: out[k] -= 2; break;
+      }
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Shanten
 

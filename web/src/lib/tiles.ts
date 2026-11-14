@@ -91,3 +91,24 @@ export function without(tiles: Tile[], remove: Tile[]): Tile[] {
   }
   return out;
 }
+
+/**
+ * Where a hand's tiles that its waits use (the engine's "wait_tiles", "ready_tiles": 聽的相關牌組) are: indices into
+ * `tiles` (sorted) and then the drawn tile, the tile at `skip` (the one to be discarded) left out. Of a kind it has
+ * more of than the group, the hand's own before the drawn one, and those next to the group's neighbouring kind.
+ */
+export function groupIndices(tiles: Tile[], drawn: Tile | null, group: Tile[], skip: number | null = null): Set<number> {
+  const out = new Set<number>();
+  const need = new Map<Tile, number>();
+  for (const g of group) need.set(g, (need.get(g) ?? 0) + 1);
+  const all = drawn ? [...tiles, drawn] : tiles;
+  for (const [x, c] of need) {
+    const at = all.map((y, i) => (y === x && i !== skip ? i : -1)).filter((i) => i >= 0 && i < tiles.length);
+    const n = Number(x[0]);
+    const next = (d: number) => !isHonor(x) && need.has(`${n + d}${x[1]}`);
+    const mine = next(1) && !next(-1) ? at.slice(Math.max(0, at.length - c)) : at.slice(0, c);
+    mine.forEach((i) => out.add(i));
+    if (mine.length < c && drawn === x && skip !== tiles.length) out.add(tiles.length);
+  }
+  return out;
+}

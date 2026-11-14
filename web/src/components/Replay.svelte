@@ -32,8 +32,8 @@
   import { editor } from '../lib/position-editor.svelte';
   import { practice } from '../lib/practice.svelte';
   import { records } from '../lib/records.svelte';
-  import { costOf, EQUAL, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pct, pts, readyLevel, reasonOf, reviewOf, summarize,
-    tagCost, tileMarks, tilesShort, type TileMark } from '../lib/review';
+  import { costOf, EQUAL, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pts, reasonOf, reviewOf, summarize,
+    tagCost, tileMarks, tilesShort, opponentNote, type TileMark } from '../lib/review';
   import { flowersOf, meldTiles } from '../lib/seats';
   import { settings } from '../lib/settings.svelte';
   import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
@@ -44,6 +44,7 @@
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
   import MyHand from './MyHand.svelte';
+  import PanelSkeleton from './PanelSkeleton.svelte';
   import PickedFigures from './PickedFigures.svelte';
   import Table from './Table.svelte';
   import Tile from './Tile.svelte';
@@ -231,7 +232,7 @@
       if (tr) {
         out[o.seat] = tr.missed ? { text: t('opp_missed'), level: 0 }
           : tr.shanten === 0 ? { text: t('opp_ready', tilesShort(tr.waits.map((x) => x.tile))), level: 3 } : { text: t('analysis_shanten', tr.shanten), level: 0 };
-      } else if (o.ready[0] >= 0.1) out[o.seat] = { text: t('opp_ready', pct(o.ready[0])), level: readyLevel(o.ready[0]) };
+      } else out[o.seat] = opponentNote(o);
     }
     return out;
   });
@@ -467,7 +468,7 @@
       <button class="btn tonal" onclick={toAnalysis}><Icon name="assessment" size={20} />{t('review_to_analysis')}</button>
     </div>
   {:else if deciding}
-    <div class="loading"><span class="spinner"></span></div>
+    <PanelSkeleton w={inlinePanel ? 34 : Math.max(30, hw * 0.8)} />
   {/if}
 {/snippet}
 
@@ -631,7 +632,4 @@
   .opt b.g1 { color: var(--danger-1); }
   .opt b.g2 { color: var(--danger-2); }
   .opt b.g3 { color: #ff8f8f; }
-  .loading { display: flex; justify-content: center; padding: 32px; }
-  .spinner { width: 36px; height: 36px; border-radius: 50%; border: 4px solid transparent; border-top-color: var(--primary); animation: spin 0.9s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
 </style>

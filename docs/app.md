@@ -12,7 +12,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 
 | Screen | What |
 |---|---|
-| 練習 Practice | Against three bots (the network by default, or the engine's `greedy`, tile efficiency), for one hand, a round or a game; the result of each hand (winner, hand, tai items, payments, next dealer, the network's summary of the player's play) with its review; the game's totals. The analysis during play only on request (設定 → 打牌時顯示分析): such a hand counts for nothing (not in the totals or the records' statistics; its record is marked 提示). |
+| 練習 Practice | Against three bots (the network by default, or the engine's `greedy`, tile efficiency), for one hand, a round or a game; the result of each hand (winner, hand, tai items, payments, next dealer, the network's summary of the player's play) with its review; the game's totals. The analysis during play only on request (設定 → 練習時顯示分析): such a hand counts for nothing (not in the totals or the records' statistics; its record is marked 提示). |
 | 對戰 Battles | A table game (1 to 4 people, bots in the empty seats) or a same-tiles contest, on a battle server; the app also with phones nearby. The entry asks first only a new room or joining one (the app: online or nearby too); a new room then offers its kinds, joining asks the PIN. Lobby with a 6-digit PIN, the host's settings, the table with a clock per decision, each hand's result with the standings, the final standings and the player's hands. docs/battle.md. |
 | 分析 Analysis | A position set up by hand, or a step of a review taken there, with the network's figures for each legal action as it changes, and the tables of draws and of claims (docs/analysis.md section 4). |
 | 紀錄 Records | Practice hands, table battles and contests (battles as groups of hands); favorites; statistics of the network's reviews; each hand opens its review: the graph of the value, the decisions worth a look, each decision's verdict and figures, everyone's tiles at a tap. |
@@ -320,6 +320,26 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     cleared field is still its own server.
   - **A test build's icon**: the moon in its top right, over the tile's corner on a disc of the night felt (as
     Thirteen's test icon).
+- **Play with the analysis** (2026-11-14, the user's; the page first, the app to follow):
+  - **練習時顯示分析** (the settings; on in a hand at any point, on till its end, and that hand counts for
+    nothing): the costs and dangers on the tiles, the choices' costs on their buttons, the opponents' chances of
+    being ready on their plates with the tile each most likely waits on (可能聽, from 30%), a chosen tile's figures
+    over the hand, and the tiles a ready hand waits with on blue faces (the engine's `wait_tiles`, and on the
+    player's turn `ready_tiles` for the tile chosen or else the drawn one: Shape::waitTiles, every tile but the
+    groups that stay the same whichever wait comes). The list of every action (詳細分析) only beside the table where
+    there is room for the panel (a computer's): the table says enough to play by. The tour's step after the
+    settings' introduces it with 聽牌提示.
+  - **The review's branch and the analysis' 從這裡打** play with the analysis shown at every decision; the list
+    (詳細分析) beside the table on a large window, else in its place (DecisionView, where the player may play too);
+    controls in a column at the right on a wide window; 上一個決定／下一個決定; 重洗看不到的牌 asks first.
+  - **The player's standing** on their own plate in every game (practice, battles, the branch): 聽牌, or 1 to 3
+    向聽 (the engine's `shanten`), nothing further away; the plate keeps its width whether it shows or not.
+  - **Skeletons** in place of spinners: the table's shape while the engine downloads or a battle's first view comes
+    (TableSkeleton), a list's while the computer players play or the engine works (PanelSkeleton).
+  - **The settings' longer words behind ⓘ** (練習長度 with what 一局, 一圈 and 一將 are; the pace; 聽牌提示;
+    練習時顯示分析; the level of mistakes); 一將（四圈） is 一將.
+  - A lifted tile goes down at a tap anywhere else; with the tags, a chosen tile rises a little (and under a
+    computer's mouse).
 
 ## Built and checked
 

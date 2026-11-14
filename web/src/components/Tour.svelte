@@ -38,7 +38,14 @@
     else if (nav.sub) nav.replace(s.screen);
     let frames = 0;
     let id = 0;
-    const loop = () => { measure(); if (++frames < 20) id = requestAnimationFrame(loop); };
+    // A step's thing out of sight (low on a long page) is scrolled to first.
+    const into = () => {
+      if (!s.target) return;
+      const el = [...document.querySelectorAll(`[data-tour="${s.target}"]`)].find((e) => e.getBoundingClientRect().width > 0);
+      const r = el?.getBoundingClientRect();
+      if (el && r && (r.top < 0 || r.bottom > innerHeight)) el.scrollIntoView({ block: 'center' });
+    };
+    const loop = () => { if (frames === 1) into(); measure(); if (++frames < 20) id = requestAnimationFrame(loop); };
     tick().then(() => { id = requestAnimationFrame(loop); card?.focus(); });
     return () => cancelAnimationFrame(id);
   });

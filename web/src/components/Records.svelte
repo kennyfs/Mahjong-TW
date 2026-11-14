@@ -50,7 +50,7 @@
 
   const hands = $derived(records.hands.filter((h) => h.kind === tab && (!favOnly || h.fav)).slice().reverse());
   const battles = $derived(records.battles.filter((b) => b.kind === tab && (!favOnly || b.fav || records.ofGroup(b.id).some((h) => h.fav))).slice().reverse());
-  // (A hand played with the analysis shown, 打牌時顯示分析, counts in neither.)
+  // (A hand played with the analysis shown, 練習時顯示分析, counts in neither.)
   const stats = $derived.by(() => {
     const list = records.hands.filter((h) => h.kind === tab && !h.hints);
     const wins = list.filter((h) => h.winners.includes(h.me)).length;

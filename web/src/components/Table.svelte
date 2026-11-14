@@ -21,7 +21,8 @@
   line along the top of a wide table; on a tall one the others' strip grows for them (the rivers give the room).
   `keys`: a computer's: a click discards, and the keyboard plays (← → choose a tile, Enter discards it, Esc lets go;
   H wins, G kongs, P pungs, C chows, 1 2 3 a chow's way, Space passes).
-  `aside`: a panel at the right (`asideW` px wide), shown when the window has room for it beside the table (a computer's);
+  `aside`: a panel at the right (`asideW` px wide), shown when the window has room for it beside the table (a computer's;
+  `asideShown` says whether it is);
   the `corner` is not shown then (the panel has its buttons).
   A review's: `marks` (tags and danger on the hand's tiles, lib/review.ts), `notes` (a few words on each name plate),
   `strip` (a line over the hand, over the choices when there are some: the options that are not discards, a tile's
@@ -44,7 +45,7 @@
   } from '../lib/layout';
   import { concealedCount, meldTiles, seatAt, sideOf, flowersOf, type Side } from '../lib/seats';
   import type { ChoiceMark, TileMark } from '../lib/review';
-  import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
+  import { groupIndices, parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
   import { dealsShown, movesShown, resultTap, setFx } from '../lib/fx.svelte';
   import { playSound } from '../lib/sound';
@@ -67,7 +68,7 @@
     view, me, names, scores = null, revealed: revealedIn = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
     marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null, review = false, deal = null,
-    choiceMarks = null, tagRoom = false,
+    choiceMarks = null, tagRoom = false, asideShown = $bindable(false), waitShown = false,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
     onact?: (a: Action) => void; handLabel?: string; maxHand?: number; keys?: boolean; away?: boolean[];
@@ -84,6 +85,10 @@
     deal?: string | null;
     choiceMarks?: ((a: Action) => ChoiceMark | null) | null;
     tagRoom?: boolean;
+    asideShown?: boolean;
+    /** With the hints: the tiles a ready hand waits with (聽的相關牌組) have blue faces; on the player's turn, those it
+     *  would wait with after the tile chosen (or under the mouse) is discarded, else after the drawn one. */
+    waitShown?: boolean;
   } = $props();
   let tableEl = $state<HTMLElement>();
   /** The moments (below): one after another. */
@@ -142,6 +147,7 @@
   const full = $derived(sizes(W, H));
   const withAside = $derived(!!aside && full.s.wide && W - full.s.tableW >= asideW + 24);
   const fit = $derived(withAside ? sizes(W - asideW - 16, H) : full);
+  $effect(() => { asideShown = withAside; });
   const s = $derived(fit.s);
   const meH = $derived(s.meH + fit.extra);
 
@@ -180,6 +186,24 @@
   $effect(() => {
     const i = selected ?? hovered;
     onpick?.(i === null ? null : i < mine.tiles.length ? mine.tiles[i] : mine.drawn);
+  });
+  /** On the player's plate: a ready hand declared, else (while playing) how far the hand is from ready, from 3 向聽. */
+  const myNote = $derived.by(() => {
+    const d = pos.players[me].declared;
+    if (d) return { text: t(`call_${d}`), level: 0 };
+    const n = view.shanten;
+    if (review || dealing || revealed || view.phase === 'over' || n === undefined || n < 0 || n > 3) return null;
+    return { text: n === 0 ? t('analysis_ready') : t('analysis_shanten', n), level: 0 };
+  });
+  const waitAt = $derived.by(() => {
+    if (!waitShown || revealed) return null;
+    if (view.phase === 'self' && view.current === me) {
+      const i = selected ?? hovered ?? (mine.drawn ? mine.tiles.length : null);
+      const x = i === null ? null : i < mine.tiles.length ? mine.tiles[i] : mine.drawn;
+      const g = x ? view.ready_tiles?.[x] : null;
+      return g ? groupIndices(mine.tiles, mine.drawn, parseTiles(g), i) : null;
+    }
+    return view.wait_tiles ? groupIndices(mine.tiles, mine.drawn, parseTiles(view.wait_tiles)) : null;
   });
   const discardable = $derived(new Set(view.my_turn ? view.legal.filter((a) => a.type === 'discard').map((a) => a.tile) : []));
   const canDiscard = (tile: string) => interactive && !dealing && discardable.has(tile);
@@ -875,7 +899,7 @@
     <!-- The player: the name plate (wide: over the hand, at the left, their flowers over it), the melds, the hand. -->
     {#snippet myBadge()}
       <SeatBadge wind={winds[me]} name={names[me]} score={scores ? scores[me] : null} dealer={setup.dealer === me} streak={setup.streak}
-        turn={turnSeat === me} compact={!s.wide} note={pos.players[me].declared ? { text: t(`call_${pos.players[me].declared}`), level: 0 } : null} />
+        turn={turnSeat === me} compact={!s.wide} note={myNote} room={review ? '' : t('analysis_shanten', 3)} />
     {/snippet}
     {#if s.wide}
       <div class="me-corner" style="bottom: {meH + 2}px" bind:clientHeight={meCorner}>
@@ -890,7 +914,7 @@
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
         <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={settings.readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
-          bind:selected oneClick={keys} {marks} {tagH} dropOutside={!review} onhover={(i) => (hovered = i)} />{/if}
+          bind:selected oneClick={keys} {marks} {tagH} dropOutside={!review} onhover={(i) => (hovered = i)} {waitAt} />{/if}
       </div>
     {:else}
       <!-- Over the hand: the melds at the left (the first at the far left), the flowers after them; the name plate at
@@ -902,7 +926,7 @@
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
         <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={settings.readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
-          bind:selected perRow={s.handRow} {marks} {tagH} dropOutside={!review} />{/if}
+          bind:selected perRow={s.handRow} {marks} {tagH} dropOutside={!review} onhover={(i) => (hovered = i)} {waitAt} />{/if}
       </div>
       {#if status}<div class="status tall" style="bottom: {meH + 4}px">{@render status()}</div>{/if}
     {/if}

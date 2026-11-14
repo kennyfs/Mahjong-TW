@@ -77,6 +77,13 @@ export interface View {
   hands?: string[];
   /** On the player's own turn to discard: each discard that leaves the hand ready, with what it then waits on. */
   ready?: Record<Tile, Tile[]>;
+  /** With each of those, the tiles the hand then waits with (聽的相關牌組). */
+  ready_tiles?: Record<Tile, string>;
+  /** The player's own standing: 0 ready (聽牌), -1 complete, else how many tiles from ready (向聽); on their own turn
+   *  after the best discard. */
+  shanten?: number;
+  /** Between the player's turns, a ready hand's tiles that it waits with ("" otherwise). */
+  wait_tiles?: string;
 }
 
 export interface Pending { phase: Phase; current: number; pending: number[]; actions: number; event_count: number }

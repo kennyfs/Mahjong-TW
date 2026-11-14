@@ -29,6 +29,11 @@ namespace Shape {
   // Every way to read a complete hand (3 numSets + 2 tiles) as numSets sets and a pair, each multiset of groups once.
   void readings(const Counts& c, int numSets, std::vector<Reading>& out);
 
+  // The tiles a ready hand (3 numSets + 1 tiles) waits with (聽的相關牌組): all but those of the groups that stay the
+  // same whichever of `waits` comes and whichever way the hand then reads, the group the tile comes into aside. So
+  // 34567 waiting on 2, 5 and 8 gives all five, and 11 456 78 waiting on 6 and 9 gives 78. None when `waits` is 0.
+  Counts waitTiles(const Counts& c, int numSets, uint64_t waits);
+
   // The number of tiles a hand is from ready (聽牌): 0 when ready, -1 when complete (3 numSets + 2 tiles), so the
   // fewest tiles still needed to win is shanten + 1 (the MTW of Chen et al. 2022). Works for 3 numSets + 1 or + 2
   // tiles. It ignores how many of each kind are left (a hand waiting only on kinds it holds all four of counts as

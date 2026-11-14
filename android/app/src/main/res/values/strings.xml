@@ -79,7 +79,8 @@
   <!-- Practice -->
   <string name="length_hand">一局</string>
   <string name="length_round">一圈</string>
-  <string name="length_game">一將（四圈）</string>
+  <string name="length_game">一將</string>
+  <string name="length_help">一局：發牌之後，打到有人胡牌或流局。\n一圈：四家都輪流做過一次莊；連莊時莊家不換，所以一圈可能不只四局。\n一將：東風圈、南風圈、西風圈、北風圈，共四圈。</string>
   <string name="practice_new">重新開始</string>
   <string name="practice_new_confirm">放棄目前的牌局，重新開始？</string>
 
@@ -136,10 +137,10 @@
   <string name="settings_ready_hint">聽牌提示</string>
   <string name="ready_hint_on">開</string>
   <string name="ready_waits">聽 %1$s</string>
-  <string name="settings_practice_hints">打牌時顯示分析</string>
+  <string name="settings_practice_hints">練習時顯示分析</string>
   <string name="practice_hints">提示</string>
-  <string name="practice_hints_toggle">打牌時顯示分析（開著時這一局不計分）</string>
-  <string name="practice_hints_text">練習時，輪到你就先像回顧一樣顯示分析：每張牌打出去的損失與危險、吃碰胡的損失、對手聽牌的機率；點一下牌看那張的詳細數字（電腦：滑鼠停在牌上）。開著時打的那一局不計分，也不列入紀錄的統計，紀錄裡會標「提示」。</string>
+  <string name="practice_hints_toggle">練習時顯示分析（開著時這一局不計分）</string>
+  <string name="practice_hints_text">練習時，輪到你就先像回顧一樣顯示分析：每張牌打出去的損失與危險、吃碰胡的損失、對手聽牌的機率與可能聽的牌、聽牌時手上跟聽牌有關的牌（藍底）；電腦螢幕夠寬時，牌桌旁還有每個選擇的詳細分析；點一下牌看那張的詳細數字（電腦：滑鼠停在牌上）。一局裡只要開過，就會顯示到那一局打完（中途關掉也一樣），那一局不計分，也不列入紀錄的統計，紀錄裡會標「提示」。</string>
   <string name="result_hints_note">開了提示：這一局不計分</string>
   <string name="ready_hint_text">開了之後，輪到你出牌時，打出去就會聽牌的牌上方會有小記號（電腦：滑鼠停在牌上可看聽哪些牌）。預設關閉：想考驗自己的判斷就不要開。</string>
   <string name="speed_slow">慢</string>
@@ -208,6 +209,7 @@
   <string name="branch_reshuffle">重洗看不到的牌</string>
   <string name="branch_step">分支第 %1$d 步</string>
   <string name="branch_your_turn">輪到你：點一下牌再點一次打出，或往上滑</string>
+  <string name="branch_your_call">輪到你：要這張牌就按吃、碰、槓或胡，不要就按過</string>
   <string name="branch_others">電腦在打…</string>
   <string name="branch_back_note">上一步回到這裡：可以改打，或按下一步照原樣往下看</string>
   <string name="branch_over">這一局打完了</string>
@@ -215,6 +217,8 @@
   <string name="branch_again">從分支點再打一次</string>
   <string name="branch_back">回到回顧</string>
   <string name="branch_new">重新開分支</string>
+  <string name="branch_reshuffle_confirm">切換「重洗看不到的牌」會從分支點重新開始，現在打到的會不見。</string>
+  <string name="branch_restart">重新開始</string>
   <string name="branch_to_start">回到分支點</string>
   <string name="branch_to_newest">到最新一步</string>
   <string name="replay_step">第 %1$d／%2$d 步</string>
@@ -404,7 +408,7 @@
   <string name="review_next_key">下一個該看的決定</string>
   <string name="review_loading">神經網路分析中…</string>
   <string name="review_failed">神經網路載入失敗，只顯示牌效率：%1$s</string>
-  <string name="review_panel">每個選擇</string>
+  <string name="review_panel">詳細分析</string>
   <string name="review_to_analysis">帶到分析頁</string>
   <string name="review_graph">期望的變化（點一下跳到那個決定）</string>
   <string name="reason_win_less">胡牌期望少 %1$s</string>
@@ -439,6 +443,7 @@
   <string name="bars_better">比最佳好</string>
   <string name="opp_title">對手（網路的估計）</string>
   <string name="opp_ready">聽 %1$s</string>
+  <string name="opp_ready_wait">聽 %1$s・可能聽%2$s</string>
   <string name="opp_one_away">一向聽 %1$s</string>
   <string name="opp_missed">過水</string>
   <string name="opp_no_danger">沒有明顯危險的牌</string>
@@ -630,6 +635,8 @@
   <string name="tour_records">每一局都會留下來。點開就是回顧：神經網路會標出值得看的決定，告訴你損失多少、最佳是什麼。上方有分析統計。</string>
   <string name="tour_settings_title">設定</string>
   <string name="tour_settings">規則、電腦玩家、分析的顯示方式與失誤門檻都在這裡；規則說明和這個導覽也是。</string>
+  <string name="tour_hints_title">邊打邊學</string>
+  <string name="tour_hints">想邊打邊學，可以打開這兩項：「聽牌提示」標出打了就聽牌的牌；「練習時顯示分析」在練習時先顯示每張牌的損失、對手可能聽的牌，還有自己聽牌時手上跟聽牌有關的牌（開過的那一局不計分）。對戰時都不會顯示。</string>
   <string name="tour_end_title">開始吧</string>
   <string name="tour_end">導覽結束。不熟台灣麻將的規則，可以看「規則說明」。</string>
   <string name="welcome_title">歡迎</string>

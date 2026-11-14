@@ -16,6 +16,7 @@
 <script lang="ts">
   import * as engine from '../lib/engine';
   import Branch from './Branch.svelte';
+  import PanelSkeleton from './PanelSkeleton.svelte';
   import { t } from '../lib/i18n.svelte';
   import { nav } from '../lib/nav.svelte';
   import { editor, FLOWER_PALETTE, meldOf, PALETTE, sameSection, type Mode, type Section } from '../lib/position-editor.svelte';
@@ -167,8 +168,9 @@
   <div class="status">
     {#if missing}<span class="body-medium dim">{missing}</span>
     {:else if error}<span class="body-medium bad">{t('analysis_error', error)}</span>
-    {:else if running && !result}<span class="body-medium dim">{t('review_loading')}</span>{/if}
+    {/if}
   </div>
+  {#if !missing && !error && running && !result}<PanelSkeleton w={sw} rows={4} />{/if}
   {#if result}
     <div class="results" class:stale={running}>
       <div class="play-row">

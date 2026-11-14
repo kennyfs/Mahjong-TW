@@ -7,14 +7,16 @@
   edge, the drawn tile after the last one. 0: one row.
   `oneClick` (a computer's mouse): a tile rises under the pointer and one click discards it; `onhover` says which
   (to see its figures, with the analysis shown).
-  `marks` (a review): by tile, a tag over it (what it costs against the best), whether it was the one played, and its
-  danger as a band along its foot; `tagH` px are kept over each row for the tags. A tile chosen there (to see its
-  figures) is not lifted: its tag would run into the row above; its face and frame say it is chosen.
+  `marks` (the analysis shown: a review, a branch, practice with its hints): by tile, a tag over it (what it costs
+  against the best), whether it was the one played, and its danger as a band along its foot; `tagH` px are kept over
+  each row for the tags. A tile chosen there (to see its figures), or under a computer's mouse, rises a little, its tag
+  with it (as far as its tag may go over the row above's foot), its face and frame saying it is chosen.
   `turn`: the player's turn to discard: a frame of the turn's color pulses around the tiles, and a tile that may not
   be discarded then (after declaring a ready hand: all but those that keep it ready, later all but the one drawn) is
   darker.
 
   `dropOutside` (a table played at, not a review's): a tap anywhere but on the hand puts a lifted tile down.
+  `waitAt` (with the hints): the tiles (indices, the drawn one last) that a ready hand waits with, their faces blue.
 
   A tile's touch target is its own place, whether the tile is lifted or not, and while it is lifted the room over it
   too: the second tap lands where the first did (a thumb at the tile's foot) or on the tile where it now is. (A
@@ -26,10 +28,12 @@
   import { fly } from 'svelte/transition';
   import { t } from '../lib/i18n.svelte';
   import { DRAWN_GAP, LIFT, ROW_GAP } from '../lib/layout';
+  /** A chosen tile's rise (of its height) where the tiles have tags. */
+  const MARKED_LIFT = 0.1;
   import type { TileMark } from '../lib/review';
   import type { Tile as T } from '../lib/tiles';
   let { tiles, drawn = null, w, canDiscard = () => false, ondiscard, selected = $bindable(null), perRow = 0, oneClick = false,
-    marks = null, tagH = 0, turn = false, drawWait = 0, pick = true, ready = null, dropOutside = false, onhover }: {
+    marks = null, tagH = 0, turn = false, drawWait = 0, pick = true, ready = null, dropOutside = false, onhover, waitAt = null }: {
     tiles: T[]; drawn?: T | null; w: number; canDiscard?: (t: T) => boolean; ondiscard?: (t: T) => void;
     selected?: number | null; perRow?: number; oneClick?: boolean; marks?: Map<T, TileMark> | null; tagH?: number;
     turn?: boolean;
@@ -43,13 +47,14 @@
     ready?: Record<string, string[]> | null;
     dropOutside?: boolean;
     onhover?: (i: number | null) => void;
+    waitAt?: Set<number> | null;
   } = $props();
 
   // The drawn tile last, as its own index.
   const all = $derived(drawn ? [...tiles, drawn] : tiles);
   const h = $derived(w * TILE_RATIO);
-  /** How far a chosen tile rises. */
-  const lift = $derived(marks ? 0 : h * LIFT);
+  /** How far a chosen tile rises: with tags, a little. */
+  const lift = $derived(marks ? h * MARKED_LIFT : h * LIFT);
   const rows = $derived.by(() => {
     const n = tiles.length;
     const size = perRow > 0 ? perRow : Math.max(1, n);
@@ -122,11 +127,11 @@
     <div class="row" style="height: {h}px">
       {#each row as i (i + '/' + all[i] + (drawn && i === tiles.length ? '/d' : ''))}
         {@const isDrawn = !!drawn && i === tiles.length}
-        <button class="slot" class:up={selected === i} class:hover={oneClick && canDiscard(all[i])} class:held={turn && !canDiscard(all[i])}
+        <button class="slot" class:up={selected === i} class:hover={(oneClick && canDiscard(all[i])) || !!marks} class:held={turn && !canDiscard(all[i])}
           style="margin-left: {isDrawn && row.length > 1 ? w * DRAWN_GAP : 0}px"
           onpointerdown={(e) => down(e, i)} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}
-          onpointerenter={(e) => { if (oneClick && e.pointerType === 'mouse') onhover?.(i); }}
-          onpointerleave={(e) => { if (oneClick && e.pointerType === 'mouse') onhover?.(null); }}
+          onpointerenter={(e) => { if ((oneClick || marks) && e.pointerType === 'mouse') onhover?.(i); }}
+          onpointerleave={(e) => { if ((oneClick || marks) && e.pointerType === 'mouse') onhover?.(null); }}
           in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0, delay: isDrawn ? drawWait : 0 }}
           aria-pressed={selected === i} data-tile={all[i]} data-drawn={isDrawn ? '1' : '0'}>
           <span class="lifted" style="transform: translateY({drag?.i === i ? drag.dy : selected === i ? -lift : 0}px)">
@@ -135,7 +140,7 @@
               <span class="tag {m.tone}" class:played={m.played} style="font-size: {Math.min(13, Math.max(10, w * 0.27))}px; height: {tagH - 2}px">{m.tag}</span>
             {/if}
             {#if ready?.[all[i]] && !marks?.get(all[i])?.tag}<span class="ready" style="--d: {Math.max(5, Math.round(w * 0.15))}px" title={t('ready_waits', ready[all[i]].join(' '))}></span>{/if}
-            <Tile tile={all[i]} {w} selected={selected === i} glow={!!marks?.get(all[i])?.played} danger={marks?.get(all[i])?.danger ?? 0} />
+            <Tile tile={all[i]} {w} selected={selected === i} wait={!!waitAt?.has(i)} glow={!!marks?.get(all[i])?.played} danger={marks?.get(all[i])?.danger ?? 0} />
           </span>
         </button>
       {/each}

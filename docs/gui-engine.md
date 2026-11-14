@@ -116,6 +116,13 @@ On the seat's own turn to discard, the view's `ready` maps each legal discard th
 it then waits on (`{"3m": ["2p", "5p"], ...}`; `{}` otherwise). The page and the app mark those tiles only when the
 player turns on 聽牌提示 in the settings (off by default: deciding is the player's part).
 
+`ready_tiles` maps the same discards to the tiles the hand then waits with (`{"3m": "67s", ...}`), and between the
+seat's turns `wait_tiles` names them for a ready hand (`""` otherwise): every concealed tile but those of the groups
+that stay the same whichever wait comes and whichever way the hand then reads, the group the winning tile comes into
+aside (Shape::waitTiles; 34567 waiting on 2, 5, 8 gives all five, 11 456 78 waiting on 6 or 9 gives 78). The page
+shows them, blue, with 練習時顯示分析. `shanten` is the seat's own standing (0 ready, -1 complete, else how many
+tiles from ready; on its own turn after the best discard): every table shows 聽牌 or 1 to 3 向聽 on the player's plate.
+
 ## Analysis
 
 ```

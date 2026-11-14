@@ -10,8 +10,8 @@ import * as engine from './engine';
 import { t } from './i18n.svelte';
 import { records, type HandRecord, type ReviewSummary } from './records.svelte';
 import { settings, type Level } from './settings.svelte';
-import { tileName, type Tile } from './tiles';
-import type { Action, Analysis, Figures, Review, ReviewDecision } from './types';
+import { KINDS, tileName, type Tile } from './tiles';
+import type { Action, Analysis, Figures, Opponent, Review, ReviewDecision } from './types';
 
 export const EQUAL = 0.05;
 /** 0: fine; 1: questionable; 2: a mistake; 3: a blunder. */
@@ -227,6 +227,31 @@ export function tileMarks(a: Analysis, played: number, unit: number | undefined)
       played: mine, danger: dangerLevel(f.danger),
     });
   });
+  return out;
+}
+
+/** Ready at least this likely: the plate also names the tile the opponent most likely waits on. */
+const SAY_WAIT = 0.3;
+
+/** A name plate's note at a decision: how likely the opponent is ready (from 10%), and when that is likely the tile
+ *  it most likely waits on (the discard most likely to deal in to it, from 3%). */
+export function opponentNote(o: Opponent): { text: string; level: number } | null {
+  const r = o.ready[0];
+  if (r < 0.1) return null;
+  const level = readyLevel(r);
+  if (r >= SAY_WAIT) {
+    let k = 0;
+    for (let i = 1; i < o.danger.length; i++) if (o.danger[i] > o.danger[k]) k = i;
+    if (o.danger[k] >= 0.03) return { text: t('opp_ready_wait', pct(r), tilesShort([KINDS[k]])), level };
+  }
+  return { text: t('opp_ready', pct(r)), level };
+}
+
+/** The notes of a decision's opponents, by seat. */
+export function opponentNotes(a: Analysis | null): ({ text: string; level: number } | null)[] | null {
+  if (!a?.opponents) return null;
+  const out: ({ text: string; level: number } | null)[] = [null, null, null, null];
+  for (const o of a.opponents) out[o.seat] = opponentNote(o);
   return out;
 }
 

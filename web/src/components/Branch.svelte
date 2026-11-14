@@ -10,9 +10,11 @@
 
   The analysis is there as the review shows it, before the player decides: on the hand's tiles what each discard costs
   against the best and its danger, on each choice's button (胡, 碰, 吃...) what it costs, on the name plates how likely
-  each opponent is ready, and the list of every action: beside the table on a large window; else one tap away in place
-  of the table, the deciding seat's tiles over it (the player may play there too). A tap on a tile chooses it and shows
-  its figures over the hand (with the list beside the table, its row there is lit instead); a second tap discards it.
+  each opponent is ready (and, when likely, the tile it most likely waits on), and the list of every action: beside the
+  table on a large window; else one tap away in place of the table, the deciding seat's tiles over it (the player may
+  play there too; DecisionView), its shape in grey while the computer players play. A tap on a tile (a computer: the
+  mouse over it) lifts it a little and shows its figures over the hand (with the list beside the table, its row there
+  is lit instead); a second tap discards it.
   A step gone back to shows the decision made there the same way, the action made there marked; another seat's step
   shows that seat's decision in the list. A step's table and its analysis come together (each a few milliseconds of
   the engine's; the player's next decision is worked out while the computer player before them takes its turn).
@@ -20,9 +22,14 @@
   The computer players always go on by themselves, at the settings' pace (the manual pace: the middle one), until the
   player decides or the hand is over. 上一步 goes back a step, as far as the branch's start, and the player may choose
   otherwise where they decided: what came after is then dropped. 下一步 goes forward again over what was played (it
-  does nothing at the newest step). The seed stays for as long as the branch does: the same choices come to the same
-  hand; only a new branch (or turning 重洗 on or off) deals with another seed. Back, or the end, returns to where the
-  branch was taken from.
+  does nothing at the newest step); 上一個決定 and 下一個決定 go to the player's own decisions. The seed stays for as
+  long as the branch does: the same choices come to the same hand; only a new branch (or turning 重洗 on or off, which
+  asks first when anything was played) deals with another seed. Back, or the end, returns to where the branch was
+  taken from.
+
+  The controls as the review has them: under the table on an upright window (the words there keep the room of their
+  longest, so that the table does not move from step to step), in a column at the right on a wide one (the table the
+  full height), with the list under them on a large one.
 -->
 <script lang="ts">
   import { untrack } from 'svelte';
@@ -31,21 +38,20 @@
   import * as engine from '../lib/engine';
   import { fxDone, fxOn, resultTap } from '../lib/fx.svelte';
   import { t } from '../lib/i18n.svelte';
-  import { choiceMarks, pct, pts, readyLevel, tileMarks, type TileMark } from '../lib/review';
-  import { flowersOf, meldTiles } from '../lib/seats';
+  import { choiceMarks, opponentNotes, pts, tileMarks, type TileMark } from '../lib/review';
   import { settings } from '../lib/settings.svelte';
-  import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
+  import type { Tile as T } from '../lib/tiles';
   import { recordAction, type Action, type Analysis, type GameRecord, type View } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
-  import ClaimBar from './ClaimBar.svelte';
   import DecisionPanel from './DecisionPanel.svelte';
+  import DecisionView from './DecisionView.svelte';
+  import Dialog from './Dialog.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
-  import MyHand from './MyHand.svelte';
+  import PanelSkeleton from './PanelSkeleton.svelte';
   import PickedFigures from './PickedFigures.svelte';
   import Table from './Table.svelte';
   import TapOn from './TapOn.svelte';
-  import Tile from './Tile.svelte';
   import TitleBar from './TitleBar.svelte';
 
   let { game: source, me, names, onclose, unit = undefined, title = '', backLabel = '' }: {
@@ -100,11 +106,14 @@
   /** The computer players' pace (lib/claims.ts BotPace): their turns, their discards' flights, their answers to a tile. */
   const pace = new BotPace();
 
-  // Where the list goes: beside the table on a large window, else in place of the table when asked for.
+  // Where the controls go: under the table, or in a column at its right on a wide window; the list beside the table on
+  // a large window, else in place of the table when asked for.
+  const side = $derived(ui.wide);
   const inlinePanel = $derived(ui.wide && ui.w >= 1180 && ui.h >= 600);
   let panelOpen = $state(false);
   const listShown = $derived(inlinePanel || panelOpen);
   const listView = $derived(panelOpen && !inlinePanel && !over);
+  $effect(() => { void listView; selected = null; });
 
   /** A step's decision as the analysis shows it: whose it is, what was done there (a step gone back to; null: the
    *  decision to make now), the network's figures, and with the list in place of the table the seat's own view. */
@@ -308,18 +317,33 @@
   }
   function prev() { let k = cursor - 1; while (k > start && !isStop(k - 1)) k--; go(k); }
   function next() { if (!game) return; let k = cursor + 1; while (k < game.actions.length && !isStop(k - 1)) k++; go(k); }
+  /** The player's own decisions: the step at which they decide (the newest step when none is after). */
+  const isMine = (k: number) => !!game && game.actions[k][0] === me;
+  function prevMine() { let k = cursor - 1; while (k > start && !isMine(k)) k--; go(k); }
+  function nextMine() { if (!game) return; let k = cursor + 1; while (k < game.actions.length && !isMine(k)) k++; go(k); }
   function onkey(e: KeyboardEvent) {
+    if (confirmShuffle) return;
     if (e.key === 'ArrowLeft') prev();
     else if (e.key === 'ArrowRight') next();
+    else if (e.key === 'ArrowUp') prevMine();
+    else if (e.key === 'ArrowDown') nextMine();
     else return;
     e.preventDefault();
   }
   /** Another seed (the effect above starts again). */
   function newBranch() { seed = newSeed(); }
+  /** 重洗看不到的牌 turned on or off starts the branch again: asked first when anything was played. */
+  let confirmShuffle = $state(false);
+  function askShuffle(e: MouseEvent) {
+    if (game && game.actions.length > start) {
+      e.preventDefault();
+      confirmShuffle = true;
+    } else reshuffle = !reshuffle;
+  }
   const sheet = $derived(view?.phase === 'over' && !!final?.result && showResult && !fxOn.on && !held);
   const atHead = $derived(!!game && cursor === game.actions.length);
   const steps = $derived(game ? game.actions.slice(start, cursor).filter((_, i) => isStop(start + i)).length : 0);
-  const status = $derived(error ? error : over ? t('branch_over') : view?.my_turn ? t('branch_your_turn') : atHead ? t('branch_others') : t('branch_back_note'));
+  const status = $derived(error ? error : over ? t('branch_over') : view?.my_turn ? t(view.legal.some((a) => a.type === 'discard') ? 'branch_your_turn' : 'branch_your_call') : atHead ? t('branch_others') : t('branch_back_note'));
 
   // What the analysis shows: on the table the player's own decision; in the list any seat's.
   const NO_MARKS = new Map<T, TileMark>();
@@ -329,166 +353,197 @@
   const mine = $derived(look && look.seat === me && look.analysis?.best !== undefined ? look.analysis : null);
   const marks = $derived(mine ? tileMarks(mine, played, unit) : NO_MARKS);
   const choices = $derived(mine ? choiceMarks(mine, played, unit) : null);
-  const notes = $derived.by(() => {
-    if (!mine?.opponents) return null;
-    const out: ({ text: string; level: number } | null)[] = [null, null, null, null];
-    for (const o of mine.opponents) if (o.ready[0] >= 0.1) out[o.seat] = { text: t('opp_ready', pct(o.ready[0])), level: readyLevel(o.ready[0]) };
-    return out;
-  });
+  const notes = $derived(opponentNotes(mine));
 
-  // The list in place of the table: the deciding seat's own tiles over it.
-  const seatHand = $derived.by(() => {
-    const sv = look?.seatView;
-    if (!look || !sv) return null;
-    const pos = sv.position;
-    const all = parseTiles(pos.hand);
-    const drawn = sv.phase === 'self' && pos.drawn ? pos.drawn : null;
-    const p = pos.players[look.seat];
-    const head = `${t('round_wind', windName(pos.setup.round))}・${t('wall_left', pos.wall_left)}`;
-    return { tiles: sortTiles(drawn ? without(all, [drawn]) : all), drawn, melds: p.melds, flowers: flowersOf(p), claim: pos.claim, head };
-  });
-  const hw = $derived(ui.wide ? Math.min(44, (ui.w * 0.46 - 24) / 9.3) : Math.min(44, (Math.min(ui.w, 720) - 28) / 9.3));
+  // The list in place of the table: the deciding seat's own tiles over it; the player's own while the others play.
+  const hw = $derived(ui.wide ? Math.min(44, ((ui.w - 208) * 0.46 - 24) / 9.3) : Math.min(44, (Math.min(ui.w, 720) - 28) / 9.3));
   /** The player may play from the list: their decision, now. */
   const canPlay = $derived(!!view?.my_turn && !deciding && !over && look?.seat === me);
-  const discardable = $derived(new Set(canPlay && view ? view.legal.filter((a) => a.type === 'discard').map((a) => a.tile as T) : []));
-  const listChoices = $derived(canPlay && view ? view.legal.filter((a) => a.type !== 'discard') : []);
+  // (No decision to show: the status under it says what goes on, once.)
+  const listHeading = $derived(look ? (look.seat === me ? t('analysis_your_turn') : t('analysis_turn_of', names[look.seat])) : '');
 
-  // The tile chosen in the hand (the table's, or the list's), to see its figures.
+  // The tile chosen on the table (or under the mouse), to see its figures; with the list beside the table its row.
   let selected = $state<number | null>(null);
   let picked = $state<T | null>(null);
-  const pickedTile = $derived(listView ? (seatHand && selected !== null ? (selected < seatHand.tiles.length ? seatHand.tiles[selected] : seatHand.drawn) : null) : picked);
-  const pickedIndex = $derived(look?.analysis && pickedTile ? look.analysis.actions.findIndex((f) => f.action.type === 'discard' && f.action.tile === pickedTile) : -1);
+  const pickedIndex = $derived(look?.analysis && picked ? look.analysis.actions.findIndex((f) => f.action.type === 'discard' && f.action.tile === picked) : -1);
 </script>
 
 <svelte:window onkeydown={onkey} />
 
-<!-- A decision's list. -->
+<!-- A decision's list beside the table: its shape in grey while there is none (the computer players playing). -->
 {#snippet panel()}
   {#if look?.analysis}
-    <DecisionPanel analysis={look.analysis} {played} {unit} w={inlinePanel ? 34 : Math.max(30, hw * 0.8)} {names} picked={pickedIndex}
-      who={look.seat === me ? '' : names[look.seat]} />
+    <DecisionPanel analysis={look.analysis} {played} {unit} w={34} {names} picked={pickedIndex} who={look.seat === me ? '' : names[look.seat]} />
   {:else}
-    <p class="body-medium dim empty">{status}</p>
+    <PanelSkeleton w={34} />
   {/if}
 {/snippet}
 
 <!-- Over the hand on the table: the figures of the tile chosen (with the list beside the table its row there is lit
      instead). -->
 {#snippet strip()}
-  {#if mine && pickedTile && !inlinePanel}<PickedFigures analysis={mine} seat={me} {names} tile={pickedTile} />{/if}
+  {#if mine && picked && !inlinePanel}<PickedFigures analysis={mine} seat={me} {names} tile={picked} />{/if}
 {/snippet}
 
-<div class="page">
-  <TitleBar title={title || t('branch_title')} onback={onclose}>
-    {#if !dealt}
-      <label class="shuffle body-medium">
-        <input type="checkbox" bind:checked={reshuffle} />{t('branch_reshuffle')}
-      </label>
-    {/if}
-    {#if !inlinePanel}
-      <button class="btn icon text" class:on={panelOpen} aria-label={t('review_panel')} title={t('review_panel')} aria-pressed={panelOpen}
-        onclick={() => (panelOpen = !panelOpen)}>
-        <Icon name="assessment" />
-      </button>
-    {/if}
-  </TitleBar>
-  <div class="body">
-    <div class="main">
-      {#if listView}
-        <div class="list-view" class:halves={ui.wide}>
-          <div class="seat-hand">
-            {#if seatHand && look}
-              <div class="body-medium dim">{seatHand.head}・{look.seat === me ? t('analysis_your_turn') : t('analysis_turn_of', names[look.seat])}</div>
-              <MyHand tiles={seatHand.tiles} drawn={seatHand.drawn} w={hw} perRow={8} bind:selected tagH={17}
-                marks={look.analysis ? tileMarks(look.analysis, played, unit) : NO_MARKS} canDiscard={(x) => discardable.has(x)}
-                ondiscard={(x) => act({ type: 'discard', tile: x })} turn={discardable.size > 0} pick={!listChoices.length || discardable.size > 0} />
-              {#if seatHand.claim?.tile}
-                <div class="claimed body-medium"><span>{names[seatHand.claim.seat]} {t('act_discard')}</span><Tile tile={seatHand.claim.tile} w={hw} mark /></div>
-              {/if}
-              {#if listChoices.length}
-                <ClaimBar actions={listChoices} w={hw} onact={act} claimed={seatHand.claim?.tile ?? null} marks={choices} />
-              {/if}
-              {#if seatHand.melds.length || seatHand.flowers.length}
-                <div class="melds">
-                  {#each seatHand.melds as m, i (i)}<span class="meld">{#each meldTiles(m) as x}<Tile tile={x} w={hw * 0.75} />{/each}</span>{/each}
-                  {#each seatHand.flowers as f (f)}<Tile tile={f} w={hw * 0.6} />{/each}
+{#snippet shuffle()}
+  {#if !dealt}
+    <label class="shuffle body-medium">
+      <input type="checkbox" checked={reshuffle} onclick={askShuffle} />{t('branch_reshuffle')}
+    </label>
+  {/if}
+{/snippet}
+
+{#snippet listToggle()}
+  {#if !inlinePanel}
+    <button class="btn icon text" class:on={panelOpen} aria-label={t('review_panel')} title={t('review_panel')} aria-pressed={panelOpen}
+      onclick={() => (panelOpen = !panelOpen)}>
+      <Icon name="assessment" />
+    </button>
+  {/if}
+{/snippet}
+
+<!-- The step, the expected result at the player's decision, and what to do: the words keep the room of their longest. -->
+{#snippet info()}
+  <div class="info body-medium">
+    <div class="line1">
+      <span class="label-large">{t('branch_step', steps)}</span>
+      {#if mine?.value !== undefined}<span class="now"><span class="dim">{t('review_now')}</span> <b>{pts(mine.value)}</b></span>{/if}
+      <span class="note body-small">{t('branch_note')}</span>
+    </div>
+    <div class="status dim">{status}</div>
+  </div>
+{/snippet}
+
+{#snippet nb(kind: string)}
+  {#if kind === 'start'}
+    <button class="btn icon tonal" aria-label={t('branch_to_start')} title={t('branch_to_start')} disabled={cursor <= start} onclick={() => go(start)}><Icon name="skipPrev" /></button>
+  {:else if kind === 'prevMine'}
+    <button class="btn icon tonal" aria-label={t('replay_prev_decision')} title={t('replay_prev_decision')} disabled={cursor <= start} onclick={prevMine}><Icon name="undo" /></button>
+  {:else if kind === 'prev'}
+    <button class="btn icon tonal" aria-label={t('replay_prev')} title={t('replay_prev')} disabled={cursor <= start} onclick={prev}><Icon name="prev" /></button>
+  {:else if kind === 'next'}
+    <button class="btn icon {atHead ? 'tonal' : 'filled'}" aria-label={t('replay_next')} title={t('replay_next')} disabled={atHead} onclick={next}><Icon name="next" /></button>
+  {:else if kind === 'nextMine'}
+    <button class="btn icon tonal mirror" aria-label={t('replay_next_decision')} title={t('replay_next_decision')} disabled={atHead} onclick={nextMine}><Icon name="undo" /></button>
+  {:else}
+    <button class="btn icon tonal" aria-label={t('branch_to_newest')} title={t('branch_to_newest')} disabled={atHead} onclick={() => game && go(game.actions.length)}><Icon name="skipNext" /></button>
+  {/if}
+{/snippet}
+
+{#snippet buttons()}
+  {#if side && !inlinePanel}
+    <div class="buttons two">
+      <div class="brow">{@render nb('start')}{@render nb('prevMine')}{@render nb('nextMine')}{@render nb('newest')}</div>
+      <div class="brow">{@render nb('prev')}{@render nb('next')}</div>
+      <button class="btn tonal wide-btn" onclick={newBranch}>{t('branch_new')}</button>
+    </div>
+  {:else}
+    <div class="buttons">
+      {#each ['start', 'prevMine', 'prev', 'next', 'nextMine', 'newest'] as k (k)}{@render nb(k)}{/each}
+      <button class="btn tonal" onclick={newBranch}>{t('branch_new')}</button>
+    </div>
+  {/if}
+{/snippet}
+
+<div class="page" class:side>
+  {#if !side}
+    <TitleBar title={title || t('branch_title')} onback={onclose}>{@render shuffle()}{@render listToggle()}</TitleBar>
+  {/if}
+  <div class="main">
+    {#if listView}
+      <DecisionView view={look?.seatView ?? view} heading={listHeading} analysis={look?.analysis ?? null} {played} {unit} {names}
+        who={look && look.seat !== me ? names[look.seat] : ''} {canPlay} onact={act} {choices} bind:selected wide={ui.wide} {hw} waitShown />
+    {:else}
+      <div class="table-wrap">
+        {#if view}
+          <Table {view} {me} {names} revealed={view.phase === 'over' ? (final?.hands ?? null) : null} interactive={!!view.my_turn && !deciding} {robbed}
+            onact={act} maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom waitShown>
+            {#snippet overlay()}
+              {#if over && (held || fxOn.on)}<TapOn onnext={() => (held = false)} />{/if}
+              {#if sheet && final}
+                <div class="sheet">
+                  <HandResult {final} {names} {me} rev={null} next={false} w={ui.wide ? Math.min(36, Math.max(24, ui.w / 30)) : Math.min(34, Math.max(24, ui.w / 13))}>
+                    {#snippet actions()}
+                      <button class="btn text" onclick={() => (showResult = false)}>{t('result_hands')}</button>
+                      <button class="btn tonal" onclick={restart}>{t('branch_again')}</button>
+                      <button class="btn filled" onclick={onclose}>{backLabel || t('branch_back')}</button>
+                    {/snippet}
+                  </HandResult>
                 </div>
               {/if}
-            {:else}
-              <p class="body-medium dim">{status}</p>
-            {/if}
-          </div>
-          <div class="list-scroll">{@render panel()}</div>
-        </div>
-      {:else}
-        <div class="table-wrap">
-          {#if view}
-            <Table {view} {me} {names} revealed={view.phase === 'over' ? (final?.hands ?? null) : null} interactive={!!view.my_turn && !deciding} {robbed}
-              onact={act} maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom>
-              {#snippet overlay()}
-                {#if over && (held || fxOn.on)}<TapOn onnext={() => (held = false)} />{/if}
-                {#if sheet && final}
-                  <div class="sheet">
-                    <HandResult {final} {names} {me} rev={null} next={false} w={ui.wide ? Math.min(36, Math.max(24, ui.w / 30)) : Math.min(34, Math.max(24, ui.w / 13))}>
-                      {#snippet actions()}
-                        <button class="btn text" onclick={() => (showResult = false)}>{t('result_hands')}</button>
-                        <button class="btn tonal" onclick={restart}>{t('branch_again')}</button>
-                        <button class="btn filled" onclick={onclose}>{backLabel || t('branch_back')}</button>
-                      {/snippet}
-                    </HandResult>
-                  </div>
-                {/if}
-              {/snippet}
-            </Table>
-          {/if}
-        </div>
-      {/if}
-      <!-- (Not under the result: on a low window it takes the room the result needs.) -->
-      {#if !sheet}<div class="controls">
-        <div class="info body-medium">
-          <span class="label-large">{t('branch_step', steps)}</span>
-          {#if mine?.value !== undefined}<span class="now"><span class="dim">{t('review_now')}</span> <b>{pts(mine.value)}</b></span>{/if}
-          <span class="dim">{status}</span>
-          <span class="note body-small">{t('branch_note')}</span>
-        </div>
-        <div class="buttons">
-          <button class="btn icon tonal" aria-label={t('branch_to_start')} title={t('branch_to_start')} disabled={cursor <= start} onclick={() => go(start)}><Icon name="skipPrev" /></button>
-          <button class="btn icon tonal" aria-label={t('replay_prev')} title={t('replay_prev')} disabled={cursor <= start} onclick={prev}><Icon name="prev" /></button>
-          <button class="btn icon {atHead ? 'tonal' : 'filled'}" aria-label={t('replay_next')} title={t('replay_next')} disabled={atHead} onclick={next}><Icon name="next" /></button>
-          <button class="btn icon tonal" aria-label={t('branch_to_newest')} title={t('branch_to_newest')} disabled={atHead} onclick={() => game && go(game.actions.length)}><Icon name="skipNext" /></button>
-          <button class="btn tonal" onclick={newBranch}>{t('branch_new')}</button>
-        </div>
-      </div>{/if}
-    </div>
-    {#if inlinePanel}<div class="inline-panel">{@render panel()}</div>{/if}
+            {/snippet}
+          </Table>
+        {/if}
+      </div>
+    {/if}
+    <!-- (Under the table, not under the result: on a low window it takes the room the result needs.) -->
+    {#if !side && !sheet}
+      <div class="controls">{@render info()}{@render buttons()}</div>
+    {/if}
   </div>
+  {#if side}
+    <!-- No title bar beside the table: the way back at the column's top-left, clear of the table. -->
+    <div class="column" class:with-panel={inlinePanel}>
+      <div class="side-top">
+        <button class="btn icon text" aria-label={t('back')} title={t('back')} onclick={onclose}><Icon name="back" /></button>
+        <span class="title-medium side-title">{title || t('branch_title')}</span>
+        {@render listToggle()}
+      </div>
+      {@render shuffle()}
+      {#if inlinePanel}
+        {@render info()}
+        {@render buttons()}
+        <div class="inline-panel">{@render panel()}</div>
+      {:else}
+        {@render info()}
+        <div class="foot">{@render buttons()}</div>
+      {/if}
+    </div>
+  {/if}
 </div>
+
+{#if confirmShuffle}
+  <Dialog onclose={() => (confirmShuffle = false)}>
+    <p class="body-large" style="margin:0">{t('branch_reshuffle_confirm')}</p>
+    {#snippet actions()}
+      <button class="btn text" onclick={() => (confirmShuffle = false)}>{t('cancel')}</button>
+      <button class="btn text" onclick={() => { confirmShuffle = false; reshuffle = !reshuffle; }}>{t('branch_restart')}</button>
+    {/snippet}
+  </Dialog>
+{/if}
 
 <style>
   .page { height: 100%; display: flex; flex-direction: column; min-height: 0; }
-  .body { flex: 1; min-height: 0; display: flex; }
+  .page.side { flex-direction: row; }
   .main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   .table-wrap { flex: 1; min-height: 0; position: relative; }
   .controls { padding: 6px 12px 10px; display: flex; flex-direction: column; gap: 6px; background: var(--surface-container-low, var(--surface)); }
-  .info { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-height: 2.6em; }
+  .column { flex: none; width: 208px; display: flex; flex-direction: column; gap: 6px; padding: 4px 8px 8px; overflow: auto;
+    background: var(--surface-container); }
+  .column.with-panel { width: 420px; padding: 4px 12px 12px; }
+  .side-top { display: flex; align-items: center; gap: 2px; }
+  .side-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .foot { margin-top: auto; padding-top: 6px; }
+  .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  /* One line: the note gives way first (no wrap, so the controls keep their height). */
+  .line1 { display: flex; align-items: baseline; gap: 0 12px; white-space: nowrap; overflow: hidden; }
+  .column .line1 { flex-wrap: wrap; white-space: normal; }
   .now { font-variant-numeric: tabular-nums; }
   .dim { color: var(--on-surface-variant); }
-  .note { color: var(--on-surface-variant); margin-left: auto; }
-  .buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .note { color: var(--on-surface-variant); margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .column .note { margin-left: 0; flex-basis: 100%; }
+  /* The room of the longest words: two lines (in the narrow column the buttons stand at its foot whatever the words). */
+  .status { min-height: 2lh; }
+  .buttons { display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap; }
+  .buttons .btn.icon { width: 42px; min-height: 42px; border-radius: 21px; }
+  .buttons.two { flex-direction: column; align-items: stretch; gap: 6px; }
+  .brow { display: flex; justify-content: space-between; gap: 4px; }
+  .brow:nth-child(2) { justify-content: center; gap: 12px; }
+  .wide-btn { width: 100%; }
+  .mirror :global(svg) { transform: scaleX(-1); }
   .btn.icon.on { background: var(--secondary-container); color: var(--on-secondary-container); }
-  .shuffle { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; cursor: pointer; white-space: nowrap; }
+  .shuffle { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; cursor: pointer; white-space: nowrap; min-height: 40px; }
   .shuffle input { width: 18px; height: 18px; accent-color: var(--primary); }
   .sheet { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(0, 0, 0, 0.35); }
-  .inline-panel { flex: none; width: 420px; overflow: auto; padding: 8px 12px 12px; background: var(--surface-container); }
-  .empty { padding: 16px 4px; }
-  .list-view { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 12px 16px; }
-  .list-view.halves { flex-direction: row; overflow: hidden; gap: 12px; }
-  .seat-hand { display: flex; flex-direction: column; gap: 8px; }
-  .halves .seat-hand { flex: 0 0 46%; min-width: 0; overflow: auto; }
-  .halves .list-scroll { flex: 1; min-width: 0; overflow: auto; }
-  .list-view:not(.halves) .list-scroll { max-width: 760px; }
-  .seat-hand :global(.bar) { justify-content: flex-start; }
-  .claimed { display: flex; align-items: center; gap: 8px; }
-  .melds { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: flex-end; }
-  .meld { display: inline-flex; }
+  .inline-panel { flex: 1; min-height: 120px; overflow: auto; margin-top: 4px; }
 </style>

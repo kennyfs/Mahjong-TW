@@ -50,6 +50,18 @@ static void testShape() {
   testAssert(waitsOf("123m456m789m234p45s77z", 5) == "36s");
   testAssert(waitsOf("1112345678999m", 4) == "123456789m");  // nine gates in 14 tiles (4 sets + pair)
   testAssert(waitsOf("3555m111p999p123s789s", 5) == "34m");
+  // The tiles a ready hand waits with.
+  auto waitTilesOf = [](const string& s, int numSets) {
+    Counts c = C(s);
+    return Tiles::toString(Shape::waitTiles(c, numSets, Shape::rawWaits(c, numSets)));
+  };
+  testAssert(waitTilesOf("34567m111p999p55s", 4) == "34567m");      // 2, 5 or 8: no group is kept by all
+  testAssert(waitTilesOf("11m456p78s123s777z", 4) == "78s");         // 6s or 9s
+  testAssert(waitTilesOf("123m456m789m234p5s777z", 5) == "5s");     // a single wait
+  testAssert(waitTilesOf("22m55m123p456p789s", 4) == "2255m");       // two pairs
+  testAssert(waitTilesOf("2345m111p456p789s", 4) == "2345m");        // 2m or 5m alone
+  testAssert(waitTilesOf("11123m456p789s22z", 4) == "11123m22z");    // 1m, 4m or 2z
+  testAssert(Tiles::total(Shape::waitTiles(C("123m456m789m234p5s777z"), 5, 0)) == 0);
   // Readings: 111222333m reads as three pungs or three chows.
   vector<Shape::Reading> rs;
   Shape::readings(C("111222333m456p789s55z"), 5, rs);

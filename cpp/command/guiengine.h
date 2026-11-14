@@ -57,7 +57,11 @@
 //                             "events": [EVENT from index `since`], "event_count": n, "result": RESULT|null,
 //                             "hands": [TILES x4] when over or with reveal,
 //                             "ready": {T: [T]}: on the seat's own turn to discard, each legal discard that leaves
-//                             the hand ready, with what it then waits on (聽牌提示; {} otherwise)}
+//                             the hand ready, with what it then waits on (聽牌提示; {} otherwise),
+//                             "ready_tiles": {T: TILES}: with each of those, the tiles the hand waits with
+//                             (Shape::waitTiles), "shanten": the seat's own standing (0 ready, -1 complete, else
+//                             向聽; on its own turn after the best discard), "wait_tiles": TILES: between its
+//                             turns, a ready hand's tiles that it waits with ("" otherwise)}
 //   {"cmd": "act", "game": RECORD, "seat": s, "action": ACTION}      checked, appended -> {"game": RECORD}
 //   {"cmd": "bot", "game": RECORD, "seat": s, "player": SPEC, "seed": S?}   -> {"action": ACTION}
 //   {"cmd": "advance", "game": RECORD, "players": [SPEC|null x4], "seed": S?, "steps": n?}

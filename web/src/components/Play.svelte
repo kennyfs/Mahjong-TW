@@ -4,11 +4,14 @@
   players' steps wait for the player's button (lib/practice.svelte.ts), and so does the table at a hand's end. The
   review (and each decision's analysis) is a button on the result.
 
-  打牌時顯示分析 (the settings', as 聽牌提示: the bar over a phone's table has no room left): the player's decisions with the analysis shown as a branch
-  shows it (Branch.svelte): what each discard costs and its danger on the hand's tiles, what each choice costs on its
-  button, how likely each opponent is ready on the name plates, a tile's figures over the hand when it is chosen (or
-  under a computer's mouse). A hand that had it on at any point counts for nothing: not in the game's totals, nor in
-  the records' statistics (its record is marked).
+  練習時顯示分析 (the settings', as 聽牌提示: the bar over a phone's table has no room left): the player's decisions
+  with the analysis shown as a branch shows it (Branch.svelte): what each discard costs and its danger on the hand's
+  tiles, what each choice costs on its button, how likely each opponent is ready on the name plates (and the tile it
+  most likely waits on), the tiles a ready hand waits with (blue), a tile's figures over the hand when it is chosen
+  (or under a computer's mouse), and, where the window has room for the panel beside the table (a computer's), the
+  list of every action there (詳細分析: a computer's extra; the table says enough to play by). A hand that had it on at any point
+  counts for nothing (not in the game's totals, nor in the records' statistics; its record is marked) and keeps it on
+  till its end: turned off meanwhile it would only have been a peek at how to play one turn.
 -->
 <script lang="ts">
   import { fxDone, fxOn, resultTap } from '../lib/fx.svelte';
@@ -18,7 +21,7 @@
   import { nav } from '../lib/nav.svelte';
   import { ME, practice } from '../lib/practice.svelte';
   import { records } from '../lib/records.svelte';
-  import { choiceMarks, pct, readyLevel, tileMarks, type TileMark } from '../lib/review';
+  import { choiceMarks, opponentNotes, tileMarks, type TileMark } from '../lib/review';
   import { flowerLabel, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import { windName, type Tile as T } from '../lib/tiles';
@@ -27,8 +30,11 @@
   import Dialog from './Dialog.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
+  import DecisionPanel from './DecisionPanel.svelte';
+  import PanelSkeleton from './PanelSkeleton.svelte';
   import PickedFigures from './PickedFigures.svelte';
   import Table from './Table.svelte';
+  import TableSkeleton from './TableSkeleton.svelte';
   import TapOn from './TapOn.svelte';
 
   let { onreview }: { onreview: (id: string) => void } = $props();
@@ -74,8 +80,9 @@
   const totals = $derived(meta?.totals ?? [0, 0, 0, 0]);
   const shown = $derived(stage !== 'playing' && final ? final : view);
 
-  // 打牌時顯示分析: the player's decision analyzed when it comes (a few milliseconds of the engine's), shown once there.
-  const hintsOn = $derived(settings.practiceHints);
+  // 練習時顯示分析: the player's decision analyzed when it comes (a few milliseconds of the engine's), shown once there;
+  // on till the end of a hand that had it on.
+  const hintsOn = $derived(settings.practiceHints || (stage === 'playing' && !!meta?.hinted));
   $effect(() => {
     if (hintsOn && stage === 'playing' && view) untrack(() => practice.markHinted());
   });
@@ -91,19 +98,28 @@
   const NO_MARKS = new Map<T, TileMark>();
   const marks = $derived(hintsOn && stage === 'playing' ? (mine ? tileMarks(mine, -1, undefined) : NO_MARKS) : null);
   const choices = $derived(mine ? choiceMarks(mine, -1, undefined) : null);
-  const notes = $derived.by(() => {
-    if (!mine?.opponents) return null;
-    const out: ({ text: string; level: number } | null)[] = [null, null, null, null];
-    for (const o of mine.opponents) if (o.ready[0] >= 0.1) out[o.seat] = { text: t('opp_ready', pct(o.ready[0])), level: readyLevel(o.ready[0]) };
-    return out;
-  });
+  const notes = $derived(opponentNotes(mine));
   let picked = $state<T | null>(null);
+  // The list beside the table, where the window has room for the panel (wider with the hints on).
+  let asideShown = $state(false);
+  const pickedIndex = $derived(mine && picked ? mine.actions.findIndex((f) => f.action.type === 'discard' && f.action.tile === picked) : -1);
   const lastHinted = $derived(practice.lastRecord ? !!records.get(practice.lastRecord)?.hints : false);
 </script>
 
 <!-- Over the hand: the figures of the tile chosen. -->
 {#snippet strip()}
-  {#if mine && picked}<PickedFigures analysis={mine} seat={ME} {names} tile={picked} />{/if}
+  {#if mine && picked && !asideShown}<PickedFigures analysis={mine} seat={ME} {names} tile={picked} />{/if}
+{/snippet}
+
+<!-- The panel's list with the hints on: its shape in grey while the computer players play. -->
+{#snippet hintList()}
+  <div class="p-list">
+    {#if mine}
+      <DecisionPanel analysis={mine} w={32} {names} picked={pickedIndex} />
+    {:else}
+      <PanelSkeleton w={32} rows={4} />
+    {/if}
+  </div>
 {/snippet}
 
 {#snippet notice()}<span class="notice">{practice.notice}</span>{/snippet}
@@ -126,7 +142,7 @@
         interactive={stage === 'playing' && !practice.busy} onact={act} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64}
         keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined} robbed={practice.robbed}
         deal={stage === 'playing' ? practice.deal : null} {marks} {notes} {strip} onpick={(x) => (picked = x)} choiceMarks={choices}
-        tagRoom={hintsOn && stage === 'playing'}>
+        tagRoom={hintsOn && stage === 'playing'} waitShown={hintsOn && stage === 'playing'} asideW={hintsOn ? 400 : 300} bind:asideShown>
         {#snippet corner()}
           {#if ui.wide}
             <span class="corner-buttons" data-tour="top">
@@ -156,13 +172,17 @@
               <button class="chip on-felt" onclick={() => nav.open('rules')}>{rulesChip}<Icon name="dropDown" size={18} /></button>
               <button class="btn tonal" onclick={() => (confirmNew = true)}>{t('practice_new')}</button>
             </div>
-            <div class="p-card keys">
-              <div class="label-large dim">{t('keys_title')}</div>
-              <div>{t('key_choose')}</div>
-              <div>{t('key_discard')}</div>
-              <div>{t('key_claims')}</div>
-              <div class="dim">{t('key_chi_ways')}</div>
-            </div>
+            {#if hintsOn}
+              {@render hintList()}
+            {:else}
+              <div class="p-card keys">
+                <div class="label-large dim">{t('keys_title')}</div>
+                <div>{t('key_choose')}</div>
+                <div>{t('key_discard')}</div>
+                <div>{t('key_claims')}</div>
+                <div class="dim">{t('key_chi_ways')}</div>
+              </div>
+            {/if}
           </div>
         {/snippet}
         {#snippet overlay()}
@@ -207,7 +227,7 @@
       </Table>
       {/key}
     {:else}
-      <div class="loading"><span class="spinner"></span></div>
+      <TableSkeleton />
     {/if}
   </div>
 </div>
@@ -231,6 +251,9 @@
     font-size: 0.75rem; cursor: pointer; }
   .spacer { flex: 1; }
   .hint-note { color: var(--on-surface-variant); margin-right: auto; }
+  /* On the felt: the list on a card of the page's own colors (its rows are made for them; on the felt its words were
+     white on light rows). */
+  .p-list { margin-top: 4px; padding: 8px; border-radius: 16px; background: var(--surface); color: var(--on-surface); }
   /* The corner's buttons together (the tour lights them as one), one over the other in the table's top-right corner. */
   .corner-buttons { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
   .notice { display: inline-block; padding: 4px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.72); color: #fff; font-weight: 500;
@@ -264,7 +287,4 @@
   .p-buttons { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .chip.on-felt { color: var(--on-felt); border-color: var(--on-felt-dim); background: transparent; }
   .keys { font-size: 0.9rem; line-height: 1.5; }
-  .loading { height: 100%; display: flex; align-items: center; justify-content: center; }
-  .spinner { width: 40px; height: 40px; border-radius: 50%; border: 4px solid transparent; border-top-color: var(--primary); animation: spin 0.9s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
