@@ -364,6 +364,15 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     table has the score by the name and the standing on a line of its own (the score was cut off). A plate's wind is
     centered in its disc by the glyph's ink (the user's: it sat low, by a tenth of the disc; a CJK glyph's line is
     taller above it than below).
+  - **Words that shorten before they are cut** (the user's; both): where a narrow window has no room, the round's
+    label goes to a few characters (東風圈 第 3 局 as 東-3, a contest's 東-3/8; `round_short`), then the rules' chip
+    (見花見台 as 見花; `flowers_see_short`), before anything is cut, and a branch's 重洗看不到的牌 is 重洗 where the
+    title (分支) would be cut (`branch_reshuffle_short`; a page title is `data-keep`); what still does not fit wraps or
+    is cut as before.
+    The page's `lib/shorten.ts` (an attachment on the row: its `data-full`/`data-short` elements, the first first) and
+    the app's `Shorten` (the content at levels, the first that fits). A plate keeps its name whole: the dealer's 莊連N,
+    the count and the score go under it where the line has no room (before, at 320 to 411 px upright and on a wide
+    table's narrow side columns, the name was cut to 電… or to nothing).
 
 ## Built and checked
 

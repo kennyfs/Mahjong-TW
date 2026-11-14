@@ -22,7 +22,8 @@
   import { ME, practice } from '../lib/practice.svelte';
   import { records } from '../lib/records.svelte';
   import { choiceMarks, opponentNotes, tileMarks, type TileMark } from '../lib/review';
-  import { flowerLabel, taiLabel } from '../lib/rules';
+  import { flowerLabel, flowerShort, taiLabel } from '../lib/rules';
+  import { shorten } from '../lib/shorten';
   import { settings } from '../lib/settings.svelte';
   import { windName, type Tile as T } from '../lib/tiles';
   import type { Action, Analysis, GameRecord } from '../lib/types';
@@ -51,6 +52,8 @@
   const stage = $derived(practice.stage);
   const handLabel = $derived(meta ? t('hand_n', meta.hands + (stage === 'playing' ? 1 : 0)) : '');
   const rulesChip = $derived(t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerLabel(settings.rules.flowers))));
+  const rulesShort = $derived(t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerShort(settings.rules.flowers))));
+  const handNo = $derived(meta ? String(meta.hands + (stage === 'playing' ? 1 : 0)) : '');
   const lastFav = $derived(practice.lastRecord ? !!records.get(practice.lastRecord)?.fav : false);
   $effect(() => { if (stage === 'playing') hideResult = false; });
   /** A hand's end: the result's moment waits for the player's tap (Table.svelte), then the result; without one (words
@@ -134,11 +137,11 @@
 {#snippet notice()}<span class="notice">{practice.notice}</span>{/snippet}
 <div class="play">
   {#if !ui.wide}
-  <header class="bar" data-tour="top">
-    <div class="where">
-      {#if view}<span class="title-medium nowrap">{t('round_wind', windName(view.position.setup.round))} {handLabel}</span>{/if}
-    </div>
-    <button class="chip" onclick={() => nav.open('rules')}>{rulesChip}<Icon name="dropDown" size={18} /></button>
+  <header class="bar" data-tour="top" {@attach shorten}>
+    <!-- The round's label, then the rules', in a few characters where the bar has no room for them (東-3). -->
+    {#if view}<div class="where title-medium ellipsis" data-full="{t('round_wind', windName(view.position.setup.round))} {handLabel}"
+      data-short={t('round_short', windName(view.position.setup.round), handNo)}></div>{/if}
+    <button class="chip" aria-label={rulesChip} onclick={() => nav.open('rules')}><span data-full={rulesChip} data-short={rulesShort}></span><Icon name="dropDown" size={18} /></button>
     <div class="spacer"></div>
     <button class="btn text" onclick={() => (confirmNew = true)}>{t('practice_new')}</button>
   </header>
@@ -148,14 +151,14 @@
       <!-- (Another game, a scene of the tuning tool: a table of its own, nothing of the last one's moments.) -->
       {#key meta?.id}
       <Table view={shown} me={ME} {names} scores={totals} revealed={stage !== 'playing' ? final?.hands ?? null : null}
-        interactive={stage === 'playing' && !practice.busy} onact={act} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64}
+        interactive={stage === 'playing' && !practice.busy} onact={act} handLabel={ui.wide ? handLabel : ''} handShort={ui.wide ? handNo : ''} maxHand={ui.desk ? 72 : 64}
         keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined} robbed={practice.robbed}
         deal={stage === 'playing' ? practice.deal : null} {marks} {notes} {strip} onpick={(x) => (picked = x)} choiceMarks={choices}
         tagRoom={hintsOn && stage === 'playing'} asideW={hintsOn ? 400 : 300} value={myValue} bind:asideShown bind:inDeal>
         {#snippet corner()}
           {#if ui.wide}
             <span class="corner-buttons" data-tour="top">
-              <button class="mini" onclick={() => nav.open('rules')}>{rulesChip}</button>
+              <button class="mini" aria-label={rulesChip} onclick={() => nav.open('rules')}><span data-full={rulesChip} data-short={rulesShort}></span></button>
               <button class="mini" onclick={() => (confirmNew = true)}>{t('practice_new')}</button>
             </span>
           {/if}

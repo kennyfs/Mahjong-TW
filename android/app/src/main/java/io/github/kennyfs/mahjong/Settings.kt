@@ -44,6 +44,8 @@ object Rules {
     "simple2" -> R.string.tai_simple2; "standard" -> R.string.tai_standard; "masters" -> R.string.tai_masters; else -> R.string.tai_simple1
   }
   fun flowerLabel(p: String) = when (p) { "see" -> R.string.flowers_see; "seat" -> R.string.flowers_seat; else -> R.string.flowers_none }
+  /** A flowers' preset in a rules chip that has no room for its name (見花見台 → 見花). */
+  fun flowerShort(p: String) = if (p == "see") R.string.flowers_see_short else flowerLabel(p)
 }
 
 enum class Length { HAND, ROUND, GAME }

@@ -318,7 +318,7 @@ private fun lengthLabel(l: RoomLength) = stringResource(when (l) { RoomLength.HA
   RoomLength.GAME -> R.string.length_game })
 
 @Composable
-private fun roomRules(s: RoomSettings) = rulesChip(s.rules.tai, s.rules.flowers, s.rules.overrides.isNotEmpty())
+private fun roomRules(s: RoomSettings, short: Boolean = false) = rulesChip(s.rules.tai, s.rules.flowers, s.rules.overrides.isNotEmpty(), short)
 
 @Composable
 private fun notes(battle: Battle, room: RoomView, p: PlayerView): String = listOfNotNull(
@@ -493,6 +493,8 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
   val nextIn = if (room.phase == Phase.REVIEW) room.remainingMs?.let { maxOf(0L, it - (now - battle.roomAt)) } else null
   val people = room.players.filter { !it.bot }
   val handLabel = if (s.mode == Mode.CONTEST) stringResource(R.string.battle_hand_of, room.hand + 1, s.hands) else stringResource(R.string.hand_n, room.hand + 1)
+  // The hand in a few characters (3, a contest's 3/8): the round's label as 東-3 where the full one has no room.
+  val handNo = if (s.mode == Mode.CONTEST) "${room.hand + 1}/${s.hands}" else "${room.hand + 1}"
   val clock = @Composable {
     if (left != null) {
       val bad = left < 5000
@@ -512,13 +514,17 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
     val short = maxHeight < 560.dp
     val w = maxWidth.value
     Column(Modifier.fillMaxSize()) {
-      if (!wide) Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text((table?.let { stringResource(R.string.round_wind, Tiles.wind(it.view.position.setup.round)) } ?: "") + " " + handLabel,
-          style = MaterialTheme.typography.titleMedium, maxLines = 1)
-        Spacer(Modifier.weight(1f))
-        clock()
-        TextButton(onClick = onLeave) { Text(stringResource(R.string.battle_leave)) }
+      if (!wide) Shorten(2, Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 8.dp)) { level ->
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          if (table != null) {
+            val wind = Tiles.wind(table.view.position.setup.round)
+            Text(if (level == 0) stringResource(R.string.round_wind, wind) + " " + handLabel else stringResource(R.string.round_short, wind, handNo),
+              style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+          }
+          Spacer(Modifier.weight(1f))
+          clock()
+          TextButton(onClick = onLeave) { Text(stringResource(R.string.battle_leave)) }
+        }
       }
       Box(Modifier.weight(1f).fillMaxWidth()) {
         if (table == null) TableSkeleton()
@@ -527,14 +533,17 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
           TableView(
             table.view, table.seat, names, scores = battle.totalsAt(table.seats), away = battle.awayAt(table.seats),
             revealed = if (handOver) table.view.hands else null, interactive = table.view.myTurn && !handOver,
-            onAct = { battle.act(it) }, handLabel = if (wide) handLabel else "",
+            onAct = { battle.act(it) }, handLabel = if (wide) handLabel else "", handShort = if (wide) handNo else "",
             // (No hints in a battle.) A hand's deal shows at its start, as in practice (not on coming back to a hand
             // under way).
             deal = if (table.view.events.any { it.type == "discard" }) null else "${battle.battleId}/${table.hand}",
             status = if (wide) clock else null,
             // The table's top-right corner: the rules over the way out.
             corner = if (wide) ({
-              Text(roomRules(s), color = LocalTable.current.onFeltDim, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End)
+              Shorten(2) {
+                Text(if (it == 0) roomRules(s) else roomRules(s, short = true), color = LocalTable.current.onFeltDim,
+                  style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.End)
+              }
               MiniButton(stringResource(R.string.battle_leave), onLeave)
             }) else null,
             overlay = {

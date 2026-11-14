@@ -100,6 +100,7 @@ import io.github.kennyfs.mahjong.flowersOf
 import io.github.kennyfs.mahjong.meldTiles
 import io.github.kennyfs.mahjong.seatAt
 import io.github.kennyfs.mahjong.sideOf
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.AlignmentLine
 import androidx.compose.ui.layout.FirstBaseline
@@ -180,7 +181,9 @@ private class Shown(val counts: List<Int>, val flowers: Int, val concealed: Int)
 @Composable
 fun TableView(
   view: View, me: Int, names: List<String>, modifier: Modifier = Modifier, scores: List<Double>? = null, revealed: List<String>? = null,
-  interactive: Boolean = true, onAct: ((Action) -> Unit)? = null, handLabel: String = "", maxHand: Float = 64f,
+  interactive: Boolean = true, onAct: ((Action) -> Unit)? = null, handLabel: String = "",
+  /** The hand in a few characters (3, a contest's 3/8): the round's label as 東-3 where the full one has no room. */
+  handShort: String = "", maxHand: Float = 64f,
   away: List<Boolean> = listOf(false, false, false, false),
   status: (@Composable () -> Unit)? = null, corner: (@Composable () -> Unit)? = null, overlay: (@Composable BoxScope.() -> Unit)? = null,
   marks: Map<String, TileMark>? = null, notes: List<SeatNote?>? = null, strip: (@Composable () -> Unit)? = null,
@@ -662,8 +665,12 @@ fun TableView(
               .onSizeChanged { val v = it.width / density.density to it.height / density.density; if (infoSize != v) infoSize = v }
               .background(Color.Black.copy(alpha = 0.18f), RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
           ) {
-            Text(stringResource(R.string.round_wind, Tiles.wind(setup.round)) + if (handLabel.isNotEmpty()) " $handLabel" else "",
-              color = c.onFelt, fontWeight = FontWeight.Bold, fontSize = s.font.sp, lineHeight = (s.font * 1.25f).sp)
+            val wind = Tiles.wind(setup.round)
+            Shorten(2) { level ->
+              Text(if (level == 0 || handShort.isEmpty()) stringResource(R.string.round_wind, wind) + if (handLabel.isNotEmpty()) " $handLabel" else ""
+                else stringResource(R.string.round_short, wind, handShort),
+                color = c.onFelt, fontWeight = FontWeight.Bold, fontSize = s.font.sp, lineHeight = (s.font * 1.25f).sp)
+            }
             Text(stringResource(R.string.wall_left, pos.wallLeft), color = c.onFeltDim, fontSize = (s.font * 0.92f).sp, lineHeight = (s.font * 1.2f).sp)
             if (setup.streak > 0) Text("${names[setup.dealer]} " + stringResource(R.string.streak_n, setup.streak), color = c.highlight,
               fontWeight = FontWeight.Bold, fontSize = (s.font * 0.85f).sp, lineHeight = (s.font * 1.15f).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -799,13 +806,14 @@ fun SeatBadge(
     // The player's own plate on a wide table: the score by the name, the standing (the room of its longest) on a line of
     // its own (beside each other they did not fit the side column: the score was cut off).
     val scoreByName = room != null && !compact
-    val nameLine: @Composable RowScope.() -> Unit = {
-      Text(name, color = c.onFelt, fontWeight = FontWeight.Medium, fontSize = f, maxLines = 1, overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.weight(1f, fill = false))
-      if (dealer) Text(stringResource(R.string.dealer_mark) + if (streak > 0) stringResource(R.string.streak_n, streak) else "",
-        color = c.highlight, fontWeight = FontWeight.Bold, fontSize = f, maxLines = 1)
-      if (scoreByName) scoreText()
+    // The name whole (cut only where it alone is too long), the dealer's 莊連N after it or under it.
+    val nameText = @Composable {
+      Text(name, color = c.onFelt, fontWeight = FontWeight.Medium, fontSize = f, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
+    val dealText: (@Composable () -> Unit)? = if (!dealer) null else ({
+      Text(stringResource(R.string.dealer_mark) + if (streak > 0) stringResource(R.string.streak_n, streak) else "",
+        color = c.highlight, fontWeight = FontWeight.Bold, fontSize = f, maxLines = 1)
+    })
     val figures: @Composable RowScope.() -> Unit = {
       if (room != null) Box(
         Modifier.background(if (note == null) Color.Transparent else if (note.level > 0) Marks.danger(note.level) else Color.Black.copy(alpha = 0.3f),
@@ -824,17 +832,55 @@ fun SeatBadge(
       ) else if (count != null) Text(stringResource(R.string.hand_cards, count), color = c.onFeltDim, fontSize = f, maxLines = 1)
       if (!scoreByName) scoreText()
     }
-    val gap = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)
+    val space = if (compact) 4.dp else 6.dp
+    val gap = Arrangement.spacedBy(space)
     // A third of an upright phone's width: the name over the figures (a name of a battle's player has room then).
-    if (compact && (count != null || note != null || room != null)) Column(Modifier.weight(1f, fill = false)) {
-      Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { nameLine() }
+    if (compact && (count != null || note != null || room != null)) NameOverFigures(space, nameText, dealText, Modifier.weight(1f, fill = false)) {
       Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { figures() }
     } else {
-      // One line, or the figures under the name when the seat's column is too narrow for both (a dealer's long name
-      // at a large font): the name stays whole.
+      // One line, or what does not fit after the name under it (the side column too narrow for all: a dealer's 莊連N, a
+      // large font): the name stays whole.
       FlowRow(Modifier.weight(1f, fill = false), horizontalArrangement = gap, itemVerticalAlignment = Alignment.CenterVertically) {
-        Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { nameLine() }
-        if (note != null || room != null || count != null || score != null) Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { figures() }
+        nameText()
+        dealText?.invoke()
+        if (scoreByName) scoreText()
+        if (note != null || room != null || count != null || (score != null && !scoreByName)) Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) { figures() }
+      }
+    }
+  }
+}
+
+/**
+ * A narrow plate's words (a third of an upright phone): the name on the first line, the figures on the second; the
+ * dealer's 莊連N after the name where it fits there, else first on the second line (the name had been cut short for
+ * it), and the figures after it there where they fit, else on a third line. The web page's SeatBadge flows the same way.
+ */
+@Composable
+private fun NameOverFigures(gap: Dp, name: @Composable () -> Unit, deal: (@Composable () -> Unit)?, modifier: Modifier = Modifier,
+  figures: @Composable () -> Unit) {
+  Layout(content = { name(); deal?.invoke(); figures() }, modifier = modifier) { ms, cs ->
+    val g = gap.roundToPx()
+    val loose = cs.copy(minWidth = 0, minHeight = 0)
+    val max = cs.maxWidth
+    val d = if (deal != null) ms[1].measure(loose) else null
+    val dealUp = d != null && ms[0].maxIntrinsicWidth(Constraints.Infinity) + g + d.width <= max
+    val n = ms[0].measure(if (dealUp) loose.copy(maxWidth = (max - g - d!!.width).coerceAtLeast(0)) else loose)
+    val f = ms.last().measure(loose)
+    // The lines, each its pieces from the left.
+    val lines = buildList {
+      add(if (dealUp) listOf(n, d!!) else listOf(n))
+      if (d != null && !dealUp) {
+        if (d.width + g + f.width <= max) add(listOf(d, f)) else { add(listOf(d)); add(listOf(f)) }
+      } else add(listOf(f))
+    }
+    val widths = lines.map { l -> l.sumOf { it.width } + g * (l.size - 1) }
+    val heights = lines.map { l -> l.maxOf { it.height } }
+    layout((widths.maxOrNull() ?: 0).coerceIn(cs.minWidth, max), heights.sum().coerceAtLeast(cs.minHeight)) {
+      var y = 0
+      lines.forEachIndexed { i, l ->
+        var x = 0
+        for (p in l) { p.place(x, y + (heights[i] - p.height) / 2); x += p.width + g }
+        y += heights[i]
       }
     }
   }

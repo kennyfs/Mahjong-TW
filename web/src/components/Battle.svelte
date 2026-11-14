@@ -15,8 +15,9 @@
   import { t } from '../lib/i18n.svelte';
   import { nav } from '../lib/nav.svelte';
   import { records } from '../lib/records.svelte';
-  import { FLOWER_PRESETS, flowerLabel, TAI_PRESETS, taiLabel } from '../lib/rules';
+  import { FLOWER_PRESETS, flowerLabel, flowerShort, TAI_PRESETS, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
+  import { shorten } from '../lib/shorten';
   import { windName } from '../lib/tiles';
   import { localTime, signed, ui } from '../lib/ui.svelte';
   import TapOn from './TapOn.svelte';
@@ -96,7 +97,12 @@
 
   const people = $derived(room ? room.players.filter((p) => !p.bot) : []);
   const handLabel = $derived(room && s ? (s.mode === 'CONTEST' ? t('battle_hand_of', room.hand + 1, s.hands) : t('hand_n', room.hand + 1)) : '');
+  /** The hand in a few characters (3, a contest's 3/8): the round's label as 東-3 where the full one has no room. */
+  const handNo = $derived(room && s ? (s.mode === 'CONTEST' ? `${room.hand + 1}/${s.hands}` : String(room.hand + 1)) : '');
   const rulesText = $derived(s ? t('rules_chip', t(taiLabel(s.rules.tai)), t(flowerLabel(s.rules.flowers))) +
+    (Object.keys(s.rules.overrides).length ? '・' + t('rules_custom') : '') : '');
+  /** The same in fewer words (見花見台 as 見花), for the table's corner where it has no room. */
+  const rulesShort = $derived(s ? t('rules_chip', t(taiLabel(s.rules.tai)), t(flowerShort(s.rules.flowers))) +
     (Object.keys(s.rules.overrides).length ? '・' + t('rules_custom') : '') : '');
   const lengthLabel = (l: Length) => t(`length_${l.toLowerCase()}`);
   /** A short window (a phone held sideways): the lobby's start in its title bar, the standings beside a result. */
@@ -293,8 +299,9 @@
   {@const names = table ? battle.namesAt(table.seats) : []}
   <div class="play">
     {#if !ui.wide}
-      <header class="topbar">
-        <span class="title-medium nowrap">{table ? t('round_wind', windName(table.view.position.setup.round)) : ''} {handLabel}</span>
+      <header class="topbar" {@attach shorten}>
+        {#if table}<span class="title-medium ellipsis" data-full="{t('round_wind', windName(table.view.position.setup.round))} {handLabel}"
+          data-short={t('round_short', windName(table.view.position.setup.round), handNo)}></span>{/if}
         <span class="grow"></span>
         {@render clock()}
         <button class="btn text" onclick={() => (confirmLeave = true)}>{t('battle_leave')}</button>
@@ -304,12 +311,12 @@
       {#if table}
         <Table view={table.view} me={table.seat} {names} scores={battle.totalsAt(table.seats)} away={battle.awayAt(table.seats)}
           revealed={handOver ? (table.view.hands ?? null) : null} interactive={table.view.my_turn && !handOver}
-          onact={(a) => battle.act(a)} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64} keys={ui.desk}
+          onact={(a) => battle.act(a)} handLabel={ui.wide ? handLabel : ''} handShort={ui.wide ? handNo : ''} maxHand={ui.desk ? 72 : 64} keys={ui.desk}
           deal={dealOf(table)} hints={false}>
           {#snippet status()}{#if ui.wide}{@render clock()}{/if}{/snippet}
           {#snippet corner()}
             {#if ui.wide}
-              <span class="mini-text">{rulesText}</span>
+              <span class="mini-text" data-full={rulesText} data-short={rulesShort}></span>
               <button class="mini" onclick={() => (confirmLeave = true)}>{t('battle_leave')}</button>
             {/if}
           {/snippet}

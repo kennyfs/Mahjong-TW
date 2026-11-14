@@ -56,10 +56,11 @@ import io.github.kennyfs.mahjong.Engine
 import io.github.kennyfs.mahjong.Analysis
 import androidx.compose.ui.platform.LocalContext
 
-/** The rules in a few words: "簡單台數・無花", and "自訂" when values were changed. */
+/** The rules in a few words: "簡單1・無花", and "自訂" when values were changed; `short`: fewer (見花見台 as 見花). */
 @Composable
-fun rulesChip(tai: String, flowers: String, custom: Boolean = false): String =
-  stringResource(R.string.rules_chip, stringResource(Rules.taiLabel(tai)), stringResource(Rules.flowerLabel(flowers))) +
+fun rulesChip(tai: String, flowers: String, custom: Boolean = false, short: Boolean = false): String =
+  stringResource(R.string.rules_chip, stringResource(Rules.taiLabel(tai)),
+    stringResource(if (short) Rules.flowerShort(flowers) else Rules.flowerLabel(flowers))) +
     if (custom) "・" + stringResource(R.string.rules_custom) else ""
 
 /**
@@ -98,6 +99,9 @@ fun PlayScreen(vm: AppModel) {
   val notice = practice.notice
   val handLabel = meta?.let { stringResource(R.string.hand_n, it.hands + if (stage == Practice.Stage.PLAYING) 1 else 0) } ?: ""
   val chip = rulesChip(settings.rules.tai, settings.rules.flowers, settings.rules.overrides.isNotEmpty())
+  val chipShort = rulesChip(settings.rules.tai, settings.rules.flowers, settings.rules.overrides.isNotEmpty(), short = true)
+  // The hand in a few characters: the round's label as 東-3 where the full one has no room.
+  val handNo = meta?.let { "${it.hands + if (stage == Practice.Stage.PLAYING) 1 else 0}" } ?: ""
   val totals = meta?.totals ?: listOf(0.0, 0.0, 0.0, 0.0)
   val shown = if (stage != Practice.Stage.PLAYING && final != null) final else view
   val last = practice.lastRecord?.let { vm.records.get(it) }
@@ -130,12 +134,17 @@ fun PlayScreen(vm: AppModel) {
     val w = maxWidth.value
     Column(Modifier.fillMaxSize()) {
       if (!wide) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).tourAnchor("top").padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          if (view != null) Text(stringResource(R.string.round_wind, Tiles.wind(view.position.setup.round)) + " " + handLabel,
-            style = MaterialTheme.typography.titleMedium, maxLines = 1)
-          Box(Modifier.weight(1f)) { Chip(chip, onClick = { vm.open(Page.RULES) }, menu = true) }
-          TextButton(onClick = { confirmNew = true }) { Text(stringResource(R.string.practice_new)) }
+        // The round's label, then the rules', in a few characters where the bar has no room for them (東-3).
+        Shorten(3, Modifier.fillMaxWidth().heightIn(min = 48.dp).tourAnchor("top").padding(horizontal = 8.dp)) { level ->
+          Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (view != null) {
+              val wind = Tiles.wind(view.position.setup.round)
+              Text(if (level == 0) stringResource(R.string.round_wind, wind) + " " + handLabel else stringResource(R.string.round_short, wind, handNo),
+                style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Box(Modifier.weight(1f)) { Chip(if (level < 2) chip else chipShort, onClick = { vm.open(Page.RULES) }, menu = true) }
+            TextButton(onClick = { confirmNew = true }) { Text(stringResource(R.string.practice_new)) }
+          }
         }
       }
       Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -144,7 +153,7 @@ fun PlayScreen(vm: AppModel) {
           shown, Practice.ME, names, scores = totals,
           revealed = if (stage != Practice.Stage.PLAYING) final?.hands else null,
           interactive = stage == Practice.Stage.PLAYING && !practice.busy,
-          onAct = { practice.act(it) }, handLabel = if (wide) handLabel else "", onNext = onNext, stay = manual, robbed = practice.robbed,
+          onAct = { practice.act(it) }, handLabel = if (wide) handLabel else "", handShort = if (wide) handNo else "", onNext = onNext, stay = manual, robbed = practice.robbed,
           readyHint = settings.readyHint, deal = if (stage == Practice.Stage.PLAYING) practice.deal else null,
           marks = marks, notes = if (hintsOn && playing) keptNotes else null, tagRoom = hintsOn && playing,
           value = if (hintsOn && playing) keptValue else null,
@@ -157,7 +166,7 @@ fun PlayScreen(vm: AppModel) {
           // The table's top-right corner: the buttons one over the other (the tour lights them as one).
           corner = if (wide) ({
             Column(Modifier.tourAnchor("top"), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-              MiniButton(chip) { vm.open(Page.RULES) }
+              Shorten(2) { MiniButton(if (it == 0) chip else chipShort) { vm.open(Page.RULES) } }
               MiniButton(stringResource(R.string.practice_new)) { confirmNew = true }
             }
           }) else null,

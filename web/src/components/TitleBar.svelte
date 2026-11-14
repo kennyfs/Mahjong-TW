@@ -1,16 +1,18 @@
 <!-- A page's title, with Back when it is a page opened from another, and actions at the right. `max`: the width of
      the page's column of content, px: on a wide window the title and the actions keep to it, not to the window's
-     far corners. -->
+     far corners. An action's words with a short form (data-full, data-short: lib/shorten.ts) shorten before the
+     title is cut. -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { t } from '../lib/i18n.svelte';
   import Icon from './Icon.svelte';
+  import { shorten } from '../lib/shorten';
   let { title, onback = null, children, max = 0 }: { title: string; onback?: (() => void) | null; children?: Snippet; max?: number } = $props();
 </script>
 
-<header style:max-width={max ? `${max}px` : undefined} class:column={max > 0}>
+<header style:max-width={max ? `${max}px` : undefined} class:column={max > 0} {@attach shorten}>
   {#if onback}<button class="btn icon text" aria-label={t('back')} onclick={onback}><Icon name="back" /></button>{/if}
-  <h1 class="title-large ellipsis" class:pad={!onback}>{title}</h1>
+  <h1 class="title-large ellipsis" class:pad={!onback} data-keep>{title}</h1>
   <div class="actions">{@render children?.()}</div>
 </header>
 

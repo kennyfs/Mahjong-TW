@@ -491,11 +491,12 @@ fun BranchScreen(
     val hw = if (side) minOf(44f, ((w - 208) * 0.46f - 24) / 9.3f) else minOf(44f, (minOf(w, 720f) - 28) / 9.3f)
     val pickedIndex = look?.analysis?.let { a -> picked?.let { t -> a.actions.indexOfFirst { it.action.type == "discard" && it.action.tile == t } } } ?: -1
 
-    val reshuffle = @Composable {
+    // `short`: its words in a few characters (重洗), where the title bar has no room for them (the title was cut).
+    val reshuffle: @Composable (Boolean) -> Unit = { short ->
       if (!b.dealt) Row(Modifier.clickable { if (b.played) confirmShuffle = true else b.toggleReshuffle() }.padding(end = 8.dp).testTag("branch_reshuffle"),
         verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = b.reshuffle, onCheckedChange = { if (b.played) confirmShuffle = true else b.toggleReshuffle() })
-        Text(stringResource(R.string.branch_reshuffle), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+        Text(stringResource(if (short) R.string.branch_reshuffle_short else R.string.branch_reshuffle), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
       }
     }
     val toggleColors = IconButtonDefaults.iconToggleButtonColors(checkedContainerColor = cs.secondaryContainer, checkedContentColor = cs.onSecondaryContainer)
@@ -622,23 +623,25 @@ fun BranchScreen(
         }
         if (inlinePanel) {
           top()
-          reshuffle()
+          reshuffle(false)
           info()
           buttons()
           Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 4.dp, bottom = 12.dp)) { panel() }
         } else {
           Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             top()
-            reshuffle()
+            reshuffle(false)
             info()
           }
           buttons()
         }
       }
     } else Column(Modifier.fillMaxSize()) {
-      TitleBar(heading, close) {
-        reshuffle()
-        listToggle()
+      Shorten(2) { level ->
+        TitleBar(heading, close) {
+          reshuffle(level == 1)
+          listToggle()
+        }
       }
       if (listView) list(Modifier.weight(1f).fillMaxWidth()) else table(Modifier.weight(1f).fillMaxWidth())
       // (Not under the result: on a low window it takes the room the result needs.)

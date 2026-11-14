@@ -1,9 +1,10 @@
 <!-- A player's name plate: their seat wind (lit for the dealer, with the streak), name, score, and whose turn it is.
-     `note` (a review, the hints): a few words in place of the count, how likely the player is ready (level 0 to 3); it
-     comes last, alone goes to a second line where the plate has no room for it, and its parts (between ・) to lines
-     of their own where that line has none. `count` on a wide table (a low one):
-     the count and the score go to a second line where the side column is too narrow for one. `room`: words the note
-     keeps the width of, shown or not (the player's own standing: the plate keeps its size as the note comes and goes). -->
+     Beside the wind, the plate's words flow onto a second line where one has no room for them all: the name stays
+     whole (cut only where it alone is too long), the dealer's 莊連N, the count and the score go under it, the count
+     and the score together. `note` (a review, the hints): a few words in place of the count, how likely the player is
+     ready (level 0 to 3); it comes last, and its parts (between ・) go to lines of their own where its line has no room
+     for it. `room`: words the note keeps the width of, shown or not (the player's own standing: the plate keeps its
+     size as the note comes and goes). The app's SeatBadge (TableView.kt). -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
   import { windName } from '../lib/tiles';
@@ -15,16 +16,20 @@
   } = $props();
 </script>
 
-<div class="badge-row" class:turn class:compact class:away class:noted={!!note || !!room} class:counted={count !== null && !compact}>
+<div class="badge-row" class:turn class:compact class:away class:noted={!!note || !!room}>
   <span class="wind" class:dealer title={dealer ? t('dealer_mark') : undefined}>{windName(wind)}</span>
-  <span class="name ellipsis">{name}</span>
-  {#if dealer}<span class="deal">{t('dealer_mark')}{#if streak > 0}<span class="streak">{t('streak_n', streak)}</span>{/if}</span>{/if}
-  {#if room}
-    <span class="note ellipsis l{note?.level ?? 0}" class:empty={!note}><span class="stack"><span>{note?.text ?? ''}</span><span class="room" aria-hidden="true">{room}</span></span></span>
-  {:else if note}<span class="note l{note.level}">{#each note.text.split('・') as part, i (i)}{#if i}・<wbr />{/if}<span class="part">{part}</span>{/each}</span>{/if}
-  <span class="tail">
-    {#if !note && count !== null}<span class="count">{t('hand_cards', count)}</span>{/if}
-    {#if score !== null}<span class="score" class:pos={score > 0} class:neg={score < 0}>{signed(score)}</span>{/if}
+  <span class="lines">
+    <span class="name ellipsis">{name}</span>
+    {#if dealer}<span class="deal">{t('dealer_mark')}{#if streak > 0}<span class="streak">{t('streak_n', streak)}</span>{/if}</span>{/if}
+    {#if room}
+      <span class="note ellipsis l{note?.level ?? 0}" class:empty={!note}><span class="stack"><span>{note?.text ?? ''}</span><span class="room" aria-hidden="true">{room}</span></span></span>
+    {:else if note}<span class="note l{note.level}">{#each note.text.split('・') as part, i (i)}{#if i}・<wbr />{/if}<span class="part">{part}</span>{/each}</span>{/if}
+    {#if (!note && count !== null) || score !== null}
+      <span class="tail">
+        {#if !note && count !== null}<span class="count">{t('hand_cards', count)}</span>{/if}
+        {#if score !== null}<span class="score" class:pos={score > 0} class:neg={score < 0}>{signed(score)}</span>{/if}
+      </span>
+    {/if}
   </span>
 </div>
 
@@ -35,20 +40,16 @@
   .badge-row.turn { border-color: var(--highlight); background: rgba(0, 0, 0, 0.28); }
   .badge-row.compact { font-size: 0.86em; gap: 4px; padding-right: 6px; }
   .badge-row.away { opacity: 0.6; }
-  .badge-row.noted { flex-wrap: wrap; row-gap: 2px; }
-  .badge-row.noted .name { flex: 0 1 auto; }
-  .badge-row.noted .score { margin-left: 0; }
-  /* A low wide table's side columns are narrow: the count and the score go under the name rather than cut it short. */
-  .badge-row.counted { flex-wrap: wrap; row-gap: 0; }
-  .badge-row.counted .name { flex: 0 1 auto; }
-  .badge-row.counted .score { margin-left: 0; }
+  /* The words beside the wind: one line where they fit, else the name first and the rest under it. */
+  .lines { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 0; min-width: 0; }
+  .compact .lines { column-gap: 4px; }
+  .noted .lines { row-gap: 2px; }
+  .name { flex: 0 1 auto; font-weight: 500; }
   /* The count and the score keep together (the score alone on a second line read as a stray figure). */
-  .tail { display: contents; }
-  .badge-row.counted .tail { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  .tail { display: inline-flex; align-items: center; gap: 6px; flex: none; }
   .wind { flex: none; width: 1.7em; height: 1.7em; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
     background: var(--on-felt); color: var(--felt); font-weight: 700; }
   .wind.dealer { background: var(--highlight); color: #3a2a00; }
-  .name { font-weight: 500; }
   .deal { flex: none; color: var(--highlight); font-weight: 700; }
   .streak { margin-left: 2px; }
   .count { flex: none; color: var(--on-felt-dim); }
@@ -63,7 +64,7 @@
   .note.l1 { background: var(--danger-1); color: var(--on-danger); }
   .note.l2 { background: var(--danger-2); color: var(--on-danger); }
   .note.l3 { background: var(--danger-3); color: #fff; }
-  .score { flex: none; font-weight: 700; margin-left: auto; }
+  .score { flex: none; font-weight: 700; }
   .score.pos { color: var(--felt-good); }
   .score.neg { color: var(--felt-bad); }
 </style>

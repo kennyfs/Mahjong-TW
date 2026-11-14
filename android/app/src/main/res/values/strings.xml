@@ -32,6 +32,8 @@
   <!-- The table -->
   <string name="round_wind">%1$s風圈</string>
   <string name="hand_n">第 %1$d 局</string>
+  <!-- A round and its hand where the full words do not fit (東-1; a contest's 東-3/8). -->
+  <string name="round_short">%1$s-%2$s</string>
   <string name="wall_left">剩 %1$d 張</string>
   <string name="act_discard">打出</string>
   <string name="act_tsumo">自摸</string>
@@ -91,6 +93,8 @@
   <string name="flowers_none">無花</string>
   <string name="flowers_see">見花見台</string>
   <string name="flowers_seat">正花</string>
+  <!-- 見花見台 in a rules chip that has no room for it. -->
+  <string name="flowers_see_short">見花</string>
   <string name="flowers_none_desc">136 張，沒有花牌。</string>
   <string name="flowers_see_desc">144 張，每張花 1 台。</string>
   <string name="flowers_seat_desc">144 張，自己門風的花 1 台，湊齊春夏秋冬或梅蘭菊竹一組再 2 台（花槓）。</string>
@@ -209,6 +213,8 @@
   <string name="branch_title">分支</string>
   <string name="branch_hint">從這一手換個打法繼續打（不計分、不記錄）</string>
   <string name="branch_reshuffle">重洗看不到的牌</string>
+  <!-- The same where the title bar has no room for it (the title would be cut). -->
+  <string name="branch_reshuffle_short">重洗</string>
   <string name="branch_step">分支第 %1$d 步</string>
   <string name="branch_your_turn">輪到你：點一下牌再點一次打出，或往上滑</string>
   <string name="branch_your_call">輪到你：要這張牌就按吃、碰、槓或胡，不要就按過</string>

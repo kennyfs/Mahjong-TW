@@ -66,16 +66,19 @@
   import MyHand from './MyHand.svelte';
   import River from './River.svelte';
   import SeatBadge from './SeatBadge.svelte';
+  import { shorten } from '../lib/shorten';
   import Tile, { TILE_RATIO } from './Tile.svelte';
 
   let {
-    view, me, names, scores = null, revealed: revealedIn = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
+    view, me, names, scores = null, revealed: revealedIn = null, interactive = true, onact, handLabel = '', handShort = '', maxHand = 64, keys = false,
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
     marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null, review = false, deal = null,
     choiceMarks = null, tagRoom = false, asideShown = $bindable(false), hints = true, inDeal = $bindable(false), value = null,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
-    onact?: (a: Action) => void; handLabel?: string; maxHand?: number; keys?: boolean; away?: boolean[];
+    onact?: (a: Action) => void; handLabel?: string;
+    /** The hand in a few characters (3, a contest's 3/8): the round's label as 東-3 where the full one has no room. */
+    handShort?: string; maxHand?: number; keys?: boolean; away?: boolean[];
     status?: Snippet; overlay?: Snippet; corner?: Snippet; aside?: Snippet; selected?: number | null; asideW?: number;
     marks?: Map<T, TileMark> | null; notes?: ({ text: string; level: number } | null)[] | null; strip?: Snippet; value?: number | null;
     onpick?: (tile: T | null) => void; onnext?: (() => void) | null; stay?: boolean;
@@ -109,6 +112,9 @@
   const others: Side[] = ['right', 'top', 'left'];
   const pos = $derived(view.position);
   const setup = $derived(pos.setup);
+  /** The round and the hand (東風圈 第 3 局), and the same in a few characters (東-3) for a corner with no room. */
+  const roundFull = $derived(t('round_wind', windName(setup.round)) + (handLabel ? ' ' + handLabel : ''));
+  const roundShort = $derived(handShort ? t('round_short', windName(setup.round), handShort) : roundFull);
   /** What another seat shows: its melds' tile counts, its flowers, and its concealed tiles when they are shown. */
   function shownOf(seat: number) {
     const p = pos.players[seat];
@@ -888,13 +894,13 @@
   {#if W > 0}
     {#if s.wide}
       <!-- The corners: the round, the wall and the streak; the screen's buttons. -->
-      <div class="corner-info" bind:clientWidth={info.w} bind:clientHeight={info.h}>
-        <div class="box-round">{t('round_wind', windName(setup.round))}{handLabel ? ' ' + handLabel : ''}</div>
+      <div class="corner-info" bind:clientWidth={info.w} bind:clientHeight={info.h} {@attach shorten}>
+        <div class="box-round ellipsis" data-full={roundFull} data-short={roundShort}></div>
         <div class="box-wall">{t('wall_left', pos.wall_left)}</div>
         {#if setup.streak > 0}<div class="box-streak ellipsis">{names[setup.dealer]} {t('streak_n', setup.streak)}</div>{/if}
       </div>
       {#if showCorner && corner}
-        <div class="corner-buttons" bind:clientWidth={buttons.w} bind:clientHeight={buttons.h}>{@render corner()}</div>
+        <div class="corner-buttons" bind:clientWidth={buttons.w} bind:clientHeight={buttons.h} {@attach shorten}>{@render corner()}</div>
       {/if}
     {/if}
     <!-- The others: the player opposite along the top, the next at the right, the previous at the left (on a tall
@@ -937,7 +943,7 @@
         {/each}
         {#if !s.wide}
           <div class="box" style="width: {s.boxW}px; min-height: {s.mid}px">
-            <div class="box-round">{t('round_wind', windName(setup.round))}{handLabel ? ' ' + handLabel : ''}</div>
+            <div class="box-round">{roundFull}</div>
             <div class="box-wall">{t('wall_left', pos.wall_left)}</div>
             {#if setup.streak > 0}<div class="box-streak">{names[setup.dealer]} {t('streak_n', setup.streak)}</div>{/if}
             {#if corner && !withAside}<div class="box-extra">{@render corner()}</div>{/if}

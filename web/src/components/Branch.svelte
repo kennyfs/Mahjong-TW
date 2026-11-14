@@ -401,7 +401,7 @@
 {#snippet shuffle()}
   {#if !dealt}
     <label class="shuffle body-medium">
-      <input type="checkbox" checked={reshuffle} onclick={askShuffle} />{t('branch_reshuffle')}
+      <input type="checkbox" checked={reshuffle} onclick={askShuffle} /><span data-full={t('branch_reshuffle')} data-short={t('branch_reshuffle_short')}></span>
     </label>
   {/if}
 {/snippet}

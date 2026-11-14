@@ -64,3 +64,5 @@ export async function withValue(c: RuleChoice, name: string, value: number): Pro
 /** The names of the presets, as the strings have them. */
 export const taiLabel = (p: string) => `tai_${p}`;
 export const flowerLabel = (p: string) => `flowers_${p}`;
+/** A flowers' preset in a rules chip that has no room for its name (見花見台 → 見花). */
+export const flowerShort = (p: string) => (p === 'see' ? 'flowers_see_short' : flowerLabel(p));
