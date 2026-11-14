@@ -19,6 +19,12 @@ left), deals the tiles the seat could not see (the others' concealed tiles, the 
 the record's actions from there. A base game has a wall of its own (no base in a base). The engine answers with the
 record as it came (`base`, no `wall`), so the same base and seed always give the same hand.
 
+The base may also give the seat another hand in place of its own (`"hand": TILES`, on its own turn `"drawn": T`, as
+`analyze` takes them: the analysis screen's step of a review with its tiles changed), or be a position by itself,
+`"base": {"position": POSITION, "seed": S}` (one set up by hand on the analysis screen, played on with 從這裡打): its
+history is then the plain one of its discards (`Game::plainHistory`), and the record's rules and setup are the
+position's. Every command takes such a record (`steps` and `review` too).
+
 The record holds the wall, so it shows every hidden tile. **Only the authority holds it**: the app in practice, the
 room (on the server, or on the phone that hosts a nearby game) in a battle. A player's screen is built only from
 `view` for that player's seat, which hides what the seat cannot see: other players' hands and draws, the kinds of

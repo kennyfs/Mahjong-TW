@@ -25,6 +25,9 @@
 //          branch with its unseen tiles reshuffled): {"rules", "setup", "base": {"game": RECORD, "seat": s,
 //          "seed": S}, "actions": [...]} (no wall): the base game is replayed, the seat's position taken from it
 //          with its history (Game::loadPosition, the seed deals what the seat cannot see), then the actions apply.
+//          The base may give the seat another hand ("hand": TILES, on its own turn "drawn": T, as `analyze` takes
+//          them), or be a position by itself ({"position": POSITION, "seed": S}: one set up by hand, with the plain
+//          history of its discards, Game::plainHistory; the record's rules and setup are the position's).
 // SETUP    {"dealer": s, "east": s (-1: the dealer), "round": wind, "streak": n}
 // ACTION   {"type": TYPE, "tile": TILE}: TYPE is discard, tsumo, ankan, kakan, pass, ron, pon, kan, chi, declare; the tile is
 //          the discard, the kong's kind, a chow's lowest tile, or (ron, pon, kan) the claimed tile; tsumo, pass and

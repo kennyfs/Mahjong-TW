@@ -568,6 +568,25 @@ static void testGuiEngine() {
           own["drawn"] = v["position"]["drawn"];
         testAssert(engine.handle(own) == engine.handle(json{{"cmd", "analyze"}, {"game", g}, {"seat", person}}));
       }
+      // A hand taken on from the person's position (a branch from a set-up position, or from the game with the same
+      // hand in place of theirs): the person sees the same, and it plays on to its end.
+      if(step % 8 == 4) {
+        json fromPosition{{"rules", g["rules"]}, {"setup", v["position"]["setup"]}, {"actions", json::array()},
+                          {"base", {{"position", v["position"]}, {"seed", "p" + Global::intToString(step)}}}};
+        json fromGame{{"rules", g["rules"]}, {"setup", g["setup"]}, {"actions", json::array()},
+                      {"base", {{"game", g}, {"seat", person}, {"seed", "h"}, {"hand", v["position"]["hand"]},
+                                {"drawn", v["position"]["drawn"]}}}};
+        for(const json& b : {fromPosition, fromGame}) {
+          json w = engine.handle(json{{"cmd", "view"}, {"game", b}, {"seat", person}});
+          testAssert(w["position"] == v["position"] && w["legal"] == v["legal"]);
+          json end = engine.handle(json{{"cmd", "advance"}, {"game", b}, {"players", {"greedy", "greedy", "greedy", "greedy"}}})["game"];
+          testAssert(engine.handle(json{{"cmd", "pending"}, {"game", end}})["phase"] == "over");
+          testAssert(end["base"] == b["base"] && !end.contains("wall"));
+          // Which of its actions took effect, as of a hand from its deal.
+          json st = engine.handle(json{{"cmd", "steps"}, {"game", end}});
+          testAssert(!st.contains("error") && st["taken"].size() == end["actions"].size());
+        }
+      }
       // The person plays like greedy.
       json act = engine.handle(json{{"cmd", "bot"}, {"game", g}, {"seat", person}, {"player", "greedy"}})["action"];
       g = engine.handle(json{{"cmd", "act"}, {"game", g}, {"seat", person}, {"action", act}})["game"];

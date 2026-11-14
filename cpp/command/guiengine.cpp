@@ -352,9 +352,11 @@ GuiJson::Record GuiJson::parseRecord(const json& j) {
   r.setup = parseSetup(j.contains("setup") ? j["setup"] : json(nullptr));
   if(j.contains("base") && !j["base"].is_null()) {
     const json& b = j["base"];
-    if(!b.is_object() || !b.contains("game") || !b.contains("seat") || !b.contains("seed"))
-      throw StringError("A base is {\"game\": RECORD, \"seat\": s, \"seed\": S}");
-    if(b["game"].contains("base") && !b["game"]["base"].is_null())
+    const bool ofGame = b.is_object() && b.contains("game") && b.contains("seat");
+    const bool ofPosition = b.is_object() && b.contains("position");
+    if(ofGame == ofPosition || !b.contains("seed"))
+      throw StringError("A base is {\"game\": RECORD, \"seat\": s, \"seed\": S} or {\"position\": POSITION, \"seed\": S}");
+    if(ofGame && b["game"].contains("base") && !b["game"]["base"].is_null())
       throw StringError("A base game has a wall of its own");
     r.base = b;
   } else {
@@ -383,18 +385,39 @@ static Action normalized(const Game& game, Action a) {
   return a;
 }
 
+// A seat's position with another hand in place of its own ("hand": TILES, and on the seat's own turn "drawn": the tile
+// drawn of it), the rest of what it sees as it was.
+static Position withHand(Position p, const json& j) {
+  p.hand = Tiles::countsOf(Tiles::parse(j.at("hand").get<string>()));
+  p.drawn = -1;
+  if(p.claimSeat < 0 && !p.afterCall && j.contains("drawn") && !j["drawn"].is_null()) {
+    p.drawn = parseTile(j["drawn"]);
+    if(p.hand[p.drawn] == 0)
+      throw StringError("The drawn tile must be in the hand");
+  }
+  return p;
+}
+
 void GuiJson::replay(const Record& r, Game& game, bool holdLast) {
   if(!r.base.is_null()) {
-    // The base game to its end, the seat's position in it, the unseen tiles dealt again by the seed.
-    Record b = parseRecord(r.base["game"]);
-    Game from(Rules::parse(b.rules));
-    replay(b, from);
-    int seat = r.base["seat"].get<int>();
-    if(seat < 0 || seat > 3)
-      throw StringError("Bad seat in the base");
+    // The seat's position (in the base game at its end, or as given), the unseen tiles dealt again by the seed.
     const json& s = r.base["seed"];
     Rand rand(s.is_string() ? s.get<string>() : s.dump());
-    game.loadPosition(from.positionOf(seat), rand, from.events());
+    if(r.base.contains("position")) {
+      Position p = parsePosition(r.base["position"]);
+      game.loadPosition(p, rand, Game::plainHistory(p));
+    } else {
+      Record b = parseRecord(r.base["game"]);
+      Game from(Rules::parse(b.rules));
+      replay(b, from);
+      int seat = r.base["seat"].get<int>();
+      if(seat < 0 || seat > 3)
+        throw StringError("Bad seat in the base");
+      Position p = from.positionOf(seat);
+      if(r.base.contains("hand") && !r.base["hand"].is_null())
+        p = withHand(p, r.base);
+      game.loadPosition(p, rand, from.events());
+    }
   } else
     game.start(r.setup, r.wall);
   for(size_t i = 0; i < r.actions.size(); i++) {
@@ -518,15 +541,7 @@ static json analysisJson(const Game& game, int seat, shared_ptr<const Learn::Net
 static bool withOtherHand(const json& req, const Game& game, int seat, Rand& rand, Game& out) {
   if(!req.contains("hand") || req["hand"].is_null())
     return false;
-  Position p = game.positionOf(seat);
-  p.hand = Tiles::countsOf(Tiles::parse(req["hand"].get<string>()));
-  p.drawn = -1;
-  if(p.claimSeat < 0 && !p.afterCall && req.contains("drawn") && !req["drawn"].is_null()) {
-    p.drawn = parseTile(req["drawn"]);
-    if(p.hand[p.drawn] == 0)
-      throw StringError("The drawn tile must be in the hand");
-  }
-  out.loadPosition(p, rand, game.events());
+  out.loadPosition(withHand(game.positionOf(seat), req), rand, game.events());
   return true;
 }
 
@@ -635,9 +650,16 @@ static json whatIf(const Game& game, int me, shared_ptr<const Learn::NetModel> m
 // win with multi_ron, else the first winner in turn order). A pass never does. {"taken": [bool per action],
 // "over": [per action: the index of the claim that took its place, or -1], "last": the action the hand's play ended
 // with (the first win taken; without a win the last action taken; -1 without any)}.
+// A record's hand before its first action: from its deal, or from its base's position.
+static void startOf(const GuiJson::Record& rec, Game& game) {
+  GuiJson::Record start = rec;
+  start.actions.clear();
+  GuiJson::replay(start, game);
+}
+
 static json stepsOf(const GuiJson::Record& rec) {
   Game game(Rules::parse(rec.rules));
-  game.start(rec.setup, rec.wall);
+  startOf(rec, game);
   const int n = (int)rec.actions.size();
   vector<char> taken(n, 0);
   vector<int> over(n, -1);
@@ -794,7 +816,7 @@ json GuiEngine::handle(const json& req) {
     GuiJson::Record rec = GuiJson::parseRecord(req.at("game"));
     const int seat = seatOf(req);
     Game game(Rules::parse(rec.rules));
-    game.start(rec.setup, rec.wall);
+    startOf(rec, game);
     GuiAnalysis::Batch batch(modelOf(req));
     struct Decision {
       int step, item, played;
