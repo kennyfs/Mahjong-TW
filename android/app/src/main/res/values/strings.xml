@@ -128,7 +128,8 @@
   <string name="settings_rules">規則</string>
   <string name="settings_length">練習長度</string>
   <string name="settings_bot">電腦玩家</string>
-  <string name="bot_greedy">牌效率（向聽數與進張）</string>
+  <string name="bot_greedy">牌效率</string>
+  <string name="bot_help">神經網路：用自我對打訓練出來的神經網路出牌，和分析用的是同一個，打得比較好。\n牌效率：能胡就胡；出牌只看離聽牌多近：選向聽數（離聽牌還差幾張）最少、進張（還沒看到、能讓向聽數變少的牌）最多的那張，不管放槍危險和台數。</string>
   <string name="settings_speed">電腦出牌速度</string>
   <string name="settings_sound">音效</string>
   <string name="sound_off">關</string>

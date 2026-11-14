@@ -3,7 +3,8 @@
   deciding seat's tiles over the list of every action (DecisionPanel). The player may
   play here: a tap chooses a tile (its row is lit) and a second discards it; the choices' buttons are under the hand.
   While there is nothing to show (the computer players playing) the tiles are the player's own and the list keeps
-  its shape (PanelSkeleton). On a wide window the tiles at the left, the list at the right.
+  its shape (PanelSkeleton). On a wide window the tiles at the left, the list at the right; else the tiles over the
+  list, which scrolls alone.
 
   `view`: the deciding seat's view (or the player's, meanwhile); `heading`: whose turn it is, in a few words.
   `canPlay`: the player's decision, now (`view` is theirs). With 聽牌提示 the tiles a ready hand waits with have blue
@@ -92,12 +93,14 @@
 </div>
 
 <style>
-  .list-view { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 12px 16px; }
-  .list-view.halves { flex-direction: row; overflow: hidden; gap: 12px; }
-  .seat-hand { display: flex; flex-direction: column; gap: 8px; }
+  /* Upright the tiles stay put over the list, which scrolls alone: a tile's row brought into sight at the first tap
+     does not take the tile away from under the second. */
+  .list-view { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 8px; padding: 8px 12px 0; }
+  .list-view.halves { flex-direction: row; gap: 12px; padding-bottom: 16px; }
+  .seat-hand { flex: none; display: flex; flex-direction: column; gap: 8px; }
   .halves .seat-hand { flex: 0 0 46%; min-width: 0; overflow: auto; }
-  .halves .list-scroll { flex: 1; min-width: 0; overflow: auto; }
-  .list-view:not(.halves) .list-scroll { max-width: 760px; }
+  .list-scroll { flex: 1; min-height: 0; min-width: 0; overflow: auto; }
+  .list-view:not(.halves) .list-scroll { max-width: 760px; padding-bottom: 16px; }
   .head { display: flex; align-items: center; gap: 8px; min-height: 40px; }
   .dim { color: var(--on-surface-variant); }
   .seat-hand :global(.bar) { justify-content: flex-start; }

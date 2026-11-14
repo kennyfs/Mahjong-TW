@@ -11,7 +11,8 @@
   against the best), whether it was the one played, and its danger as a band along its foot; `tagH` px are kept over
   each row for the tags. A tile chosen there (to see its figures), or under a computer's mouse, rises a little, its tag
   with it (as far as its tag may go over the row above's foot), its face and frame saying it is chosen.
-  `turn`: the player's turn to discard: a frame of the turn's color pulses around the tiles, and a tile that may not
+  `turn`: the player's turn to discard: a frame of the turn's color pulses around the tiles (and their tags, under
+  both), and a tile that may not
   be discarded then (after declaring a ready hand: all but those that keep it ready, later all but the one drawn) is
   darker.
 
@@ -122,7 +123,7 @@
 </script>
 
 <div class="hand" bind:this={handEl} class:turn style="padding-top: {Math.max(h * LIFT, tagH)}px; row-gap: {Math.max(h * ROW_GAP, tagH)}px; --lift: {lift}px;
-  --top: {Math.max(h * LIFT, tagH)}px; {blockW ? `width: ${blockW}px` : ''}">
+  --top: {Math.max(h * LIFT, tagH) - tagH}px; {blockW ? `width: ${blockW}px` : ''}">
   {#each rows as row, r (r)}
     <div class="row" style="height: {h}px">
       {#each row as i (i + '/' + all[i] + (drawn && i === tiles.length ? '/d' : ''))}
@@ -150,8 +151,9 @@
 
 <style>
   .hand { display: flex; flex-direction: column; align-items: flex-start; touch-action: none; flex: none; position: relative; }
-  /* The player's turn: the frame around the tiles (not the room over them for a lifted tile), pulsing. */
-  .hand.turn::after { content: ''; position: absolute; left: -5px; right: -5px; top: calc(var(--top) - 5px); bottom: -5px;
+  /* The player's turn: the frame around the tiles and the tags over them (not the room over them for a lifted tile),
+     pulsing; under the tiles and their tags, so that a lifted one is not crossed by it. */
+  .hand.turn::after { content: ''; position: absolute; left: -5px; right: -5px; top: calc(var(--top) - 5px); bottom: -5px; z-index: 0;
     border: 3px solid var(--highlight); border-radius: 10px; pointer-events: none; animation: turn 1.1s ease-in-out infinite alternate; }
   @keyframes turn {
     from { opacity: 0.45; box-shadow: 0 0 2px 0 var(--highlight); }
@@ -164,7 +166,7 @@
   .slot { padding: 0; margin: 0; border: none; background: none; cursor: pointer; display: block;
     -webkit-tap-highlight-color: transparent; touch-action: none; position: relative; }
   .slot.up::before, .slot.hover:hover::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: var(--lift); }
-  .lifted { display: block; position: relative; transition: transform 0.08s; }
+  .lifted { display: block; position: relative; z-index: 1; transition: transform 0.08s; }
   /* 聽牌提示: a small dot over the tile, above the turn's frame. */
   .ready { position: absolute; left: 50%; top: calc(-10px - var(--d)); width: var(--d); height: var(--d); translate: -50% 0; border-radius: 50%;
     background: #8fe3ff; box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.45); pointer-events: auto; }

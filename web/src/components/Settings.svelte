@@ -90,7 +90,7 @@
         <Toggle options={lengths} selected={settings.length} onselect={setLength} />
       </div>
       <div class="block">
-        <div class="body-large">{t('settings_bot')}</div>
+        {@render head(t('settings_bot'), t('bot_help'))}
         <Toggle options={bots} selected={settings.bot} onselect={setBot} />
       </div>
       <div class="block">
