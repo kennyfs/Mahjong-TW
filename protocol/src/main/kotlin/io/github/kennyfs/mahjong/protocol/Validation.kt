@@ -7,13 +7,6 @@ object Limits {
   const val MIN_HANDS = 1
   const val MAX_HANDS = 16
   const val TABLE = 4
-  /**
-   * After every discard the room waits this long before the game goes on, whether anyone may claim it or not, so
-   * that the pause does not tell who could (a person deciding on a claim may take longer).
-   */
-  const val CLAIM_WINDOW_MS = 1_000L
-  /** A bot's own turn takes this long, so people can follow it. */
-  const val BOT_TURN_MS = 900L
   /** A disconnected player is waited for this long on each decision; after that the bot decides at once. */
   const val AWAY_GRACE_MS = 30_000L
   /** The result of a hand stays up this long at most before the next one. */
@@ -28,8 +21,8 @@ object Limits {
 object Validation {
   val TAI_PRESETS = listOf("simple1", "simple2", "standard", "masters")
   val FLOWER_PRESETS = listOf("none", "see", "seat")
-  /** The bots a room may use (the network's specs join them when it exists). */
-  val BOTS = listOf("greedy")
+  /** The bots a room may be set to: tile efficiency, and the network (where the hub has it: HubLimits.bots). */
+  val BOTS = listOf("greedy", "net")
   private val PARAM = Regex("[a-z_]{1,24}")
   private val TILE = Regex("[1-9][mps]|[1-7]z")
   private val TYPES = setOf("discard", "tsumo", "ankan", "kakan", "pass", "ron", "pon", "kan", "chi")

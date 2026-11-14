@@ -8,6 +8,7 @@
     "bot_claim": 900,
     "bot_after_call": 900,
     "rob_show": 900,
+    "claim_window": 1000,
     "words_call": 1500,
     "words_flower": 2000,
     "notice": 4000,

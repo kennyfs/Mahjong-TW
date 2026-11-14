@@ -28,11 +28,18 @@ data class HubLimits(
   val lobbyIdleMs: Long = 30 * 60_000L,
   val keepOverMs: Long = 10 * 60_000L,
   val roomLifetimeMs: Long = 6 * 3600_000L,
-  /** How rooms pace their tables. */
-  val pace: Pace = Pace(),
+  /** How rooms pace their tables: the screens' times (Pace.standard, Pace.fromTiming); a test's Pace.NONE. */
+  val pace: Pace,
+  /**
+   * The bots a room may play (Validation.BOTS, RoomSettings.bot) and the engine's spec of each: tile efficiency
+   * always; the network where the engine has it ("net:model=...,mode=policy"). A room asked for one the hub lacks plays
+   * tile efficiency, and its settings say so.
+   */
+  val bots: Map<String, String> = mapOf("greedy" to "greedy"),
 ) {
   companion object {
-    val NEARBY = HubLimits(maxRooms = 1, roomsPerAddress = 1, maxContestPlayers = 8)
+    /** A hosting phone's: one room. */
+    fun nearby(pace: Pace, bots: Map<String, String>) = HubLimits(maxRooms = 1, roomsPerAddress = 1, maxContestPlayers = 8, pace = pace, bots = bots)
   }
 }
 
@@ -44,7 +51,7 @@ data class HubLimits(
 class Hub(
   private val engine: GameEngine,
   private val scope: CoroutineScope,
-  private val limits: HubLimits = HubLimits(),
+  private val limits: HubLimits,
   private val now: () -> Long = System::currentTimeMillis,
   private val random: SecureRandom = SecureRandom(),
 ) {
@@ -138,7 +145,8 @@ class Hub(
   }
 
   private suspend fun create(c: Connection, settings: RoomSettings) {
-    val s = Validation.settings(settings) ?: return strike(c, Error(ErrorCode.BAD_SETTINGS))
+    val s = Validation.settings(settings)?.let { if (it.bot in limits.bots) it else it.copy(bot = "greedy") }
+      ?: return strike(c, Error(ErrorCode.BAD_SETTINGS))
     val rules = try {
       engine.rules(Validation.ruleSpec(s.rules)!!)
     } catch (e: EngineError) {
@@ -154,7 +162,7 @@ class Hub(
       do pin = (random.nextInt(900_000) + 100_000).toString() while (pin in byPin)
       val id = ByteArray(12).also(random::nextBytes).let { Base64.getUrlEncoder().withoutPadding().encodeToString(it) }
       val max = if (s.mode == Mode.TABLE) Limits.TABLE else limits.maxContestPlayers
-      val room = Room(id, pin, s, rules, engine, scope, random, now, max, ::removed, limits.pace)
+      val room = Room(id, pin, s, rules, engine, scope, random, now, max, ::removed, limits.pace, limits.bots)
       rooms[id] = room
       byPin[pin] = room
       owners[room] = c.address

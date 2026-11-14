@@ -46,10 +46,18 @@ The room (on the server, or on the hosting phone) is the only authority:
 - **A decision** is accepted only from the seat that must decide now, at the decision point it was shown (`step`),
   with an action checked in Kotlin (its kind and tiles) and then found legal by the engine. Points are the engine's,
   never a client's.
-- **The pace tells nothing**: after every discard (and added kong) the room waits the same claim window
-  (`CLAIM_WINDOW_MS`, 1 s) whether anyone may claim it or not, so a pause does not tell who could; the engine's
-  `view` with `"hold": true` stops at the discard for everyone meanwhile (docs/gui-engine.md). A bot's own turn takes
-  `BOT_TURN_MS` (0.9 s, as practice's computer players).
+- **The pace is practice's** (`protocol/.../Pace.kt`, from the screens' `timing.json` at the normal pace): a bot's
+  turn takes `bot_turn` from when its turn came (after its own chow or pung `bot_after_call`), its discard sent as
+  long before the turn's end as the screens fly it to the river; a bot's call on a tile comes `bot_claim` after the
+  tile landed, a tile no bot calls goes on at once; a call's moment, a declaration's (天聽, 地聽, 報聽) and the
+  deal's are let finish first. A screen at a slower pace shows what the room sent once its own moments are over (it
+  keeps what comes in a queue). A person decides in the same time on a claim as on their own turn; when it runs out,
+  the bot decides for them.
+- **The pace tells nothing** at a table of two or more people: after every discard (and added kong) the room waits
+  the same claim window (`claim_window`, 1 s, overlapping the next bot's turn) whether anyone may claim it or not, so
+  a pause does not tell who could; the engine's `view` with `"hold": true` stops at the discard for everyone meanwhile
+  (docs/gui-engine.md). A person who takes longer to decide holds the table, as at a real one (「有沒有人要吃碰」).
+  At a table of one person there is nobody to tell, and no window.
 - **Running out of time**, or leaving, gives the room's bot's decision (the same bot as the empty seats'). A
   disconnected player is waited for 30 s on each decision, then the bot decides at once; the seat can be taken back
   with its token (only its SHA-256 is kept, compared in constant time). A resume elsewhere closes the old connection.
@@ -107,14 +115,17 @@ curl -s http://127.0.0.1:8091/health   # ok
 `server/`, `web/` and the app's strings and times):
 
 - `--target runtime`: the battle server (a jlinked JRE, the server and the `mahjong` binary, which runs its unit tests
-  in the build), as user 10001, on port 8080. No network: its bots play tile efficiency.
+  in the build), as user 10001, on port 8080, with ONNX Runtime 1.20.1 (Microsoft's release for Linux x64, pinned by
+  SHA-256) and the network (`BOT_MODEL`): its bots play the network's policy (`net`; `greedy`, tile efficiency, is
+  there too). At start the server has the engine play one decision with the network; if it cannot, the rooms offer
+  `greedy` alone, and a table asking for `net` gets `greedy`.
 - `--target site`: Caddy with the web page: the engine built as WebAssembly with emsdk, linked with ONNX Runtime for
   WebAssembly (Thirteen's release asset `ort-wasm-1.31.1.tar.gz`, pinned by SHA-256), the network beside it, then
   `npm run build`. Two Caddyfiles: `/etc/caddy/Caddyfile` (compose's: TLS for `DOMAIN`, `/ws` and `/health` to the
   server) and `/etc/caddy/Caddyfile.static` (`:8080`, the page only, for running behind an ingress that routes `/ws`
   and `/health` itself: `caddy run --config /etc/caddy/Caddyfile.static --adapter caddyfile`).
 
-The network: `server/model/actor.onnx` when the context has it (put there by hand; git ignores it), else the build
+The network (both images): `server/model/actor.onnx` when the context has it (put there by hand; git ignores it), else the build
 argument `MODEL_URL` (this repository's release asset); either way it must match `MODEL_SHA256` (network 221 of `s3`,
 float16). A new network changes both arguments' defaults and the release.
 
@@ -177,7 +188,8 @@ DOMAIN=mahjong.1li.tw docker compose -f server/compose.yml up -d --build
 | `MAX_ROOMS` | 200 | Rooms open at once. |
 | `MAX_CONNECTIONS`, `CONNECTIONS_PER_ADDRESS` | 2000, 16 | WebSocket connections. |
 | `TRUST_PROXY` | 0 | Proxies that append to X-Forwarded-For in front (1 behind Caddy, as in compose.yml). |
-| `CLAIM_WINDOW_MS`, `BOT_TURN_MS` | 1000, 900 | The pace (see above); shorter only to test. |
+| `BOT_MODEL` | /opt/mahjong/actor.onnx | The network the bots play (`net`); empty: `greedy` alone. |
+| `CLAIM_WINDOW_MS`, `BOT_TURN_MS` | timing.json's | The pace (see above); shorter only to test. |
 
 ## Hosting: mahjong.1li.tw
 

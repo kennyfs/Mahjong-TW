@@ -24,13 +24,6 @@ interface Peer {
   val local: Boolean get() = false
 }
 
-/** How a room paces its tables (docs/battle.md); a test plays without waiting. */
-data class Pace(val claimWindowMs: Long = Limits.CLAIM_WINDOW_MS, val botTurnMs: Long = Limits.BOT_TURN_MS) {
-  companion object {
-    val NONE = Pace(0, 0)
-  }
-}
-
 /**
  * One room: its players, its tables and their results. Every change runs on one coroutine, in the order the events
  * arrive (an actor), so the state needs no locks. What keeps the game fair:
@@ -39,8 +32,9 @@ data class Pace(val claimWindowMs: Long = Limits.CLAIM_WINDOW_MS, val botTurnMs:
  *   ever sent the engine's view of their own seat (their tiles, what everyone may see, their legal actions).
  * - A decision is accepted only from the seat that must decide now, at the decision point it was shown (`step`),
  *   with a checked action the engine finds legal. Points are the engine's, never a client's.
- * - A player who runs out of time, or left, gets the room's bot's decision. After every discard the room waits the
- *   same time (Pace.claimWindowMs) whether anyone may claim it or not, so the pause tells nobody who could.
+ * - A player who runs out of time, or left, gets the room's bot's decision. At a table of two or more people, after
+ *   every discard the room waits the same time (Pace.claimWindowMs) whether anyone may claim it or not, so the pause
+ *   tells nobody who could. Bots play at the pace the screens show practice at (Pace).
  * - The engine is only asked what the room needs, within a budget per hand.
  */
 class Room(
@@ -54,7 +48,9 @@ class Room(
   private val now: () -> Long,
   private val maxPlayers: Int,
   private val onClosed: (Room) -> Unit,
-  private val pace: Pace = Pace(),
+  private val pace: Pace,
+  /** The bots this room can play (RoomSettings.bot to the engine's spec; HubLimits.bots). */
+  private val bots: Map<String, String>,
 ) {
   var settings = settings; private set
   var rules = rules; private set
@@ -80,13 +76,25 @@ class Room(
   private inner class Table(val key: Int, var game: JsonObject, val seats: List<Player?>, val owner: Player?) {
     /** The current decision point (a TableView's and an Act's `step`). */
     var point = 0
-    /** Seats of people who must decide at this point. */
+    /** Seats of people who must decide at this point, and whether on another's tile (a claim) or on their own turn. */
     var waiting = setOf<Int>()
+    var claiming = false
     var deadline: Long? = null
-    /** The claim window of the last discard (or added kong): nothing after it is shown before this time. */
+    /** The claim window of the last discard (or added kong), at a table of two or more people: nothing after it is
+     *  shown before this time. */
     var windowUntil = 0L
     /** The last discard has been shown (held views, before what follows it). */
     var shownDiscard = true
+    /** The pace (Pace): when the last discard (or added kong) came and when it lands in its river on the screens;
+     *  when a bot's own turn counts from; nobody decides before the deal is over on the screens. */
+    var shownAt = 0L
+    var landAt = 0L
+    var turnFrom = 0L
+    var notBefore = 0L
+    /** The record's actions the pace has gone through (changed). */
+    var paced = game.actions().size
+    /** The bots' next step, decided at once and shown when it is due (step). */
+    var ahead: JsonObject? = null
     /** Each seat's person: the engine's event count they were sent up to. */
     val sent = IntArray(4)
     val timeouts = IntArray(4)
@@ -198,7 +206,7 @@ class Room(
         if (t.drivePending && t.driveSeq == e.seq) {
           t.drivePending = false
           t.drive = null
-          botsStep(t)
+          step(t)
         }
       }
       is DecisionTimeout -> if (e.hand == hand && phase == Phase.PLAYING) tables.getOrNull(e.table)?.let { t ->
@@ -258,7 +266,8 @@ class Room(
     when (msg) {
       is ChangeSettings -> {
         if (p.id != host || phase != Phase.LOBBY) return peer.send(Error(ErrorCode.NOT_ALLOWED))
-        val s = Validation.settings(msg.settings.copy(mode = settings.mode)) ?: return peer.send(Error(ErrorCode.BAD_SETTINGS))
+        val s = Validation.settings(msg.settings.copy(mode = settings.mode))?.let { if (it.bot in bots) it else it.copy(bot = "greedy") }
+          ?: return peer.send(Error(ErrorCode.BAD_SETTINGS))
         rules = try {
           useEngine { engine.rules(Validation.ruleSpec(s.rules)!!) }
         } catch (ex: EngineError) {
@@ -347,35 +356,49 @@ class Room(
       }
     }
     broadcastState()
-    for (t in tables) drive(t)
+    for (t in tables) {
+      t.notBefore = now() + pace.dealMs
+      t.turnFrom = t.notBefore
+      drive(t)
+    }
   }
 
   /** The table a player plays at now. */
   private fun tableOf(p: Player): Table? = tables.firstOrNull { p in it.seats }
 
+  /** The engine's spec of the room's bot (its settings name one of `bots`). */
+  private fun botSpec(): String = bots[settings.bot] ?: "greedy"
+
   /** The bot's spec for a seat: a bot's, one who left or is away past the grace, or every seat of an auto table. */
   private fun specOf(t: Table, seat: Int): String? {
-    val p = t.seats[seat] ?: return settings.bot
-    if (p.bot || p.left || t.auto) return settings.bot
+    val p = t.seats[seat] ?: return botSpec()
+    if (p.bot || p.left || t.auto) return botSpec()
     val away = p.awaySince
-    if (p.peer == null && away != null && now() - away >= Limits.AWAY_GRACE_MS) return settings.bot
+    if (p.peer == null && away != null && now() - away >= Limits.AWAY_GRACE_MS) return botSpec()
     return null
   }
 
   /** Whether someone connected watches the table (else its bots play without pausing). */
   private fun watched(t: Table) = !t.auto && t.seats.any { it != null && !it.bot && !it.left && it.peer != null }
 
+  /** Two or more people play at the table: a pause after a discard could tell one of them that another may claim it. */
+  private fun crowded(t: Table) = t.seats.count { it != null && !it.bot && !it.left } >= 2
+
   private fun seed(t: Table) = "$seedBase/$hand/${t.game.actions().size}"
 
   /**
-   * The table goes on: who must decide now? People are shown it and given the time limit; bots decide at a pace
-   * people can follow. A discard is shown at once, and what follows it (the next draw, a claim) only when its claim
-   * window is over, whoever could claim it: the people who may claim decide meanwhile, on views held at the discard.
+   * The table goes on: who must decide now? People are shown it and given the time limit; bots decide at once, and
+   * what they did is shown when the pace says (Pace, `due`). A discard is shown at once; at a table of two or more
+   * people what follows it (the next draw, a claim) only when its claim window is over, whoever could claim it: the
+   * people who may claim decide meanwhile, on views held at the discard.
    */
   private suspend fun drive(t: Table) {
-    if (t.over || phase != Phase.PLAYING) return
+    if (t.over || phase != Phase.PLAYING || t.ahead != null) return
+    // A discard (or an added kong) is shown as soon as it is made.
+    pace(t, lastTile(t))
     val p = useEngine { engine.pending(t.game) }
-    val inWindow = watched(t) && now() < t.windowUntil
+    val watched = watched(t)
+    val inWindow = watched && now() < t.windowUntil
     if (p.phase == "over") {
       if (!inWindow) return finishTable(t)
       showDiscard(t)
@@ -386,35 +409,126 @@ class Room(
     val claim = p.phase == "react" || p.phase == "rob_kong"
     if (people.isNotEmpty() && claim) {
       // A claim on the discard: bots deciding on it decide now (the engine keeps it from the others until all
-      // have), the people are asked.
+      // have, and so does the pace), the people are asked.
       if (p.seats.size > people.size) t.game = useEngine { engine.advance(t.game, specs, seed(t), steps = 1) }
-      ask(t, people)
+      ask(t, people, claim = true)
       t.shownDiscard = true
       return sendViews(t, hold = inWindow)
     }
     if (inWindow) {
       // What follows the discard waits for the window's end; the discard itself is shown now.
       showDiscard(t)
-      return schedule(t, t.windowUntil + if (people.isEmpty() && p.phase == "self") pace.botTurnMs else 0L)
+      return schedule(t, t.windowUntil)
     }
+    // What happened is shown now.
+    pace(t, t.game.actions().size)
     if (people.isNotEmpty()) {
-      ask(t, people)
+      ask(t, people, claim = false, from = if (watched) t.notBefore else 0L)
       return sendViews(t)
     }
     sendViews(t)
-    schedule(t, if (!watched(t)) now() else now() + if (p.phase == "self") pace.botTurnMs else 0L)
+    // Only bots decide: at once, shown when due. Unwatched: to the end, or until a person must decide.
+    val before = t.game.actions().size
+    val next = useEngine { engine.advance(t.game, specs, seed(t), steps = if (watched) 1 else null) }
+    t.ahead = next
+    schedule(t, if (watched) due(t, p, next, before) else now())
   }
 
-  /** The people at `seats` must decide now, within the time limit. */
-  private fun ask(t: Table, seats: List<Int>) {
+  /** When the bots' step `next` (from `before` actions; `p`: who decided) is shown (Pace). */
+  private fun due(t: Table, p: Pending, next: JsonObject, before: Int): Long {
+    val acts = next.actions()
+    val at = if (p.phase == "react" || p.phase == "rob_kong") {
+      // A call after the tile's stay; none at once, so that no pause tells anyone that a bot could have called.
+      if ((before until acts.size).all { acts[it].jsonArray[1].jsonPrimitive.content == "pass" }) now()
+      else maxOf(t.shownAt + pace.botClaimMs, t.landAt)
+    } else {
+      // An own turn: its discard flies in the last of it, after the tile before it has landed.
+      val fly = if (next.lastActionType() == "discard") pace.discardMs else 0L
+      val turn = if (justCalled(t.game, p.current)) pace.botAfterCallMs else pace.botTurnMs
+      maxOf(t.turnFrom + turn - fly, t.landAt)
+    }
+    return maxOf(at, t.notBefore)
+  }
+
+  /** The actions to the last discard or added kong (how many). */
+  private fun lastTile(t: Table): Int {
+    val acts = t.game.actions()
+    for (k in acts.indices.reversed()) {
+      val type = acts[k].jsonArray[1].jsonPrimitive.content
+      if (type == "discard" || type == "kakan") return k + 1
+    }
+    return 0
+  }
+
+  /** Whether `seat`, to play now, came to it by a chow or a pung (since the last discard): its pace is bot_after_call. */
+  private fun justCalled(game: JsonObject, seat: Int): Boolean {
+    val acts = game.actions()
+    for (k in acts.indices.reversed()) {
+      val a = acts[k].jsonArray
+      val type = a[1].jsonPrimitive.content
+      if (type == "discard" || type == "kakan") return false
+      if ((type == "chi" || type == "pon") && a[0].jsonPrimitive.int == seat) return true
+    }
+    return false
+  }
+
+  /**
+   * The pace of the actions shown now (to `upTo`): a discard comes and flies to its river (a bot's turn is over when it
+   * lands, a person's when they made it), and opens the claim window at a table of two or more people; an added kong
+   * comes too; a call's or a declaration's moment is let finish before its bot goes on.
+   */
+  private fun pace(t: Table, upTo: Int) {
+    val acts = t.game.actions()
+    val end = minOf(upTo, acts.size)
+    val n = now()
+    for (k in t.paced until end) {
+      val a = acts[k].jsonArray
+      val seat = a[0].jsonPrimitive.int
+      when (a[1].jsonPrimitive.content) {
+        "discard" -> {
+          t.shownAt = n
+          t.landAt = n + pace.discardMs
+          t.turnFrom = if (t.seats[seat]?.bot == false) n else t.landAt
+          tileCame(t, n)
+        }
+        "kakan" -> {
+          t.shownAt = n
+          t.landAt = n
+          t.turnFrom = n + pace.callMs
+          tileCame(t, n)
+        }
+        "chi", "pon", "kan", "ankan" -> t.turnFrom = n + pace.callMs
+        "declare" -> t.turnFrom = n + pace.declareMs
+      }
+    }
+    if (end > t.paced) t.paced = end
+  }
+
+  /** A tile the others may claim came: at a table of two or more people, its claim window. */
+  private fun tileCame(t: Table, n: Long) {
+    if (crowded(t)) t.windowUntil = n + pace.claimWindowMs
+    t.shownDiscard = false
+  }
+
+  /** A person decided on another's tile (or the bot for them) at `n`: past the claim window, a bot's turn after it
+   *  counts from then. Within the window nothing changes, so that nothing shows who decided. */
+  private fun decidedOnTile(t: Table, n: Long) {
+    if (n >= t.windowUntil) t.turnFrom = maxOf(t.turnFrom, n)
+  }
+
+  /** The people at `seats` must decide now (on another's tile: `claim`), within the time limit (counted from `from`
+   *  when it is later: the deal's end). */
+  private fun ask(t: Table, seats: List<Int>, claim: Boolean, from: Long = 0L) {
     t.point++
     t.waiting = seats.toSet()
+    t.claiming = claim
     val limit = settings.timeLimit * 1000L
-    t.deadline = now() + limit
+    val wait = maxOf(0L, from - now()) + limit
+    t.deadline = now() + wait
     t.timer?.cancel()
     val (h, key, point) = Triple(hand, t.key, t.point)
     t.timer = scope.launch {
-      delay(limit)
+      delay(wait)
       events.send(DecisionTimeout(h, key, point))
     }
   }
@@ -426,7 +540,7 @@ class Room(
     sendViews(t, hold = true)
   }
 
-  /** The drive again at `at` (bots to decide, or the claim window to pass). */
+  /** The table goes on at `at` (the bots' step shown, or the claim window over). */
   private fun schedule(t: Table, at: Long) {
     t.drive?.cancel()
     t.driveSeq++
@@ -444,38 +558,34 @@ class Room(
     }
   }
 
-  /** Every bot that must decide now decides (one decision point), then the table goes on. */
-  private suspend fun botsStep(t: Table) {
+  /** The bots' step decided before is shown now (or, without one, the table goes on). */
+  private suspend fun step(t: Table) {
     if (t.over) return
-    if (watched(t) && now() < t.windowUntil) return drive(t)
-    val p = useEngine { engine.pending(t.game) }
-    if (p.phase == "over") return finishTable(t)
-    val specs = (0 until Limits.TABLE).map { specOf(t, it) }
-    if (p.seats.any { specs[it] == null }) return drive(t)
+    val next = t.ahead ?: return drive(t)
+    t.ahead = null
     val before = t.game.actions().size
-    // Unwatched: to the end, or until a person must decide; else one decision point.
-    t.game = useEngine { engine.advance(t.game, specs, seed(t), steps = if (watched(t)) 1 else null) }
-    for (a in t.game.actions().drop(before)) {
+    t.game = next
+    for (a in next.actions().drop(before)) {
       val seat = a.jsonArray[0].jsonPrimitive.int
       val person = t.seats[seat]
       if (person != null && !person.bot) t.timeouts[seat]++
     }
-    changed(t)
     drive(t)
   }
 
   /** The bot decides for these people (they ran out of time, or left). */
   private suspend fun decideFor(t: Table, seats: Set<Int>) {
-    val specs = (0 until Limits.TABLE).map { if (it in seats) settings.bot else specOf(t, it) }
+    val specs = (0 until Limits.TABLE).map { if (it in seats) botSpec() else specOf(t, it) }
+    val claim = t.claiming
     t.game = useEngine { engine.advance(t.game, specs, seed(t), steps = 1) }
     for (s in seats) t.timeouts[s]++
     t.waiting = t.waiting - seats
+    if (claim) decidedOnTile(t, now())
     if (t.waiting.isEmpty()) {
       t.timer?.cancel()
       t.deadline = null
-    }
-    changed(t)
-    if (t.waiting.isEmpty()) drive(t) else sendViews(t, hold = now() < t.windowUntil)
+      drive(t)
+    } else sendViews(t, hold = now() < t.windowUntil)
   }
 
   private suspend fun act(p: Player, msg: Act) {
@@ -485,28 +595,20 @@ class Room(
     if (t == null || phase != Phase.PLAYING || msg.hand != hand || msg.step != t.point || seat !in t.waiting)
       return peer.send(Error(ErrorCode.NOT_ALLOWED))
     val action = Validation.action(msg.action) ?: return peer.send(Error(ErrorCode.BAD_ACTION))
+    val claim = t.claiming
     t.game = try {
       useEngine { engine.act(t.game, seat, action) }
     } catch (ex: EngineError) {
       return peer.send(Error(ErrorCode.BAD_ACTION, ex.message ?: ""))
     }
     t.waiting = t.waiting - seat
+    if (claim) decidedOnTile(t, now())
     if (t.waiting.isEmpty()) {
       t.timer?.cancel()
       t.deadline = null
-    }
-    changed(t)
+      drive(t)
     // Others still deciding on the same discard: the player sees their decision taken (nothing has followed yet).
-    if (t.waiting.isEmpty()) drive(t) else sendView(t, seat, hold = now() < t.windowUntil)
-  }
-
-  /** The record changed: a discard (or an added kong) opens its claim window. The views follow from drive(). */
-  private fun changed(t: Table) {
-    val last = t.game.lastActionType()
-    if (last == "discard" || last == "kakan") {
-      t.windowUntil = now() + pace.claimWindowMs
-      t.shownDiscard = false
-    }
+    } else sendView(t, seat, hold = now() < t.windowUntil)
   }
 
   private suspend fun sendViews(t: Table, hold: Boolean = false) {

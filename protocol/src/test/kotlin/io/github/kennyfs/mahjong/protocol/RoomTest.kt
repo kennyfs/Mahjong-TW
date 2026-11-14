@@ -70,6 +70,8 @@ class RoomTest {
     var lastState: RoomView? = null
     var lastView: TableView? = null
     var views = 0
+    /** When each table view came (ms), and its new events. */
+    val timeline = mutableListOf<Pair<Long, List<JsonObject>>>()
 
     suspend fun send(msg: ClientMsg) = hub.receive(conn, BattleJson.encodeToString(ClientMsg.serializer(), msg))
 
@@ -77,7 +79,11 @@ class RoomTest {
       when (m) {
         is Joined -> { you = m.you; token = m.token; room = m.room }
         is State -> lastState = m.room
-        is TableView -> { lastView = m; views++ }
+        is TableView -> {
+          lastView = m
+          views++
+          timeline += System.currentTimeMillis() to (m.view["events"]?.jsonArray?.map { it.jsonObject } ?: emptyList())
+        }
         is HandResult -> results += m.outcome
         else -> {}
       }
@@ -172,6 +178,68 @@ class RoomTest {
   }
 
   private fun CoroutineScope.launchPlay(c: Client) = launch { c.play(1) }
+
+  /** Each event a client was shown: when, its seat and type. */
+  private data class Shown(val at: Long, val seat: Int, val type: String)
+
+  private fun Client.shown() = timeline.flatMap { (at, evs) -> evs.map { Shown(at, it["seat"]!!.jsonPrimitive.content.toInt(), it["type"]!!.jsonPrimitive.content) } }
+
+  /** One hand at a table of `people` (each deciding at once) on `pace`: when it started, what the first one was shown,
+   *  and their seat. */
+  private suspend fun pacedHand(pace: Pace, people: Int): Triple<Long, List<Shown>, Int> {
+    hub = Hub(engine, scope, HubLimits(pace = pace, messagesPerSecond = 1e6, messageBurst = 1_000_000))
+    val clients = (0 until people).map { Client("P$it") }
+    for (c in clients) c.hello()
+    clients[0].send(Create(oneHand))
+    clients[0].expect<Joined>()
+    val pin = clients[0].expect<State>().room.pin
+    for (c in clients.drop(1)) {
+      c.send(Join(pin))
+      c.expect<Joined>()
+    }
+    val start = System.currentTimeMillis()
+    clients[0].send(Start)
+    clients.map { c -> scope.launch { c.play(1) } }.forEach { it.join() }
+    return Triple(start, clients[0].shown(), clients[0].lastView!!.seat)
+  }
+
+  @Test
+  fun aTableOfOnePersonHasNoClaimWindowAndLetsMomentsFinish(): Unit = runBlocking {
+    // A claim window far longer than a hand takes without it; the bots quick, a call's moment and the deal longer.
+    val pace = Pace(claimWindowMs = 10_000, botTurnMs = 60, botClaimMs = 60, botAfterCallMs = 80, discardMs = 30, callMs = 400,
+      declareMs = 400, dealMs = 300)
+    var calls = 0
+    for (round in 0 until 6) {
+      val (start, shown, me) = pacedHand(pace, 1)
+      val discards = shown.filter { it.type == "discard" }
+      // No bot decides before the deal is over (a person may: their screen lets them once it is); no discard waits for
+      // a claim window.
+      assertTrue(discards.first { it.seat != me }.at - start >= pace.dealMs - 20)
+      for ((a, b) in discards.zipWithNext()) assertTrue("${b.at - a.at} ms between discards", b.at - a.at < 5_000)
+      // A call's moment is over before its maker discards: its pace after it, less the discard's flight.
+      for ((i, e) in shown.withIndex()) {
+        if (e.type !in setOf("chi", "pon", "kan") || e.seat == me) continue
+        val next = shown.drop(i + 1).firstOrNull { it.type == "discard" } ?: continue
+        if (next.seat != e.seat) continue
+        val turn = if (e.type == "kan") pace.botTurnMs else pace.botAfterCallMs
+        assertTrue("${next.at - e.at} ms after ${e.type}", next.at - e.at >= pace.callMs + turn - pace.discardMs - 20)
+        calls++
+      }
+      if (calls >= 2) break
+    }
+    assertTrue("no bot's call in six hands", calls > 0)
+  }
+
+  @Test
+  fun aTableOfTwoPeopleWaitsTheClaimWindowAfterEveryDiscard(): Unit = runBlocking {
+    val pace = Pace(claimWindowMs = 150, botTurnMs = 20, botClaimMs = 20, botAfterCallMs = 20, discardMs = 10, callMs = 30,
+      declareMs = 30, dealMs = 0)
+    val (_, shown, _) = pacedHand(pace, 2)
+    val discards = shown.filter { it.type == "discard" || it.type == "kakan" }
+    assertTrue(discards.size > 4)
+    // What follows a discard comes after its window, whoever could claim it (people decide at once here).
+    for ((a, b) in discards.zipWithNext()) assertTrue("${b.at - a.at} ms between discards", b.at - a.at >= pace.claimWindowMs - 20)
+  }
 
   @Test
   fun aDecisionOutOfTurnOrNotLegalIsRefused(): Unit = runBlocking {

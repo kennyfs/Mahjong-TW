@@ -4,7 +4,6 @@ import io.github.kennyfs.mahjong.protocol.BattleJson
 import io.github.kennyfs.mahjong.protocol.EngineClient
 import io.github.kennyfs.mahjong.protocol.Hub
 import io.github.kennyfs.mahjong.protocol.HubLimits
-import io.github.kennyfs.mahjong.protocol.Limits
 import io.github.kennyfs.mahjong.protocol.Pace
 import io.github.kennyfs.mahjong.protocol.ServerMsg
 import io.ktor.server.application.Application
@@ -30,6 +29,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import org.slf4j.LoggerFactory
 import java.net.InetAddress
 import java.util.concurrent.ConcurrentHashMap
@@ -55,11 +58,15 @@ data class Config(
    */
   val proxies: Int = env("TRUST_PROXY", "0").toInt(),
   /**
-   * How long every discard stays alone on the table (whoever could claim it), and a bot's own turn: the protocol's
-   * defaults (Limits); shorter ones only to test.
+   * The pace (Pace): the screens' timing.json, built in. CLAIM_WINDOW_MS (how long a discard stays alone at a table of
+   * two or more people) and BOT_TURN_MS (a bot's own turn) shorter only to test.
    */
-  val claimWindowMs: Long = env("CLAIM_WINDOW_MS", Limits.CLAIM_WINDOW_MS.toString()).toLong(),
-  val botTurnMs: Long = env("BOT_TURN_MS", Limits.BOT_TURN_MS.toString()).toLong(),
+  val pace: Pace = Pace.standard().let { p ->
+    p.copy(claimWindowMs = env("CLAIM_WINDOW_MS", p.claimWindowMs.toString()).toLong(), botTurnMs = env("BOT_TURN_MS", p.botTurnMs.toString()).toLong())
+  },
+  /** The network the rooms' bots may play (an .onnx file; the engine must be built with ONNX Runtime): none, tile
+   *  efficiency only. */
+  val botModel: String = env("BOT_MODEL", ""),
 )
 
 private fun env(name: String, default: String) = System.getenv(name)?.takeIf { it.isNotBlank() } ?: default
@@ -74,9 +81,20 @@ fun main() {
   val pool = EnginePool(config.binary, config.workers, config.queue, config.timeoutMs)
   // Asks the engine once, so a missing or broken binary stops the server here rather than in a room.
   runBlocking { pool.call("{\"cmd\":\"rules\",\"rules\":\"simple1,none\"}") }.let { require("\"spec\"" in it) { "The engine does not answer: $it" } }
+  val bots = mutableMapOf("greedy" to "greedy")
+  if (config.botModel.isNotEmpty()) {
+    // The network's bot, if the engine plays it: a game's first decision asked of it.
+    val spec = "net:model=${config.botModel},mode=policy"
+    val probe = runBlocking {
+      val game = pool.call("{\"cmd\":\"new\",\"rules\":\"simple1,none\",\"setup\":{\"dealer\":0},\"seed\":\"probe\"}")
+      val g = BattleJson.parseToJsonElement(game).jsonObject["game"]
+      pool.call(buildJsonObject { put("cmd", "bot"); put("game", g ?: JsonNull); put("seat", 0); put("player", spec) }.toString())
+    }
+    if ("\"action\"" in probe) bots["net"] = spec else log.warn("The network's bot does not play ($probe): tile efficiency only")
+  }
   val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-  val hub = Hub(EngineClient(pool::call), scope, HubLimits(maxRooms = config.maxRooms, pace = Pace(config.claimWindowMs, config.botTurnMs)))
-  log.info("Mahjong battle server on ${config.host}:${config.port}, ${config.workers} engine workers, claim window ${config.claimWindowMs} ms")
+  val hub = Hub(EngineClient(pool::call), scope, HubLimits(maxRooms = config.maxRooms, pace = config.pace, bots = bots))
+  log.info("Mahjong battle server on ${config.host}:${config.port}, ${config.workers} engine workers, bots ${bots.keys}, ${config.pace}")
   embeddedServer(CIO, host = config.host, port = config.port) { battle(hub, config) }.start(wait = true)
 }
 

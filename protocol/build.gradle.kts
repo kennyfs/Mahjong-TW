@@ -27,3 +27,9 @@ tasks.test {
   // The room tests play with the real engine (cpp/build/mahjong); they are skipped without it.
   environment("MAHJONG_BINARY", rootDir.resolve("../cpp/build/mahjong").path)
 }
+
+// The screens' times (android/app/src/main/res/raw/timing.json), which the rooms pace their tables by (Pace.standard):
+// among the protocol's resources, next to its classes.
+tasks.processResources {
+  from(projectDir.resolve("../android/app/src/main/res/raw/timing.json")) { into("io/github/kennyfs/mahjong/protocol") }
+}
