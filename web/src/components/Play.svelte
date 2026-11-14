@@ -1,24 +1,33 @@
 <!--
   Practice: the table against three bots; a bar over it with the hand, the rules and the totals; the hand's result over
   the table when it ends, and the game's totals when the game does. At the manual pace (the settings) the computer
-  players' steps wait for the player's button (lib/practice.svelte.ts), and so does the table at a hand's end. No hint or analysis while the hand is in play: the
+  players' steps wait for the player's button (lib/practice.svelte.ts), and so does the table at a hand's end. The
   review (and each decision's analysis) is a button on the result.
+
+  打牌時顯示分析 (the settings', as 聽牌提示: the bar over a phone's table has no room left): the player's decisions with the analysis shown as a branch
+  shows it (Branch.svelte): what each discard costs and its danger on the hand's tiles, what each choice costs on its
+  button, how likely each opponent is ready on the name plates, a tile's figures over the hand when it is chosen (or
+  under a computer's mouse). A hand that had it on at any point counts for nothing: not in the game's totals, nor in
+  the records' statistics (its record is marked).
 -->
 <script lang="ts">
   import { fxDone, fxOn, resultTap } from '../lib/fx.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
+  import * as engine from '../lib/engine';
   import { t } from '../lib/i18n.svelte';
   import { nav } from '../lib/nav.svelte';
   import { ME, practice } from '../lib/practice.svelte';
   import { records } from '../lib/records.svelte';
+  import { choiceMarks, pct, readyLevel, tileMarks, type TileMark } from '../lib/review';
   import { flowerLabel, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
-  import { windName } from '../lib/tiles';
-  import type { Action } from '../lib/types';
+  import { windName, type Tile as T } from '../lib/tiles';
+  import type { Action, Analysis, GameRecord } from '../lib/types';
   import { signed, ui } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
+  import PickedFigures from './PickedFigures.svelte';
   import Table from './Table.svelte';
   import TapOn from './TapOn.svelte';
 
@@ -64,7 +73,38 @@
     : null);
   const totals = $derived(meta?.totals ?? [0, 0, 0, 0]);
   const shown = $derived(stage !== 'playing' && final ? final : view);
+
+  // 打牌時顯示分析: the player's decision analyzed when it comes (a few milliseconds of the engine's), shown once there.
+  const hintsOn = $derived(settings.practiceHints);
+  $effect(() => {
+    if (hintsOn && stage === 'playing' && view) untrack(() => practice.markHinted());
+  });
+  let hint = $state.raw<{ game: GameRecord; analysis: Analysis } | null>(null);
+  $effect(() => {
+    const v = view, g = practice.game;
+    if (!hintsOn || !v || !g || stage !== 'playing' || !v.my_turn || v.phase === 'over') return;
+    if (untrack(() => hint)?.game === g) return;
+    void engine.analyzeGame(g, ME).then((a) => { if (practice.game === g) hint = { game: g, analysis: a }; }, () => {});
+  });
+  const mine = $derived(hintsOn && stage === 'playing' && view?.my_turn && hint?.game === practice.game && hint.analysis.best !== undefined
+    ? hint.analysis : null);
+  const NO_MARKS = new Map<T, TileMark>();
+  const marks = $derived(hintsOn && stage === 'playing' ? (mine ? tileMarks(mine, -1, undefined) : NO_MARKS) : null);
+  const choices = $derived(mine ? choiceMarks(mine, -1, undefined) : null);
+  const notes = $derived.by(() => {
+    if (!mine?.opponents) return null;
+    const out: ({ text: string; level: number } | null)[] = [null, null, null, null];
+    for (const o of mine.opponents) if (o.ready[0] >= 0.1) out[o.seat] = { text: t('opp_ready', pct(o.ready[0])), level: readyLevel(o.ready[0]) };
+    return out;
+  });
+  let picked = $state<T | null>(null);
+  const lastHinted = $derived(practice.lastRecord ? !!records.get(practice.lastRecord)?.hints : false);
 </script>
+
+<!-- Over the hand: the figures of the tile chosen. -->
+{#snippet strip()}
+  {#if mine && picked}<PickedFigures analysis={mine} seat={ME} {names} tile={picked} />{/if}
+{/snippet}
 
 {#snippet notice()}<span class="notice">{practice.notice}</span>{/snippet}
 <div class="play">
@@ -85,7 +125,8 @@
       <Table view={shown} me={ME} {names} scores={totals} revealed={stage !== 'playing' ? final?.hands ?? null : null}
         interactive={stage === 'playing' && !practice.busy} onact={act} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64}
         keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined} robbed={practice.robbed}
-        deal={stage === 'playing' ? practice.deal : null}>
+        deal={stage === 'playing' ? practice.deal : null} {marks} {notes} {strip} onpick={(x) => (picked = x)} choiceMarks={choices}
+        tagRoom={hintsOn && stage === 'playing'}>
         {#snippet corner()}
           {#if ui.wide}
             <span class="corner-buttons" data-tour="top">
@@ -131,6 +172,7 @@
             <div class="sheet">
               <HandResult {final} {names} me={ME} rev={practice.lastRecord ? records.get(practice.lastRecord)?.rev ?? null : null} w={ui.wide ? Math.min(40, Math.max(26, ui.w / 27)) : Math.min(36, Math.max(26, ui.w / 13))}>
                 {#snippet actions()}
+                  {#if lastHinted}<span class="body-small hint-note">{t('result_hints_note')}</span>{/if}
                   <button class="btn icon" aria-label={t('favorite')} onclick={() => practice.lastRecord && records.setFav(practice.lastRecord, !lastFav)}>
                     <Icon name={lastFav ? 'star' : 'starBorder'} />
                   </button>
@@ -183,10 +225,12 @@
 <style>
   .play { height: 100%; display: flex; flex-direction: column; }
   .bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 4px 8px; min-height: 48px; }
-  .where { min-width: 0; }
+  .where { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .bar .chip { flex: none; white-space: nowrap; }
   .mini { border: 1px solid var(--on-felt-dim); background: transparent; color: var(--on-felt); border-radius: 12px; padding: 1px 8px;
     font-size: 0.75rem; cursor: pointer; }
   .spacer { flex: 1; }
+  .hint-note { color: var(--on-surface-variant); margin-right: auto; }
   /* The corner's buttons together (the tour lights them as one), one over the other in the table's top-right corner. */
   .corner-buttons { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
   .notice { display: inline-block; padding: 4px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.72); color: #fff; font-weight: 500;

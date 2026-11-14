@@ -87,7 +87,8 @@ chows; an opponent's next discard and the hand's remaining length are close to u
 
 1. **Judge by what the seat could see, then show what was hidden.** A decision is graded by the actor's Q; the
    opponents' true hands and waits (exact, from the engine) are shown beside the estimates on request. No hints
-   during play, as now.
+   during play unless asked for (2026-11-14: 打牌時顯示分析, a hand then counting for nothing); a review's branch and
+   the analysis' 從這裡打 show the analysis at every decision before it is made.
 2. **A hand's summary** on the result sheet and at the top of the review: the expected result at the first
    decision, the points lost by decisions (the sum of the losses), and the rest as luck (result − first value +
    losses), with the number of mistakes. A graph of max Q over the player's decisions, to jump from.

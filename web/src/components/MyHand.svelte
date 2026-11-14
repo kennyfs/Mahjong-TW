@@ -5,13 +5,16 @@
 
   `perRow`: tiles a row (an upright phone, so that they stay large enough to tap); the rows start at the same left
   edge, the drawn tile after the last one. 0: one row.
-  `oneClick` (a computer's mouse): a tile rises under the pointer and one click discards it.
+  `oneClick` (a computer's mouse): a tile rises under the pointer and one click discards it; `onhover` says which
+  (to see its figures, with the analysis shown).
   `marks` (a review): by tile, a tag over it (what it costs against the best), whether it was the one played, and its
   danger as a band along its foot; `tagH` px are kept over each row for the tags. A tile chosen there (to see its
   figures) is not lifted: its tag would run into the row above; its face and frame say it is chosen.
   `turn`: the player's turn to discard: a frame of the turn's color pulses around the tiles, and a tile that may not
   be discarded then (after declaring a ready hand: all but those that keep it ready, later all but the one drawn) is
   darker.
+
+  `dropOutside` (a table played at, not a review's): a tap anywhere but on the hand puts a lifted tile down.
 
   A tile's touch target is its own place, whether the tile is lifted or not, and while it is lifted the room over it
   too: the second tap lands where the first did (a thumb at the tile's foot) or on the tile where it now is. (A
@@ -26,7 +29,7 @@
   import type { TileMark } from '../lib/review';
   import type { Tile as T } from '../lib/tiles';
   let { tiles, drawn = null, w, canDiscard = () => false, ondiscard, selected = $bindable(null), perRow = 0, oneClick = false,
-    marks = null, tagH = 0, turn = false, drawWait = 0, pick = true, ready = null }: {
+    marks = null, tagH = 0, turn = false, drawWait = 0, pick = true, ready = null, dropOutside = false, onhover }: {
     tiles: T[]; drawn?: T | null; w: number; canDiscard?: (t: T) => boolean; ondiscard?: (t: T) => void;
     selected?: number | null; perRow?: number; oneClick?: boolean; marks?: Map<T, TileMark> | null; tagH?: number;
     turn?: boolean;
@@ -35,8 +38,11 @@
     /** Whether a tap lifts a tile that may not be discarded (to see it, its figures): not while the player has a call
      *  to decide on (吃, 碰, 胡, 過), no tile of the hand to play. */
     pick?: boolean;
-    /** 聽牌提示 (the settings'): the discards that leave the hand ready, each with its waits; a mark over each. */
+    /** 聽牌提示 (the settings'): the discards that leave the hand ready, each with its waits; a mark over each (not
+     *  over a tile with a tag: the analysis shown says more). */
     ready?: Record<string, string[]> | null;
+    dropOutside?: boolean;
+    onhover?: (i: number | null) => void;
   } = $props();
 
   // The drawn tile last, as its own index.
@@ -58,6 +64,15 @@
   // Wrapped: as wide as a full row and the drawn tile, so the rows keep their place whether a tile was drawn or not.
   const blockW = $derived(perRow > 0 ? (perRow + DRAWN_GAP + 1) * w : 0);
   let drag = $state<{ i: number; y0: number; dy: number; id: number } | null>(null);
+  let handEl = $state<HTMLElement | null>(null);
+  // A tile lifted: a tap elsewhere (the table, a button, the page around it) puts it down. (Before what was tapped
+  // acts: a choice's button still does its own.)
+  $effect(() => {
+    if (!dropOutside || selected === null) return;
+    const away = (e: PointerEvent) => { if (handEl && !handEl.contains(e.target as Node)) selected = null; };
+    document.addEventListener('pointerdown', away, true);
+    return () => document.removeEventListener('pointerdown', away, true);
+  });
 
   function tap(i: number) {
     const t = all[i];
@@ -101,7 +116,7 @@
   }
 </script>
 
-<div class="hand" class:turn style="padding-top: {Math.max(h * LIFT, tagH)}px; row-gap: {Math.max(h * ROW_GAP, tagH)}px; --lift: {lift}px;
+<div class="hand" bind:this={handEl} class:turn style="padding-top: {Math.max(h * LIFT, tagH)}px; row-gap: {Math.max(h * ROW_GAP, tagH)}px; --lift: {lift}px;
   --top: {Math.max(h * LIFT, tagH)}px; {blockW ? `width: ${blockW}px` : ''}">
   {#each rows as row, r (r)}
     <div class="row" style="height: {h}px">
@@ -110,6 +125,8 @@
         <button class="slot" class:up={selected === i} class:hover={oneClick && canDiscard(all[i])} class:held={turn && !canDiscard(all[i])}
           style="margin-left: {isDrawn && row.length > 1 ? w * DRAWN_GAP : 0}px"
           onpointerdown={(e) => down(e, i)} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}
+          onpointerenter={(e) => { if (oneClick && e.pointerType === 'mouse') onhover?.(i); }}
+          onpointerleave={(e) => { if (oneClick && e.pointerType === 'mouse') onhover?.(null); }}
           in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0, delay: isDrawn ? drawWait : 0 }}
           aria-pressed={selected === i} data-tile={all[i]} data-drawn={isDrawn ? '1' : '0'}>
           <span class="lifted" style="transform: translateY({drag?.i === i ? drag.dy : selected === i ? -lift : 0}px)">
@@ -117,7 +134,7 @@
               {@const m = marks.get(all[i])!}
               <span class="tag {m.tone}" class:played={m.played} style="font-size: {Math.min(13, Math.max(10, w * 0.27))}px; height: {tagH - 2}px">{m.tag}</span>
             {/if}
-            {#if ready?.[all[i]]}<span class="ready" style="--d: {Math.max(5, Math.round(w * 0.15))}px" title={t('ready_waits', ready[all[i]].join(' '))}></span>{/if}
+            {#if ready?.[all[i]] && !marks?.get(all[i])?.tag}<span class="ready" style="--d: {Math.max(5, Math.round(w * 0.15))}px" title={t('ready_waits', ready[all[i]].join(' '))}></span>{/if}
             <Tile tile={all[i]} {w} selected={selected === i} glow={!!marks?.get(all[i])?.played} danger={marks?.get(all[i])?.danger ?? 0} />
           </span>
         </button>

@@ -46,6 +46,9 @@ export interface HandRecord {
   index?: number;
   fav?: boolean;
   rev?: ReviewSummary;
+  /** Played with the analysis shown (practice's 打牌時顯示分析): kept to review, out of the statistics and the game's
+   *  totals. */
+  hints?: boolean;
 }
 
 export interface BattleGroup {

@@ -7,9 +7,15 @@
   tap to see what it does), and on request its tables of what the hand would do after each tile it may draw next and
   on each discard of the others (lib/engine.ts whatIfPosition). A step of a review keeps its hand's history while only
   the hand's own tiles are changed (the editor's source), so its figures are the review's.
+
+  從這裡打 plays the position on (Branch.svelte, with the analysis shown at each decision): the player at their seat,
+  the computer players (the settings' bot) at the others, the tiles the player cannot see (the others' concealed
+  tiles, the wall) dealt at random. A step of a review is played on from its hand's position, with its history and
+  the hand as it stands here; a position of its own from itself.
 -->
 <script lang="ts">
   import * as engine from '../lib/engine';
+  import Branch from './Branch.svelte';
   import { t } from '../lib/i18n.svelte';
   import { nav } from '../lib/nav.svelte';
   import { editor, FLOWER_PALETTE, meldOf, PALETTE, sameSection, type Mode, type Section } from '../lib/position-editor.svelte';
@@ -17,7 +23,7 @@
   import { flowerLabel, parseChoice, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import { tileName, windName, type Tile as T } from '../lib/tiles';
-  import type { Analysis, Meld, WhatIf } from '../lib/types';
+  import type { Analysis, GameRecord, Meld, WhatIf } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
   import DecisionPanel from './DecisionPanel.svelte';
   import Icon from './Icon.svelte';
@@ -106,6 +112,19 @@
   });
   const marks = $derived(result ? tileMarks(result, -1, undefined) : null);
 
+  /** 從這裡打: the hand played on from the position, the player at `me` (a review's step: its seat; else 0). (The
+   *  branch gives the base its own seed.) */
+  let playing = $state<{ game: GameRecord; me: number } | null>(null);
+  function playFrom() {
+    const p = ed.position();
+    const src = ed.source;
+    playing = src
+      ? { game: { rules: src.game.rules, setup: src.game.setup, base: { game: src.game, seat: src.seat, seed: '', hand: p.hand, drawn: p.drawn }, actions: [] }, me: src.seat }
+      : { game: { rules: spec, setup: p.setup, base: { position: p, seed: '' }, actions: [] }, me: 0 };
+  }
+  /** The seats' names at the table, from the player's. */
+  const playNames = $derived(playing ? [0, 1, 2, 3].map((s) => seatShort((s - playing!.me + 4) % 4)) : []);
+
   function pick(tile: T) {
     if (ed.section.kind === 'melds') {
       meldTile = tile;
@@ -152,6 +171,9 @@
   </div>
   {#if result}
     <div class="results" class:stale={running}>
+      <div class="play-row">
+        <button class="btn filled" disabled={running} title={t('analysis_play_hint')} onclick={playFrom}>{t('analysis_play_from')}</button>
+      </div>
       <DecisionPanel analysis={result} w={sw} {names} />
       {#if result.source === 'network'}
         <div class="whatif">
@@ -168,6 +190,10 @@
   {/if}
 {/snippet}
 
+{#if playing}
+  <Branch game={playing.game} me={playing.me} names={playNames} onclose={() => (playing = null)} title={t('analysis_play_from')}
+    backLabel={t('analysis_play_back')} />
+{:else}
 <div class="page">
   <TitleBar title={t('analyze_title')}>
     <button class="chip" class:on={!!ed.rules} title={ed.rules ? `${t('analysis_rules_of_hand')}：${t('analysis_rules_reset')}` : t('settings_rules')}
@@ -274,6 +300,7 @@
     <button class="btn text" onclick={() => (meldTile = null)}>{t('cancel')}</button>
   </div>
 {/if}
+{/if}
 
 <style>
   .page { height: 100%; display: flex; flex-direction: column; min-height: 0; }
@@ -314,6 +341,7 @@
   .side-results { padding: 0 12px; }
   .results { display: flex; flex-direction: column; gap: 12px; transition: opacity 0.1s; }
   .results.stale { opacity: 0.7; }
+  .play-row { display: flex; justify-content: flex-end; }
   .whatif { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
   .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 30; }
   .meld-pick { position: fixed; z-index: 31; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 8px;

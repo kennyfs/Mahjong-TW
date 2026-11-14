@@ -24,7 +24,10 @@
   `aside`: a panel at the right (`asideW` px wide), shown when the window has room for it beside the table (a computer's);
   the `corner` is not shown then (the panel has its buttons).
   A review's: `marks` (tags and danger on the hand's tiles, lib/review.ts), `notes` (a few words on each name plate),
-  `strip` (a line over the hand: the options that are not discards, a tile's figures), `onpick` (the tile tapped).
+  `strip` (a line over the hand, over the choices when there are some: the options that are not discards, a tile's
+  figures), `onpick` (the tile tapped). With the analysis shown while playing (a branch, a practice hand with its
+  hints) also `choiceMarks` (on each choice's button what it costs) and `tagRoom`: the tags' room kept whether the
+  step has tags or not, so that the table keeps its size from a turn of the player's to another's.
   `onnext` (practice at the manual pace): the others' next step waits for the player: a button for it, where the
   player's hand leaves room when it is not their turn (a tall table: at the end of the hand's first row, the place
   of no tile, so that a tap too many discards nothing; a wide one: over the hand's right end), and Space or Enter.
@@ -40,7 +43,7 @@
     DRAWN_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, OPP_LINES, runLines, SHOWN_RIVER, shownHeight, tableSizes, tallTopRoom, type TableSizes,
   } from '../lib/layout';
   import { concealedCount, meldTiles, seatAt, sideOf, flowersOf, type Side } from '../lib/seats';
-  import type { TileMark } from '../lib/review';
+  import type { ChoiceMark, TileMark } from '../lib/review';
   import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
   import { dealsShown, movesShown, resultTap, setFx } from '../lib/fx.svelte';
@@ -64,6 +67,7 @@
     view, me, names, scores = null, revealed: revealedIn = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
     marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null, review = false, deal = null,
+    choiceMarks = null, tagRoom = false,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
     onact?: (a: Action) => void; handLabel?: string; maxHand?: number; keys?: boolean; away?: boolean[];
@@ -78,6 +82,8 @@
     /** A hand just begun (practice: its id): its tiles are shuffled and dealt first (DealFx.svelte),
      *  once (not again when the table comes back to it). */
     deal?: string | null;
+    choiceMarks?: ((a: Action) => ChoiceMark | null) | null;
+    tagRoom?: boolean;
   } = $props();
   let tableEl = $state<HTMLElement>();
   /** The moments (below): one after another. */
@@ -103,7 +109,7 @@
   /** The room kept over each row of the hand for the tiles' tags, when there may be some. */
   const TAG_H = 17;
   // Room over the hand's tiles for their tags, where they have any (the settings may show none).
-  const tagH = $derived(marks && [...marks.values()].some((m) => m.tag) ? TAG_H : 0);
+  const tagH = $derived(tagRoom || (marks && [...marks.values()].some((m) => m.tag)) ? TAG_H : 0);
   let W = $state(0);
   let H = $state(0);
   /** A tall table's others' strip with everyone's tiles shown: as high as the three need at the largest tiles (20 px
@@ -169,8 +175,10 @@
   });
   /** The rows of the hand on a tall table (the next-step button stands at the end of the first). */
   const handRows = $derived(s.handRow > 0 && mine.tiles.length + (mine.drawn ? 1 : 0) > s.handRow ? 2 : 1);
+  /** The tile under a computer's mouse (where a click discards): its figures as a chosen one's. */
+  let hovered = $state<number | null>(null);
   $effect(() => {
-    const i = selected;
+    const i = selected ?? hovered;
     onpick?.(i === null ? null : i < mine.tiles.length ? mine.tiles[i] : mine.drawn);
   });
   const discardable = $derived(new Set(view.my_turn ? view.legal.filter((a) => a.type === 'discard').map((a) => a.tile) : []));
@@ -186,6 +194,8 @@
   // their right; only when those reach under where the choices would be, over them (as upright). (Not by the hand:
   // its length changes often, the choices' place hardly.)
   let claimBottom = $state<number | null>(null);
+  /** The choices' height: the strip goes over them where they stand over the hand. */
+  let claimsH = $state(0);
   function placeClaims() {
     const bar = tableEl?.querySelector<HTMLElement>('.claims > *');
     const line = tableEl?.querySelector<HTMLElement>('.me .me-line');
@@ -216,6 +226,7 @@
     const k = handKey;
     untrack(() => {
       if (k !== lastHand && lastHand && selected !== null && !review) selected = null;
+      if (k !== lastHand) hovered = null;
       lastHand = k;
     });
   });
@@ -879,7 +890,7 @@
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
         <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={settings.readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
-          bind:selected oneClick={keys} {marks} {tagH} />{/if}
+          bind:selected oneClick={keys} {marks} {tagH} dropOutside={!review} onhover={(i) => (hovered = i)} />{/if}
       </div>
     {:else}
       <!-- Over the hand: the melds at the left (the first at the far left), the flowers after them; the name plate at
@@ -891,14 +902,16 @@
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
         <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={settings.readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
-          bind:selected perRow={s.handRow} {marks} {tagH} />{/if}
+          bind:selected perRow={s.handRow} {marks} {tagH} dropOutside={!review} />{/if}
       </div>
       {#if status}<div class="status tall" style="bottom: {meH + 4}px">{@render status()}</div>{/if}
     {/if}
 
     <!-- Choices, and words over the players. -->
     {#if claims.length && onact}
-      <div class="claims" style="bottom: {claimBottom ?? meH + 4}px"><ClaimBar actions={claims} w={s.hand} {onact} {keys} claimed={claimTile} /></div>
+      <div class="claims" style="bottom: {claimBottom ?? meH + 4}px" bind:clientHeight={claimsH}>
+        <ClaimBar actions={claims} w={s.hand} {onact} {keys} claimed={claimTile} marks={choiceMarks} />
+      </div>
     {/if}
     {#if onnext}
       <button class="next" class:tall={!s.wide} onclick={onnext} style={s.wide ? `bottom: ${meH + 4}px`
@@ -906,7 +919,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg><span>{t('manual_next')}</span>{#if keys}<kbd>Space</kbd>{/if}
       </button>
     {/if}
-    {#if strip}<div class="strip" style="bottom: {meH + 4}px">{@render strip()}</div>{/if}
+    {#if strip}<div class="strip" style="bottom: {meH + 4 + (claims.length && onact && claimBottom === null ? claimsH + 6 : 0)}px">{@render strip()}</div>{/if}
     {#each moments.length ? [] : callouts as c (c.id)}
       {#if c.at === 'own'}{@render plaque(c, c.side)}{/if}
     {/each}

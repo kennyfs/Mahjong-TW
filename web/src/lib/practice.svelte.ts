@@ -39,6 +39,8 @@ interface Meta {
   seeded?: boolean;
   /** The hand already recorded (its wall's start and length of its record), so a reload does not record it again. */
   recorded?: string;
+  /** The hand in play had the analysis shown (settings.practiceHints) at some point: it counts for nothing. */
+  hinted?: boolean;
 }
 
 interface Saved { game: GameRecord; meta: Meta }
@@ -398,8 +400,10 @@ class Practice {
     }
     meta.recorded = key;
     meta.hands++;
-    meta.totals = meta.totals.map((t, i) => t + result.points[i]);
+    // A hand played with the analysis shown counts for nothing: not in the totals, nor the records' statistics.
+    if (!meta.hinted) meta.totals = meta.totals.map((t, i) => t + result.points[i]);
     const rec = handRecord('practice', this.game, result, ME, this.names(), this.bots, meta.id, meta.hands);
+    if (meta.hinted) rec.hints = true;
     records.add(rec);
     this.lastRecord = rec.id;
     void keepSummary(rec);
@@ -429,12 +433,20 @@ class Practice {
     }
     this.reset();
     this.game = n.game;
+    this.meta = { ...this.meta, hinted: false };
     this.deal = `${this.meta.id}/${this.meta.hands}`;
     this.final = null;
     this.stage = 'playing';
     this.persist();
     await this.refresh();
     void this.run();
+  }
+
+  /** The analysis is shown on the hand in play (settings.practiceHints): it counts for nothing (finish). */
+  markHinted() {
+    if (!this.meta || this.meta.hinted || this.stage !== 'playing') return;
+    this.meta = { ...this.meta, hinted: true };
+    this.persist();
   }
 
   /** The settings changed (rules, length, bot): a new game when they differ from this game's. */

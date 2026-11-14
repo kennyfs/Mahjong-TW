@@ -50,8 +50,9 @@
 
   const hands = $derived(records.hands.filter((h) => h.kind === tab && (!favOnly || h.fav)).slice().reverse());
   const battles = $derived(records.battles.filter((b) => b.kind === tab && (!favOnly || b.fav || records.ofGroup(b.id).some((h) => h.fav))).slice().reverse());
+  // (A hand played with the analysis shown, 打牌時顯示分析, counts in neither.)
   const stats = $derived.by(() => {
-    const list = records.hands.filter((h) => h.kind === tab);
+    const list = records.hands.filter((h) => h.kind === tab && !h.hints);
     const wins = list.filter((h) => h.winners.includes(h.me)).length;
     const dealtIn = list.filter((h) => h.loser === h.me).length;
     const total = list.reduce((a, h) => a + h.points[h.me], 0);
@@ -59,8 +60,8 @@
   });
 
   // The reviews of this tab's hands, added up; the hands not reviewed by this network can be, one after another.
-  const reviewed = $derived(records.hands.filter((h) => h.kind === tab && h.rev?.m === engine.MODEL_ID));
-  const pending = $derived(records.hands.filter((h) => h.kind === tab && h.rev?.m !== engine.MODEL_ID));
+  const reviewed = $derived(records.hands.filter((h) => h.kind === tab && !h.hints && h.rev?.m === engine.MODEL_ID));
+  const pending = $derived(records.hands.filter((h) => h.kind === tab && !h.hints && h.rev?.m !== engine.MODEL_ID));
   const review = $derived.by(() => {
     const k = reviewed.length;
     if (!k) return null;
@@ -103,9 +104,9 @@
     <button class="main" onclick={() => onreview(h.id)}>
       <span class="what">
         <span class="body-large" class:good={h.winners.includes(h.me)} class:bad={h.loser === h.me}>{summary(h)}</span>
-        <span class="body-small dim">{localTime(h.time)}・{rulesOf(h.game.rules)}{h.index ? '・' + t('record_hand_of', h.index) : ''}{h.rev ? '・' + t('record_loss', pts(h.rev.loss, false)) : ''}</span>
+        <span class="body-small dim">{#if h.hints}<span class="hints" title={t('practice_hints_toggle')}>{t('practice_hints')}</span>{/if}{localTime(h.time)}・{rulesOf(h.game.rules)}{h.index ? '・' + t('record_hand_of', h.index) : ''}{h.rev ? '・' + t('record_loss', pts(h.rev.loss, false)) : ''}</span>
       </span>
-      <span class="pts" class:good={me > 0} class:bad={me < 0}>{signed(me)}</span>
+      <span class="pts" class:good={me > 0 && !h.hints} class:bad={me < 0 && !h.hints} class:void={h.hints}>{signed(me)}</span>
     </button>
     <button class="btn icon text" aria-label={t('favorite')} aria-pressed={!!h.fav} onclick={() => records.setFav(h.id, !h.fav)}>
       <Icon name={h.fav ? 'star' : 'starBorder'} />
@@ -232,6 +233,10 @@
   .pts { font-weight: 700; font-size: 1.125rem; flex: none; }
   .hands { padding-left: 16px; background: var(--surface-container-low, var(--surface)); }
   .empty { padding: 32px 16px; text-align: center; }
+  /* A hand played with the analysis shown: marked, its points counting for nothing. */
+  .hints { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; background: var(--secondary-container);
+    color: var(--on-secondary-container); font-weight: 500; }
+  .pts.void { color: var(--on-surface-variant); text-decoration: line-through; }
   .stats { margin: 0 12px 8px; padding: 8px 12px; border-radius: 14px; background: var(--surface-container); display: flex; flex-direction: column; gap: 4px; }
   .stats-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 40px; }
   .stats-head .btn { margin-left: auto; }

@@ -22,6 +22,7 @@
   else the next hand of the same game in the records.
 -->
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { fxOn } from '../lib/fx.svelte';
   import { actionText, fullAction, isTaken } from '../lib/actions';
   import { shared } from '../lib/app.svelte';
@@ -31,20 +32,19 @@
   import { editor } from '../lib/position-editor.svelte';
   import { practice } from '../lib/practice.svelte';
   import { records } from '../lib/records.svelte';
-  import { costOf, efficiencyText, EQUAL, FIGURE_KEYS, figureCells, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pct, pts, readyLevel,
-    reasonOf, reviewOf, summarize, tagCost, tileMarks, tilesShort, type TileMark } from '../lib/review';
+  import { costOf, EQUAL, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pct, pts, readyLevel, reasonOf, reviewOf, summarize,
+    tagCost, tileMarks, tilesShort, type TileMark } from '../lib/review';
   import { flowersOf, meldTiles } from '../lib/seats';
   import { settings } from '../lib/settings.svelte';
-  import { parseTiles, sortTiles, tileName, windName, without, type Tile as T } from '../lib/tiles';
+  import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
   import { recordAction, type Analysis, type Review, type Steps, type Truth, type View } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
   import Branch from './Branch.svelte';
   import DecisionPanel from './DecisionPanel.svelte';
-  import FigureLine from './FigureLine.svelte';
-  import FigureRuler from './FigureRuler.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
   import MyHand from './MyHand.svelte';
+  import PickedFigures from './PickedFigures.svelte';
   import Table from './Table.svelte';
   import Tile from './Tile.svelte';
   import TitleBar from './TitleBar.svelte';
@@ -60,7 +60,10 @@
 
   const rec = $derived(id ? records.get(id) : undefined);
   const n = $derived(rec?.game.actions.length ?? 0);
+  /** The step shown, and the one asked for (go): everything a step shows comes from the engine first, and the step is
+   *  shown when all of it is there (loadStep), so that nothing of it comes in a moment later and moves the rest. */
   let step = $state(0);
+  let want = $state(0);
   let showAll = $state(false);
   let showResult = $state(false);
   let view = $state<View | null>(null);
@@ -76,6 +79,8 @@
       loaded = rec.id;
       const r = rec;
       step = 0;
+      want = 0;
+      shownSeq = loadSeq;
       showResult = false;
       rev = null;
       revError = null;
@@ -94,11 +99,6 @@
     }
   });
   const cut = (k: number) => ({ ...rec!.game, actions: rec!.game.actions.slice(0, k) });
-  $effect(() => {
-    if (!rec) return;
-    const k = step, all = showAll;
-    void engine.view(cut(k), rec.me, 0, all || k === n).then((v) => { if (step === k && showAll === all) view = v; });
-  });
 
   const names = $derived(rec?.names.map((x, i) => (i === rec.me ? t('you') : x)) ?? []);
   /** A step is shown when its action took effect or is the player's own (until the engine has said which took effect:
@@ -118,11 +118,12 @@
   /** The step the play ended with: the win (the first, when a discard made several winners); without a win the last
    *  action that took effect. */
   const last = $derived(steps && steps.last >= 0 ? steps.last : (stopList[stopList.length - 1] ?? 0));
-  function go(k: number) { step = Math.max(0, Math.min(n, k)); showResult = false; }
-  function next() { let k = step + 1; while (k < n && !isStop(k)) k++; go(k); }
-  function prev() { let k = step - 1; while (k > 0 && !isStop(k)) k--; go(k); }
-  function nextMine() { let k = step + 1; while (k < n && !isMine(k)) k++; go(k); }
-  function prevMine() { let k = step - 1; while (k > 0 && !isMine(k)) k--; go(k); }
+  function go(k: number) { want = Math.max(0, Math.min(n, k)); showResult = false; }
+  // (From the step asked for last: steps asked for quickly add up.)
+  function next() { let k = want + 1; while (k < n && !isStop(k)) k++; go(k); }
+  function prev() { let k = want - 1; while (k > 0 && !isStop(k)) k--; go(k); }
+  function nextMine() { let k = want + 1; while (k < n && !isMine(k)) k++; go(k); }
+  function prevMine() { let k = want - 1; while (k > 0 && !isMine(k)) k--; go(k); }
   // A step asked for from outside (the page's tests; a link to a step, one day).
   $effect(() => {
     const k = shared.reviewStep;
@@ -131,8 +132,8 @@
     go(k);
   });
   /** To the last step; from there to the table at the end. */
-  function toEnd() { go(step < last ? last : n); }
-  function openResult() { step = n; showResult = true; }
+  function toEnd() { go(want < last ? last : n); }
+  function openResult() { go(n); showResult = true; }
   /** Whose tile a claim at step k answers: the discard (or added kong) before it. */
   function claimedFrom(k: number): number {
     for (let i = k - 1; i >= 0; i--) {
@@ -185,11 +186,13 @@
     } else if (nextRecord) shared.reviewId = nextRecord.id;
   }
 
-  const deciding = $derived.by(() => {
-    if (!rec || step >= n) return null;
-    const { seat, action } = recordAction(rec.game.actions[step]);
+  /** Who decides at step k, and what they did. */
+  function decidingAt(k: number) {
+    if (!rec || k >= n) return null;
+    const { seat, action } = recordAction(rec.game.actions[k]);
     return { seat, action: fullAction(action) };
-  });
+  }
+  const deciding = $derived(decidingAt(step));
   /** What the step's line adds to the action: who dealt in to a win; for a claim that was not made, whose came first. */
   const decidingNote = $derived.by(() => {
     if (!rec || !deciding) return '';
@@ -209,12 +212,6 @@
   const listShown = $derived(inlinePanel || panelOpen);
   let other = $state<{ key: string; analysis: Analysis } | null>(null);
   const stepKey = $derived(`${rec?.id}/${step}`);
-  $effect(() => {
-    if (!rec || !deciding || mine || !listShown) return;
-    const k = stepKey;
-    if (other?.key === k) return;
-    engine.analyzeGame(cut(step), deciding.seat).then((a) => { if (stepKey === k) other = { key: k, analysis: a }; }, () => {});
-  });
   /** The decision shown: whose it is, its analysis, the action taken (its index) and what the others really held. */
   const focus = $derived.by((): { seat: number; analysis: Analysis; played: number; truth: Truth[] | null } | null => {
     if (!rec || !deciding) return null;
@@ -247,25 +244,35 @@
   let picked = $state<T | null>(null);
   $effect(() => { void step; selected = null; picked = null; });
   const pickedIndex = $derived(focus && picked ? focus.analysis.actions.findIndex((f) => f.action.type === 'discard' && f.action.tile === picked) : -1);
-  const oppNames = $derived(focus ? [1, 2, 3].map((r) => names[(focus.seat + r) % 4]) : []);
-  // The figures of every discard of the decision in fixed columns, so that the line over the hand keeps each figure in
-  // its place from one tile to the next (FigureRuler).
-  const discardLines = $derived.by(() => {
-    if (!mine) return new Map<number, ReturnType<typeof figureCells>>();
-    const a = mine.analysis;
-    const best = a.best !== undefined ? a.actions[a.best] : null;
-    return new Map(a.actions.flatMap((f, i) => (f.action.type === 'discard' ? [[i, figureCells(f, costOf(a, i), oppNames, best)] as const] : [])));
-  });
-  let detailWidths = $state<Partial<Record<(typeof FIGURE_KEYS)[number], number>>>({});
 
   // The list in place of the table (a phone): the deciding seat's own tiles over it.
   const listView = $derived(panelOpen && !inlinePanel && !!deciding);
   let sv = $state<{ key: string; view: View } | null>(null);
+
+  // A step asked for (or the list opened, or every hand shown): what it shows, all of it, then the step at once. A
+  // later request's answer that came first is not undone by an earlier one's.
+  let loadSeq = 0;
+  let shownSeq = 0;
   $effect(() => {
-    if (!rec || !deciding || !listView) return;
-    const k = stepKey;
-    if (sv?.key === k) return;
-    engine.view(cut(step), deciding.seat).then((v) => { if (stepKey === k) sv = { key: k, view: v }; }, () => {});
+    if (!rec) return;
+    const r = rec, k = want, all = showAll, ls = listShown, panel = panelOpen && !inlinePanel;
+    const d = decidingAt(k);
+    const own = rev?.decisions.some((x) => x.step === k) ?? false;
+    const seq = ++loadSeq;
+    const game = cut(k);
+    const key = `${r.id}/${k}`;
+    void Promise.all([
+      engine.view(game, r.me, 0, all || k === n),
+      panel && d ? engine.view(game, d.seat).catch(() => null) : Promise.resolve(null),
+      ls && d && !own ? (untrack(() => other)?.key === key ? Promise.resolve(untrack(() => other)!.analysis) : engine.analyzeGame(game, d.seat).catch(() => null)) : Promise.resolve(null),
+    ]).then(([v, seatView, analysis]) => {
+      if (loaded !== r.id || seq < shownSeq) return;
+      shownSeq = seq;
+      view = v;
+      sv = seatView ? { key, view: seatView } : null;
+      if (analysis) other = { key, analysis };
+      step = k;
+    }, (e) => { if (loaded === r.id) shared.error = String(e?.message ?? e); });
   });
   const seatHand = $derived.by(() => {
     if (!deciding || sv?.key !== stepKey) return null;
@@ -477,17 +484,11 @@
       {/each}
     </div>
   {/if}
-  {#if mine && pickedIndex >= 0 && !inlinePanel}
-    <div class="detail body-small">
-      <FigureRuler lines={[...discardLines.values()]} keys={FIGURE_KEYS} bind:widths={detailWidths} />
-      <b class="what">{t('act_discard')} {tileName(picked ?? '')}</b>
-      <FigureLine cells={discardLines.get(pickedIndex) ?? []} keys={FIGURE_KEYS} widths={detailWidths} />
-    </div>
-  {/if}
+  {#if mine && picked && !inlinePanel}<PickedFigures analysis={mine.analysis} seat={rec?.me ?? 0} {names} tile={picked} />{/if}
 {/snippet}
 
 {#if rec && branchFrom !== null}
-  <Branch game={cut(branchFrom)} me={rec.me} {names} onclose={closeBranch} />
+  <Branch game={cut(branchFrom)} me={rec.me} {names} onclose={closeBranch} unit={rev?.unit} />
 {:else}
 <div class="page" class:side>
   {#if !side}
@@ -520,7 +521,7 @@
       <div class="table-wrap">
         {#if view}
           <Table {view} me={rec.me} {names} revealed={showAll || step === n ? (view.hands ?? null) : null} interactive={false}
-            maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} review>
+            maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} review tagRoom={hasNet}>
             {#snippet overlay()}
               {#if step === n && final?.result && showResult && !fxOn.on}
                 <div class="sheet">
@@ -630,16 +631,6 @@
   .opt b.g1 { color: var(--danger-1); }
   .opt b.g2 { color: var(--danger-2); }
   .opt b.g3 { color: #ff8f8f; }
-  .detail { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 1px 12px; padding: 5px 12px; border-radius: 12px;
-    background: rgba(8, 14, 11, 0.86); color: #fff; max-width: 100%; font-variant-numeric: tabular-nums; --fig-good: #b9f6c2; --fig-bad: #ffbdb5; }
-  /* As wide for every tile (二萬 or 東). */
-  .detail .what { min-width: 5.2em; }
-  /* On the black strip the words as light as the figures (dimmed, they were hard to read there). */
-  .detail :global(.lbl), .detail :global(.aft) { opacity: 1; color: #d6ebdf; }
-  /* Its greens and reds the same light ones in every theme (the strip is always dark), in bold so that they read at once. */
-  .detail :global(.good .val), .detail :global(.bad .val) { font-weight: 700; }
-  .detail :global(.ruler .val) { font-weight: 700; }
-  .detail :global(.line) { display: contents; }
   .loading { display: flex; justify-content: center; padding: 32px; }
   .spinner { width: 36px; height: 36px; border-radius: 50%; border: 4px solid transparent; border-top-color: var(--primary); animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }

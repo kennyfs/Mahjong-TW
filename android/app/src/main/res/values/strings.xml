@@ -136,6 +136,11 @@
   <string name="settings_ready_hint">聽牌提示</string>
   <string name="ready_hint_on">開</string>
   <string name="ready_waits">聽 %1$s</string>
+  <string name="settings_practice_hints">打牌時顯示分析</string>
+  <string name="practice_hints">提示</string>
+  <string name="practice_hints_toggle">打牌時顯示分析（開著時這一局不計分）</string>
+  <string name="practice_hints_text">練習時，輪到你就先像回顧一樣顯示分析：每張牌打出去的損失與危險、吃碰胡的損失、對手聽牌的機率；點一下牌看那張的詳細數字（電腦：滑鼠停在牌上）。開著時打的那一局不計分，也不列入紀錄的統計，紀錄裡會標「提示」。</string>
+  <string name="result_hints_note">開了提示：這一局不計分</string>
   <string name="ready_hint_text">開了之後，輪到你出牌時，打出去就會聽牌的牌上方會有小記號（電腦：滑鼠停在牌上可看聽哪些牌）。預設關閉：想考驗自己的判斷就不要開。</string>
   <string name="speed_slow">慢</string>
   <string name="speed_normal">中</string>
@@ -164,6 +169,13 @@
   <string name="text_normal">中</string>
   <string name="text_large">大</string>
   <string name="settings_about">關於</string>
+  <!-- About (as Thirteen's): the source, the other version (the app: the web page; the web page: the app), privacy -->
+  <string name="about_source">開放原始碼（GPLv3），在 GitHub 上</string>
+  <string name="about_web">網頁版</string>
+  <string name="about_web_note">用瀏覽器玩，電腦也可以：%1$s</string>
+  <string name="about_play">Android app</string>
+  <string name="about_play_note">在 Google Play 上，也能和附近的朋友對戰</string>
+  <string name="privacy_policy">隱私權政策</string>
 
   <!-- Records -->
   <string name="records_title">紀錄</string>
@@ -244,6 +256,9 @@
   <string name="analysis_wall_left">牌牆剩下</string>
   <string name="analysis_clear">清空</string>
   <string name="analysis_random">隨機發一手</string>
+  <string name="analysis_play_from">從這裡打</string>
+  <string name="analysis_play_hint">由你接著打這個局面，電腦打其他三家；看不到的牌（別家的手牌、牌牆）隨機發（不計分、不記錄）</string>
+  <string name="analysis_play_back">回到分析</string>
   <string name="analysis_need_tiles">手牌要 %1$d 張（現在 %2$d 張）。</string>
   <string name="analysis_editing">正在編輯</string>
   <string name="analysis_palette_hint">點下面的牌加入，點上面的牌移除。</string>

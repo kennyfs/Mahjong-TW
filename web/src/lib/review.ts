@@ -230,6 +230,27 @@ export function tileMarks(a: Analysis, played: number, unit: number | undefined)
   return out;
 }
 
+/** What a choice's button shows at a decision (a branch's, a practice hand's with its hints): what the choice costs
+ *  against the best, in its grade's tone; whether it was the one made there. */
+export interface ChoiceMark { tag: string; tone: TileMark['tone']; played: boolean }
+
+/** The marks of a decision's choices that are not discards, by the action as the engine lists it as legal. */
+export function choiceMarks(a: Analysis, played: number, unit: number | undefined): (x: Action) => ChoiceMark | null {
+  return (x) => {
+    if (a.best === undefined) return null;
+    let i = a.actions.findIndex((f) => f.action.type === x.type && (f.action.tile ?? null) === (x.tile ?? null));
+    if (i < 0) i = a.actions.findIndex((f) => f.action.type === x.type);
+    if (i < 0) return null;
+    const c = cost(a, i);
+    const g = gradeOf(c, unit);
+    return {
+      tag: i === a.best ? t('grade_best') : c < EQUAL ? '≈' : tagCost(c),
+      tone: i === a.best ? 'best' : g ? (`g${g}` as TileMark['tone']) : 'plain',
+      played: i === played,
+    };
+  };
+}
+
 /** An action's figures in words, for a line: [label, value]. */
 export function figureItems(f: Figures, c: number | null, names: string[] | null): [string, string][] {
   const out: [string, string][] = [];

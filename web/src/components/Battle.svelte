@@ -40,6 +40,8 @@
   const s = $derived(room?.settings ?? null);
   const table = $derived(battle.table);
   const handOver = $derived(!!table?.view.result);
+  /** A hand's deal shows at its start, as in practice (not on coming back to a hand under way). */
+  const dealOf = (tb: NonNullable<typeof table>) => (tb.view.events.some((e) => e.type === 'discard') ? null : `${battle.battleId}/${tb.hand}`);
   const page = $derived.by(() => {
     if (!room) return 'entry';
     if (room.phase === 'LOBBY' && !battle.finished) return 'lobby';
@@ -301,7 +303,8 @@
       {#if table}
         <Table view={table.view} me={table.seat} {names} scores={battle.totalsAt(table.seats)} away={battle.awayAt(table.seats)}
           revealed={handOver ? (table.view.hands ?? null) : null} interactive={table.view.my_turn && !handOver}
-          onact={(a) => battle.act(a)} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64} keys={ui.desk}>
+          onact={(a) => battle.act(a)} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64} keys={ui.desk}
+          deal={dealOf(table)}>
           {#snippet status()}{#if ui.wide}{@render clock()}{/if}{/snippet}
           {#snippet corner()}
             {#if ui.wide}

@@ -82,6 +82,7 @@ button { font: inherit; color: inherit; }
 
 .chip { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 10px 0 14px; border-radius: 10px;
   border: 1px solid var(--outline); background: transparent; cursor: pointer; font-size: 0.875rem; font-weight: 500; }
+.chip.on { background: var(--secondary-container); color: var(--on-secondary-container); border-color: transparent; }
 .badge { display: inline-block; padding: 1px 7px; border-radius: 8px; font-size: 0.8125rem; font-weight: 500; white-space: nowrap; }
 .section-header { padding: 16px 16px 6px; color: var(--primary); font-size: 0.875rem; font-weight: 500; }
 .felt { background: var(--felt); color: var(--on-felt); border-radius: 10px; }

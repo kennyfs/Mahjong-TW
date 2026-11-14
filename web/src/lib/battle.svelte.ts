@@ -3,11 +3,13 @@
 // whoever runs out of time, and scores. This keeps what the room said and sends the player's decisions. Nothing here
 // helps the player while a hand is played: the review and each decision's analysis come after, from the records.
 // A port of Thirteen's battle.svelte.ts to mahjong's tables; the app's battle screen is to follow it (docs/app.md).
+import { tick } from 'svelte';
 import { shared } from './app.svelte';
+import { calloutsDone } from './callouts';
 import * as engine from './engine';
 import { t } from './i18n.svelte';
 import { handRecord, newId, records } from './records.svelte';
-import { settings } from './settings.svelte';
+import { NET_BOT, settings } from './settings.svelte';
 import { load, save } from './store';
 import type { Action, GameRecord, View } from './types';
 import { later } from './clock';
@@ -146,6 +148,9 @@ class Battle {
   private startedAt = 0;
   /** The table as it was before a decision was sent, back if the room refuses it. */
   private beforeAct: MyTable | null = null;
+  /** The room's views not shown yet (when each came), and whether they are being shown (showViews). */
+  private views: { msg: Extract<ServerMsg, { t: 'table' }>; at: number }[] = [];
+  private showingViews = false;
 
   constructor() {
     let d = load<string>(DEFAULT_NAME_KEY, '');
@@ -214,8 +219,8 @@ class Battle {
     return {
       mode, length: LENGTH_OF[settings.length], hands: HAND_CHOICES.includes(c.hands ?? 0) ? c.hands! : 4,
       rules: $state.snapshot(settings.rules), timeLimit: TIME_LIMITS.includes(c.timeLimit ?? 0) ? c.timeLimit! : 15,
-      // A room's bots are the server's (protocol Validation.BOTS): tile efficiency, until it has the network.
-      bot: 'greedy',
+      // The network's bot (protocol Validation.BOTS); a server without it plays tile efficiency, and says so.
+      bot: 'net',
     };
   }
 
@@ -336,6 +341,7 @@ class Battle {
     this.lastSeen = false;
     this.busy = false;
     this.beforeAct = null;
+    this.views = [];
   }
 
   // ---- What the room says ----
@@ -366,20 +372,10 @@ class Battle {
         if (msg.room.phase === 'OVER') saveSeat(null);
         break;
       }
-      case 'table': {
-        const cur = this.table;
-        // A view carries the events since the last one: they are added to what was shown (all of them when full).
-        const view = msg.full || !cur || cur.hand !== msg.hand
-          ? msg.view
-          : { ...msg.view, events: [...cur.view.events, ...msg.view.events] };
-        this.table = {
-          hand: msg.hand, seat: msg.seat, step: msg.step, seats: msg.seats, view,
-          deadline: msg.remainingMs != null && view.my_turn ? Date.now() + msg.remainingMs : null,
-        };
-        this.beforeAct = null;
-        this.forcedDiscard();
+      case 'table':
+        this.views.push({ msg, at: Date.now() });
+        void this.showViews();
         break;
-      }
       case 'result':
         this.addOutcomes([msg.outcome]);
         break;
@@ -396,6 +392,15 @@ class Battle {
             return fail(t('battle_closed'));
           }
           return this.roomGone(t('battle_closed'));
+        }
+        // A room asked for the network's bots that does not know them (a server older than this page): tile
+        // efficiency.
+        if (msg.code === 'BAD_SETTINGS' && !this.joined && this.pending?.t === 'create') {
+          const create = this.pending as unknown as { t: 'create'; settings: RoomSettings };
+          if (create.settings.bot !== 'greedy') {
+            this.pending = { t: 'create', settings: { ...create.settings, bot: 'greedy' } };
+            return this.sendOn(ws, this.pending);
+          }
         }
         // A decision refused: the view it was made on, again; or it came too late (the bot made it when the time ran
         // out, and the table went on): nothing to say.
@@ -415,6 +420,37 @@ class Battle {
         if (msg.reason === 'resumed elsewhere' || msg.reason === 'left') return;
         this.roomGone(this.room?.phase === 'OVER' ? null : t('battle_closed'));
         break;
+    }
+  }
+
+  /**
+   * The room's views, one at a time: each once the words and moments of the one before are over (the deal's too), as
+   * practice shows them. The room sends them at that pace already (protocol Pace); a slower pace in the settings, or
+   * a slow connection, waits here. The time to decide counts from when a view came.
+   */
+  private async showViews() {
+    if (this.showingViews) return;
+    this.showingViews = true;
+    try {
+      while (this.views.length) {
+        const { msg, at } = this.views.shift()!;
+        const cur = this.table;
+        // A view carries the events since the last one: they are added to what was shown (all of them when full).
+        const view = msg.full || !cur || cur.hand !== msg.hand
+          ? msg.view
+          : { ...msg.view, events: [...cur.view.events, ...msg.view.events] };
+        this.table = {
+          hand: msg.hand, seat: msg.seat, step: msg.step, seats: msg.seats, view,
+          deadline: msg.remainingMs != null && view.my_turn ? at + msg.remainingMs : null,
+        };
+        this.beforeAct = null;
+        this.forcedDiscard();
+        // (The table's effects have run by then: what this view brings is up.) A view that comes meanwhile waits.
+        await tick();
+        await calloutsDone();
+      }
+    } finally {
+      this.showingViews = false;
     }
   }
 
@@ -493,7 +529,7 @@ class Battle {
         if (!v.result) continue;
         const bots = tp.seats.map((id) => {
           const p = r.players.find((x) => x.id === id);
-          return p && !p.bot ? null : r.settings.bot;
+          return p && !p.bot ? null : r.settings.bot === 'net' ? NET_BOT : r.settings.bot;
         });
         records.add(handRecord(r.settings.mode === 'TABLE' ? 'table' : 'contest', tp.record, v.result, seat,
           this.namesAt(tp.seats, false), bots, group, index));

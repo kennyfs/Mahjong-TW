@@ -4,13 +4,15 @@ import type { Tile } from './tiles';
 export interface Setup { dealer: number; east: number; round: number; streak: number }
 
 /** A hand: rules, setup, the whole wall and every decision. Only the authority (practice here, a room) holds it. */
-/** A hand: its rules, setup, wall and every decision; or (a review's branch, reshuffled) taken on from another hand's
- *  position with the tiles that seat had not seen dealt again by a seed (`base`, no wall: docs/gui-engine.md). */
+/** A hand: its rules, setup, wall and every decision; or (a review's branch, reshuffled; a position of the analysis
+ *  played on) taken on from a seat's position with the tiles that seat had not seen dealt again by a seed (`base`, no
+ *  wall: docs/gui-engine.md): its position in another hand (with another hand of tiles in place of its own, `hand`
+ *  and `drawn`), or a position by itself. */
 export interface GameRecord {
   rules: string;
   setup: Setup;
   wall?: string;
-  base?: { game: GameRecord; seat: number; seed: string };
+  base?: { game: GameRecord; seat: number; seed: string; hand?: string; drawn?: Tile | null } | { position: Position; seed: string };
   actions: (number | string)[][];
 }
 

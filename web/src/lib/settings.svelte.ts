@@ -40,6 +40,7 @@ interface Stored {
   level: Level;
   sound?: SoundLevel;
   readyHint?: boolean;
+  practiceHints?: boolean;
 }
 
 const DEFAULTS: Stored = {
@@ -62,6 +63,9 @@ class Settings {
   /** Marks on the discards that leave the hand ready (聽牌提示): off unless the player asks (the game tests their
    *  judgement; whether a hand is ready is only a check). */
   readyHint = $state(false);
+  /** 打牌時顯示分析: practice's decisions with the analysis shown, as a branch's; the hands played so count for
+   *  nothing (lib/practice.svelte.ts). */
+  practiceHints = $state(false);
 
   constructor() {
     const s = { ...DEFAULTS, ...load<Partial<Stored>>(KEYS.settings, {}) };
@@ -77,6 +81,7 @@ class Settings {
     this.level = LEVELS.includes(s.level) ? s.level : 'mid';
     this.sound = s.sound && SOUND_LEVELS.includes(s.sound) ? s.sound : 'full';
     this.readyHint = s.readyHint === true;
+    this.practiceHints = s.practiceHints === true;
   }
 
   get spec(): string { return ruleSpec(this.rules); }
@@ -85,7 +90,7 @@ class Settings {
     save(KEYS.settings, {
       rules: this.rules, length: this.length, bot: this.bot, speed: this.speed, colors: this.colors, dark: this.dark,
       text: this.text, name: this.name, server: this.server, level: this.level, sound: this.sound,
-      readyHint: this.readyHint,
+      readyHint: this.readyHint, practiceHints: this.practiceHints,
     } satisfies Stored);
   }
 }
