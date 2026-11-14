@@ -98,7 +98,14 @@
   const NO_MARKS = new Map<T, TileMark>();
   const marks = $derived(hintsOn && stage === 'playing' ? (mine ? tileMarks(mine, -1, undefined) : NO_MARKS) : null);
   const choices = $derived(mine ? choiceMarks(mine, -1, undefined) : null);
-  const notes = $derived(opponentNotes(mine));
+  // The opponents' notes and the player's expected result stay as the player's last decision left them while the
+  // others play (a short while: a little out of date at most), till the next decision's; a new hand starts without.
+  let keptNotes = $state.raw<ReturnType<typeof opponentNotes>>(null);
+  let keptValue = $state<number | null>(null);
+  $effect(() => { if (mine) { keptNotes = opponentNotes(mine); keptValue = mine.value ?? null; } });
+  $effect(() => { void practice.deal; keptNotes = null; keptValue = null; });
+  const notes = $derived(hintsOn && stage === 'playing' ? keptNotes : null);
+  const myValue = $derived(hintsOn && stage === 'playing' ? keptValue : null);
   let picked = $state<T | null>(null);
   // The list beside the table, where the window has room for the panel (wider with the hints on).
   let asideShown = $state(false);
@@ -144,7 +151,7 @@
         interactive={stage === 'playing' && !practice.busy} onact={act} handLabel={ui.wide ? handLabel : ''} maxHand={ui.desk ? 72 : 64}
         keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined} robbed={practice.robbed}
         deal={stage === 'playing' ? practice.deal : null} {marks} {notes} {strip} onpick={(x) => (picked = x)} choiceMarks={choices}
-        tagRoom={hintsOn && stage === 'playing'} asideW={hintsOn ? 400 : 300} bind:asideShown bind:inDeal>
+        tagRoom={hintsOn && stage === 'playing'} asideW={hintsOn ? 400 : 300} value={myValue} bind:asideShown bind:inDeal>
         {#snippet corner()}
           {#if ui.wide}
             <span class="corner-buttons" data-tour="top">

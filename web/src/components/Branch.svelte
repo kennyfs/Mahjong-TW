@@ -155,6 +155,7 @@
 
   function restart() {
     epoch++;
+    keptNotes = null;
     pace.reset();
     game = { ...root, actions: [...root.actions] };
     cursor = start;
@@ -361,7 +362,11 @@
   const mine = $derived(look && look.seat === me && look.analysis?.best !== undefined ? look.analysis : null);
   const marks = $derived(mine ? tileMarks(mine, played, unit) : NO_MARKS);
   const choices = $derived(mine ? choiceMarks(mine, played, unit) : null);
-  const notes = $derived(opponentNotes(mine));
+  // The opponents' notes stay as the player's last decision left them while the others play on from it (at the newest
+  // step), till the next decision's; a step gone back to shows its own, or none.
+  let keptNotes = $state.raw<ReturnType<typeof opponentNotes>>(null);
+  $effect(() => { if (mine && atHead) keptNotes = opponentNotes(mine); });
+  const notes = $derived(mine ? opponentNotes(mine) : atHead && !over ? keptNotes : null);
 
   // The list in place of the table: the deciding seat's own tiles over it; the player's own while the others play.
   const hw = $derived(ui.wide ? Math.min(44, ((ui.w - 208) * 0.46 - 24) / 9.3) : Math.min(44, (Math.min(ui.w, 720) - 28) / 9.3));

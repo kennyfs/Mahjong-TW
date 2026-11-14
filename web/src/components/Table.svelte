@@ -28,7 +28,10 @@
   `strip` (a line over the hand, over the choices when there are some: the options that are not discards, a tile's
   figures), `onpick` (the tile tapped). With the analysis shown while playing (a branch, a practice hand with its
   hints) also `choiceMarks` (on each choice's button what it costs) and `tagRoom`: the tags' room kept whether the
-  step has tags or not, so that the table keeps its size from a turn of the player's to another's.
+  step has tags or not, so that the table keeps its size from a turn of the player's to another's. `value`: the
+  player's expected result (a practice hand with its hints), beside their name plate where there is room for it (a
+  wide table: in the left column's foot, beside the plate or over it, where the left player's tiles keep their size;
+  a tall one: in the melds' line, where the melds keep their size).
   `onnext` (practice at the manual pace): the others' next step waits for the player: a button for it, where the
   player's hand leaves room when it is not their turn (a tall table: at the end of the hand's first row, the place
   of no tile, so that a tap too many discards nothing; a wide one: over the hand's right end), and Space or Enter.
@@ -44,7 +47,7 @@
     DRAWN_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, OPP_LINES, runLines, SHOWN_RIVER, shownHeight, tableSizes, tallTopRoom, type TableSizes,
   } from '../lib/layout';
   import { concealedCount, meldTiles, seatAt, sideOf, flowersOf, type Side } from '../lib/seats';
-  import type { ChoiceMark, TileMark } from '../lib/review';
+  import { pts, type ChoiceMark, type TileMark } from '../lib/review';
   import { groupIndices, parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
   import { dealsShown, movesShown, resultTap, setFx } from '../lib/fx.svelte';
@@ -69,12 +72,12 @@
     view, me, names, scores = null, revealed: revealedIn = null, interactive = true, onact, handLabel = '', maxHand = 64, keys = false,
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
     marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null, review = false, deal = null,
-    choiceMarks = null, tagRoom = false, asideShown = $bindable(false), hints = true, inDeal = $bindable(false),
+    choiceMarks = null, tagRoom = false, asideShown = $bindable(false), hints = true, inDeal = $bindable(false), value = null,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
     onact?: (a: Action) => void; handLabel?: string; maxHand?: number; keys?: boolean; away?: boolean[];
     status?: Snippet; overlay?: Snippet; corner?: Snippet; aside?: Snippet; selected?: number | null; asideW?: number;
-    marks?: Map<T, TileMark> | null; notes?: ({ text: string; level: number } | null)[] | null; strip?: Snippet;
+    marks?: Map<T, TileMark> | null; notes?: ({ text: string; level: number } | null)[] | null; strip?: Snippet; value?: number | null;
     onpick?: (tile: T | null) => void; onnext?: (() => void) | null; stay?: boolean;
     /** The event (an index into view.events) that was a claim taken from the player (lib/claims.ts): its words are
      *  搶碰, 搶胡 instead of 碰, 胡. */
@@ -798,7 +801,7 @@
   // With everyone's tiles shown: as large as fits each one's room with the concealed tiles too: the player opposite in
   // one line along a wide table's top (the corner kept clear and the name plate off its width), the others in their
   // columns under their name plates.
-  function oppW(side: Side, seat: number): number {
+  function oppW(side: Side, seat: number, corner = cornerH): number {
     const o = shownOf(seat);
     if (!s.wide) {
       if (!revealed) return Math.min(fitMelds(o.counts, o.flowers, s.sideW - 8, OPP_LINES, s.opp),
@@ -813,14 +816,18 @@
     }
     const width = s.sideW - 12;
     const backsH = backs ? runLines(backs, width, s.back) * s.back * TILE_RATIO + 4 : 0;
-    const room = H - s.topH - meH - (side === 'left' ? cornerH + belowL : cornerR + belowR) - plateH(side) - 12 - backsH;
+    const room = H - s.topH - meH - (side === 'left' ? corner + belowL : cornerR + belowR) - plateH(side) - 12 - backsH;
     return fitShown(o.counts, o.flowers, o.concealed, width, room, s.opp);
   }
   /** The player's own name plate (with a battle's clock over it) lies over the foot of the left column of a wide
    *  table: the column ends above it. The right one ends as high (or as the plate alone would). */
   let meCorner = $state(0);
+  /** The expected result's size (valueAt), and the plate's, which it is placed by. */
+  let valueW = $state(0);
+  let valueH = $state(0);
+  let meBadgeH = $state(0);
   const cornerR = $derived(s.wide ? s.font * 1.7 + 14 : 0);
-  const cornerH = $derived(s.wide ? Math.max(cornerR, meCorner + 8) : 0);
+  const cornerBase = $derived(s.wide ? Math.max(cornerR, meCorner + 8) : 0);
   const myFlowers = $derived(dealing && !dealing.flip ? [] : flowersOf(pos.players[me]));
   /** The player's melds and flowers, in the line over the hand (a wide table's as wide as the table; a tall one's
    *  beside the name plate): smaller rather than in a second line. */
@@ -831,6 +838,28 @@
     if (s.wide) return fitMelds(counts, myFlowers.length, s.tableW - 28, 1, s.meld, 16);
     return fitMelds(counts, myFlowers.length, s.tableW - 16 - (meBadgeW || 90), 1, s.meld, 22);
   });
+  /** The expected result by the plate, where it leaves everything else its size: a wide table's in the left
+   *  column's foot, beside the plate where the column is wide enough, else over the plate (the corner) where the left
+   *  player's tiles keep their size in what is left to them (the rivers come down beside the column); a tall one's
+   *  in the melds' line before the plate, where the melds keep their size. Out of the way and unseen where it has no
+   *  room, measured still. */
+  const valueAt = $derived.by((): 'side' | 'over' | null => {
+    if (value === null || !valueW || !meBadgeW) return null;
+    if (s.wide) {
+      if (meBadgeW + 6 + valueW <= s.sideW - 12) return 'side';
+      if (valueW > s.sideW - 12) return null;
+      const left = seatAt('left', me);
+      const before = oppW('left', left, cornerBase);
+      return H - s.topH - meH - cornerBase - belowL - plateH('left') - 12 - valueH - 4 >= 0
+        && oppW('left', left, cornerBase + valueH + 4) >= before ? 'over' : null;
+    }
+    const counts = pos.players[me].melds.map((m) => meldTiles(m).length);
+    const room = s.tableW - 16 - meBadgeW - 8 - valueW;
+    if (!counts.length && !myFlowers.length) return room >= 0 ? 'side' : null;
+    return room > 0 && fitMelds(counts, myFlowers.length, room, 1, s.meld, 22) >= s.meld ? 'side' : null;
+  });
+  /** The left column ends above the corner (and the expected result over it). */
+  const cornerH = $derived(cornerBase + (valueAt === 'over' ? valueH + 4 : 0));
   const winds = $derived(view.seat_winds);
   const turnSeat = $derived(view.phase === 'over' ? -1 : view.current);
   const rivers: { side: Side; area: string }[] = [
@@ -922,10 +951,19 @@
       <SeatBadge wind={winds[me]} name={names[me]} score={scores ? scores[me] : null} dealer={setup.dealer === me} streak={setup.streak}
         turn={turnSeat === me} compact={!s.wide} note={myNote} room={review ? '' : t('analysis_shanten', 3)} />
     {/snippet}
+    {#snippet myValue()}
+      {#if value !== null}
+        <span class="my-value {valueAt ?? 'off'}" class:compact={!s.wide} aria-hidden={!valueAt} bind:clientWidth={valueW} bind:clientHeight={valueH}
+          style={s.wide && valueAt === 'side' ? `left: ${meBadgeW + 6}px; bottom: ${(meBadgeH - valueH) / 2}px` : undefined}>
+          <span class="dim">{t('fig_value')}</span><b class:pos={value > 0.005} class:neg={value < -0.005}>{pts(value)}</b>
+        </span>
+      {/if}
+    {/snippet}
     {#if s.wide}
       <div class="me-corner" style="bottom: {meH + 2}px" bind:clientHeight={meCorner}>
         {#if status}<div class="status">{@render status()}</div>{/if}
-        {@render myBadge()}
+        <span class="plate-box" bind:clientWidth={meBadgeW} bind:clientHeight={meBadgeH}>{@render myBadge()}</span>
+        {@render myValue()}
       </div>
       <!-- The hand to the left (a discard leaves the rest in place); over it, at its left, the melds, the first at the
            far left and each after it to its right (none moves when another comes), and the flowers. -->
@@ -943,6 +981,7 @@
       <div class="me tall" data-tour="hand">
         <div class="me-top">
           <span class="me-melds"><Melds melds={pos.players[me].melds} flowers={myFlowers} w={myMeldW} seat={me} hide={hideMeld(me)} /></span>
+          {@render myValue()}
           <span class="me-badge" bind:clientWidth={meBadgeW}>{@render myBadge()}</span>
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
@@ -1057,6 +1096,23 @@
   .me-top { display: flex; align-items: flex-end; gap: 8px; min-width: 0; align-self: stretch; }
   .me-badge { flex: none; align-self: center; display: flex; max-width: 60%; margin-left: auto; }
   .me-melds { min-width: 0; display: flex; justify-content: flex-start; }
+  .plate-box { flex: none; display: flex; min-width: 0; max-width: 100%; }
+  /* A wide table's: beside the plate (placed by its style) or over the corner; out of its flow either way (the
+     corner's height counts it in, cornerH). */
+  .me-corner .my-value { position: absolute; }
+  .me-corner .my-value.over { left: 0; bottom: calc(100% + 4px); }
+  /* The expected result: a plate's pill of its own, as tall as the plate. A tall table's after the melds, the plate
+     after it. One with no room is out of the way, unseen, measured still. */
+  .my-value { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px;
+    min-height: calc(1.7em + 8px); box-sizing: border-box; border-radius: 16px; background: rgba(0, 0, 0, 0.16);
+    color: var(--on-felt); line-height: 1.2; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .my-value.compact { font-size: 0.86em; padding: 2px 8px; }
+  .my-value .dim { color: var(--on-felt-dim); }
+  .my-value .pos { color: var(--felt-good); }
+  .my-value .neg { color: var(--felt-bad); }
+  .me-top .my-value.side { margin-left: auto; }
+  .me-top .my-value.side + .me-badge { margin-left: 0; }
+  .my-value.off { position: absolute; visibility: hidden; pointer-events: none; }
   .me-corner { position: absolute; left: 8px; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
     max-width: calc(var(--side-w) - 12px); }
 
