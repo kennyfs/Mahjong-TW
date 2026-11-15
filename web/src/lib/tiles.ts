@@ -32,14 +32,15 @@ export function tilesString(tiles: Tile[]): string {
   return out;
 }
 
-/** Order of kinds: characters, dots, bamboo, honors, flowers. */
+/** Order of kinds as shown: characters, dots, bamboo, honors (東南西北中發白, the way they are said: not the engine's
+ *  白發中), flowers. */
 export function tileIndex(t: Tile): number {
   const n = Number(t[0]);
   switch (t[1]) {
     case 'm': return n - 1;
     case 'p': return 8 + n;
     case 's': return 17 + n;
-    case 'z': return 26 + n;
+    case 'z': return n <= 4 ? 26 + n : 38 - n;
     default: return 33 + n;
   }
 }
@@ -47,7 +48,7 @@ export function tileIndex(t: Tile): number {
 export const compareTiles = (a: Tile, b: Tile) => tileIndex(a) - tileIndex(b);
 export const sortTiles = (ts: Tile[]) => [...ts].sort(compareTiles);
 
-/** All 34 kinds in order, and the 8 flowers. */
+/** All 34 kinds in the engine's order (an index into its figures by kind), and the 8 flowers. */
 export const KINDS: Tile[] = [
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `${n}m`),
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `${n}p`),
@@ -55,6 +56,9 @@ export const KINDS: Tile[] = [
   ...[1, 2, 3, 4, 5, 6, 7].map((n) => `${n}z`),
 ];
 export const FLOWERS: Tile[] = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `${n}f`);
+
+/** All 34 kinds as shown (中發白). */
+export const KINDS_SHOWN: Tile[] = sortTiles(KINDS);
 
 export const isFlower = (t: Tile) => t[1] === 'f';
 export const isHonor = (t: Tile) => t[1] === 'z';

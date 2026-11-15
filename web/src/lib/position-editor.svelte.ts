@@ -4,7 +4,7 @@
 // A step of a hand's review can be taken here (load), to try changes on it: while only the hand's own tiles are
 // changed, the figures are asked of that hand's game (source), whose history the network reads; a position of its
 // own has only the plain history of its discards.
-import { FLOWERS, KINDS, parseTiles, sortTiles, tilesString, type Tile } from './tiles';
+import { FLOWERS, KINDS, KINDS_SHOWN, parseTiles, sortTiles, tilesString, type Tile } from './tiles';
 import type { GameRecord, Meld, Position } from './types';
 
 export type Mode = 'self' | 'claim';
@@ -225,5 +225,5 @@ class Editor {
 }
 
 export const editor = new Editor();
-export const PALETTE: Tile[] = KINDS;
+export const PALETTE: Tile[] = KINDS_SHOWN;
 export const FLOWER_PALETTE: Tile[] = FLOWERS;

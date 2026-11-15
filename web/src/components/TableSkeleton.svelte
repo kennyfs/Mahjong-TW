@@ -1,8 +1,8 @@
 <!--
   A table before there is one (the engine still downloading, a battle's first view on its way): the table itself
   (Table.svelte) with a placeholder hand, so that every part is where and as large as it will be once dealt, drawn as
-  shapes in a lighter tone of the felt, pulsing, as a page shows while it loads. The screen gives what its table will
-  have: the names, the scores, the hand's label, the tiles' cap.
+  shapes in a lighter tone of the felt (each tile a little narrower, apart from the next), pulsing, as a page shows
+  while it loads. The screen gives what its table will have: the names, the scores, the hand's label, the tiles' cap.
 -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
@@ -35,6 +35,8 @@
   .skel-table :global(svg.tile), .skel-table :global(.badge-row), .skel-table :global(.corner-info), .skel-table :global(.box) {
     background: color-mix(in srgb, var(--on-felt) 14%, transparent); border-color: transparent; box-shadow: none; border-radius: 6px;
     animation: pulse 1.6s ease-in-out infinite; }
+  /* A little narrower than the tiles (their place unchanged): a hand's blocks stand apart, as tiles touching do not. */
+  .skel-table :global(svg.tile) { transform: scaleX(0.9); }
   .skel-table :global(.badge-row *), .skel-table :global(.corner-info *), .skel-table :global(.box *) { visibility: hidden; }
   @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .skel-table :global(*) { animation: none !important; } }

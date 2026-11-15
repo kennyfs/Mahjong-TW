@@ -15,6 +15,7 @@
   note on a best action that is not the obvious one (the review says them itself).
 -->
 <script lang="ts">
+  import { compareTiles } from '../lib/tiles';
   import { tick } from 'svelte';
   import { actionText, actionTiles } from '../lib/actions';
   import { t } from '../lib/i18n.svelte';
@@ -140,7 +141,7 @@
         {#if f.waits.length && f.shanten === 0}
           <div class="waits body-small">
             <span class="dim">{t('analysis_waits')}</span>
-            {#each f.waits as wt (wt.tile)}<span class="wait"><Tile tile={wt.tile} w={w * 0.6} />{t('analysis_wait_left', wt.left)}</span>{/each}
+            {#each [...f.waits].sort((a, b) => compareTiles(a.tile, b.tile)) as wt (wt.tile)}<span class="wait"><Tile tile={wt.tile} w={w * 0.6} />{t('analysis_wait_left', wt.left)}</span>{/each}
           </div>
         {/if}
       </div>

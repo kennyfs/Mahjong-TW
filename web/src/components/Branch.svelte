@@ -470,7 +470,7 @@
       <div class="table-wrap">
         {#if view}
           <Table {view} {me} {names} revealed={view.phase === 'over' ? (final?.hands ?? null) : null} interactive={!!view.my_turn && !deciding} {robbed}
-            onact={act} maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom>
+            onact={act} oneClick={ui.desk} maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom>
             {#snippet overlay()}
               {#if over && (held || fxOn.on)}<TapOn onnext={() => (held = false)} />{/if}
               {#if sheet && final}

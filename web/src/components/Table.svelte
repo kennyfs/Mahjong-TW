@@ -19,7 +19,8 @@
   `revealed`: every seat's concealed tiles, to show (a finished hand, a replay showing all). The others' then lie on
   a rack (a darker tray) after their melds, their tiles as large as their room allows: the player opposite in one
   line along the top of a wide table; on a tall one the others' strip grows for them (the rivers give the room).
-  `keys`: a computer's: a click discards, and the keyboard plays (← → choose a tile, Enter discards it, Esc lets go;
+  `oneClick` (a computer's, where the screen has keys of its own: a branch): a click discards. `keys`: a computer's: a
+  click discards, and the keyboard plays (← → choose a tile, Enter discards it, Esc lets go;
   H wins, G kongs, P pungs, C chows, 1 2 3 a chow's way, Space passes).
   `aside`: a panel at the right (`asideW` px wide), shown when the window has room for it beside the table (a computer's;
   `asideShown` says whether it is);
@@ -74,6 +75,7 @@
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
     marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null, review = false, deal = null,
     choiceMarks = null, tagRoom = false, asideShown = $bindable(false), hints = true, inDeal = $bindable(false), value = null,
+    oneClick = keys,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
     onact?: (a: Action) => void; handLabel?: string;
@@ -97,6 +99,7 @@
      *  and the tiles a ready hand waits with (聽的相關牌組) on blue faces (on the player's turn, those it would wait
      *  with after the tile chosen, or under the mouse, is discarded, else after the drawn one). */
     hints?: boolean;
+    oneClick?: boolean;
     /** A hand's deal going on (its tiles not turned up yet): what shows its analysis waits for it. */
     inDeal?: boolean;
   } = $props();
@@ -978,7 +981,7 @@
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
         <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
-          bind:selected oneClick={keys} {marks} {tagH} dropOutside={!review} onhover={(i) => (hovered = i)} {waitAt} />{/if}
+          bind:selected {oneClick} {marks} {tagH} dropOutside={!review} onhover={(i) => (hovered = i)} {waitAt} />{/if}
       </div>
     {:else}
       <!-- Over the hand: the melds at the left (the first at the far left), the flowers after them; the name plate at
