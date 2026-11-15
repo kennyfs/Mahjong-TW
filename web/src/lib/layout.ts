@@ -198,9 +198,14 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0, upright 
   // whole width; the player's melds and flowers (at the left) and name plate (at the right) in a line over the hand,
   // which wraps after HAND_ROW tiles (the drawn one apart at the end of the last row).
   // The rivers stay 26 px or more: on a short table the hand gets smaller (not below 30) to leave them the room.
+  // An upright table (手動繼續's, the palette under it): the rivers across in 2 rows of 8 (they keep larger in a short
+  // table than 3 rows of 5), and the others' melds larger.
+  const sideCols = 3;
+  const acrossCols = upright ? 8 : 5;
+  const acrossRows = upright ? 2 : 3;
   const tall = (hand: number, more = 0) => {
     const meld = Math.min(hand * 0.72, 40);
-    const opp = Math.max(22, Math.min(hand * 0.6, 32));
+    const opp = Math.max(22, Math.min(hand * (upright ? 0.75 : 0.6), 32));
     const meldLine = Math.max(30, H(meld));
     const meH = meldLine + 4 + (noHand ? 0 : H(hand) * (2 + ROW_GAP + LIFT)) + 6;
     // The name plate, the column's padding (4 above and below) and the gap under the plate (4), then the lines.
@@ -209,14 +214,12 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0, upright 
     // A strip grown for shown hands keeps SHOWN_GAP clear of the rivers (they are centered in what is left).
     const centerH = h - meH - topH - 4;
     const riversH = centerH - (more > own ? SHOWN_GAP : 0);
-    // The rivers: 3 columns at the sides, 5 across in 3 rows; as wide as the table allows, unless its height says less.
+    // The rivers: 3 columns at the sides, 5 across in 3 rows (upright: 8 in 2); as wide as the table allows, unless its
+    // height says less.
     let river = Math.min(hand * 0.9, (w - 24) / (acrossCols + 2 * sideCols));
     while (river > 16 && (2 * acrossRows + BOX_ROWS) * H(river) + 14 > riversH) river -= 0.5;
     return { hand, meld, opp, meH, topH, centerH: riversH, river, meldLine };
   };
-  const sideCols = 3;
-  const acrossCols = 5;
-  const acrossRows = 3;
   let fit = tall(Math.max(30, Math.min(maxHand, (w - 10) / (HAND_ROW + DRAWN_GAP + 1))));
   while (fit.river < MIN_RIVER && fit.hand > 30) fit = tall(Math.max(30, fit.hand - 1));
   // A higher strip takes its room from the rivers alone: the hand stays as it was.

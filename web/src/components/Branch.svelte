@@ -135,7 +135,10 @@
     const el = inlineEl;
     if (el) return topWhenAway(el, () => document.querySelector<HTMLElement>('.table .me .hand'));
   });
-  const listView = $derived(panelOpen && !inlinePanel && !over);
+  /** 手動繼續: the player decides at this step (a discard, or a claim of theirs): only then is the list of choices
+   *  of use (its button is off otherwise). */
+  const myChoice = $derived(!!view && view.my_turn && !view.draw_needed && (view.phase === 'self' || view.legal.some((a) => a.type !== 'pass')));
+  const listView = $derived(panelOpen && !inlinePanel && !over && (!manual || myChoice));
   $effect(() => { void listView; selected = null; });
 
   /** A step's decision as the analysis shows it: whose it is, what was done there (a step gone back to; null: the
@@ -147,6 +150,8 @@
   async function lookAt(g: GameRecord, k: number, v: View): Promise<Look | null> {
     if (v.phase === 'over') return null;
     const decides = v.my_turn && !v.draw_needed && (!manual || v.legal.some((a) => a.type !== 'pass'));
+    // (手動繼續: the others' tiles are stand-ins; only the player's decisions are analyzed.)
+    if (manual && !decides) return null;
     // (手動繼續: every seat answers each discard, the player's answer among the others'.)
     const d = manual && decides ? { seat: me, action: myAnswer(g, k) } : k < g.actions.length ? recordAction(g.actions[k]) : decides ? { seat: me, action: null } : null;
     if (!d) return null;
@@ -560,6 +565,8 @@
 {#snippet panel()}
   {#if look?.analysis}
     <DecisionPanel analysis={look.analysis} {played} {unit} w={34} {names} picked={pickedIndex} who={look.seat === me ? '' : names[look.seat]} />
+  {:else if manual && !myChoice}
+    <!-- (手動繼續: a list only at the player's own decisions.) -->
   {:else}
     <PanelSkeleton w={34} />
   {/if}
@@ -581,8 +588,8 @@
 
 {#snippet listToggle()}
   {#if !inlinePanel}
-    <button class="btn icon text" class:on={panelOpen} aria-label={t('review_panel')} title={t('review_panel')} aria-pressed={panelOpen}
-      onclick={() => (panelOpen = !panelOpen)}>
+    <button class="btn icon text" class:on={panelOpen && (!manual || myChoice)} aria-label={t('review_panel')} title={t('review_panel')} aria-pressed={panelOpen}
+      disabled={manual && !myChoice} onclick={() => (panelOpen = !panelOpen)}>
       <Icon name="assessment" />
     </button>
   {/if}
@@ -702,20 +709,19 @@
   {/if}
 {/snippet}
 
-<!-- 手動繼續 on an upright window: the step, the expected result and the way between steps in one line. -->
-{#snippet manualBar()}
-  <div class="mbar">
-    <span class="label-large">{t('manual_step', steps)}</span>
-    {#if mine?.value !== undefined}<b class="now" title={t('review_now')}>{pts(mine.value)}</b>{/if}
-    <span class="grow"></span>
-    {#each ['prevMine', 'prev', 'next', 'nextMine', 'newest'] as k (k)}{@render nb(k)}{/each}
-  </div>
-  {#if status}<div class="mstatus body-medium dim">{status}</div>{/if}
+<!-- 手動繼續 on an upright window: the step for the title, the way between steps in the title bar (the expected result
+     by the player's name plate on the table), so that the table has the room. -->
+{#snippet manualNav()}
+  <span class="mnav">{#each ['prevMine', 'prev', 'next', 'nextMine', 'newest'] as k (k)}{@render nb(k)}{/each}</span>
 {/snippet}
 
 <div class="page" class:side class:manual>
   {#if !side}
-    <TitleBar title={title || t('branch_title')} onback={onclose}>{@render shuffle()}{@render listToggle()}</TitleBar>
+    {#if manual}
+      <TitleBar title={t('manual_step', steps)} onback={onclose}>{@render manualNav()}{@render listToggle()}</TitleBar>
+    {:else}
+      <TitleBar title={title || t('branch_title')} onback={onclose}>{@render shuffle()}{@render listToggle()}</TitleBar>
+    {/if}
   {/if}
   <div class="main">
     {#if listView}
@@ -725,7 +731,7 @@
       <div class="table-wrap">
         {#if view && shown}
           <Table view={shown} {me} {names} revealed={view.phase === 'over' ? (final?.hands ?? null) : null} interactive={manual ? manualInteractive : !!view.my_turn && !deciding} {robbed}
-            onact={act} oneClick={ui.desk} maxHand={ui.desk ? 64 : 56} upright={manual && !side} hideHand={!handShown} turnOf={entering} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom>
+            onact={act} oneClick={ui.desk} maxHand={ui.desk ? 64 : 56} upright={manual && !side} hideHand={!handShown} turnOf={entering} value={manual && !side ? (mine?.value ?? null) : null} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom>
             {#snippet overlay()}
               {#if over && (held || fxOn.on)}<TapOn onnext={() => (held = false)} />{/if}
               {#if sheet && final}
@@ -745,8 +751,8 @@
       </div>
     {/if}
     <!-- (Under the table, not under the result: on a low window it takes the room the result needs.) -->
-    {#if !side && !sheet}
-      <div class="controls">{#if manual}{@render manualBar()}{@render entry()}{:else}{@render info()}{@render buttons()}{/if}</div>
+    {#if !side && !sheet && (!manual || status || (ask && ask.kind !== 'mine'))}
+      <div class="controls">{#if manual}{#if status}<div class="mstatus body-medium dim">{status}</div>{/if}{@render entry()}{:else}{@render info()}{@render buttons()}{/if}</div>
     {/if}
   </div>
   {#if side}
@@ -845,9 +851,9 @@
   /* 手動繼續 on an upright window: the table takes what the controls leave (they scroll when they need more). */
   .page.manual:not(.side) .table-wrap { min-height: 42%; }
   .page.manual:not(.side) .controls { flex: 0 1 auto; min-height: 0; overflow: auto; padding-top: 4px; }
-  .mbar { display: flex; align-items: center; gap: 4px; }
-  .mbar .grow { flex: 1; }
-  .mbar .now { font-variant-numeric: tabular-nums; margin-left: 6px; }
-  .mbar .btn.icon { width: 36px; min-height: 36px; border-radius: 18px; }
+  .mnav { display: flex; align-items: center; margin-right: -8px; }
+  .mnav .btn.icon { width: 34px; min-height: 40px; padding: 0; }
+  .mnav .btn.icon.tonal { background: none; }
+  .mnav .btn.icon:disabled { opacity: 0.38; }
   .mstatus { line-height: 1.3; }
 </style>
