@@ -25,6 +25,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.outlined.Wallpaper
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Contrast
+import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Save
@@ -615,12 +623,16 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
           listOfNotNull(ColorStyle.TABLE to stringResource(R.string.colors_table), ColorStyle.MINIMAL to stringResource(R.string.colors_minimal),
             (ColorStyle.WALLPAPER to stringResource(R.string.colors_wallpaper)).takeIf { Build.VERSION.SDK_INT >= Build.VERSION_CODES.S }),
           s.colors, { s.colors = it; save() }, Modifier.testTag("settings_colors"),
+          icons = mapOf(ColorStyle.TABLE to Icons.Outlined.Palette, ColorStyle.MINIMAL to Icons.Outlined.Contrast,
+            ColorStyle.WALLPAPER to Icons.Outlined.Wallpaper),
         )
         SelectRow(
           stringResource(R.string.settings_dark),
           listOf(DarkMode.SYSTEM to stringResource(R.string.dark_system), DarkMode.LIGHT to stringResource(R.string.dark_light),
             DarkMode.DARK to stringResource(R.string.dark_dark)),
           s.dark, { s.dark = it; save() }, Modifier.testTag("settings_dark"),
+          icons = mapOf(DarkMode.SYSTEM to Icons.Outlined.BrightnessAuto, DarkMode.LIGHT to Icons.Outlined.LightMode,
+            DarkMode.DARK to Icons.Outlined.DarkMode),
         )
 
         SectionHeader(stringResource(R.string.settings_game))
@@ -712,27 +724,47 @@ private const val PRIVACY_URL = "https://github.com/kennyfs/Mahjong-TW/blob/main
 @Composable
 private fun LinkIcon() = Icon(Icons.AutoMirrored.Filled.OpenInNew, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
 
-/** A setting's choice as a row (its title, the choice under it); a tap opens the choices in a small window. */
+/**
+ * A setting's choice as a row (its title, the choice under it, ▾); a tap opens the choices in a small window: each a
+ * row with its icon, the chosen one lit, a radio at its end. Thirteen's SelectRow.
+ */
 @Composable
-private fun <T> SelectRow(title: String, options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit, modifier: Modifier = Modifier) {
+private fun <T> SelectRow(
+  title: String, options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit, modifier: Modifier = Modifier,
+  icons: Map<T, ImageVector> = emptyMap(),
+) {
   var open by remember { mutableStateOf(false) }
-  SettingRow(title, options.firstOrNull { it.first == selected }?.second, modifier, arrow = false) { open = true }
-  if (open) AlertDialog(
-    onDismissRequest = { open = false },
-    confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } },
-    title = { Text(title) },
-    text = {
-      Column(Modifier.selectableGroup()) {
-        for ((v, label) in options) Row(
-          Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(v == selected, role = Role.RadioButton) { onSelect(v); open = false },
-          verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-          RadioButton(selected = v == selected, onClick = null)
-          Text(label, style = MaterialTheme.typography.bodyLarge)
+  SettingRow(title, options.firstOrNull { it.first == selected }?.second, modifier, arrow = false,
+    trailing = { Icon(Icons.Filled.ArrowDropDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }) { open = true }
+  if (open) {
+    val colors = MaterialTheme.colorScheme
+    AlertDialog(
+      onDismissRequest = { open = false },
+      shape = RoundedCornerShape(28.dp),
+      containerColor = colors.surfaceContainerHigh,
+      confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } },
+      title = { Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) },
+      text = {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).selectableGroup(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+          for ((v, label) in options) {
+            val on = v == selected
+            Surface(
+              Modifier.fillMaxWidth().selectable(on, role = Role.RadioButton) { onSelect(v); open = false },
+              shape = RoundedCornerShape(16.dp), color = if (on) colors.secondaryContainer else Color.Transparent,
+            ) {
+              Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                icons[v]?.let { Icon(it, null, Modifier.size(24.dp), tint = if (on) colors.onSecondaryContainer else colors.onSurfaceVariant) }
+                Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                  color = if (on) colors.onSecondaryContainer else colors.onSurface)
+                RadioButton(selected = on, onClick = null)
+              }
+            }
+          }
         }
-      }
-    },
-  )
+      },
+    )
+  }
 }
 
 @Composable

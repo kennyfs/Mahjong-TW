@@ -133,11 +133,26 @@ import io.github.kennyfs.mahjong.Sounds
 import kotlin.math.roundToLong
 import androidx.compose.material3.LocalTextStyle
 import io.github.kennyfs.mahjong.pts
+import io.github.kennyfs.mahjong.pct
+import io.github.kennyfs.mahjong.dangerLevel
+import io.github.kennyfs.mahjong.dangerTiles
+import io.github.kennyfs.mahjong.Opponent
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.Popup
 
 private val Float.d: Dp get() = this.dp
 
-/** A few words on a name plate (a review): how likely the player is ready, or what they held (level 0 to 3). */
-data class SeatNote(val text: String, val level: Int)
+/** A few words on a name plate (a review): how likely the player is ready, or what they held (level 0 to 3). `opp`: the
+ *  opponent's figures, shown when the words are tapped (SeatBadge, OppCard); `short`: the words where the plate has no
+ *  room for them (Shorten). */
+data class SeatNote(val text: String, val level: Int, val opp: Opponent? = null, val short: String? = null)
 
 /** The room kept over each row of the hand for the tiles' tags, when there may be some. */
 private const val TAG_H = 17f
@@ -824,12 +839,20 @@ fun SeatBadge(
         Text(room, Modifier.alpha(0f), fontWeight = FontWeight.Bold, fontSize = f, maxLines = 1)
         if (note != null) Text(note.text, color = if (note.level > 0) Marks.on(note.level) else c.onFelt, fontWeight = FontWeight.Bold, fontSize = f,
           maxLines = 1)
-      } else if (note != null) Text(
-        note.text, color = if (note.level > 0) Marks.on(note.level) else c.onFelt, fontWeight = FontWeight.Bold, fontSize = f, maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.weight(1f, fill = false).background(if (note.level > 0) Marks.danger(note.level) else Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-          .padding(horizontal = 6.dp),
-      ) else if (count != null) Text(stringResource(R.string.hand_cards, count), color = c.onFeltDim, fontSize = f, maxLines = 1)
+      } else if (note != null) Box(Modifier.weight(1f, fill = false)) {
+        var shown by remember(note.opp) { mutableStateOf(false) }
+        Shorten(if (note.short != null) 2 else 1) { level ->
+          Text(
+            if (level == 0) note.text else note.short!!, color = if (note.level > 0) Marks.on(note.level) else c.onFelt, fontWeight = FontWeight.Bold,
+            fontSize = f, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (note.level > 0) Marks.danger(note.level) else Color.Black.copy(alpha = 0.3f))
+              .let { if (note.opp != null) it.clickable(role = Role.Button) { shown = true } else it }
+              .padding(horizontal = 6.dp),
+          )
+        }
+        // An opponent's figures, by the note (a tap outside closes them).
+        if (shown && note.opp != null) OppCard(name, note.opp) { shown = false }
+      } else if (count != null) Text(stringResource(R.string.hand_cards, count), color = c.onFeltDim, fontSize = f, maxLines = 1)
       if (!scoreByName) scoreText()
     }
     val space = if (compact) 4.dp else 6.dp
@@ -881,6 +904,48 @@ private fun NameOverFigures(gap: Dp, name: @Composable () -> Unit, deal: (@Compo
         var x = 0
         for (p in l) { p.place(x, y + (heights[i] - p.height) / 2); x += p.width + g }
         y += heights[i]
+      }
+    }
+  }
+}
+
+/** Below its anchor (above it where there is more room there), inside the window by 8 dp. */
+private class UnderAnchor(private val gap: Int, private val margin: Int) : PopupPositionProvider {
+  override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
+    val x = (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(margin, (windowSize.width - margin - popupContentSize.width).coerceAtLeast(margin))
+    val below = anchorBounds.bottom + gap
+    val above = anchorBounds.top - gap - popupContentSize.height
+    val y = if (below + popupContentSize.height <= windowSize.height - margin || anchorBounds.top < windowSize.height - anchorBounds.bottom) below else above
+    return IntOffset(x, y.coerceAtLeast(margin))
+  }
+}
+
+/**
+ * An opponent's figures, a tap on its plate's 聽 N% (the hints): how likely it is ready and one away, and the discards
+ * likeliest to deal in to it. The web page's SeatBadge has the same card.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OppCard(name: String, o: Opponent, onClose: () -> Unit) {
+  val d = LocalDensity.current
+  Popup(UnderAnchor(with(d) { 6.dp.roundToPx() }, with(d) { 8.dp.roundToPx() }), onDismissRequest = onClose, properties = PopupProperties(focusable = true)) {
+    val cs = MaterialTheme.colorScheme
+    val small = MaterialTheme.typography.bodySmall
+    Surface(Modifier.widthIn(max = 320.dp).testTag("opp_card"), shape = RoundedCornerShape(12.dp), color = cs.surfaceContainerHigh, shadowElevation = 6.dp) {
+      Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(name, style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.opp_ready, pct(o.ready.getOrElse(0) { 0.0 })) + "・" + stringResource(R.string.opp_one_away, pct(o.ready.getOrElse(1) { 0.0 })),
+          style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.opp_detail_danger), style = small, color = cs.onSurfaceVariant)
+        val dangers = dangerTiles(o)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+          for (k in dangers) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TileView(Tiles.KINDS[k], 30.dp, danger = dangerLevel(o.danger[k]))
+            Text(pct(o.danger[k]), style = small.copy(fontFeatureSettings = "tnum"))
+          }
+          if (dangers.isEmpty()) Text(stringResource(R.string.opp_no_danger), style = small, color = cs.onSurfaceVariant)
+        }
+        Text(stringResource(R.string.opp_detail_source), style = small, color = cs.onSurfaceVariant)
       }
     }
   }

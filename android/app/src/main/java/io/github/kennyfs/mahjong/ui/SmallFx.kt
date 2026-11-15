@@ -139,8 +139,21 @@ fun SmallFx(m: Moment, host: FxHost, origin: Offset) {
         var x = c.x - bw / 2
         var y = c.y - bh / 2
         if (table != null) {
-          x = x.coerceIn(table.left + 6 * density, max(table.left + 6 * density, table.right - 6 * density - bw))
-          y = y.coerceIn(table.top + 6 * density, max(table.top + 6 * density, table.bottom - 6 * density - bh))
+          // All of it inside the table (and the window), the word's plaque and the name's tab too, which stand out of
+          // the panel: the plaque over its lower left corner (a little higher at its right end, tilted), the tab over
+          // its top edge. A little more room at the top. (The panel alone was kept inside: at a seat at the top, the
+          // plaque and the name went past the screen's top.)
+          val plaqueH = fs * 1.59f * density
+          val plaqueW = fs * (chars * 1.06f + 0.84f) * density
+          val upPlaque = plaqueH + plaqueW * 0.053f - tw * 0.42f * density - bh
+          val upName = if (m.who.isNotEmpty()) tw * (if (m.kind == MomentKind.SMALL && m.tiles.isEmpty()) 1.05f else 0.34f) * density else 0f
+          val overTop = max(0f, max(upPlaque, upName))
+          val overLeft = tw * 0.3f * density
+          val overBottom = tw * 0.42f * density
+          val top = max(table.top, origin.y) + 14 * density + overTop
+          val left = table.left + 6 * density + overLeft
+          x = x.coerceIn(left, max(left, table.right - 6 * density - bw))
+          y = y.coerceIn(top, max(top, table.bottom - 6 * density - overBottom - bh))
         }
         p.placeWithLayer((x - origin.x).roundToInt() - r, (y - origin.y).roundToInt() - r) {
           val t = now()

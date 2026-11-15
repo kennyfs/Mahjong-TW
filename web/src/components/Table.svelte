@@ -47,7 +47,7 @@
     DRAWN_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, OPP_LINES, runLines, SHOWN_RIVER, shownHeight, tableSizes, tallTopRoom, type TableSizes,
   } from '../lib/layout';
   import { concealedCount, meldTiles, seatAt, sideOf, flowersOf, type Side } from '../lib/seats';
-  import { pts, type ChoiceMark, type TileMark } from '../lib/review';
+  import { pts, type ChoiceMark, type SeatNote, type TileMark } from '../lib/review';
   import { groupIndices, parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
   import { dealsShown, movesShown, resultTap, setFx } from '../lib/fx.svelte';
@@ -80,7 +80,7 @@
     /** The hand in a few characters (3, a contest's 3/8): the round's label as 東-3 where the full one has no room. */
     handShort?: string; maxHand?: number; keys?: boolean; away?: boolean[];
     status?: Snippet; overlay?: Snippet; corner?: Snippet; aside?: Snippet; selected?: number | null; asideW?: number;
-    marks?: Map<T, TileMark> | null; notes?: ({ text: string; level: number } | null)[] | null; strip?: Snippet; value?: number | null;
+    marks?: Map<T, TileMark> | null; notes?: (SeatNote | null)[] | null; strip?: Snippet; value?: number | null;
     onpick?: (tile: T | null) => void; onnext?: (() => void) | null; stay?: boolean;
     /** The event (an index into view.events) that was a claim taken from the player (lib/claims.ts): its words are
      *  搶碰, 搶胡 instead of 碰, 胡. */

@@ -212,17 +212,18 @@ fun CallFx(m: Moment, host: FxHost) {
         val r = 0.42f * 1.06f * 150 * vmin
         val inner = 0.08f / 0.42f
         val turn = (time.real / 36f) * 360f
+        // One path for all of them, drawn once: drawn each on its own, their 24 tips, meeting in the middle, made a bright
+        // dot there (each tip's smoothed edge laid over the others').
+        val rays = Path()
         for (k in 0 until 24) {
           val a0 = Math.toRadians((turn + k * 15f - 90f).toDouble())
           val a1 = Math.toRadians((turn + k * 15f + 5f - 90f).toDouble())
-          val ray = Path().apply {
-            moveTo(c.x, c.y)
-            lineTo(c.x + r * cos(a0).toFloat(), c.y + r * sin(a0).toFloat())
-            lineTo(c.x + r * cos(a1).toFloat(), c.y + r * sin(a1).toFloat())
-            close()
-          }
-          drawPath(ray, Brush.radialGradient(inner to Color(0x33FFD66E), 1f to Color(0x00FFD66E), center = c, radius = r), alpha = ra)
+          rays.moveTo(c.x, c.y)
+          rays.lineTo(c.x + r * cos(a0).toFloat(), c.y + r * sin(a0).toFloat())
+          rays.lineTo(c.x + r * cos(a1).toFloat(), c.y + r * sin(a1).toFloat())
+          rays.close()
         }
+        drawPath(rays, Brush.radialGradient(inner to Color(0x33FFD66E), 1f to Color(0x00FFD66E), center = c, radius = r), alpha = ra)
       }
     }
 

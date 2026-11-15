@@ -216,7 +216,9 @@
   .sparks { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
   .spark { position: absolute; left: 0; top: 0; width: var(--s); height: var(--s); border-radius: 50%; opacity: 0;
     background: radial-gradient(circle, #fff7d6, #ffd36b 55%, rgba(255, 180, 60, 0) 70%);
-    animation: spark calc(var(--ms) * 0.22) cubic-bezier(0.1, 0.7, 0.3, 1) both; }
+    animation: spark calc(var(--ms) * 0.22) cubic-bezier(0.1, 0.7, 0.3, 1) forwards; }
+  /* (forwards, not both: with both each spark showed its first frame, at full strength in the hand's middle, all through
+     its delay: a dot there till the tile landed.) */
   @keyframes spark { 0% { opacity: 1; transform: rotate(var(--a)) translateX(0) scale(1.2); }
     100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--d)) scale(0.4); } }
 </style>

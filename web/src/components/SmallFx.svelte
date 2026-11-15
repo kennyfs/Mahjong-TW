@@ -36,8 +36,19 @@
     const a = m.anchor ? document.querySelector<HTMLElement>(m.anchor)?.getBoundingClientRect() : null;
     const [cx, cy] = a ? centre(a) : [T.left + T.width / 2, T.top + T.height / 2];
     const bw = box.offsetWidth, bh = box.offsetHeight;
-    box.style.left = `${clamp(cx - bw / 2, T.left + 6, Math.max(T.left + 6, T.right - 6 - bw))}px`;
-    box.style.top = `${clamp(cy - bh / 2, T.top + 6, Math.max(T.top + 6, T.bottom - 6 - bh))}px`;
+    // All of it inside the table and the window, the word's plaque and the name's tab too (they stand out of the panel:
+    // the panel alone was kept inside, and at a seat at the top they went past the window's top), a little more room
+    // at the top.
+    const b = box.getBoundingClientRect();
+    let u = { l: b.left, t: b.top, r: b.right, b: b.bottom };
+    for (const e of box.querySelectorAll<HTMLElement>('.word, .who')) {
+      const r = e.getBoundingClientRect();
+      u = { l: Math.min(u.l, r.left), t: Math.min(u.t, r.top), r: Math.max(u.r, r.right), b: Math.max(u.b, r.bottom) };
+    }
+    const L = Math.max(T.left, 0) + 6 + (b.left - u.l), R = Math.min(T.right, innerWidth) - 6 - (u.r - b.right);
+    const top = Math.max(T.top, 0) + 14 + (b.top - u.t), bottom = Math.min(T.bottom, innerHeight) - 6 - (u.b - b.bottom);
+    box.style.left = `${clamp(cx - bw / 2, L, Math.max(L, R - bw))}px`;
+    box.style.top = `${clamp(cy - bh / 2, top, Math.max(top, bottom - bh))}px`;
     box.style.visibility = 'visible';
 
     const anims: Animation[] = [];

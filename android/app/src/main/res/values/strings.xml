@@ -453,6 +453,9 @@
   <string name="opp_ready">聽 %1$s</string>
   <string name="opp_ready_wait">聽 %1$s・可能聽%2$s</string>
   <string name="opp_one_away">一向聽 %1$s</string>
+  <!-- A tap on an opponent's 聽 N% (its name plate, with the hints): its figures in a small window. -->
+  <string name="opp_detail_danger">打出就放槍給他的機率：</string>
+  <string name="opp_detail_source">神經網路的估計</string>
   <string name="opp_missed">過水</string>
   <string name="opp_no_danger">沒有明顯危險的牌</string>
   <string name="opp_truth">實際</string>

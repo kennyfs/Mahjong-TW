@@ -19,9 +19,8 @@
   import { actionText, actionTiles } from '../lib/actions';
   import { t } from '../lib/i18n.svelte';
   import { keepInBand } from '../lib/scroll';
-  import { costOf, efficiencyText, EQUAL, figureCells, gradeOf, GRADE_NAME, notableOf, notableText, pct, pts, readyLevel, reasonOf,
+  import { costOf, dangerTiles, efficiencyText, EQUAL, figureCells, gradeOf, GRADE_NAME, notableOf, notableText, pct, pts, readyLevel, reasonOf,
     tilesShort } from '../lib/review';
-  import { KINDS } from '../lib/tiles';
   import type { Analysis, Truth } from '../lib/types';
   import type { FigureKey } from '../lib/review';
   import AnalysisList from './AnalysisList.svelte';
@@ -87,8 +86,6 @@
     });
     return out;
   }
-  const dangers = (o: { danger: number[]; danger_tai: number[] }) =>
-    o.danger.map((p, k) => ({ p, tile: KINDS[k], tai: o.danger_tai[k] })).filter((x) => x.p >= 0.03).sort((a, b) => b.p - a.p).slice(0, 5);
 </script>
 
 {#if !net}
@@ -163,7 +160,7 @@
             {/if}
           </div>
           <div class="opp-danger body-small">
-            {#each dangers(o) as d (d.tile)}
+            {#each dangerTiles(o) as d (d.tile)}
               <span class="wait"><Tile tile={d.tile} w={w * 0.6} danger={d.p >= 0.15 ? 3 : d.p >= 0.05 ? 2 : 1} />{pct(d.p)}</span>
             {:else}
               <span class="dim">{t('opp_no_danger')}</span>

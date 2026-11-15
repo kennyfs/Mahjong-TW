@@ -63,6 +63,7 @@ import io.github.kennyfs.mahjong.gradeOf
 import io.github.kennyfs.mahjong.isTaken
 import io.github.kennyfs.mahjong.notableOf
 import io.github.kennyfs.mahjong.notableText
+import io.github.kennyfs.mahjong.dangerTiles
 import io.github.kennyfs.mahjong.pct
 import io.github.kennyfs.mahjong.pts
 import io.github.kennyfs.mahjong.readyLevel
@@ -330,7 +331,7 @@ fun DecisionPanel(
                 style = small, fontWeight = FontWeight.Bold,
               )
             }
-            val dangers = o.danger.indices.filter { o.danger[it] >= 0.03 }.sortedByDescending { o.danger[it] }.take(5)
+            val dangers = dangerTiles(o)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
               itemVerticalAlignment = Alignment.CenterVertically) {
               for (kind in dangers) {

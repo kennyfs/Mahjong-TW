@@ -287,17 +287,20 @@ fun choiceMarks(res: Resources, a: Analysis, played: Int, unit: Double?): (Actio
 private const val SAY_WAIT = 0.3
 
 /** A name plate's note at a decision: how likely the opponent is ready (from 10%), and when that is likely the tile it
- *  most likely waits on (the discard most likely to deal in to it, from 3%): 「聽 40%・可能聽五筒」. */
+ *  most likely waits on (the discard most likely to deal in to it, from 3%): 「聽 40%・可能聽五筒」, 「聽 40%」 where that
+ *  has no room. A tap on it shows the rest (SeatBadge: one away, the discards likeliest to deal in to it). */
 fun opponentNote(res: Resources, o: Opponent): SeatNote? {
   val r = o.ready.getOrElse(0) { 0.0 }
   if (r < 0.1) return null
-  val level = readyLevel(r)
-  if (r >= SAY_WAIT && o.danger.isNotEmpty()) {
-    val k = o.danger.indices.maxBy { o.danger[it] }
-    if (o.danger[k] >= 0.03) return SeatNote(res.getString(R.string.opp_ready_wait, pct(r), tilesShort(listOf(Tiles.KINDS[k]))), level)
-  }
-  return SeatNote(res.getString(R.string.opp_ready, pct(r)), level)
+  val short = res.getString(R.string.opp_ready, pct(r))
+  val k = dangerTiles(o).firstOrNull()
+  if (r >= SAY_WAIT && k != null)
+    return SeatNote(res.getString(R.string.opp_ready_wait, pct(r), tilesShort(listOf(Tiles.KINDS[k]))), readyLevel(r), o, short)
+  return SeatNote(short, readyLevel(r), o)
 }
+
+/** The discards most likely to deal in to an opponent (from 3%, the five likeliest), as kinds' indices. */
+fun dangerTiles(o: Opponent): List<Int> = o.danger.indices.filter { o.danger[it] >= 0.03 }.sortedByDescending { o.danger[it] }.take(5)
 
 /** Each seat's note at a decision (null where none): the opponents'. */
 fun opponentNotes(res: Resources, a: Analysis?): List<SeatNote?>? {
