@@ -175,9 +175,9 @@ class FxHost {
   /** The moments' sounds still to come: they go with the moments (a moment let go before its sound: none). */
   private val sounds = ArrayList<() -> Unit>()
 
-  /** A moment's sounds as it comes (MomentsClock): a call's, a kong's as the tile taken lands in its gap (at 0.82 of
-   *  its drop), and a tile set down as the meld lands at its place (at its end); a declaration's; the result's
-   *  jingle. (The hands shown at a hand's end sound as they are shown: TableView.) */
+  /** A moment's sounds as it comes (MomentsClock): a call's cue as it starts, its knock (a call's, a kong's) as the
+   *  tile taken lands in its gap (at 0.82 of its drop), and a tile set down as the meld lands at its place (at its
+   *  end); a declaration's; the result's jingle. (The hands shown at a hand's end sound as they are shown: TableView.) */
   fun soundsOf(c: Moment) {
     val p = c.parts
     when {
@@ -185,6 +185,7 @@ class FxHost {
         sounds += Sounds.play(if (c.type == "chi" || c.type == "pon") Sounds.Name.CALL else Sounds.Name.KONG,
           if (p != null) p.come + (0.82 * p.drop).toLong() else 0L)
         if (p != null && c.meld >= 0) sounds += Sounds.play(Sounds.Name.DISCARD, p.total)
+        Sounds.cueOf(c.type)?.let { sounds += Sounds.play(it) }
       }
       c.kind == MomentKind.DECLARE -> sounds += Sounds.play(Sounds.Name.DECLARE)
       c.id == jingleAt -> jingle?.let { sounds += Sounds.play(it) }

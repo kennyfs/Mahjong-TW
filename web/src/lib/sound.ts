@@ -1,5 +1,7 @@
 // The table's sounds (public/sounds: scripts/make_sounds.py): the shuffle, a packet of
-// tiles dealt, a tile discarded (a few takes, one at random each time), a call's, a kong's, a flower; at a hand's end,
+// tiles dealt, a tile discarded (a few takes, one at random each time), a call's, a kong's (the tiles knocking into
+// each other as the tile taken lands), and each call its cue as its moment starts (steel pan notes: a chow, a pung,
+// an open, concealed or added kong: something other than a discard happens), a flower; at a hand's end,
 // as the hands are shown: the player's own win, another's (neither gaining nor losing by it), another's they pay for,
 // a draw; and with the result's moment, a jingle: the player's success, failure, or neither; a declared ready hand
 // (天聽, 地聽, 報聽): surprise. Tiles as they sound (a second set, made from scratch, was dropped
@@ -9,24 +11,33 @@
 import { settings } from './settings.svelte';
 
 export type SoundName = 'shuffle' | 'deal' | 'discard' | 'call' | 'kong' | 'win' | 'other' | 'lose' | 'drawn' | 'flower'
-  | 'success' | 'failure' | 'neutral' | 'declare';
+  | 'success' | 'failure' | 'neutral' | 'declare' | 'cue-chi' | 'cue-pon' | 'cue-kan' | 'cue-ankan' | 'cue-kakan';
+/** A call's cue (a chow, a pung, an open, concealed or added kong); none for another. */
+export const cueOf = (type: string): SoundName | null =>
+  (['chi', 'pon', 'kan', 'ankan', 'kakan'].includes(type) ? (`cue-${type}` as SoundName) : null);
 
-/** Each sound's files (takes of the same, one picked at random) and its own loudness at the full level. */
+/** Each sound's files (takes of the same, one picked at random) and its own loudness at the full level: at most 1
+ *  (the files are each as loud as they can be; the app's, Sounds.kt, the same). */
 const FILES: Record<SoundName, { files: string[]; gain: number }> = {
-  shuffle: { files: ['shuffle'], gain: 0.8 },
-  deal: { files: ['deal-1', 'deal-2'], gain: 0.55 },
-  discard: { files: ['discard-1', 'discard-2', 'discard-3'], gain: 0.45 },
-  call: { files: ['call'], gain: 0.75 },
-  kong: { files: ['kong'], gain: 0.75 },
-  win: { files: ['win'], gain: 0.7 },
-  other: { files: ['other'], gain: 0.7 },
-  lose: { files: ['lose'], gain: 0.7 },
-  drawn: { files: ['drawn'], gain: 0.6 },
-  flower: { files: ['flower'], gain: 0.5 },
-  success: { files: ['success'], gain: 0.3 },
-  failure: { files: ['failure'], gain: 0.3 },
-  neutral: { files: ['neutral'], gain: 0.22 },
-  declare: { files: ['declare'], gain: 0.45 },
+  shuffle: { files: ['shuffle'], gain: 0.94 },
+  deal: { files: ['deal-1', 'deal-2'], gain: 0.56 },
+  discard: { files: ['discard-1', 'discard-2', 'discard-3'], gain: 0.64 },
+  call: { files: ['call'], gain: 0.94 },
+  kong: { files: ['kong'], gain: 1 },
+  win: { files: ['win'], gain: 0.99 },
+  other: { files: ['other'], gain: 0.93 },
+  lose: { files: ['lose'], gain: 0.88 },
+  drawn: { files: ['drawn'], gain: 0.75 },
+  flower: { files: ['flower'], gain: 0.43 },
+  success: { files: ['success'], gain: 0.38 },
+  failure: { files: ['failure'], gain: 0.38 },
+  neutral: { files: ['neutral'], gain: 0.28 },
+  declare: { files: ['declare'], gain: 0.49 },
+  'cue-chi': { files: ['cue-chi'], gain: 0.24 },
+  'cue-pon': { files: ['cue-pon'], gain: 0.33 },
+  'cue-kan': { files: ['cue-kan'], gain: 0.36 },
+  'cue-ankan': { files: ['cue-ankan'], gain: 0.29 },
+  'cue-kakan': { files: ['cue-kakan'], gain: 0.28 },
 };
 const LEVEL = { off: 0, soft: 0.4, full: 1 };
 

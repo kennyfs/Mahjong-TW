@@ -52,7 +52,7 @@
   import { groupIndices, parseTiles, sortTiles, taiName, windMark, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
   import { dealsShown, movesShown, resultTap, setFx } from '../lib/fx.svelte';
-  import { playSound } from '../lib/sound';
+  import { cueOf, playSound } from '../lib/sound';
   import { later } from '../lib/clock';
   import CallFx from './CallFx.svelte';
   import SadFx from './SadFx.svelte';
@@ -386,8 +386,8 @@
   }
   /** The moment the result's jingle comes with: the first over the whole screen of a hand's end. */
   let jingleAt = -1;
-  // Each moment's sound: a call's, a kong's as the tile taken lands in its gap (SmallFx: at 0.82 of its drop), and a
-  // tile set down as the meld lands at its place (at its end); a declaration's; a hand's end: the result's jingle as
+  // Each moment's sound: a call's cue as it starts, its knock (a call's, a kong's) as the tile taken lands in its gap
+  // (SmallFx: at 0.82 of its drop), and a tile set down as the meld lands at its place (at its end); a declaration's; a hand's end: the result's jingle as
   // its first moment over the whole screen comes. A moment let go before its sound: none. (The hands shown at a hand's
   // end sound as they are shown, below.)
   $effect(() => {
@@ -396,7 +396,9 @@
     return untrack(() => {
       if (c.kind === 'call') {
         const p = c.parts;
+        const cue = cueOf(c.type);
         const offs = [playSound(c.type === 'chi' || c.type === 'pon' ? 'call' : 'kong', p ? p.in + 0.82 * p.drop : 0)];
+        if (cue) offs.push(playSound(cue));
         if (p && c.dst) offs.push(playSound('discard', p.in + p.drop + p.hold + p.out));
         return () => offs.forEach((f) => f());
       }
@@ -740,8 +742,12 @@
         if (e.type === 'flower') playSound('flower');
         else if (e.type === 'exhausted' || e.type === 'ron' || e.type === 'tsumo' || e.type === 'flower_win') {
           // (Its sound as the hands are shown.)
-        } else if (e.type === 'kan' || e.type === 'ankan' || e.type === 'kakan') playSound('kong');
-        else playSound(e.type === 'declare' ? 'declare' : 'call');
+        } else {
+          if (e.type === 'kan' || e.type === 'ankan' || e.type === 'kakan') playSound('kong');
+          else playSound(e.type === 'declare' ? 'declare' : 'call');
+          const cue = cueOf(e.type);
+          if (cue) playSound(cue);
+        }
         const kind: CalloutKind = e.type === 'tsumo' || e.type === 'ron' || e.type === 'flower_win' ? 'win'
           : e.type === 'flower' ? 'flower' : e.type === 'exhausted' ? 'drawn' : 'call';
         say(e.type === 'exhausted' ? 'top' : side, t(word), kind, e.type === 'flower' ? flowerMs() : callMs(),

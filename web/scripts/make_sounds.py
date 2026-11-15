@@ -4,7 +4,8 @@ into single knocks, laid out again: the shuffle in waves (hands pushing the tile
 discard on the felt a little lower than the chip (a heavier thing), a call's tile knocking into the others, a win's
 hand laid down at once (on felt: shorter and duller than on a hard table), one sound for the hands shown at a hand's
 end. A hand's result over the whole screen, the player's success, failure, or neither: a steel drum's jingles from
-Kenney's Short Jingles (CC0: LICENSE-Kenney-jingles.txt), as they are. A declared ready hand: two mallet notes.
+Kenney's Short Jingles (CC0: LICENSE-Kenney-jingles.txt), as they are. A declared ready hand: two mallet notes. A
+call's cue, as its moment starts: steel pan notes, made here.
 
 (A second set, made from scratch, was dropped on 2026-11-13 at the user's word. real() starts from the random state
 it had after that set's sounds, so its sounds stay as they were.)
@@ -58,9 +59,15 @@ def room(x, wet=0.15):
     return y
 
 
-def save(name, x, peak=0.9):
+# Every file as loud as it can be without clipping (its mp3 too, whose peaks run a little over the wav's): how loud
+# each is played is the game's (each sound's gain in lib/sound.ts, Sounds.kt), always at most 1, so that nothing is
+# made louder after it is decoded (the app's SoundPool cannot).
+PEAK = 0.9
+
+
+def save(name, x):
     os.makedirs(OUT, exist_ok=True)
-    x = x / (np.max(np.abs(x)) + 1e-9) * peak
+    x = x / (np.max(np.abs(x)) + 1e-9) * PEAK
     pcm = (np.clip(x, -1, 1) * 32767).astype(np.int16)
     with wave.open(os.path.join(OUT, name + '.wav'), 'wb') as w:
         w.setnchannels(1)
@@ -173,12 +180,12 @@ def real():
     # A discard: the chip's lay as it is (the user's ear: any lower is too low), takes a shade apart.
     # (2026-11-13 again: the chip's pitch still too low and loud: higher, no thud.)
     for k, f in enumerate([1.15, 1.12, 1.18]):
-        save(f'discard-{k + 1}', room(tile_down(f, 0.0), 0.08), 0.9)
+        save(f'discard-{k + 1}', room(tile_down(f, 0.0), 0.08))
     # The deal: the hands' tiles come in all at once, slid on the table (no tile set down), knocking into each other:
     # one clatter, softer than a hand laid down.
     for k in range(2):
         b = lowpass(clatter(12, 0.1, 0.8), 9000)
-        save(f'deal-{k + 1}', room(b, 0.06), 0.65)
+        save(f'deal-{k + 1}', room(b, 0.06))
     # The shuffle: the knocks in waves, a soft slide of tiles on the felt under the dense parts. The random draws start
     # where they did for the take the user picked (2026-11-13), so that the other sounds can change without it. Its
     # length: deal_shuffle (2.5 s since 2026-11-13, a wave of pushes for each of the tiles' spots, DealFx) and a little
@@ -198,14 +205,14 @@ def real():
     slide[:len(env)] *= env
     slide[len(env):] = 0
     b += slide
-    save('shuffle', room(b, 0.1), 0.75)
+    save('shuffle', room(b, 0.1))
     # The sounds after it from where they were before it changed (its 1.6 s take): the same as the user heard them.
     rng.bit_generator.state = {'bit_generator': 'PCG64', 'has_uint32': 1, 'uinteger': 4198255125, 'state': {
         'state': 47841476824944301602558690402175359218, 'inc': 261136684632268670825940853076396136793}}
     # A chow or a pung: the tile taken knocking into the two (the moment's tile landing in its gap).
-    save('call', room(clatter(3, 0.012), 0.06), 0.8)
+    save('call', room(clatter(3, 0.012), 0.06))
     # A kong: into three.
-    save('kong', room(clatter(5, 0.02), 0.06), 0.85)
+    save('kong', room(clatter(5, 0.02), 0.06))
 
     def laid(n, spread, gain, dull):
         """A hand laid down at once: its weight on the felt, the tiles knocking into each other, quickly still."""
@@ -216,15 +223,15 @@ def real():
     # The hands shown at a hand's end (as they open: one sound, one hand laid down), a shade apart by what it means
     # to the player: their own win; another's they neither gain nor lose by; another's they pay for; a draw.
     hand = laid(14, 0.09, 1.0, 12000)
-    save('win', room(hand, 0.08), 0.9)
-    save('other', room(lower(hand, 0.95), 0.08), 0.85)
-    save('drawn', room(lower(hand, 0.92), 0.08), 0.8)
-    save('lose', room(lower(hand, 0.88), 0.08), 0.8)
+    save('win', room(hand, 0.08))
+    save('other', room(lower(hand, 0.95), 0.08))
+    save('drawn', room(lower(hand, 0.92), 0.08))
+    save('lose', room(lower(hand, 0.88), 0.08))
     # A flower: put out on the table; a moment later, its replacement drawn.
     b = np.zeros(int(SR * 0.5))
     place(b, tile_down(0.93), 0.0, 0.7)
     place(b, knock(), 0.3, 0.25)
-    save('flower', room(b, 0.08), 0.55)
+    save('flower', room(b, 0.08))
 
 def jingles():
     """A hand's result to the player: their own win (rising), a hand they pay for (falling), neither."""
@@ -232,7 +239,7 @@ def jingles():
         x = read(src)
         on = np.where(np.abs(x) > 0.01 * np.max(np.abs(x)))[0]
         x = x[max(0, on[0] - int(0.005 * SR)):]
-        save(name, x, 0.8)
+        save(name, x)
 
 
 def declare():
@@ -241,9 +248,53 @@ def declare():
     b = np.zeros(int(SR * 0.9))
     place(b, note(783.99, 0.25, 0.07), 0.0, 0.7)
     place(b, note(1046.5, 0.8, 0.22), 0.13, 1.0)
-    save('declare', room(b, 0.2), 0.7)
+    save('declare', room(b, 0.2))
+
+
+def pan(f, dur, decay, bright=1.0):
+    """A steel pan's note (the results' jingles are a steel drum's): the note, its octave and twelfth (a pan's are
+    tuned so), the octave a shade apart from the note's double (its slow shimmer), the upper ones dying first; a
+    small metal tick at the strike."""
+    t = t_of(dur)
+    x = np.sin(2 * np.pi * f * t) * np.exp(-t / decay)
+    x += 0.5 * bright * np.sin(2 * np.pi * (2 * f + 1.3) * t) * np.exp(-t / (decay * 0.6))
+    x += 0.2 * bright * np.sin(2 * np.pi * 3 * f * t) * np.exp(-t / (decay * 0.3))
+    x *= np.minimum(1, t / 0.0015)
+    tick = highpass(rng.normal(0, 1, len(t)), 3000) * np.exp(-t / 0.004) * 0.12 * bright
+    return x + tick
+
+
+def cues():
+    """A call's cue, as its moment starts (the tiles' knock comes as the tile lands, a moment later): something
+    other than a discard happens. Steel pan notes, short and light (calls come often), each call its own shape: a
+    chow three notes stepping up (a run); a pung three strikes of one note, the last ringing on with its fifth (three
+    alike); an open kong the pung's strikes and then the fourth, a chord a beat later; a concealed kong the same
+    darker, lower and muted (turned face down); an added kong one note, then it and its octave (one tile set on the
+    three). The random state of their own, so that the sounds above stay as they are."""
+    rng.bit_generator.state = np.random.default_rng(20261116).bit_generator.state
+    C5, G5, A5, C6, D6, E6 = 523.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51
+
+    def shape(sec, notes, dull=None):
+        b = np.zeros(int(SR * sec))
+        for at, fs, gain, decay, bright in notes:
+            for f in fs:
+                place(b, pan(f, sec - at, decay, bright), at, gain / len(fs) ** 0.5)
+        if dull:
+            b = lowpass(b, dull)
+        return room(b, 0.18)
+    save('cue-chi', shape(0.6, [(0.0, [C6], 0.55, 0.07, 1.0), (0.06, [D6], 0.65, 0.07, 1.0),
+                                (0.12, [E6], 0.9, 0.22, 1.0)]))
+    save('cue-pon', shape(0.65, [(0.0, [A5], 0.55, 0.06, 1.0), (0.06, [A5], 0.65, 0.06, 1.0),
+                                 (0.12, [A5, E6], 1.0, 0.25, 1.0)]))
+    save('cue-kan', shape(0.85, [(0.0, [G5], 0.5, 0.05, 1.0), (0.055, [G5], 0.55, 0.05, 1.0),
+                                 (0.11, [G5], 0.6, 0.05, 1.0), (0.24, [G5, D6, 2 * G5], 1.1, 0.35, 1.0)]))
+    save('cue-ankan', shape(0.85, [(0.0, [C5], 0.5, 0.05, 0.4), (0.055, [C5], 0.55, 0.05, 0.4),
+                                   (0.11, [C5], 0.6, 0.05, 0.4), (0.24, [C5, G5], 1.0, 0.3, 0.4)],
+                                 dull=3000))
+    save('cue-kakan', shape(0.7, [(0.0, [G5], 0.55, 0.06, 0.6), (0.1, [G5, 2 * G5], 1.0, 0.3, 1.0)]))
 
 
 real()
 jingles()
 declare()
+cues()

@@ -11,29 +11,47 @@ import kotlin.random.Random
 /**
  * The table's sounds (the web page's lib/sound.ts; the files are its public/sounds, copied in by the build: a name's
  * '-' as '_'): the shuffle, the tiles dealt, a tile discarded (a few takes, one at random each time), a call's, a
- * kong's, a flower; at a hand's end, as the hands are shown: the player's own win, another's (neither gaining nor
+ * kong's (the tiles knocking into each other as the tile taken lands), and each call its cue as its moment starts
+ * (steel pan notes: a chow, a pung, an open, concealed or added kong: something other than a discard happens), a
+ * flower; at a hand's end, as the hands are shown: the player's own win, another's (neither gaining nor
  * losing by it), another's they pay for, a draw; with the result's moment, a jingle: the player's success, failure, or
  * neither; a declared ready hand (天聽, 地聽, 報聽): surprise. Each loaded once (SoundPool) at the start; one asked for
  * before it is in is not played late. The level: the settings' (off, soft, full). Nothing while the app is not on the
  * screen (`visible`, MainActivity).
  */
 object Sounds {
-  /** Each sound's files (takes of the same, one picked at random) and its own loudness at the full level. */
+  /** Each sound's files (takes of the same, one picked at random) and its own loudness at the full level: at most 1
+   *  (SoundPool's most; the files are each as loud as they can be). */
   enum class Name(val files: IntArray, val gain: Float) {
-    SHUFFLE(intArrayOf(R.raw.shuffle), 0.8f),
-    DEAL(intArrayOf(R.raw.deal_1, R.raw.deal_2), 0.55f),
-    DISCARD(intArrayOf(R.raw.discard_1, R.raw.discard_2, R.raw.discard_3), 0.45f),
-    CALL(intArrayOf(R.raw.call), 0.75f),
-    KONG(intArrayOf(R.raw.kong), 0.75f),
-    WIN(intArrayOf(R.raw.win), 0.7f),
-    OTHER(intArrayOf(R.raw.other), 0.7f),
-    LOSE(intArrayOf(R.raw.lose), 0.7f),
-    DRAWN(intArrayOf(R.raw.drawn), 0.6f),
-    FLOWER(intArrayOf(R.raw.flower), 0.5f),
-    SUCCESS(intArrayOf(R.raw.success), 0.3f),
-    FAILURE(intArrayOf(R.raw.failure), 0.3f),
-    NEUTRAL(intArrayOf(R.raw.neutral), 0.22f),
-    DECLARE(intArrayOf(R.raw.declare), 0.45f),
+    SHUFFLE(intArrayOf(R.raw.shuffle), 0.94f),
+    DEAL(intArrayOf(R.raw.deal_1, R.raw.deal_2), 0.56f),
+    DISCARD(intArrayOf(R.raw.discard_1, R.raw.discard_2, R.raw.discard_3), 0.64f),
+    CALL(intArrayOf(R.raw.call), 0.94f),
+    KONG(intArrayOf(R.raw.kong), 1f),
+    WIN(intArrayOf(R.raw.win), 0.99f),
+    OTHER(intArrayOf(R.raw.other), 0.93f),
+    LOSE(intArrayOf(R.raw.lose), 0.88f),
+    DRAWN(intArrayOf(R.raw.drawn), 0.75f),
+    FLOWER(intArrayOf(R.raw.flower), 0.43f),
+    SUCCESS(intArrayOf(R.raw.success), 0.38f),
+    FAILURE(intArrayOf(R.raw.failure), 0.38f),
+    NEUTRAL(intArrayOf(R.raw.neutral), 0.28f),
+    DECLARE(intArrayOf(R.raw.declare), 0.49f),
+    CUE_CHI(intArrayOf(R.raw.cue_chi), 0.24f),
+    CUE_PON(intArrayOf(R.raw.cue_pon), 0.33f),
+    CUE_KAN(intArrayOf(R.raw.cue_kan), 0.36f),
+    CUE_ANKAN(intArrayOf(R.raw.cue_ankan), 0.29f),
+    CUE_KAKAN(intArrayOf(R.raw.cue_kakan), 0.28f),
+  }
+
+  /** A call's cue (a chow, a pung, an open, concealed or added kong); none for another. */
+  fun cueOf(type: String): Name? = when (type) {
+    "chi" -> Name.CUE_CHI
+    "pon" -> Name.CUE_PON
+    "kan" -> Name.CUE_KAN
+    "ankan" -> Name.CUE_ANKAN
+    "kakan" -> Name.CUE_KAKAN
+    else -> null
   }
 
   private var pool: SoundPool? = null
