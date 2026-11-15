@@ -175,6 +175,22 @@ class Game {
   // before `me` (or with the claimed discard): the plain history of a position entered by hand.
   static std::vector<Event> plainHistory(const Position& p);
 
+  // Manual play (the analysis' 手動繼續, docs/gui-engine.md): the player at `me` enters what happens at a real table,
+  // so the tiles `me` cannot see (the others' hands, the wall) are only stand-ins, changed to fit what is entered.
+  // Each draw entered for the action numbered `at` (0: the first after the start) is taken by the next draw of its seat
+  // that this action brings (a flower is shown and replaced as any); one it does not bring is dropped. Another seat's draw that nobody entered
+  // is never a flower; the seat at `me` enters every draw of its own. An action of another seat takes the tiles it
+  // needs from the stand-ins first (a discard, the pair of a pung, a chow's two...), and its discard is from the hand
+  // unless its draw was entered as that tile (摸切). Every other seat answers each discard (a pass at least). Set
+  // before the start (loadPosition).
+  struct ManualDraw {
+    int at, seat, kind;
+  };
+  void setManual(int me, const std::vector<ManualDraw>& draws);
+  bool manual() const { return manual_; }
+  // In manual play: `me` is on its own turn with a draw that was not entered yet (a stand-in).
+  bool manualDrawNeeded() const { return manual_ && phase_ == SELF && cur_ == me_ && !lastForced_[me_]; }
+
   // The tiles of each kind that `seat` can see: its own hand and melds, the others' melds (except concealed kongs)
   // and every discard not called.
   Counts visibleCounts(int seat) const;
@@ -210,6 +226,23 @@ class Game {
   Action decision_[4];
   std::vector<Event> events_;
   HandResult result_;
+  // Manual play (setManual).
+  bool manual_ = false;
+  int me_ = -1;
+  std::vector<ManualDraw> manualDraws_;
+  size_t nextManual_ = 0;
+  int acts_ = 0;
+  // The wall before this index holds tiles nobody has drawn (a loaded position's beyond its wall_left); between it and
+  // front_ are the tiles drawn (copies of what the hands took).
+  int reserve_ = 0;
+  std::vector<int> forced_[4];
+  bool lastForced_[4] = {true, true, true, true};
+  void actOn(int s, const Action& a);
+  int firstSlot() const;
+  int slotAfter(int j) const;
+  void rigFor(int s, const Action& a);
+  void rigHand(int s, const Counts& need);
+  void placeAt(int index, int kind, int s);
 
   void log(Event::Type t, int seat, int tile, int extra = 0);
   // Draws for `seat` (from the back for a replacement), showing and replacing flowers, and enters SELF; or ends the

@@ -52,7 +52,7 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
   /** The review's step, kept while another screen is shown over it (a step taken to the analysis screen). */
   var reviewStep by mutableIntStateOf(0)
   /** The review's branch (ui/BranchScreen.kt): the record and the step it was taken from; the analysis' position played
-   *  on (從這裡打: its record, the player's seat). Here, not in the screens: they outlive the screens' turning sideways. */
+   *  on (與電腦繼續: its record, the player's seat). Here, not in the screens: they outlive the screens' turning sideways. */
   var branchFrom by mutableStateOf<Pair<String, Int>?>(null)
   var playFrom by mutableStateOf<Pair<GameRecord, Int>?>(null)
   /** The branch in play (its computer players run in this model's scope): the same one for the same start. */

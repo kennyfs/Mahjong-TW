@@ -193,7 +193,7 @@ fun AnalyzeScreen(vm: AppModel) {
   }
   val marks: Map<String, TileMark>? = result?.takeIf { it.net }?.let { tileMarks(res, it, -1, null) }
 
-  // 從這裡打: the position played on (BranchScreen, with the analysis shown at each decision), the player at `me` (a
+  // 與電腦繼續: the position played on (BranchScreen, with the analysis shown at each decision), the player at `me` (a
   // review's step: its seat; else 0), the computer players at the others, what the player cannot see dealt at random.
   // A step of a review is played on from its hand's position, with its history and the hand as it stands here; a
   // position of its own from itself. (The branch gives the base its own seed.)

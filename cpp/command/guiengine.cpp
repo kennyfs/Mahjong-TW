@@ -403,6 +403,19 @@ void GuiJson::replay(const Record& r, Game& game, bool holdLast) {
     // The seat's position (in the base game at its end, or as given), the unseen tiles dealt again by the seed.
     const json& s = r.base["seed"];
     Rand rand(s.is_string() ? s.get<string>() : s.dump());
+    // Manual play (Game::setManual): the draws entered, [action index, seat, tile] each.
+    if(r.base.contains("manual") && !r.base["manual"].is_null()) {
+      vector<Game::ManualDraw> draws;
+      const json& m = r.base["manual"];
+      if(m.contains("draws"))
+        for(const json& d : m["draws"]) {
+          if(!d.is_array() || d.size() != 3)
+            throw StringError("A draw entered is [action index, seat, tile]");
+          draws.push_back({d[0].get<int>(), d[1].get<int>(), parseTile(d[2])});
+        }
+      const int me = r.base.contains("position") ? getInt(r.base["position"], "me", 0) : getInt(r.base, "seat", 0);
+      game.setManual(me, draws);
+    }
     if(r.base.contains("position")) {
       Position p = parsePosition(r.base["position"]);
       game.loadPosition(p, rand, Game::plainHistory(p));
@@ -522,6 +535,9 @@ static json viewOf(const Game& game, int seat, int since, bool reveal) {
     events.push_back(eventJson(evs[i], seat, reveal));
   v["events"] = events;
   v["event_count"] = (int)evs.size();
+  // Manual play: the seat's draw is a stand-in until it is entered.
+  if(game.manual())
+    v["draw_needed"] = game.manualDrawNeeded() && game.current() == seat;
   bool over = game.phase() == Game::OVER;
   v["result"] = over ? resultJson(game.result(), game.rules().base) : json(nullptr);
   if(over || reveal) {

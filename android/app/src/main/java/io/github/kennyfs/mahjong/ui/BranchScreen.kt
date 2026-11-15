@@ -88,7 +88,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 /**
- * A branch of a reviewed hand (the review's 分支), or a position of the analysis played on (從這裡打): from a decision
+ * A branch of a reviewed hand (the review's 分支), or a position of the analysis played on (與電腦繼續): from a decision
  * the hand is played on, the player at their seat and the computer players (the settings' bot) at the others, however
  * the hand was first played. Nothing is recorded or scored. The web page's Branch.svelte.
  *
@@ -428,7 +428,7 @@ class BranchRun(private val scope: CoroutineScope, private val source: GameRecor
 
 /**
  * The branch's screen. `unit`: a typical payment under the hand's rules (the review's), to grade what an action costs
- * by. `title`, `backLabel`: the page's title and the result's way back (a branch's unless given: 從這裡打, 回到分析).
+ * by. `title`, `backLabel`: the page's title and the result's way back (a branch's unless given: 與電腦繼續, 回到分析).
  *
  * The controls as the review has them: under the table upright (the words there keep the room of their longest, so
  * that the table does not move from step to step), in a column at the right sideways (the table the full height),

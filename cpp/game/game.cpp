@@ -98,6 +98,7 @@ void Game::start(const HandSetup& setup, const vector<uint8_t>& wall) {
   eastSeat_ = setup.eastSeat < 0 ? setup.dealer : setup.eastSeat;
   wall_ = wall;
   front_ = 0;
+  reserve_ = 0;
   back_ = (int)wall_.size();
   for(int s = 0; s < 4; s++)
     seats_[s] = SeatState();
@@ -167,6 +168,23 @@ void Game::drawFor(int s, bool replacement, bool kongReplacement) {
       finishExhausted();
       return;
     }
+    bool forcedNow = false;
+    if(manual_) {
+      // Manual play: the draw entered for the seat, or (none entered) any tile but a flower.
+      const int index = replacement ? back_ - 1 : front_;
+      if(!forced_[s].empty()) {
+        const int want = forced_[s].front();
+        forced_[s].erase(forced_[s].begin());
+        placeAt(index, want, s);
+        forcedNow = true;
+      } else if(Tiles::isFlower(wall_[index])) {
+        for(int j = firstSlot(); j < back_; j = slotAfter(j))
+          if(j != index && !Tiles::isFlower(wall_[j])) {
+            std::swap(wall_[index], wall_[j]);
+            break;
+          }
+      }
+    }
     int t = replacement ? wall_[--back_] : wall_[front_++];
     if(!replacement)
       seats_[s].draws++;
@@ -180,6 +198,7 @@ void Game::drawFor(int s, bool replacement, bool kongReplacement) {
       continue;
     }
     seats_[s].hand[t]++;
+    lastForced_[s] = forcedNow;
     log(Event::DRAW, s, t, replacement ? 1 : 0);
     enterSelf(s, t, false);
     replacementWin_ = flowerReplacement || kongReplacement;
@@ -395,6 +414,25 @@ void Game::legalActions(int s, vector<Action>& out) const {
 }
 
 void Game::act(int s, const Action& a) {
+  if(!manual_) {
+    actOn(s, a);
+    return;
+  }
+  // Manual play: the draws entered for this action, for the draws it brings (none left over for later ones).
+  while(nextManual_ < manualDraws_.size() && manualDraws_[nextManual_].at <= acts_) {
+    const ManualDraw& d = manualDraws_[nextManual_++];
+    if(d.at == acts_)
+      forced_[d.seat].push_back(d.kind);
+  }
+  acts_++;
+  if(s != me_ && s >= 0 && s < 4)
+    rigFor(s, a);
+  actOn(s, a);
+  for(int i = 0; i < 4; i++)
+    forced_[i].clear();
+}
+
+void Game::actOn(int s, const Action& a) {
   vector<Action> legal;
   legalActions(s, legal);
   if(find(legal.begin(), legal.end(), a) == legal.end())
@@ -548,7 +586,7 @@ void Game::afterDiscard(int d, int kind) {
     vector<Action> legal;
     mustDecide_[i] = true;
     legalActions(i, legal);
-    mustDecide_[i] = legal.size() > 1;  // more than PASS
+    mustDecide_[i] = manual_ || legal.size() > 1;  // more than PASS (manual play: a pass too)
     any = any || mustDecide_[i];
   }
   if(!any && !hold_)
@@ -807,6 +845,158 @@ vector<Event> Game::plainHistory(const Position& p) {
   return out;
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Manual play
+
+void Game::setManual(int me, const vector<ManualDraw>& draws) {
+  if(me < 0 || me > 3)
+    throw StringError("Bad seat for manual play");
+  manual_ = true;
+  me_ = me;
+  manualDraws_ = draws;
+  std::stable_sort(manualDraws_.begin(), manualDraws_.end(), [](const ManualDraw& x, const ManualDraw& y) { return x.at < y.at; });
+  for(const ManualDraw& d : manualDraws_)
+    if(d.seat < 0 || d.seat > 3 || d.kind < 0 || d.kind >= Tiles::NUM_ALL || d.at < 0)
+      throw StringError("Bad draw entered");
+  nextManual_ = 0;
+  acts_ = 0;
+  for(int i = 0; i < 4; i++) {
+    forced_[i].clear();
+    lastForced_[i] = true;
+  }
+}
+
+// The wall's slots that hold stand-ins, in order: firstSlot(), then slotAfter(j), below back_.
+int Game::firstSlot() const { return reserve_ > 0 ? 0 : front_; }
+int Game::slotAfter(int j) const { return j + 1 >= reserve_ && j + 1 < front_ ? front_ : j + 1; }
+
+// Puts a tile of `kind` that `me` cannot see at wall_[index] (the next draw of seat `s`): from elsewhere in the wall,
+// else from a hand other than `me`'s, `s`'s own too (which takes the tile at `index` in its place). (The wall's
+// stand-ins: those still to be drawn, and before them a loaded position's tiles beyond its wall_left, reserve_.)
+void Game::placeAt(int index, int kind, int s) {
+  if(wall_[index] == kind)
+    return;
+  for(int j = firstSlot(); j < back_; j = slotAfter(j))
+    if(j != index && wall_[j] == kind) {
+      std::swap(wall_[index], wall_[j]);
+      return;
+    }
+  if(!Tiles::isFlower(kind))
+    for(int o = 0; o < 4; o++) {
+      if(o == me_ || seats_[o].hand[kind] == 0)
+        continue;
+      // A hand holds no flower: one at `index` goes elsewhere in the wall first.
+      if(Tiles::isFlower(wall_[index]))
+        for(int j = firstSlot(); j < back_; j = slotAfter(j))
+          if(j != index && !Tiles::isFlower(wall_[j])) {
+            std::swap(wall_[index], wall_[j]);
+            break;
+          }
+      if(Tiles::isFlower(wall_[index]))
+        break;
+      seats_[o].hand[kind]--;
+      seats_[o].hand[wall_[index]]++;
+      wall_[index] = (uint8_t)kind;
+      return;
+    }
+  throw StringError("No " + Tiles::name(kind) + " left to draw");
+}
+
+// Seat `s` (not `me`) holds at least `need` of each kind: each tile it lacks comes from the wall, else from another
+// hand `me` cannot see, for a tile of `s` it does not need (never the tile it just drew).
+void Game::rigHand(int s, const Counts& need) {
+  SeatState& st = seats_[s];
+  const int keep = phase_ == SELF && s == cur_ ? drawn_ : -1;
+  for(int k = 0; k < Tiles::NUM_KINDS; k++)
+    while(st.hand[k] < need[k]) {
+      int give = -1;
+      for(int g = 0; g < Tiles::NUM_KINDS && give < 0; g++)
+        if(g != k && (int)st.hand[g] > (int)need[g] + (g == keep ? 1 : 0))
+          give = g;
+      if(give < 0)
+        throw StringError("S" + Global::intToString(s) + " has no tile to give for " + Tiles::name(k));
+      bool done = false;
+      for(int j = firstSlot(); j < back_ && !done; j = slotAfter(j))
+        if(wall_[j] == k) {
+          wall_[j] = (uint8_t)give;
+          done = true;
+        }
+      for(int o = 0; o < 4 && !done; o++) {
+        if(o == me_ || o == s || seats_[o].hand[k] == 0)
+          continue;
+        if(phase_ == SELF && o == cur_ && drawn_ == k && seats_[o].hand[k] == 1)
+          continue;
+        seats_[o].hand[k]--;
+        seats_[o].hand[give]++;
+        done = true;
+      }
+      if(!done)
+        throw StringError("No " + Tiles::name(k) + " left for S" + Global::intToString(s));
+      st.hand[give]--;
+      st.hand[k]++;
+    }
+}
+
+// What another seat's action needs in its hand, taken from the stand-ins first (setManual).
+void Game::rigFor(int s, const Action& a) {
+  Counts need{};
+  switch(a.type) {
+    case Action::DISCARD: {
+      if(Tiles::isFlower(a.kind) || a.kind >= Tiles::NUM_KINDS)
+        return;
+      // From the hand (手切) unless the draw was entered as this tile: a stand-in draw of the same kind is changed.
+      if(phase_ == SELF && s == cur_ && drawn_ == a.kind && !lastForced_[s]) {
+        for(int j = firstSlot(); j < back_; j = slotAfter(j))
+          if(!Tiles::isFlower(wall_[j]) && wall_[j] != a.kind) {
+            const int other = wall_[j];
+            wall_[j] = (uint8_t)a.kind;
+            seats_[s].hand[a.kind]--;
+            seats_[s].hand[other]++;
+            drawn_ = other;
+            for(auto e = events_.rbegin(); e != events_.rend(); ++e)
+              if(e->seat == s && e->type == Event::DRAW) {
+                e->tile = (uint8_t)other;
+                break;
+              }
+            break;
+          }
+      }
+      need[a.kind] = 1;
+      break;
+    }
+    case Action::PON:
+      if(claimTile_ < 0 || claimTile_ >= Tiles::NUM_KINDS)
+        return;
+      need[claimTile_] = 2;
+      break;
+    case Action::MINKAN:
+      if(claimTile_ < 0 || claimTile_ >= Tiles::NUM_KINDS)
+        return;
+      need[claimTile_] = 3;
+      break;
+    case Action::ANKAN:
+      if(a.kind >= Tiles::NUM_KINDS)
+        return;
+      need[a.kind] = 4;
+      break;
+    case Action::KAKAN:
+      if(a.kind >= Tiles::NUM_KINDS)
+        return;
+      need[a.kind] = 1;
+      break;
+    case Action::CHI:
+      if(a.kind + 2 >= Tiles::NUM_KINDS)
+        return;
+      for(int t = a.kind; t <= a.kind + 2; t++)
+        if(t != claimTile_)
+          need[t] = 1;
+      break;
+    default:
+      return;
+  }
+  rigHand(s, need);
+}
+
 void Game::loadPosition(const Position& p, Rand& rand, const vector<Event>& history) {
   loadPosition(p, rand);
   // A position where nobody can claim has gone on to the next draw: its events are the game's own from there.
@@ -916,6 +1106,7 @@ void Game::loadPosition(const Position& p, Rand& rand) {
   int target = p.wallLeft >= 0 ? p.wallLeft + rules_.keep : remaining;
   front_ = max(0, remaining - target);
   back_ = remaining;
+  reserve_ = front_;
 
   for(int s = 0; s < 4; s++) {
     SeatState& st = seats_[s];
@@ -949,7 +1140,7 @@ void Game::loadPosition(const Position& p, Rand& rand) {
     vector<Action> legal;
     mustDecide_[i] = true;
     legalActions(i, legal);
-    mustDecide_[i] = legal.size() > 1;
+    mustDecide_[i] = manual_ || legal.size() > 1;
   }
   // Nobody can claim: the play goes on, as after any discard.
   if(pending().empty()) {

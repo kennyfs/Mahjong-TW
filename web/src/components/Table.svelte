@@ -74,10 +74,12 @@
     view, me, names, scores = null, revealed: revealedIn = null, interactive = true, onact, handLabel = '', handShort = '', maxHand = 64, keys = false,
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
     marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null, review = false, deal = null,
-    choiceMarks = null, tagRoom = false, asideShown = $bindable(false), hints = true, inDeal = $bindable(false), value = null,
+    choiceMarks = null, tagRoom = false, asideShown = $bindable(false), hints = true, inDeal = $bindable(false), value = null, upright = false,
     oneClick = keys,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
+    /** Tall whatever the table's shape (layout.ts tableSizes). */
+    upright?: boolean;
     onact?: (a: Action) => void; handLabel?: string;
     /** The hand in a few characters (3, a contest's 3/8): the round's label as 東-3 where the full one has no room. */
     handShort?: string; maxHand?: number; keys?: boolean; away?: boolean[];
@@ -148,15 +150,15 @@
   }
   // The tags' room comes off the table's height: what the hand's own lift does not already leave them.
   function sizes(w: number, h: number) {
-    let s0 = tableSizes(w, h, maxHand);
+    let s0 = tableSizes(w, h, maxHand, 0, upright);
     let extra = 0;
     if (tagH) {
       extra = (s0.wide ? 1 : 2) * Math.max(0, tagH - s0.hand * TILE_RATIO * 0.2);
-      if (extra > 0) s0 = tableSizes(w, h - extra, maxHand);
+      if (extra > 0) s0 = tableSizes(w, h - extra, maxHand, 0, upright);
     }
     if (revealed && !s0.wide) {
       const top = shownTop(s0, h - extra);
-      if (top > s0.topH) s0 = tableSizes(w, h - extra, maxHand, top);
+      if (top > s0.topH) s0 = tableSizes(w, h - extra, maxHand, top, upright);
     }
     return { s: s0, extra };
   }

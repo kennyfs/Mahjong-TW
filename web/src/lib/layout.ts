@@ -141,9 +141,10 @@ export const tallTopRoom = (s: TableSizes, h: number, river: number) => h - s.me
 const LOW = 500;
 
 /** Sizes for a table of w x h px; `maxHand` caps the hand's tiles (a computer's big window). `top`: a tall table's
- *  others' strip is this high when that is more than it would be (everyone's tiles shown): the rivers give the room. */
-export function tableSizes(w: number, h: number, maxHand = 64, top = 0): TableSizes {
-  const wide = w >= h * 1.1;
+ *  others' strip is this high when that is more than it would be (everyone's tiles shown): the rivers give the room.
+ *  `upright`: tall whatever its shape (a phone's table with things to enter under it, 手動繼續). */
+export function tableSizes(w: number, h: number, maxHand = 64, top = 0, upright = false): TableSizes {
+  const wide = !upright && w >= h * 1.1;
   // A table no wider than this for its height: the side players stay near the middle on a large window.
   if (wide) w = Math.min(w, h * 2.3);
   if (wide) {

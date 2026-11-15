@@ -8,10 +8,11 @@
   on each discard of the others (lib/engine.ts whatIfPosition). A step of a review keeps its hand's history while only
   the hand's own tiles are changed (the editor's source), so its figures are the review's.
 
-  從這裡打 plays the position on (Branch.svelte, with the analysis shown at each decision): the player at their seat,
+  與電腦繼續 plays the position on (Branch.svelte, with the analysis shown at each decision): the player at their seat,
   the computer players (the settings' bot) at the others, the tiles the player cannot see (the others' concealed
   tiles, the wall) dealt at random. A step of a review is played on from its hand's position, with its history and
-  the hand as it stands here; a position of its own from itself.
+  the hand as it stands here; a position of its own from itself. 手動繼續 goes on the same way with every seat's moves
+  entered by the player (a real game at the table: their own draws, the others' discards and calls).
 -->
 <script lang="ts">
   import * as engine from '../lib/engine';
@@ -34,7 +35,7 @@
   import WhatIfTables from './WhatIfTables.svelte';
 
   const ed = editor;
-  const MODES: [Mode, string][] = [['self', t('analysis_my_turn')], ['claim', t('analysis_on_discard')]];
+  const MODES: [Mode, string][] = $derived([['self', t('analysis_my_turn')], ['claim', t('analysis_on_discard')]]);
   let result = $state<Analysis | null>(null);
   let tables = $state<WhatIf | null>(null);
   let error = $state<string | null>(null);
@@ -113,15 +114,15 @@
   });
   const marks = $derived(result ? tileMarks(result, -1, undefined) : null);
 
-  /** 從這裡打: the hand played on from the position, the player at `me` (a review's step: its seat; else 0). (The
+  /** 與電腦繼續: the hand played on from the position, the player at `me` (a review's step: its seat; else 0). (The
    *  branch gives the base its own seed.) */
-  let playing = $state<{ game: GameRecord; me: number } | null>(null);
-  function playFrom() {
+  let playing = $state<{ game: GameRecord; me: number; manual: boolean } | null>(null);
+  function playFrom(manual = false) {
     const p = ed.position();
     const src = ed.source;
     playing = src
-      ? { game: { rules: src.game.rules, setup: src.game.setup, base: { game: src.game, seat: src.seat, seed: '', hand: p.hand, drawn: p.drawn }, actions: [] }, me: src.seat }
-      : { game: { rules: spec, setup: p.setup, base: { position: p, seed: '' }, actions: [] }, me: 0 };
+      ? { game: { rules: src.game.rules, setup: src.game.setup, base: { game: src.game, seat: src.seat, seed: '', hand: p.hand, drawn: p.drawn }, actions: [] }, me: src.seat, manual }
+      : { game: { rules: spec, setup: p.setup, base: { position: p, seed: '' }, actions: [] }, me: 0, manual };
   }
   /** The seats' names at the table, from the player's. */
   const playNames = $derived(playing ? [0, 1, 2, 3].map((s) => seatShort((s - playing!.me + 4) % 4)) : []);
@@ -174,7 +175,8 @@
   {#if result}
     <div class="results" class:stale={running}>
       <div class="play-row">
-        <button class="btn filled" disabled={running} title={t('analysis_play_hint')} onclick={playFrom}>{t('analysis_play_from')}</button>
+        <button class="btn tonal" disabled={running} title={t('analysis_manual_hint')} onclick={() => playFrom(true)}>{t('analysis_manual')}</button>
+        <button class="btn filled" disabled={running} title={t('analysis_play_hint')} onclick={() => playFrom()}>{t('analysis_play_from')}</button>
       </div>
       <DecisionPanel analysis={result} w={sw} {names} />
       {#if result.source === 'network'}
@@ -193,7 +195,7 @@
 {/snippet}
 
 {#if playing}
-  <Branch game={playing.game} me={playing.me} names={playNames} onclose={() => (playing = null)} title={t('analysis_play_from')}
+  <Branch game={playing.game} me={playing.me} names={playNames} onclose={() => (playing = null)} title={t(playing.manual ? 'analysis_manual' : 'analysis_play_from')} manual={playing.manual}
     backLabel={t('analysis_play_back')} />
 {:else}
 <div class="page">
@@ -343,7 +345,7 @@
   .side-results { padding: 0 12px; }
   .results { display: flex; flex-direction: column; gap: 12px; transition: opacity 0.1s; }
   .results.stale { opacity: 0.7; }
-  .play-row { display: flex; justify-content: flex-end; }
+  .play-row { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
   .whatif { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
   .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 30; }
   .meld-pick { position: fixed; z-index: 31; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 8px;

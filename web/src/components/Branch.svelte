@@ -1,5 +1,5 @@
 <!--
-  A branch of a reviewed hand (the review's 分支), or a position of the analysis played on (從這裡打): from a decision
+  A branch of a reviewed hand (the review's 分支), or a position of the analysis played on (與電腦繼續): from a decision
   the hand is played on, the player at their seat and the computer players (the settings' bot) at the others, however
   the hand was first played (a practice game, a table battle, a contest). Nothing is recorded or scored.
 
@@ -27,6 +27,11 @@
   asks first when anything was played) deals with another seed. Back, or the end, returns to where the branch was
   taken from.
 
+  手動繼續 (`manual`, from the analysis): no computer players; the player enters what happens at a real table, a step
+  at a time (under the table; the next discard first, a call on the one on the table after it, as calls are rarer): their own draws, the others' discards (摸切 or not), flowers and calls, and on their
+  own decisions the analysis is shown as above. The engine fits the tiles the player cannot see to what is entered
+  (lib/manual.ts). Another's win is not entered: the hand just ends there.
+
   The controls as the review has them: under the table on an upright window (the words there keep the room of their
   longest, so that the table does not move from step to step), in a column at the right on a wide one (the table the
   full height), with the list under them on a large one.
@@ -42,6 +47,8 @@
   import { topWhenAway } from '../lib/scroll';
   import { settings } from '../lib/settings.svelte';
   import type { Tile as T } from '../lib/tiles';
+  import { chows, enter, passes, unseen, withoutStandIn, cut, type Entry } from '../lib/manual';
+  import { FLOWERS, KINDS, tileName } from '../lib/tiles';
   import { recordAction, type Action, type Analysis, type GameRecord, type View } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
   import DecisionPanel from './DecisionPanel.svelte';
@@ -53,10 +60,13 @@
   import PickedFigures from './PickedFigures.svelte';
   import Table from './Table.svelte';
   import TapOn from './TapOn.svelte';
+  import Tile from './Tile.svelte';
   import TitleBar from './TitleBar.svelte';
 
-  let { game: source, me, names, onclose, unit = undefined, title = '', backLabel = '' }: {
+  let { game: source, me, names, onclose, unit = undefined, title = '', backLabel = '', manual = false }: {
     game: GameRecord; me: number; names: string[]; onclose: () => void;
+    /** 手動繼續: every seat's moves entered by the player (the record's base has `manual`). */
+    manual?: boolean;
     /** A typical payment under the hand's rules (the review's), to grade what an action costs by. */
     unit?: number;
     /** The page's title and the result's way back: a branch's (分支, 回到回顧) unless given. */
@@ -71,7 +81,7 @@
   const dealt = $derived(!!source.base);
   /** The branch's start: the hand cut at the decision, or (reshuffled, or a position) its position with the unseen
    *  tiles dealt by the seed. */
-  const root = $derived<GameRecord>(source.base ? { ...source, base: { ...source.base, seed } }
+  const root = $derived<GameRecord>(source.base ? { ...source, base: { ...source.base, seed, ...(manual ? { manual: { draws: [] } } : {}) } }
     : reshuffle ? { rules: source.rules, setup: source.setup, base: { game: source, seat: me, seed }, actions: [] }
     : source);
   const start = $derived(root.actions.length);
@@ -131,7 +141,8 @@
    *  the newest step only the player's: the computer players go on by themselves. */
   async function lookAt(g: GameRecord, k: number, v: View): Promise<Look | null> {
     if (v.phase === 'over') return null;
-    const d = k < g.actions.length ? recordAction(g.actions[k]) : v.my_turn ? { seat: me, action: null } : null;
+    const decides = v.my_turn && !v.draw_needed && (!manual || v.legal.some((a) => a.type !== 'pass'));
+    const d = k < g.actions.length ? recordAction(g.actions[k]) : decides ? { seat: me, action: null } : null;
     if (!d) return null;
     const cut = at(g, k);
     const [analysis, seatView] = await Promise.all([
@@ -181,7 +192,7 @@
       const head = k === g.actions.length;
       // At the newest step the computer players decide first on a tile the player could claim (run): the player's
       // buttons and figures come after.
-      const claimFirst = head && v.my_turn && v.phase !== 'self' && v.phase !== 'over';
+      const claimFirst = !manual && head && v.my_turn && v.phase !== 'self' && v.phase !== 'over';
       const [l, f] = await Promise.all([
         claimFirst ? Promise.resolve(null) : lookAt(g, k, v),
         v.phase === 'over' ? engine.view(at(g, k), me, 0, true) : Promise.resolve(null),
@@ -192,7 +203,7 @@
       look = l;
       final = f;
       error = null;
-      if (head && v.phase !== 'over' && (!v.my_turn || v.phase !== 'self')) void run();
+      if (!manual && head && v.phase !== 'over' && (!v.my_turn || v.phase !== 'self')) void run();
     } catch (x) {
       error = String((x as Error).message ?? x);
     }
@@ -290,6 +301,7 @@
   /** The player's decision at the step shown: what came after it is dropped. */
   async function act(a: Action) {
     if (!game || !view?.my_turn) return;
+    if (manual) return actManual(a);
     epoch++;
     const e = epoch;
     try {
@@ -314,13 +326,125 @@
     }
   }
 
-  /** A step: the actions that show (others' passes do not). */
-  const isStop = (k: number) => !!game && (game.actions[k][0] === me || game.actions[k][1] !== 'pass');
+  /** 手動繼續: the player's own decision; on a tile of another's the others pass with it (a call of theirs is entered
+   *  in its place, under the controls). */
+  async function actManual(a: Action) {
+    if (!game || !view) return;
+    const answer = view.phase !== 'self';
+    await entered(async (g) => {
+      let out = await engine.act(g, me, a);
+      if (answer) out = await enter(out, { actions: await passes(out) });
+      return out;
+    });
+  }
+  /** 手動繼續: an entry made at the step shown (what came after it dropped); a bad one says why and changes nothing. */
+  let entryError = $state<string | null>(null);
+  let busy = $state(false);
+  async function entered(make: (g: GameRecord) => Promise<GameRecord>) {
+    if (!game || busy) return;
+    busy = true;
+    epoch++;
+    try {
+      const g = await make(cut(game, cursor));
+      // (An entry of draws alone is checked by the table it makes.)
+      await engine.view(g, me);
+      game = g;
+      cursor = g.actions.length;
+      entryError = null;
+      ended = false;
+      flowerMode = false;
+      tsumogiri = false;
+      showResult = true;
+      await show();
+    } catch (x) {
+      entryError = String((x as Error).message ?? x);
+    } finally {
+      busy = false;
+    }
+  }
+  const make = (e: Entry | ((g: GameRecord) => Promise<Entry>)) => entered(async (g) => enter(g, typeof e === 'function' ? await e(g) : e));
+  /** Another seat's win (not entered: the hand ends there). */
+  let ended = $state(false);
+  /** The next tile entered is a flower (補花); the next discard entered was the tile just drawn (摸切). */
+  let flowerMode = $state(false);
+  let tsumogiri = $state(false);
+
+  /** What is to be entered at the newest step. */
+  type Ask = { kind: 'draw' } | { kind: 'turn'; seat: number; afterCall: boolean } | { kind: 'claim'; from: number; tile: string; next: number } | { kind: 'mine' } | null;
+  const ask = $derived.by<Ask>(() => {
+    if (!manual || !view || !atHead || ended || over) return null;
+    if (view.phase === 'self') {
+      if (view.current === me) return view.draw_needed ? { kind: 'draw' } : { kind: 'mine' };
+      const last = [...view.events].reverse().find((e) => e.seat === view!.current && e.type !== 'flower');
+      return { kind: 'turn', seat: view.current, afterCall: !!last && (last.type === 'chi' || last.type === 'pon') };
+    }
+    if (view.phase === 'react') {
+      const d = [...view.events].reverse().find((e) => e.type === 'discard');
+      if (!d?.tile) return null;
+      return { kind: 'claim', from: d.seat, tile: d.tile, next: (d.seat + 1) % 4 };
+    }
+    return view.my_turn ? { kind: 'mine' } : null;
+  });
+  const hasFlowers = $derived(!!view && !view.rules.includes(',none'));
+  const left = $derived(view && manual ? unseen(view, hasFlowers) : new Map<string, number>());
+  /** Whose tile the palette enters: the player's draw, or another's discard (or flower). */
+  const paletteSeat = $derived(ask?.kind === 'draw' ? me : ask?.kind === 'turn' ? ask.seat : ask?.kind === 'claim' ? ask.next : -1);
+  const paletteTiles = $derived(flowerMode ? FLOWERS : paletteSeat === me && hasFlowers ? [...KINDS, ...FLOWERS] : KINDS);
+  function tapPalette(tile: string) {
+    if (!ask || (left.get(tile) ?? 0) <= 0) return;
+    const flower = tile[1] === 'f';
+    if (ask.kind === 'draw') return make({ draws: [{ seat: me, tile }], actions: [] });
+    if (ask.kind === 'turn') {
+      if (flower) return make({ draws: [{ seat: ask.seat, tile }], actions: [] });
+      return make({ draws: tsumogiri && !ask.afterCall ? [{ seat: ask.seat, tile }] : [], actions: [[ask.seat, { type: 'discard', tile }]] });
+    }
+    if (ask.kind === 'claim') {
+      const n = ask.next;
+      return make(async (g) => {
+        const ps = await passes(g);
+        if (n === me || flower) return { draws: [{ seat: n, tile, after: ps.length - 1 }], actions: ps };
+        return { draws: tsumogiri ? [{ seat: n, tile, after: ps.length - 1 }] : [], actions: [...ps, [n, { type: 'discard', tile }]] };
+      });
+    }
+  }
+  /** Another seat's call on the tile on the table. */
+  function claim(seat: number, a: Action) {
+    return make(async (g) => ({ actions: [...(await passes(g, [seat])), [seat, a]] }));
+  }
+  const noCalls = () => make(async (g) => ({ actions: await passes(g) }));
+  /** The calls another seat could make on the tile on the table, as far as the tiles not seen allow. */
+  const callsOf = (seat: number, tile: string): { label: string; action: Action; tiles: string[] }[] => {
+    const n = left.get(tile) ?? 0;
+    const out: { label: string; action: Action; tiles: string[] }[] = [];
+    // (A hand of a single tile cannot call: it would have none to discard.)
+    if (!view || 16 - 3 * view.position.players[seat].melds.length < 4) return out;
+    if (ask?.kind === 'claim' && seat === ask.next)
+      for (const c of chows(tile)) if (c.need.every((x) => (left.get(x) ?? 0) > 0)) out.push({ label: t('act_chi'), action: { type: 'chi', tile: c.low }, tiles: [...c.need.slice(0, 1), tile, ...c.need.slice(1)].sort() });
+    if (n >= 2) out.push({ label: t('act_pon'), action: { type: 'pon' }, tiles: [tile, tile, tile] });
+    if (n >= 3) out.push({ label: t('act_kan'), action: { type: 'kan' }, tiles: [tile, tile, tile, tile] });
+    return out;
+  };
+  /** Another's concealed kong: of a kind the player has seen none of (which, the player cannot see). */
+  function hiddenKong(seat: number) {
+    const free = KINDS.filter((k) => (left.get(k) ?? 0) >= 4);
+    if (!free.length) return;
+    const tile = free[Math.floor(Math.random() * free.length)];
+    return make({ actions: [[seat, { type: 'ankan', tile }]] });
+  }
+  const pongsOf = (seat: number) => view?.position.players[seat].melds.filter((m) => m.type === 'pon' && m.tile && (left.get(m.tile) ?? 0) > 0).map((m) => m.tile!) ?? [];
+  /** The table the player sees: their draw left out while it is a stand-in. */
+  const shown = $derived(view && manual ? withoutStandIn(view, me) : view);
+  const manualInteractive = $derived(!!shown?.my_turn && !busy && (shown.phase === 'self' || shown.legal.some((a) => a.type !== 'pass')));
+
+  /** A step: the actions that show (others' passes do not; in 手動繼續 no pass). */
+  const isStop = (k: number) => !!game && (manual ? game.actions[k][1] !== 'pass' : game.actions[k][0] === me || game.actions[k][1] !== 'pass');
   function go(k: number) {
     if (!game) return;
     epoch++;
     cursor = Math.max(start, Math.min(game.actions.length, k));
     showResult = true;
+    ended = false;
+    entryError = null;
     selected = null;
     void show();
   }
@@ -352,7 +476,9 @@
   const sheet = $derived(view?.phase === 'over' && !!final?.result && showResult && !fxOn.on && !held);
   const atHead = $derived(!!game && cursor === game.actions.length);
   const steps = $derived(game ? game.actions.slice(start, cursor).filter((_, i) => isStop(start + i)).length : 0);
-  const status = $derived(error ? error : over ? t('branch_over') : view?.my_turn ? t(view.legal.some((a) => a.type === 'discard') ? 'branch_your_turn' : 'branch_your_call') : atHead ? t('branch_others') : t('branch_back_note'));
+  const status = $derived(error ? error : entryError ? t('manual_error', entryError) : ended ? t('manual_ended') : over ? t('branch_over')
+    : manual ? (!atHead ? t('branch_back_note') : ask?.kind === 'mine' && manualInteractive ? t(view?.phase === 'self' ? 'manual_your_turn' : 'branch_your_call') : '')
+    : view?.my_turn ? t(view.legal.some((a) => a.type === 'discard') ? 'branch_your_turn' : 'branch_your_call') : atHead ? t('branch_others') : t('branch_back_note'));
 
   // What the analysis shows: on the table the player's own decision; in the list any seat's.
   const NO_MARKS = new Map<T, TileMark>();
@@ -369,6 +495,10 @@
   const notes = $derived(mine ? opponentNotes(mine) : atHead && !over ? keptNotes : null);
 
   // The list in place of the table: the deciding seat's own tiles over it; the player's own while the others play.
+  // 手動繼續's palette: nine a row, in the column at the right (420px) or across the controls.
+  // (The column: 420px by the list on a large window; else 40% of the window, 300 to 420px.)
+  const colW = $derived(inlinePanel ? 420 : Math.max(300, Math.min(420, ui.w * 0.4)));
+  const pw = $derived(side ? Math.min(42, (colW - 24) / 9.4) : Math.min(36, (Math.min(ui.w, 720) - 24) / 9.6));
   const hw = $derived(ui.wide ? Math.min(44, ((ui.w - 208) * 0.46 - 24) / 9.3) : Math.min(44, (Math.min(ui.w, 720) - 28) / 9.3));
   /** The player may play from the list: their decision, now. */
   const canPlay = $derived(!!view?.my_turn && !deciding && !over && look?.seat === me);
@@ -419,11 +549,11 @@
 {#snippet info()}
   <div class="info body-medium">
     <div class="line1">
-      <span class="label-large">{t('branch_step', steps)}</span>
+      <span class="label-large">{t(manual ? 'manual_step' : 'branch_step', steps)}</span>
       {#if mine?.value !== undefined}<span class="now"><span class="dim">{t('review_now')}</span> <b>{pts(mine.value)}</b></span>{/if}
-      <span class="note body-small">{t('branch_note')}</span>
+      <span class="note body-small">{t(manual ? 'manual_note' : 'branch_note')}</span>
     </div>
-    <div class="status dim">{status}</div>
+    {#if !manual || status}<div class="status dim">{status}</div>{/if}
   </div>
 {/snippet}
 
@@ -448,17 +578,75 @@
     <div class="buttons two">
       <div class="brow">{@render nb('start')}{@render nb('prevMine')}{@render nb('nextMine')}{@render nb('newest')}</div>
       <div class="brow">{@render nb('prev')}{@render nb('next')}</div>
-      <button class="btn tonal wide-btn" onclick={newBranch}>{t('branch_new')}</button>
+      {#if !manual}<button class="btn tonal wide-btn" onclick={newBranch}>{t('branch_new')}</button>{/if}
     </div>
   {:else}
     <div class="buttons">
       {#each ['start', 'prevMine', 'prev', 'next', 'nextMine', 'newest'] as k (k)}{@render nb(k)}{/each}
-      <button class="btn tonal" onclick={newBranch}>{t('branch_new')}</button>
+      {#if !manual}<button class="btn tonal" onclick={newBranch}>{t('branch_new')}</button>{/if}
     </div>
   {/if}
 {/snippet}
 
-<div class="page" class:side>
+<!-- 手動繼續: what to enter at the newest step (a tile of the palette; another's calls on the tile on the table). -->
+{#snippet entry()}
+  {#if ask && ask.kind !== 'mine'}
+    <div class="entry" class:busy>
+      <div class="ask-row">
+        <span class="ask title-small">
+          {#if flowerMode}{t('manual_flower_of', paletteSeat === me ? t('you') : names[paletteSeat])}
+          {:else if paletteSeat === me}{t('manual_your_draw')}
+          {:else}{t('manual_discard_of', names[paletteSeat])}{/if}
+        </span>
+        {#if paletteSeat !== me}
+          {#if !(ask.kind === 'turn' && ask.afterCall)}
+            <label class="check body-medium" title={t('manual_tsumogiri_hint')}><input type="checkbox" bind:checked={tsumogiri} disabled={flowerMode} />{t('manual_tsumogiri')}</label>
+          {/if}
+          {#if hasFlowers}
+            <button class="btn text small" class:on={flowerMode} aria-pressed={flowerMode} onclick={() => (flowerMode = !flowerMode)}>{t('manual_flower')}</button>
+          {/if}
+          {#if ask.kind === 'turn'}
+            <button class="btn text small" onclick={() => hiddenKong(ask.seat)}>{t('act_ankan')}</button>
+            {#each pongsOf(ask.seat) as x (x)}
+              <button class="btn text small" onclick={() => make({ actions: [[ask.seat, { type: 'kakan', tile: x }]] })}>{t('act_kakan')} <Tile tile={x} w={15} /></button>
+            {/each}
+            <button class="btn text small" onclick={() => (ended = true)}>{t('manual_win')}</button>
+          {/if}
+        {/if}
+      </div>
+      <div class="palette" style="--pw: {pw}px">
+        {#each paletteTiles as x (x)}
+          {@const n = left.get(x) ?? 0}
+          <button class="tile-btn" aria-label={tileName(x)} disabled={n <= 0 || busy} onclick={() => tapPalette(x)}>
+            <Tile tile={x} w={pw} dim={n <= 0} />
+          </button>
+        {/each}
+      </div>
+      {#if ask.kind === 'claim'}
+        <div class="ask title-small claim-ask">{t('manual_claim_of', names[ask.from], tileName(ask.tile))}</div>
+        {#each [1, 2, 3].map((r) => (ask.from + r) % 4).filter((x) => x !== me) as o (o)}
+          {@const cs = callsOf(o, ask.tile)}
+          {#if cs.length}
+            <div class="call-row">
+              <span class="label-large who">{names[o]}</span>
+              {#each cs as c (c.label + c.tiles.join(''))}
+                <button class="btn tonal call" onclick={() => claim(o, c.action)}>
+                  {c.label}{#if c.action.type === 'chi'}<span class="mini">{#each c.tiles as x, i (i)}<Tile tile={x} w={15} />{/each}</span>{/if}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        {/each}
+        <div class="call-row">
+          <button class="btn filled call" onclick={noCalls}>{t('manual_none_claim')}</button>
+          <button class="btn text call" onclick={() => (ended = true)}>{t('manual_win')}</button>
+        </div>
+      {/if}
+    </div>
+  {/if}
+{/snippet}
+
+<div class="page" class:side class:manual>
   {#if !side}
     <TitleBar title={title || t('branch_title')} onback={onclose}>{@render shuffle()}{@render listToggle()}</TitleBar>
   {/if}
@@ -468,9 +656,9 @@
         who={look && look.seat !== me ? names[look.seat] : ''} {canPlay} onact={act} {choices} bind:selected wide={ui.wide} {hw} />
     {:else}
       <div class="table-wrap">
-        {#if view}
-          <Table {view} {me} {names} revealed={view.phase === 'over' ? (final?.hands ?? null) : null} interactive={!!view.my_turn && !deciding} {robbed}
-            onact={act} oneClick={ui.desk} maxHand={ui.desk ? 64 : 56} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom>
+        {#if view && shown}
+          <Table view={shown} {me} {names} revealed={view.phase === 'over' ? (final?.hands ?? null) : null} interactive={manual ? manualInteractive : !!view.my_turn && !deciding} {robbed}
+            onact={act} oneClick={ui.desk} maxHand={ui.desk ? 64 : 56} upright={manual && !side} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom>
             {#snippet overlay()}
               {#if over && (held || fxOn.on)}<TapOn onnext={() => (held = false)} />{/if}
               {#if sheet && final}
@@ -491,12 +679,12 @@
     {/if}
     <!-- (Under the table, not under the result: on a low window it takes the room the result needs.) -->
     {#if !side && !sheet}
-      <div class="controls">{@render info()}{@render buttons()}</div>
+      <div class="controls">{@render info()}{@render entry()}{@render buttons()}</div>
     {/if}
   </div>
   {#if side}
     <!-- No title bar beside the table: the way back at the column's top-left, clear of the table. -->
-    <div class="column" class:with-panel={inlinePanel}>
+    <div class="column" class:with-panel={inlinePanel} class:manual-col={manual && !inlinePanel} style:--col={manual ? `${colW}px` : null}>
       <div class="side-top">
         <button class="btn icon text" aria-label={t('back')} title={t('back')} onclick={onclose}><Icon name="back" /></button>
         <span class="title-medium side-title">{title || t('branch_title')}</span>
@@ -505,10 +693,12 @@
       {@render shuffle()}
       {#if inlinePanel}
         {@render info()}
+        {@render entry()}
         {@render buttons()}
         <div class="inline-panel" bind:this={inlineEl}>{@render panel()}</div>
       {:else}
         {@render info()}
+        {@render entry()}
         <div class="foot">{@render buttons()}</div>
       {/if}
     </div>
@@ -534,6 +724,7 @@
   .column { flex: none; width: 208px; display: flex; flex-direction: column; gap: 6px; padding: 4px 8px 8px; overflow: auto;
     background: var(--surface-container); }
   .column.with-panel { width: 420px; padding: 4px 12px 12px; }
+  .column.manual-col { width: var(--col); padding: 4px 12px 12px; }
   .side-top { display: flex; align-items: center; gap: 2px; }
   .side-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .foot { margin-top: auto; padding-top: 6px; }
@@ -559,4 +750,25 @@
   .shuffle input { width: 18px; height: 18px; accent-color: var(--primary); }
   .sheet { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(0, 0, 0, 0.35); }
   .inline-panel { flex: 1; min-height: 120px; overflow: auto; margin-top: 4px; }
+  .entry { display: flex; flex-direction: column; gap: 6px; transition: opacity 0.1s; }
+  .entry.busy { opacity: 0.6; }
+  .ask { color: var(--primary); }
+  .call-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+  .who { min-width: 3em; }
+  .call { min-height: 34px; padding: 0 12px; gap: 4px; }
+  .mini { display: inline-flex; margin-left: 4px; }
+  .ask-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; }
+  .ask-row .ask { margin-right: 4px; }
+  .ask-row .small { min-height: 34px; padding: 0 8px; }
+  .ask-row .on { background: var(--secondary-container); color: var(--on-secondary-container); }
+  .check { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; cursor: pointer; min-height: 34px; }
+  /* 手動繼續 on an upright window: the table keeps its room, what is entered scrolls under it. */
+  .page.manual:not(.side) .table-wrap { min-height: 54%; }
+  .claim-ask { margin-top: 6px; }
+  .page.manual:not(.side) .controls { flex: 0 1 auto; min-height: 0; overflow: auto; }
+  .page.manual:not(.side) .buttons .btn.icon { width: 38px; min-height: 38px; }
+  .check input { width: 18px; height: 18px; accent-color: var(--primary); }
+  .palette { display: grid; grid-template-columns: repeat(9, var(--pw)); gap: 4px 0; justify-content: center; }
+  .tile-btn { padding: 0; border: none; background: none; cursor: pointer; }
+  .tile-btn:disabled { cursor: default; }
 </style>

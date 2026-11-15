@@ -329,7 +329,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     groups that stay the same whichever wait comes). The list of every action (詳細分析) only beside the table where
     there is room for the panel (a computer's): the table says enough to play by. The tour's step after the
     settings' introduces it with 聽牌提示.
-  - **The review's branch and the analysis' 從這裡打** play with the analysis shown at every decision; the list
+  - **The review's branch and the analysis' 與電腦繼續** play with the analysis shown at every decision; the list
     (詳細分析) beside the table on a large window, else in its place (DecisionView, where the player may play too);
     controls in a column at the right on a wide window; 上一個決定／下一個決定; 重洗看不到的牌 asks first.
   - **The player's standing** on their own plate in every game (practice, battles, the branch): 聽牌, or 1 to 3
@@ -355,7 +355,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     one is not crossed by it). Upright, a decision's list in place of the table keeps the tiles put over the list,
     which scrolls alone (a tile's row brought into sight at the first tap took the tile away from under the second).
     電腦玩家's 牌效率 says what it is behind an ⓘ (its brackets were long).
-  - **The app** has all of the above: the branch and 從這裡打 (BranchScreen, DecisionView), the skeletons
+  - **The app** has all of the above: the branch and 與電腦繼續 (BranchScreen, DecisionView), the skeletons
     (Skeletons.kt), the settings in Thirteen's order (colors and dark mode a row each, their choices in a small
     window; the ⓘ; 練習輔助; About with the source, the web page and the privacy policy), the tour's step on the
     hints (its section brought into sight first), a review's step loaded whole before it shows, ≫ 按一下以繼續 gone at

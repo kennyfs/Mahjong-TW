@@ -729,6 +729,133 @@ static void testGuiEngine() {
   testAssert(json::parse(engine.handleLine("not json")).contains("error"));
 }
 
+// Manual play (Game::setManual): another's pung and discards fit to what is entered, a flower and a 摸切 entered for
+// another, the player's own draw a stand-in until it is entered; then random entries, every tile the player has not
+// seen drawable and every kind taken from the stand-ins.
+static void testManual() {
+  using json = nlohmann::json;
+  GuiEngine engine;
+  json players = json::array();
+  for(int s = 0; s < 4; s++)
+    players.push_back(json{{"melds", json::array()}, {"flowers", ""}, {"discards", json::array()}});
+  json pos{{"setup", {{"dealer", 0}, {"east", -1}, {"round", 0}, {"streak", 0}}}, {"me", 0}, {"hand", "123456789m555p234s11z"},
+           {"drawn", "1z"}, {"after_call", false}, {"claim", nullptr}, {"players", players}, {"wall_left", 60}};
+  json g{{"rules", "simple2,see"}, {"setup", pos["setup"]}, {"base", {{"position", pos}, {"seed", "m"}, {"manual", {{"draws", json::array()}}}}},
+         {"actions", json::array()}};
+  auto act = [&](int seat, json a) {
+    json r = engine.handle(json{{"cmd", "act"}, {"game", g}, {"seat", seat}, {"action", a}});
+    testAssert(r.contains("game"));
+    g = r["game"];
+  };
+  auto view = [&]() { return engine.handle(json{{"cmd", "view"}, {"game", g}, {"seat", 0}, {"reveal", true}}); };
+  auto draw = [&](int seat, const string& tile) { g["base"]["manual"]["draws"].push_back(json::array({(int)g["actions"].size() - 1, seat, tile})); };
+  act(0, {{"type", "discard"}, {"tile", "1z"}});
+  testAssert(view()["phase"] == "react");  // every other seat answers
+  act(1, {{"type", "pass"}});
+  act(2, {{"type", "pon"}});
+  act(3, {{"type", "pass"}});
+  act(2, {{"type", "discard"}, {"tile", "9m"}});
+  for(int s : {3, 0, 1})
+    act(s, {{"type", "pass"}});
+  draw(3, "1f");
+  draw(3, "5s");
+  act(3, {{"type", "discard"}, {"tile", "5s"}});
+  json v = view();
+  testAssert(v["position"]["players"][3]["flowers"] == "1f");
+  testAssert(v["events"].back()["type"] == "discard" && v["events"].back()["drawn"] == true);
+  for(int s : {0, 1, 2})
+    act(s, {{"type", "pass"}});
+  // Seat 0's draw: a stand-in till entered.
+  testAssert(view()["draw_needed"] == true);
+  draw(0, "6s");
+  v = view();
+  testAssert(v["draw_needed"] == false && v["position"]["drawn"] == "6s");
+  // An entry with no tile left is refused.
+  json bad = g;
+  bad["base"]["manual"]["draws"].back()[2] = "1z";  // 1z: four seen (a pung and the hand's)
+  testAssert(json::parse(engine.handleLine(json{{"cmd", "view"}, {"game", bad}, {"seat", 0}}.dump())).contains("error"));
+  // Random entries.
+  for(int trial = 0; trial < 40; trial++) {
+    Rand rand("manual" + Global::intToString(trial));
+    vector<int> tiles;
+    for(int k = 0; k < Tiles::NUM_KINDS; k++)
+      for(int i = 0; i < 4; i++)
+        tiles.push_back(k);
+    for(int i = (int)tiles.size() - 1; i > 0; i--)
+      std::swap(tiles[i], tiles[rand.nextUInt((uint32_t)(i + 1))]);
+    vector<int> hand(tiles.begin(), tiles.begin() + 17);
+    pos["hand"] = Tiles::toString(Tiles::countsOf(hand));
+    pos["drawn"] = Tiles::name(hand.back());
+    g = json{{"rules", "simple1,none"}, {"setup", pos["setup"]}, {"base", {{"position", pos}, {"seed", trial}, {"manual", {{"draws", json::array()}}}}},
+             {"actions", json::array()}};
+    for(int step = 0; step < 80; step++) {
+      v = view();
+      testAssert(!v.contains("error"));
+      if(v["phase"] == "over")
+        break;
+      // What seat 0 has not seen.
+      int left[Tiles::NUM_KINDS];
+      for(int k = 0; k < Tiles::NUM_KINDS; k++)
+        left[k] = 4;
+      Counts own = Tiles::countsOf(Tiles::parse(v["position"]["hand"].get<string>()));
+      if(v["draw_needed"] == true)
+        own[Tiles::parse(v["position"]["drawn"].get<string>())[0]]--;
+      for(int k = 0; k < Tiles::NUM_KINDS; k++)
+        left[k] -= own[k];
+      for(const json& pl : v["position"]["players"]) {
+        for(const json& m : pl["melds"])
+          for(const json& t : m["tiles"])
+            left[Tiles::parse(t.get<string>())[0]]--;
+        for(const json& d : pl["discards"])
+          if(!d["called"].get<bool>())
+            left[Tiles::parse(d["tile"].get<string>())[0]]--;
+      }
+      vector<int> unseen;
+      for(int k = 0; k < Tiles::NUM_KINDS; k++)
+        if(left[k] > 0)
+          unseen.push_back(k);
+      const int cur = v["current"];
+      if(v["phase"] == "self" && cur == 0) {
+        if(v["draw_needed"] == true) {
+          for(int k : unseen) {
+            json t = g;
+            t["base"]["manual"]["draws"].push_back(json::array({(int)g["actions"].size() - 1, 0, Tiles::name(k)}));
+            testAssert(!json::parse(engine.handleLine(json{{"cmd", "view"}, {"game", t}, {"seat", 0}}.dump())).contains("error"));
+          }
+          draw(0, Tiles::name(unseen[rand.nextUInt((uint32_t)unseen.size())]));
+          continue;
+        }
+        int k = -1;
+        for(const json& a : v["legal"])
+          if(a["type"] == "discard")
+            k = Tiles::parse(a["tile"].get<string>())[0];
+        act(0, {{"type", "discard"}, {"tile", Tiles::name(k)}});
+        continue;
+      }
+      if(v["phase"] == "self") {
+        const int k = unseen[rand.nextUInt((uint32_t)unseen.size())];
+        const json& last = v["events"].back();
+        if(rand.nextUInt(3) == 0 && last["seat"] == cur && last["type"] == "draw")
+          draw(cur, Tiles::name(k));
+        act(cur, {{"type", "discard"}, {"tile", Tiles::name(k)}});
+        continue;
+      }
+      json p = engine.handle(json{{"cmd", "pending"}, {"game", g}});
+      int caller = -1;
+      const string tile = v["events"].back()["tile"].get<string>();
+      const int from = v["events"].back()["seat"];
+      for(int o = 1; o < 4 && caller < 0; o++)
+        if(o != from && left[Tiles::parse(tile)[0]] >= 2 && v["position"]["players"][o]["melds"].size() < 4 && rand.nextUInt(5) == 0)
+          caller = o;
+      for(const json& s : p["pending"])
+        if(s.get<int>() != caller)
+          act(s, {{"type", "pass"}});
+      if(caller >= 0)
+        act(caller, {{"type", "pon"}});
+    }
+  }
+}
+
 void Tests::runAll() {
   testTiles();
   cout << "tiles ok" << endl;
@@ -742,6 +869,7 @@ void Tests::runAll() {
   testDeclare();
   cout << "games ok" << endl;
   testGuiEngine();
+  testManual();
   cout << "gui engine ok" << endl;
   runLearn();
   cout << "All tests passed" << endl;

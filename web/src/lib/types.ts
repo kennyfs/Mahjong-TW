@@ -12,9 +12,13 @@ export interface GameRecord {
   rules: string;
   setup: Setup;
   wall?: string;
-  base?: { game: GameRecord; seat: number; seed: string; hand?: string; drawn?: Tile | null } | { position: Position; seed: string };
+  base?: ({ game: GameRecord; seat: number; seed: string; hand?: string; drawn?: Tile | null } | { position: Position; seed: string }) & { manual?: Manual };
   actions: (number | string)[][];
 }
+
+/** Manual play (the analysis' 手動繼續): the draws the player entered, each [the index of the action that brings the
+ *  draw, seat, tile]; the tiles the player cannot see are stand-ins fitted to what is entered (docs/gui-engine.md). */
+export interface Manual { draws: [number, number, Tile][] }
 
 export type ActionType = 'discard' | 'tsumo' | 'ankan' | 'kakan' | 'pass' | 'ron' | 'pon' | 'kan' | 'chi' | 'declare';
 export interface Action { type: ActionType; tile?: Tile | null; tiles?: Tile[] }
@@ -84,6 +88,8 @@ export interface View {
   shanten?: number;
   /** Between the player's turns, a ready hand's tiles that it waits with ("" otherwise). */
   wait_tiles?: string;
+  /** Manual play: the player's draw on their own turn is a stand-in until they enter it. */
+  draw_needed?: boolean;
 }
 
 export interface Pending { phase: Phase; current: number; pending: number[]; actions: number; event_count: number }

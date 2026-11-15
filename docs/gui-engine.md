@@ -21,9 +21,19 @@ record as it came (`base`, no `wall`), so the same base and seed always give the
 
 The base may also give the seat another hand in place of its own (`"hand": TILES`, on its own turn `"drawn": T`, as
 `analyze` takes them: the analysis screen's step of a review with its tiles changed), or be a position by itself,
-`"base": {"position": POSITION, "seed": S}` (one set up by hand on the analysis screen, played on with 從這裡打): its
+`"base": {"position": POSITION, "seed": S}` (one set up by hand on the analysis screen, played on with 與電腦繼續): its
 history is then the plain one of its discards (`Game::plainHistory`), and the record's rules and setup are the
 position's. Every command takes such a record (`steps` and `review` too).
+
+A base may be played by hand (the analysis' 手動繼續: a real game entered as it goes), `"manual": {"draws": [[i, seat,
+TILE], ...]}` in the base. Nobody's tiles but the player's are known then, so the hidden ones are only stand-ins, and
+`Game::setManual` fits them to what is entered: a draw entered for action `i` is the tile that action brings to that
+seat (the player's every draw; another's flower, or the tile it then discards, 摸切); another seat's discard, pung,
+chow or kong first takes the tiles it needs from the stand-ins (the wall and the other hidden hands, never the
+player's), its discard from the hand unless its draw was entered as that tile; a draw nobody entered is never a
+flower; and every other seat answers each discard (a pass at least), so that another's call can be entered on any
+discard. `view` says `"draw_needed": true` while the player's own draw is still a stand-in. An entry that cannot be
+(a fifth tile of a kind) answers an error.
 
 The record holds the wall, so it shows every hidden tile. **Only the authority holds it**: the app in practice, the
 room (on the server, or on the phone that hosts a nearby game) in a battle. A player's screen is built only from
