@@ -238,7 +238,9 @@ fun AnalyzeScreen(vm: AppModel) {
     val wide = maxWidth > maxHeight
     val w = maxWidth.value
     // Tiles: the palette's large enough to tap (a phone's 9 a row), the sections' a little smaller.
-    val pw = if (wide) ((w * 0.42f - 24) / 9.4f).coerceIn(34f, 48f) else minOf(48f, (w - 24) / 9.4f)
+    // (Sideways: 34 dp or more, but no wider than nine fit in the side column: a small phone sideways.)
+    val pw = if (wide) minOf(((w * 0.42f - 24) / 9.4f).coerceIn(34f, 48f), (minOf(w * 0.48f, 560f) - 24) / 9.4f)
+    else minOf(48f, (w - 24) / 9.4f)
     val sw = maxOf(26f, pw * 0.8f)
     val tableShown = wide || tableOpen || tableCount > 0
 

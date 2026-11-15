@@ -55,6 +55,7 @@ import io.github.kennyfs.mahjong.choiceMarks
 import io.github.kennyfs.mahjong.GameRecord
 import io.github.kennyfs.mahjong.Engine
 import io.github.kennyfs.mahjong.Analysis
+import kotlinx.coroutines.delay
 import androidx.compose.ui.platform.LocalContext
 
 /** The rules in a few words: "簡單1・無花", and "自訂" when values were changed; `short`: fewer (見花見台 as 見花). */
@@ -127,8 +128,19 @@ fun PlayScreen(vm: AppModel) {
   // others play (a short while: a little out of date at most), till the next decision's; a new hand starts without.
   var keptNotes by remember { mutableStateOf<List<SeatNote?>?>(null) }
   var keptValue by remember { mutableStateOf<Double?>(null) }
-  LaunchedEffect(mine) { if (mine != null) { keptNotes = opponentNotes(res, mine); keptValue = mine.value } }
-  LaunchedEffect(practice.deal) { keptNotes = null; keptValue = null }
+  /** Whether the hand has had its first analysis yet. */
+  var analyzed by remember { mutableStateOf(false) }
+  LaunchedEffect(mine) { if (mine != null) { keptNotes = opponentNotes(res, mine); keptValue = mine.value; analyzed = true } }
+  LaunchedEffect(practice.deal) { keptNotes = null; keptValue = null; analyzed = false }
+  // The analysis on its way (the network still loading, the first time): grey shapes where its figures will be, the
+  // tags' after a moment of the player's turn (the engine's few milliseconds show none), the expected result's till
+  // the hand's first.
+  val waiting = hintsOn && playing && view?.myTurn == true && mine == null
+  var slow by remember { mutableStateOf(false) }
+  LaunchedEffect(waiting) {
+    slow = false
+    if (waiting) { delay(250); slow = true }
+  }
 
   BoxWithConstraints(Modifier.fillMaxSize()) {
     val wide = maxWidth > maxHeight
@@ -158,7 +170,7 @@ fun PlayScreen(vm: AppModel) {
           onAct = { practice.act(it) }, handLabel = if (wide) handLabel else "", handShort = if (wide) handNo else "", onNext = onNext, stay = manual, robbed = practice.robbed,
           readyHint = settings.readyHint, deal = if (stage == Practice.Stage.PLAYING) practice.deal else null,
           marks = marks, notes = if (hintsOn && playing) keptNotes else null, tagRoom = hintsOn && playing,
-          value = if (hintsOn && playing) keptValue else null,
+          value = if (hintsOn && playing) keptValue else null, pending = waiting && slow, valuePending = hintsOn && playing && !analyzed,
           choiceMarks = mine?.let { choiceMarks(res, it, -1, null) }, onPick = { picked = it },
           strip = if (mine != null && picked != null) ({ PickedFigures(mine, Practice.ME, names, picked!!) }) else null,
           status = if (notice != null) ({

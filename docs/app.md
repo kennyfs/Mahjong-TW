@@ -509,14 +509,24 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   the rivers stay at 26 dp or more while the hand can give room; the others' concealed tiles are drawn as backs when
   sideways and are a count on their name plates when upright. Upright, the others' name plates have two lines (name
   over count and score): the user's font scale 1.15 does not fit one line in a third of the width.
-- **The table ignores the system's display size and most of its font size** (the user's, 2026-11-15: older players set
-  both larger, and their tiles must not shrink for the words): the app's table (TableView and the moments over it) has
-  a density of its own, `LocalTableDensity` in `Theme.kt`: the phone's own (`DENSITY_DEVICE_STABLE`) and the font
-  scale at most 1.15, times the app's text size. The rail's labels (sideways) keep to the same font scale: at font 2.0
-  the rail had no room for 設定. The rest of the app follows the system. Before, display size 540 on a 420 phone made
-  the hand 101 px wide instead of 113 and cut its second row under the navigation bar; font 2.0 put the name plates
-  over the box in the middle. The page's table already draws in fixed px; browser zoom acts on it as display size
-  does.
+- **The screens with tiles ignore the system's display size and most of its font size** (the user's, 2026-11-15:
+  older players set both larger, and their tiles must not shrink for the words): `LocalTableDensity` in `Theme.kt` is
+  the phone's own density (`DENSITY_DEVICE_STABLE`) and the font scale at most 1.15, times the app's text size.
+  MainActivity puts the whole app in it (practice, battles, analysis, reviews and branches, their bars, the bar or rail
+  of screens) but for the pages of words: rules, the guide, records, settings and the welcome card follow the system.
+  Before, display size 540 on a 420 phone made the hand 101 px wide instead of 113 and cut its second row under the
+  navigation bar; font 2.0 put the name plates over the box in the middle, and sideways the rail had no room for 設定;
+  with the table alone in it, the bars' larger words still took the rivers' room. The page's table already draws in
+  fixed px; browser zoom acts on it as display size does.
+- **Tall tables' rows that overflow take room from the rest** (a review of the sizes, 2026-11-15): the player's melds and
+  flowers in two lines (too many for one at 22), or a name plate higher than its line, from the rivers; another's
+  melds past OPP_LINES at 16, a higher strip (rivers down to SHOWN_RIVER); shown hands at a review's end that do not
+  fit at 16 over rivers of SHOWN_RIVER, rivers down to SHOWN_RIVER_MIN (17). Before, they were cut off or overlapped
+  the rivers on a narrow phone.
+- **The analysis on its way** (the user's, 2026-11-15): practice with the analysis shown has grey shapes for the tags
+  (after 250 ms of the player's turn) and for the expected result (till the hand's first analysis); the analysis
+  page's hand, for its tags. The page shows the network's download (`下載神經網路… 45%`, lib/netload.svelte.ts) while
+  something waits for it; the app ships the network.
 - **Tiles** are drawn from paths (`art/make_tiles.py`, glyphs from Noto Serif CJK, OFL): an ivory face with a blue back
   that shows on the felt; flowers as their characters in color. Same art in the app and on the page.
 - **No AI help while playing**, anywhere (the handoff's rule): the analysis is offered only for finished hands

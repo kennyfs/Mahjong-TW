@@ -478,6 +478,8 @@
   <string name="review_prev_key">上一個該看的決定</string>
   <string name="review_next_key">下一個該看的決定</string>
   <string name="review_loading">神經網路分析中…</string>
+  <!-- The web page only: the network downloading (its first use), with how far it has come after it (45%). -->
+  <string name="net_loading">下載神經網路…</string>
   <string name="review_failed">神經網路載入失敗，只顯示牌效率：%1$s</string>
   <string name="review_panel">詳細分析</string>
   <string name="review_to_analysis">帶到分析頁</string>

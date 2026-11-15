@@ -34,7 +34,8 @@
   import type { TileMark } from '../lib/review';
   import type { Tile as T } from '../lib/tiles';
   let { tiles, drawn = null, w, canDiscard = () => false, ondiscard, selected = $bindable(null), perRow = 0, oneClick = false,
-    marks = null, tagH = 0, turn = false, drawWait = 0, pick = true, ready = null, dropOutside = false, onhover, waitAt = null }: {
+    marks = null, tagH = 0, turn = false, drawWait = 0, pick = true, ready = null, dropOutside = false, onhover, waitAt = null,
+    pending = false }: {
     tiles: T[]; drawn?: T | null; w: number; canDiscard?: (t: T) => boolean; ondiscard?: (t: T) => void;
     selected?: number | null; perRow?: number; oneClick?: boolean; marks?: Map<T, TileMark> | null; tagH?: number;
     turn?: boolean;
@@ -48,6 +49,9 @@
     ready?: Record<string, string[]> | null;
     dropOutside?: boolean;
     onhover?: (i: number | null) => void;
+    /** The tags on their way (the analysis not there yet: the network still downloading): a grey shape over each tile
+     *  that may be discarded. */
+    pending?: boolean;
     waitAt?: Set<number> | null;
   } = $props();
 
@@ -139,6 +143,8 @@
             {#if marks?.get(all[i])?.tag}
               {@const m = marks.get(all[i])!}
               <span class="tag {m.tone}" class:played={m.played} style="font-size: {Math.min(13, Math.max(10, w * 0.27))}px; height: {tagH - 2}px">{m.tag}</span>
+            {:else if pending && tagH && canDiscard(all[i])}
+              <span class="tag skel" style="width: {Math.round(w * 0.7)}px; height: {tagH - 2}px" aria-hidden="true"></span>
             {/if}
             {#if ready?.[all[i]] && !marks?.get(all[i])?.tag}<span class="ready" style="--d: {Math.max(5, Math.round(w * 0.15))}px" title={t('ready_waits', ready[all[i]].join(' '))}></span>{/if}
             <Tile tile={all[i]} {w} selected={selected === i} wait={!!waitAt?.has(i)} glow={!!marks?.get(all[i])?.played} danger={marks?.get(all[i])?.danger ?? 0} />
@@ -180,6 +186,9 @@
   .tag.g2 { background: var(--danger-2); color: var(--on-danger); }
   .tag.g3 { background: var(--danger-3); color: #fff; }
   .tag.played { outline: 2px solid var(--highlight); outline-offset: 0; }
+  .tag.skel { background: rgba(140, 150, 145, 0.45); animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .tag.skel { animation: none; } }
   .slot:focus-visible { outline: none; }
   .slot:focus-visible .lifted { outline: 2px solid var(--highlight); outline-offset: 1px; border-radius: 4px; }
   @media (hover: hover) {

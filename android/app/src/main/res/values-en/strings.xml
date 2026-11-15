@@ -470,6 +470,7 @@
   <string name="review_prev_key">Previous decision to look at</string>
   <string name="review_next_key">Next decision to look at</string>
   <string name="review_loading">The network is analyzing…</string>
+  <string name="net_loading">Downloading the network…</string>
   <string name="review_failed">The network couldn\'t load; efficiency only: %1$s</string>
   <string name="review_panel">Full analysis</string>
   <string name="review_to_analysis">Open in Analysis</string>

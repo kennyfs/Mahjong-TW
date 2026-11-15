@@ -54,6 +54,14 @@ fun fitMelds(counts: List<Int>, flowers: Int, width: Float, lines: Int, maxW: Fl
   return minW
 }
 
+/** The height of the player's melds and flowers over a tall table's hand, `width` wide: in one line at the largest
+ *  tile width from `maxW` down to `minW` that fits, or in more lines at `minW` (a narrow phone with many). */
+fun myMeldsHeight(counts: List<Int>, flowers: Int, width: Float, maxW: Float, minW: Float): Float {
+  val w = fitMelds(counts, flowers, width, 1, maxW, minW)
+  val lines = meldLines(counts, flowers, width, w)
+  return if (lines == 0) 0f else lines * h(w) + (lines - 1) * meldGaps(w).row
+}
+
 // Another player's tiles when their hand is shown (a finished hand, a review showing everyone's): the melds and
 // flowers as always, then the concealed tiles on a rack (a darker tray behind them, RACK_PAD around), so that the
 // hand is told from the melds at a glance.
@@ -143,6 +151,9 @@ private const val MIN_RIVER = 26f
 
 /** The rivers' tiles on a tall table whose others' strip has grown to show everyone's tiles: no smaller than this. */
 const val SHOWN_RIVER = 20f
+/** The rivers' tiles where the shown hands do not fit over rivers of SHOWN_RIVER even at 16 dp (a phone's review,
+ *  short for its buttons under the table): smaller rivers rather than hands cut off. */
+const val SHOWN_RIVER_MIN = 17f
 
 /** The height left for the others' strip on a tall table `height` high when the rivers' tiles are `river` wide. */
 fun tallTopRoom(s: TableSizes, height: Float, river: Float) = height - s.meH - 4 - ((2 * s.acrossRows + BOX_ROWS) * h(river) + 14) - SHOWN_GAP

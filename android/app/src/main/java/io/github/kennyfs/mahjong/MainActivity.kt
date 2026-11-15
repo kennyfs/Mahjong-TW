@@ -54,7 +54,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -186,7 +185,12 @@ private fun App(vm: AppModel) {
   val immersive = battle.playing && vm.tab == Screen.BATTLE && vm.pages.isEmpty() || review
   BackHandler(vm.pages.isNotEmpty()) { vm.back() }
   BackHandler(vm.pages.isEmpty() && vm.tab != Screen.PLAY && !battle.inRoom && battle.room == null) { vm.tab = Screen.PLAY }
-  CompositionLocalProvider(LocalTour provides tour) {
+  // The screens with tiles, their bars and the bar or rail of screens in the table's density (Theme's
+  // LocalTableDensity): the system's display size and a large font size would take the tiles' room. The pages of
+  // words (rules, guide, records, settings) and the welcome card in the system's.
+  val system = LocalDensity.current
+  val words: @Composable (@Composable () -> Unit) -> Unit = { CompositionLocalProvider(LocalDensity provides system, content = it) }
+  CompositionLocalProvider(LocalTour provides tour, LocalDensity provides LocalTableDensity.current) {
   NavigationSuiteScaffold(
     navigationSuiteItems = {
       for (t in TABS) {
@@ -195,15 +199,7 @@ private fun App(vm: AppModel) {
           selected = selected,
           onClick = { vm.go(t.screen) },
           icon = { Icon(if (selected) t.selected else t.icon, null) },
-          // The rail's words no larger than the table's (a sideways phone at a large font size had no room for 設定).
-          label = {
-            if (type == NavigationSuiteType.NavigationRail) {
-              val d = LocalDensity.current
-              CompositionLocalProvider(LocalDensity provides Density(d.density, minOf(d.fontScale, LocalTableDensity.current.fontScale))) {
-                Text(stringResource(t.label), maxLines = 1)
-              }
-            } else Text(stringResource(t.label), maxLines = 1)
-          },
+          label = { Text(stringResource(t.label), maxLines = 1) },
           modifier = Modifier.testTag("nav_${t.screen.name}").tourAnchor("nav_${t.screen.name}"),
           alwaysShowLabel = true,
         )
@@ -224,29 +220,33 @@ private fun App(vm: AppModel) {
         .windowInsetsPadding(WindowInsets.safeDrawing.only(sides)),
     ) {
       when (vm.pages.lastOrNull()) {
-        Page.RULES -> RulesScreen(vm, vm::back)
+        Page.RULES -> words { RulesScreen(vm, vm::back) }
         Page.REVIEW -> ReplayScreen(vm, vm::back)
-        Page.GUIDE -> GuideScreen(
-          vm, vm::back,
-          onPlay = { vm.close(Page.GUIDE); vm.show(Screen.PLAY) },
-          onTour = { vm.close(Page.GUIDE); tour.start() },
-        )
+        Page.GUIDE -> words {
+          GuideScreen(
+            vm, vm::back,
+            onPlay = { vm.close(Page.GUIDE); vm.show(Screen.PLAY) },
+            onTour = { vm.close(Page.GUIDE); tour.start() },
+          )
+        }
         null -> when (vm.tab) {
           Screen.PLAY -> PlayScreen(vm)
           Screen.BATTLE -> BattleScreen(vm)
           Screen.ANALYZE -> AnalyzeScreen(vm)
-          Screen.RECORDS -> RecordsScreen(vm)
-          Screen.SETTINGS -> SettingsScreen(vm)
+          Screen.RECORDS -> words { RecordsScreen(vm) }
+          Screen.SETTINGS -> words { SettingsScreen(vm) }
         }
       }
     }
   }
   // The first start: the welcome card, once. Not over a battle's room.
-  if (vm.welcome && !battle.inRoom) WelcomeDialog(
-    onLearn = { vm.welcomed(); vm.open(Page.GUIDE) },
-    onTour = { vm.welcomed(); tour.start() },
-    onClose = { vm.welcomed() },
-  )
+  if (vm.welcome && !battle.inRoom) words {
+    WelcomeDialog(
+      onLearn = { vm.welcomed(); vm.open(Page.GUIDE) },
+      onTour = { vm.welcomed(); tour.start() },
+      onClose = { vm.welcomed() },
+    )
+  }
   if (tour.on && !battle.inRoom) TourOverlay(tour) { vm.open(Page.GUIDE) }
   // A call's or a win's moment, over everything.
   FxOverlay()

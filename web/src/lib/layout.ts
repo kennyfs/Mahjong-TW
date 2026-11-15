@@ -46,6 +46,14 @@ export function fitMelds(counts: number[], flowers: number, width: number, lines
   return min;
 }
 
+/** The height of the player's melds and flowers over a tall table's hand, `width` px wide: in one line at the
+ *  largest tile width from `max` down to `min` that fits, or in more lines at `min` (a narrow phone with many). */
+export function myMeldsHeight(counts: number[], flowers: number, width: number, max: number, min: number): number {
+  const w = fitMelds(counts, flowers, width, 1, max, min);
+  const lines = meldLines(counts, flowers, width, w);
+  return lines ? lines * H(w) + (lines - 1) * meldGaps(w).row : 0;
+}
+
 // Another player's tiles when their hand is shown (a finished hand, a review showing everyone's): the melds and
 // flowers as always, then the concealed tiles on a rack (a darker tray behind them, RACK_PAD px around), so that
 // the hand is told from the melds at a glance.
@@ -129,6 +137,9 @@ const MIN_RIVER = 26;
 
 /** The rivers' tiles on a tall table whose others' strip has grown to show everyone's tiles: no smaller than this. */
 export const SHOWN_RIVER = 20;
+/** The rivers' tiles where the shown hands do not fit over rivers of SHOWN_RIVER even at 16 px (a phone's review,
+ *  short for its buttons under the table): smaller rivers rather than hands cut off. */
+export const SHOWN_RIVER_MIN = 17;
 
 /** The room kept between that strip and the rivers under it, so that a shown hand is not taken for a river. */
 export const SHOWN_GAP = 14;

@@ -216,9 +216,14 @@ fun TableView(
   /** The player's expected result (a practice hand with its hints), by their name plate where there is room for it
    *  (ValueAt). */
   value: Double? = null,
+  /** The analysis on its way (practice with it shown, its first one): grey shapes for the tags over the hand that may
+   *  be discarded; `valuePending`, for the expected result while there is none yet. */
+  pending: Boolean = false, valuePending: Boolean = false,
 ) {
   CompositionLocalProvider(LocalDensity provides LocalTableDensity.current) {
-    TableViewIn(view = view, me = me, names = names, modifier = modifier, scores = scores, revealed = revealed, interactive = interactive, onAct = onAct, handLabel = handLabel, handShort = handShort, maxHand = maxHand, away = away, status = status, corner = corner, overlay = overlay, marks = marks, notes = notes, strip = strip, onPick = onPick, onNext = onNext, stay = stay, robbed = robbed, review = review, readyHint = readyHint, deal = deal, choiceMarks = choiceMarks, tagRoom = tagRoom, value = value)
+    TableViewIn(view = view, me = me, names = names, modifier = modifier, scores = scores, revealed = revealed, interactive = interactive, onAct = onAct, handLabel = handLabel, handShort = handShort, maxHand = maxHand, away = away, status = status, corner = corner, overlay = overlay, marks = marks, notes = notes, strip = strip, onPick = onPick, onNext = onNext, stay = stay, robbed = robbed, review = review, readyHint = readyHint, deal = deal, choiceMarks = choiceMarks, tagRoom = tagRoom,
+      // (NaN: the expected result's grey shape, ValueChip.)
+      value = value ?: if (valuePending) Double.NaN else null, pending = pending)
   }
 }
 
@@ -241,6 +246,7 @@ private fun TableViewIn(
   /** The player's expected result (a practice hand with its hints), by their name plate where there is room for it
    *  (ValueAt). */
   value: Double? = null,
+  pending: Boolean = false,
 ) {
   val c = LocalTable.current
   val density = LocalDensity.current
@@ -375,24 +381,45 @@ private fun TableViewIn(
       if (extra > 0) s0 = tableSizes(roomW, roomH - extra, maxHand)
     }
     // A tall table's line over the hand holds the player's name plate too: one higher than the line (its words in
-    // two lines on a narrow phone) takes its room from the rest, or the hand went under the screen's bottom.
+    // two lines on a narrow phone) takes its room from the rest, or the hand went under the screen's bottom; so do
+    // melds and flowers in two lines (too many for one at 22 dp), or they went over the player's river.
     if (!s0.wide) {
-      val over = maxOf(0f, (plates[Side.BOTTOM]?.second ?: 0f) - s0.meldLine)
+      val counts = pos.players[me].melds.map { meldTiles(it).size }
+      val flowers = if (dealHide) 0 else flowersOf(pos.players[me]).size
+      val melds = myMeldsHeight(counts, flowers, minOf(roomW, s0.tableW) - 16 - (plates[Side.BOTTOM]?.first ?: 90f), s0.meld, 22f)
+      val over = maxOf(0f, maxOf(plates[Side.BOTTOM]?.second ?: 0f, melds) - s0.meldLine)
       if (over > 0) {
         extra += over
         s0 = tableSizes(roomW, roomH - extra, maxHand)
       }
     }
     if (shownAll != null && !s0.wide) {
+      fun need(room: Float, maxW: Float, minW: Float): Float {
+        var n = 0f
+        for (side in listOf(Side.RIGHT, Side.TOP, Side.LEFT)) {
+          val o = shownOf(seatAt(side, me))
+          val plateH = plates[side]?.second ?: 40f
+          val w = fitShown(o.counts, o.flowers, o.concealed, s0.sideW - 9, room - plateH - 12, maxW, minW)
+          n = maxOf(n, plateH + 12 + shownHeight(o.counts, o.flowers, o.concealed, s0.sideW - 9, w))
+        }
+        return n
+      }
       val room = tallTopRoom(s0, roomH - extra, SHOWN_RIVER)
+      val n = need(room, s0.opp, 20f)
+      // No room even at 20 dp: the shown tiles down to 16 dp (no larger than 20), the rivers down to SHOWN_RIVER_MIN.
+      val top = if (n <= room) n else tallTopRoom(s0, roomH - extra, SHOWN_RIVER_MIN).let { minOf(it, need(it, 20f, 16f)) }
+      if (top > s0.topH) s0 = tableSizes(roomW, roomH - extra, maxHand, top)
+    } else if (!s0.wide) {
+      // Another's melds and flowers in more than OPP_LINES lines even at 16 dp (many, on a narrow phone): the strip
+      // higher, from the rivers' room down to SHOWN_RIVER, or their last line was cut off.
       var need = 0f
       for (side in listOf(Side.RIGHT, Side.TOP, Side.LEFT)) {
         val o = shownOf(seatAt(side, me))
-        val plateH = plates[side]?.second ?: 40f
-        val w = fitShown(o.counts, o.flowers, o.concealed, s0.sideW - 9, room - plateH - 12, s0.opp, 20f)
-        need = maxOf(need, plateH + 12 + shownHeight(o.counts, o.flowers, o.concealed, s0.sideW - 9, w))
+        val mw = fitMelds(o.counts, o.flowers, s0.sideW - 8, OPP_LINES, s0.opp)
+        if (meldLines(o.counts, o.flowers, s0.sideW - 8, mw) <= OPP_LINES) continue
+        need = maxOf(need, (plates[side]?.second ?: 40f) + 12 + shownHeight(o.counts, o.flowers, 0, s0.sideW - 8, mw))
       }
-      val top = minOf(room, need)
+      val top = minOf(need, tallTopRoom(s0, roomH - extra, SHOWN_RIVER))
       if (top > s0.topH) s0 = tableSizes(roomW, roomH - extra, maxHand, top)
     }
     val s = s0
@@ -694,7 +721,7 @@ private fun TableViewIn(
                   Melds(pos.players[me].melds, myFlowers, snap(myMeldW), wrap = false, seat = me, host = host, coming = coming[me] ?: -1)
                 }
               }
-              if (!dealHide) MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion,
+              if (!dealHide) MyHand(mine, drawn, s.hand, 0, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, motion = motion, pending = pending,
                 pick = !mustChoose, ready = if (readyHint && myTurn) view.ready else null, flip = dealing,
                 waitAt = waitAt, modifier = Modifier.onGloballyPositioned { handRect = it.boundsInRoot() })
             }
@@ -756,7 +783,7 @@ private fun TableViewIn(
                 if (value != null && valueAt == ValueAt.SIDE) Box(Modifier.align(Alignment.CenterVertically)) { ValueChip(value, s.font, compact = true, Modifier.testTag("my_value")) }
                 Box(Modifier.align(Alignment.CenterVertically).then(measured(Side.BOTTOM))) { badge(me, null) }
               }
-              if (!dealHide) MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn,
+              if (!dealHide) MyHand(mine, drawn, s.hand, s.handRow, discardable, discard, selected, { selected = it }, marks, tagH, turn = myTurn, pending = pending,
                 motion = motion, pick = !mustChoose, ready = if (readyHint && myTurn) view.ready else null, flip = dealing,
                 waitAt = waitAt, modifier = Modifier.onGloballyPositioned { handRect = it.boundsInRoot() })
             }
@@ -1014,7 +1041,10 @@ private fun ValueChip(value: Double, font: Float, compact: Boolean, modifier: Mo
     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
   ) {
     Text(stringResource(R.string.fig_value), color = c.onFeltDim, fontSize = f, maxLines = 1)
-    Text(pts(value), color = if (value > 0.005) c.good else if (value < -0.005) c.bad else c.onFelt, fontWeight = FontWeight.Bold, fontSize = f,
+    // (NaN: the figure on its way, its grey shape.)
+    if (value.isNaN()) Box(Modifier.size(with(LocalDensity.current) { f.toDp() } * 2.8f, with(LocalDensity.current) { f.toDp() } * 0.9f)
+      .alpha(0.5f + 0.5f * pulse(1600)).background(SKELETON, RoundedCornerShape(4.dp)))
+    else Text(pts(value), color = if (value > 0.005) c.good else if (value < -0.005) c.bad else c.onFelt, fontWeight = FontWeight.Bold, fontSize = f,
       maxLines = 1, style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"))
   }
 }
@@ -1150,6 +1180,8 @@ fun MyHand(
   selected: Int?, onSelect: (Int?) -> Unit, marks: Map<String, TileMark>? = null, tagH: Float = 0f, turn: Boolean = false,
   motion: HandMotion? = null, pick: Boolean = true, ready: Map<String, List<String>>? = null, flip: Dealing? = null,
   waitAt: Set<Int>? = null, modifier: Modifier = Modifier,
+  /** The tags on their way (the analysis not there yet): a grey shape over each tile that may be discarded. */
+  pending: Boolean = false,
 ) {
   val highlight = LocalTable.current.highlight
   val glow = if (turn) pulse(1100) else 0f
@@ -1265,6 +1297,7 @@ fun MyHand(
             Box(Modifier.offset { IntOffset(0, lift.roundToInt()) }.then(dot).then(dim)) {
               TileView(all[i], w.d, selected = selected == i, glow = mark?.played == true, danger = mark?.danger ?: 0, wait = waitAt?.contains(i) == true)
               if (mark != null && mark.tag.isNotEmpty()) TileTag(mark, w, if (tagH > 0) tagH else TAG_H, Modifier.align(Alignment.TopCenter))
+              else if (pending && tagH > 0 && all[i] in discardable) TagSkeleton(w, tagH, Modifier.align(Alignment.TopCenter))
             }
           }
         }
@@ -1300,6 +1333,23 @@ fun TileTag(mark: TileMark, w: Float, tagH: Float, modifier: Modifier = Modifier
       fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
   }
 }
+
+/** A tag on its way (the analysis not there yet): its grey shape, pulsing. */
+@Composable
+private fun TagSkeleton(w: Float, tagH: Float, modifier: Modifier = Modifier) {
+  val a = 0.5f + 0.5f * pulse(1600)
+  Box(
+    modifier
+      .layout { m, _ ->
+        val p = m.measure(Constraints())
+        layout(0, 0) { p.place(-p.width / 2, -p.height - 1.dp.roundToPx()) }
+      }
+      .size((w * 0.7f).d, (tagH - 2).d).alpha(a).background(SKELETON, RoundedCornerShape(5.dp)),
+  )
+}
+
+/** A skeleton's grey on the felt or a page. */
+private val SKELETON = Color(0x738C9691)
 
 /** A tag's color by its tone: the best, the grades of a loss, or plain. */
 fun toneColor(tone: TileMark.Tone): Color = when (tone) {

@@ -578,7 +578,8 @@
   .btn.icon.on { background: var(--secondary-container); color: var(--on-secondary-container); }
   .table-wrap { flex: 1; min-height: 0; min-width: 0; position: relative; }
   .controls { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 6px 10px 8px; background: var(--surface-container); min-height: 0; }
-  .side .controls { width: 208px; padding: 4px 8px 6px; overflow: auto; }
+  /* (As wide as its words: a larger text size widens it, or its numbers went past the window's edge.) */
+  .side .controls { width: max(208px, 13rem); padding: 4px 8px 6px; overflow: auto; }
   .side .controls.with-panel { width: 420px; padding: 4px 12px 12px; }
   .side-top { display: flex; align-items: center; }
   .spacer { flex: 1; }
@@ -601,8 +602,9 @@
   .notable { color: var(--on-surface); font-weight: 500; }
   .star { color: var(--found); margin-right: 4px; }
   .nav-row { display: flex; align-items: center; gap: 8px; }
-  .buttons { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 2px; max-width: 480px; }
-  .buttons .btn.icon { width: 42px; min-height: 42px; border-radius: 21px; }
+  .buttons { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 2px; max-width: 480px; min-width: 0; }
+  /* (Narrower where eight of 42px do not fit: a phone 320px wide.) */
+  .buttons .btn.icon { flex: 0 1 42px; width: auto; min-width: 32px; min-height: 42px; border-radius: 21px; }
   .buttons .key { gap: 0; font-size: 1.05rem; }
   .buttons.two { flex-direction: column; gap: 6px; }
   .brow { display: flex; justify-content: space-between; width: 100%; }

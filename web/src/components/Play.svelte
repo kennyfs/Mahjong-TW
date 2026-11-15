@@ -105,10 +105,24 @@
   // others play (a short while: a little out of date at most), till the next decision's; a new hand starts without.
   let keptNotes = $state.raw<ReturnType<typeof opponentNotes>>(null);
   let keptValue = $state<number | null>(null);
-  $effect(() => { if (mine) { keptNotes = opponentNotes(mine); keptValue = mine.value ?? null; } });
-  $effect(() => { void practice.deal; keptNotes = null; keptValue = null; });
+  /** Whether the hand has had its first analysis yet. */
+  let analyzed = $state(false);
+  $effect(() => { if (mine) { keptNotes = opponentNotes(mine); keptValue = mine.value ?? null; analyzed = true; } });
+  $effect(() => { void practice.deal; keptNotes = null; keptValue = null; analyzed = false; });
   const notes = $derived(hintsOn && stage === 'playing' ? keptNotes : null);
   const myValue = $derived(hintsOn && stage === 'playing' ? keptValue : null);
+  // The analysis on its way (the network still downloading, the first time): grey shapes where its figures will be,
+  // the tags' after a moment of the player's turn (the engine's few milliseconds show none), the expected result's
+  // till the hand's first.
+  let slow = $state(false);
+  const waiting = $derived(hintsOn && stage === 'playing' && !!view?.my_turn && !mine);
+  $effect(() => {
+    if (!waiting) { slow = false; return; }
+    const timer = setTimeout(() => (slow = true), 250);
+    return () => clearTimeout(timer);
+  });
+  const pending = $derived(waiting && slow);
+  const valuePending = $derived(hintsOn && stage === 'playing' && !analyzed);
   let picked = $state<T | null>(null);
   // The list beside the table, where the window has room for the panel (wider with the hints on).
   let asideShown = $state(false);
@@ -154,7 +168,7 @@
         interactive={stage === 'playing' && !practice.busy} onact={act} handLabel={ui.wide ? handLabel : ''} handShort={ui.wide ? handNo : ''} maxHand={ui.desk ? 72 : 64}
         keys={ui.desk} {onnext} stay={manual} status={practice.notice ? notice : undefined} robbed={practice.robbed}
         deal={stage === 'playing' ? practice.deal : null} {marks} {notes} {strip} onpick={(x) => (picked = x)} choiceMarks={choices}
-        tagRoom={hintsOn && stage === 'playing'} asideW={hintsOn ? 400 : 300} value={myValue} bind:asideShown bind:inDeal>
+        tagRoom={hintsOn && stage === 'playing'} asideW={hintsOn ? 400 : 300} value={myValue} {pending} {valuePending} bind:asideShown bind:inDeal>
         {#snippet corner()}
           {#if ui.wide}
             <span class="corner-buttons" data-tour="top">

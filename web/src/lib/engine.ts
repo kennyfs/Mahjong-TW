@@ -5,6 +5,7 @@
 // file system as MODEL: the analysis' figures, a hand's review, the tables of draws and claims, and the bots
 // "net:model=MODEL".
 import files from 'virtual:engine-files';
+import { netLoad } from './netload.svelte';
 import { keepOnly, storedBytes } from './stored';
 import type { Action, Analysis, GameRecord, Pending, Position, Review, RulesInfo, Setup, Steps, View, WhatIf } from './types';
 
@@ -59,13 +60,16 @@ export function raw(line: string): Promise<string> {
 let model: Promise<void> | null = null;
 /** Fetches the network into the engine, once; a failure is tried again at the next call. */
 export function loadModel(): Promise<void> {
-  model ??= storedBytes(MODEL_URL, files.modelSize).then((b) => post({ file: { path: MODEL, data: b } }, [b])).then(
-    () => {},
-    (e) => {
-      model = null;
-      throw new EngineError(String((e as Error)?.message ?? e));
-    },
-  );
+  if (!model) Object.assign(netLoad, { on: true, done: 0, of: files.modelSize });
+  model ??= storedBytes(MODEL_URL, files.modelSize, (done) => (netLoad.done = done))
+    .then((b) => post({ file: { path: MODEL, data: b } }, [b])).then(
+      () => { netLoad.on = false; },
+      (e) => {
+        model = null;
+        netLoad.on = false;
+        throw new EngineError(String((e as Error)?.message ?? e));
+      },
+    );
   return model;
 }
 

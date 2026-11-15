@@ -45,7 +45,7 @@
   import { callMs, flowerMs, calloutShown, calloutsSkipped } from '../lib/callouts';
   import { t } from '../lib/i18n.svelte';
   import {
-    DRAWN_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, OPP_LINES, runLines, SHOWN_RIVER, shownHeight, tableSizes, tallTopRoom, type TableSizes,
+    DRAWN_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, meldLines, myMeldsHeight, OPP_LINES, runLines, SHOWN_RIVER, SHOWN_RIVER_MIN, shownHeight, tableSizes, tallTopRoom, type TableSizes,
   } from '../lib/layout';
   import { concealedCount, meldTiles, seatAt, sideOf, flowersOf, type Side } from '../lib/seats';
   import { pts, type ChoiceMark, type SeatNote, type TileMark } from '../lib/review';
@@ -75,6 +75,7 @@
     away = [false, false, false, false], status, overlay, corner, aside, selected = $bindable(null), asideW = 300,
     marks = null, notes = null, strip, onpick, onnext, stay = false, robbed = null, review = false, deal = null,
     choiceMarks = null, tagRoom = false, asideShown = $bindable(false), hints = true, inDeal = $bindable(false), value = null,
+    pending = false, valuePending = false,
     oneClick = keys,
   }: {
     view: View; me: number; names: string[]; scores?: number[] | null; revealed?: string[] | null; interactive?: boolean;
@@ -94,6 +95,9 @@
     deal?: string | null;
     choiceMarks?: ((a: Action) => ChoiceMark | null) | null;
     tagRoom?: boolean;
+    /** The analysis on its way (practice with it shown, the network still downloading): grey shapes for the tags
+     *  over the hand; `valuePending`, for the expected result by the plate while there is none yet. */
+    pending?: boolean; valuePending?: boolean;
     asideShown?: boolean;
     /** 聽牌提示 (the settings') may show here (not in a battle): a dot over each discard that leaves the hand ready,
      *  and the tiles a ready hand waits with (聽的相關牌組) on blue faces (on the player's turn, those it would wait
@@ -136,15 +140,21 @@
   /** A tall table's others' strip with everyone's tiles shown: as high as the three need at the largest tiles (20 px
    *  and up) that leave the rivers tiles of SHOWN_RIVER px. */
   function shownTop(s0: TableSizes, h: number): number {
+    const need = (room: number, max: number, min: number) => {
+      let n = 0;
+      for (const side of others) {
+        const o = shownOf(seatAt(side, me));
+        const w = fitShown(o.counts, o.flowers, o.concealed, s0.sideW - 8, room - plateH(side) - 12, max, min);
+        n = Math.max(n, plateH(side) + 12 + shownHeight(o.counts, o.flowers, o.concealed, s0.sideW - 8, w));
+      }
+      return n;
+    };
     const room = tallTopRoom(s0, h, SHOWN_RIVER);
-    let need = 0;
-    for (const side of others) {
-      const o = shownOf(seatAt(side, me));
-      const mine = room - plateH(side) - 12;
-      const w = fitShown(o.counts, o.flowers, o.concealed, s0.sideW - 8, mine, s0.opp, 20);
-      need = Math.max(need, plateH(side) + 12 + shownHeight(o.counts, o.flowers, o.concealed, s0.sideW - 8, w));
-    }
-    return Math.min(room, need);
+    const n = need(room, s0.opp, 20);
+    if (n <= room) return n;
+    // No room even at 20 px: the shown tiles down to 16 px (no larger than 20), the rivers down to SHOWN_RIVER_MIN.
+    const less = tallTopRoom(s0, h, SHOWN_RIVER_MIN);
+    return Math.min(less, need(less, 20, 16));
   }
   // The tags' room comes off the table's height: what the hand's own lift does not already leave them.
   function sizes(w: number, h: number) {
@@ -154,8 +164,31 @@
       extra = (s0.wide ? 1 : 2) * Math.max(0, tagH - s0.hand * TILE_RATIO * 0.2);
       if (extra > 0) s0 = tableSizes(w, h - extra, maxHand);
     }
+    // A tall table's melds and flowers in two lines (too many for one at 22 px, on a narrow phone) take their room
+    // from the rest, or they went over the player's river.
+    if (!s0.wide) {
+      const counts = pos.players[me].melds.map((m) => meldTiles(m).length);
+      const flowers = dealing && !dealing.flip ? 0 : flowersOf(pos.players[me]).length;
+      const over = myMeldsHeight(counts, flowers, s0.tableW - 16 - (meBadgeW || 90), s0.meld, 22) - s0.meldLine;
+      if (over > 0) {
+        extra += over;
+        s0 = tableSizes(w, h - extra, maxHand);
+      }
+    }
     if (revealed && !s0.wide) {
       const top = shownTop(s0, h - extra);
+      if (top > s0.topH) s0 = tableSizes(w, h - extra, maxHand, top);
+    } else if (!s0.wide) {
+      // Another's melds and flowers in more than OPP_LINES lines even at 16 px (many, on a narrow phone): the strip
+      // higher, from the rivers' room down to SHOWN_RIVER, or their last line was cut off.
+      let need = 0;
+      for (const side of others) {
+        const o = shownOf(seatAt(side, me));
+        const mw = fitMelds(o.counts, o.flowers, s0.sideW - 8, OPP_LINES, s0.opp);
+        if (meldLines(o.counts, o.flowers, s0.sideW - 8, mw) <= OPP_LINES) continue;
+        need = Math.max(need, plateH(side) + 12 + shownHeight(o.counts, o.flowers, 0, s0.sideW - 8, mw));
+      }
+      const top = Math.min(need, tallTopRoom(s0, h - extra, SHOWN_RIVER));
       if (top > s0.topH) s0 = tableSizes(w, h - extra, maxHand, top);
     }
     return { s: s0, extra };
@@ -859,7 +892,7 @@
    *  in the melds' line before the plate, where the melds keep their size. Out of the way and unseen where it has no
    *  room, measured still. */
   const valueAt = $derived.by((): 'side' | 'over' | null => {
-    if (value === null || !valueW || !meBadgeW) return null;
+    if ((value === null && !valuePending) || !valueW || !meBadgeW) return null;
     if (s.wide) {
       if (meBadgeW + 6 + valueW <= s.sideW - 12) return 'side';
       if (valueW > s.sideW - 12) return null;
@@ -967,10 +1000,10 @@
         turn={turnSeat === me} compact={!s.wide} note={myNote} room={review ? '' : t('analysis_shanten', 3)} />
     {/snippet}
     {#snippet myValue()}
-      {#if value !== null}
+      {#if value !== null || valuePending}
         <span class="my-value {valueAt ?? 'off'}" class:compact={!s.wide} aria-hidden={!valueAt} bind:clientWidth={valueW} bind:clientHeight={valueH}
           style={s.wide && valueAt === 'side' ? `left: ${meBadgeW + 6}px; bottom: ${(meBadgeH - valueH) / 2}px` : undefined}>
-          <span class="dim">{t('fig_value')}</span><b class:pos={value > 0.005} class:neg={value < -0.005}>{pts(value)}</b>
+          <span class="dim">{t('fig_value')}</span>{#if value !== null}<b class:pos={value > 0.005} class:neg={value < -0.005}>{pts(value)}</b>{:else}<span class="value-skel"></span>{/if}
         </span>
       {/if}
     {/snippet}
@@ -988,7 +1021,7 @@
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
         <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
-          bind:selected {oneClick} {marks} {tagH} dropOutside={!review} onhover={(i) => (hovered = i)} {waitAt} />{/if}
+          bind:selected {oneClick} {marks} {tagH} {pending} dropOutside={!review} onhover={(i) => (hovered = i)} {waitAt} />{/if}
       </div>
     {:else}
       <!-- Over the hand: the melds at the left (the first at the far left), the flowers after them; the name plate at
@@ -1001,7 +1034,7 @@
         </div>
         {#if dealing && !dealing.flip}{@render dealtBacks()}{:else}
         <MyHand tiles={mine.tiles} drawn={mine.drawn} {drawWait} pick={pickHand} ready={readyHint && myTurn ? (view.ready ?? null) : null} turn={myTurn} w={s.hand} {canDiscard} ondiscard={discard}
-          bind:selected perRow={s.handRow} {marks} {tagH} dropOutside={!review} onhover={(i) => (hovered = i)} {waitAt} />{/if}
+          bind:selected perRow={s.handRow} {marks} {tagH} {pending} dropOutside={!review} onhover={(i) => (hovered = i)} {waitAt} />{/if}
       </div>
       {#if status}<div class="status tall" style="bottom: {meH + 4}px">{@render status()}</div>{/if}
     {/if}
@@ -1128,6 +1161,10 @@
   .me-top .my-value.side { margin-left: auto; }
   .me-top .my-value.side + .me-badge { margin-left: 0; }
   .my-value.off { position: absolute; visibility: hidden; pointer-events: none; }
+  .value-skel { display: inline-block; width: 2.8em; height: 0.9em; border-radius: 4px; background: rgba(140, 150, 145, 0.45);
+    animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .value-skel { animation: none; } }
   .me-corner { position: absolute; left: 8px; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
     max-width: calc(var(--side-w) - 12px); }
 

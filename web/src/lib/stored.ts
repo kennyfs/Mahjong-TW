@@ -13,9 +13,9 @@ async function open(): Promise<Cache | null> {
 
 /**
  * The file at `url` (a hashed name: its content never changes), `size` bytes: from Cache Storage if there, else
- * fetched, and kept there when the whole of it came.
+ * fetched, and kept there when the whole of it came. `progress`: told the bytes fetched so far, as they come.
  */
-export async function storedBytes(url: string, size: number): Promise<ArrayBuffer> {
+export async function storedBytes(url: string, size: number, progress?: (done: number) => void): Promise<ArrayBuffer> {
   const cache = await open();
   if (cache) {
     try {
@@ -29,10 +29,28 @@ export async function storedBytes(url: string, size: number): Promise<ArrayBuffe
   }
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${url}: ${r.status}`);
-  const b = await r.arrayBuffer();
+  const b = progress && r.body ? await read(r.body, progress) : await r.arrayBuffer();
   // A Response copies the bytes it is made from: `b` is the caller's still.
   if (cache && b.byteLength === size) cache.put(url, new Response(b)).catch(() => {});
   return b;
+}
+
+/** A body read in its chunks, `progress` told after each. */
+async function read(body: ReadableStream<Uint8Array>, progress: (done: number) => void): Promise<ArrayBuffer> {
+  const parts: Uint8Array[] = [];
+  let done = 0;
+  const reader = body.getReader();
+  for (;;) {
+    const { value, done: end } = await reader.read();
+    if (end) break;
+    parts.push(value);
+    done += value.byteLength;
+    progress(done);
+  }
+  const out = new Uint8Array(done);
+  let at = 0;
+  for (const p of parts) { out.set(p, at); at += p.byteLength; }
+  return out.buffer;
 }
 
 /** Removes what Cache Storage keeps but `urls` (the files of this build): an older build's engine and network. */

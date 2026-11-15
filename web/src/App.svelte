@@ -24,6 +24,7 @@
   import TileDefs from './components/TileDefs.svelte';
   import { battle } from './lib/battle.svelte';
   import * as engine from './lib/engine';
+  import { netLoad } from './lib/netload.svelte';
   import { practice } from './lib/practice.svelte';
   import { editor } from './lib/position-editor.svelte';
   import { records } from './lib/records.svelte';
@@ -122,6 +123,11 @@
     {:else}
       <div class="todo">{nav.screen}</div>
     {/if}
+    {#if netLoad.on}
+      <!-- The network downloading, which something waits for (a computer player, the analysis): how far it has come. -->
+      <div class="net-load" role="status"><span class="spin" aria-hidden="true"></span>{t('net_loading')}{#if netLoad.of}
+        <b>{Math.min(99, Math.floor((netLoad.done / netLoad.of) * 100))}%</b>{/if}</div>
+    {/if}
   </main>
 </div>
 
@@ -157,6 +163,12 @@
   nav button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: none; background: none;
     color: var(--on-surface-variant); cursor: pointer; font-size: 0.75rem; font-weight: 500; padding: 0; min-width: 0; }
   .wide nav button { flex: none; padding: 4px 0; }
+  /* A short window (a phone sideways at a larger display size, 320px tall): the rail closer together, and it scrolls
+     rather than cut 設定 off. */
+  @media (max-height: 400px) {
+    .wide nav { gap: 0; padding-top: 4px; overflow-y: auto; }
+    .wide nav button { padding: 2px 0; }
+  }
   nav button.on { color: var(--on-surface); }
   .pill { width: 64px; height: 32px; border-radius: 16px; display: flex; align-items: center; justify-content: center; }
   .wide .pill { width: 56px; }
@@ -164,5 +176,15 @@
   nav button:hover .pill { background: var(--surface-container-highest); }
   .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .todo { padding: 24px; }
+  /* Over the page's top, under its title; only after a moment (a network already kept comes in at once). */
+  .net-load { position: absolute; top: 60px; left: 50%; translate: -50% 0; z-index: 30; display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 18px; background: var(--inverse-surface, #2f3330); color: var(--inverse-on-surface, #eff1ed);
+    font-size: 0.875rem; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    animation: net-in 0.2s 0.4s both; font-variant-numeric: tabular-nums; }
+  .net-load .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent;
+    animation: spin 0.8s linear infinite; }
+  @keyframes net-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes spin { to { rotate: 360deg; } }
+  @media (prefers-reduced-motion: reduce) { .net-load .spin { animation: none; } }
   .welcome { display: flex; flex-direction: column; gap: 8px; }
 </style>

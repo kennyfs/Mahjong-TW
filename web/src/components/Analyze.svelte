@@ -21,7 +21,7 @@
   import { nav } from '../lib/nav.svelte';
   import { editor, FLOWER_PALETTE, meldOf, PALETTE, sameSection, type Mode, type Section } from '../lib/position-editor.svelte';
   import { tileMarks } from '../lib/review';
-  import { flowerLabel, parseChoice, taiLabel } from '../lib/rules';
+  import { flowerLabel, flowerShort, parseChoice, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import { tileName, windName, type Tile as T } from '../lib/tiles';
   import type { Analysis, GameRecord, Meld, WhatIf } from '../lib/types';
@@ -50,7 +50,11 @@
   const seatShort = (s: number) => [t('you'), t('rel_next'), t('rel_opposite'), t('rel_prev')][s];
   const names = [0, 1, 2, 3].map(seatShort);
   // Tiles: the palette's large enough to tap (a phone's 9 a row), the sections' a little smaller.
-  const pw = $derived(ui.wide ? Math.min(48, Math.max(34, (ui.w * 0.42 - 24) / 9.4)) : Math.min(48, (ui.w - 24) / 9.4));
+  // (Sideways: 34 px or more, but no wider than nine fit in the side column, as it is laid out: a phone sideways at a
+  // large display size.)
+  let sideW = $state(0);
+  const pw = $derived(ui.wide ? Math.min(48, Math.max(34, (ui.w * 0.42 - 24) / 9.4), sideW ? (sideW - 24) / 9.4 : 48)
+    : Math.min(48, (ui.w - 24) / 9.4));
   const sw = $derived(Math.max(26, pw * 0.8));
   const isOn = (s: Section) => sameSection(ed.section, s);
   const palette = $derived(ed.section.kind === 'flowers' ? FLOWER_PALETTE : PALETTE);
@@ -67,6 +71,11 @@
     const [tai, flowers] = spec.split(',');
     const c = parseChoice({ tai, flowers });
     return t('rules_chip', t(taiLabel(c.tai)), t(flowerLabel(c.flowers)));
+  });
+  const rulesShort = $derived.by(() => {
+    const [tai, flowers] = spec.split(',');
+    const c = parseChoice({ tai, flowers });
+    return t('rules_chip', t(taiLabel(c.tai)), t(flowerShort(c.flowers)));
   });
   const tableCount = $derived([0, 1, 2, 3].reduce((a, s) => a + ed.melds[s].length + ed.flowers[s].length + ed.discards[s].length, 0));
   const tableShown = $derived(ui.wide || tableOpen || tableCount > 0);
@@ -149,7 +158,8 @@
     {#each list as x, i (i + x)}
       {@const m = marked ? marks?.get(x) : undefined}
       <button class="tile-btn" aria-label={tileName(x)} onclick={() => remove(s, i)}>
-        {#if m}<span class="tag {m.tone}">{m.tag}</span>{/if}
+        {#if m}<span class="tag {m.tone}">{m.tag}</span>
+        {:else if marked && running && !result && !missing}<span class="tag skel" style="width: {Math.round(w * 0.7)}px" aria-hidden="true"></span>{/if}
         <Tile tile={x} {w} danger={m?.danger ?? 0} />
       </button>
     {/each}
@@ -199,7 +209,7 @@
 <div class="page">
   <TitleBar title={t('analyze_title')}>
     <button class="chip" class:on={!!ed.rules} title={ed.rules ? t('analysis_rules_of_hand') + t('colon') + t('analysis_rules_reset') : t('settings_rules')}
-      onclick={() => { if (ed.rules) ed.rules = null; else nav.open('rules', 'SETTINGS'); }}>{rulesLabel}</button>
+      onclick={() => { if (ed.rules) ed.rules = null; else nav.open('rules', 'SETTINGS'); }}><span data-full={rulesLabel} data-short={rulesShort}></span></button>
     <button class="btn text" onclick={() => ed.random()}>{t('analysis_random')}</button>
     <button class="btn text" onclick={() => ed.clear()}>{t('analysis_clear')}</button>
   </TitleBar>
@@ -266,7 +276,7 @@
       {/if}
     </div>
 
-    <div class="side">
+    <div class="side" bind:clientWidth={sideW}>
       <div class="palette">
         <div class="hint">
           {#if ui.wide || paletteOpen}<span class="body-small dim">{t('analysis_palette_hint')}</span>{/if}
@@ -330,6 +340,9 @@
     font-weight: 700; line-height: 14px; white-space: nowrap; pointer-events: none; background: rgba(0, 0, 0, 0.6); color: #fff;
     font-variant-numeric: tabular-nums; }
   .tag.best { background: var(--found); }
+  .tag.skel { height: 14px; background: rgba(128, 128, 128, 0.4); animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .tag.skel { animation: none; } }
   .section:has(.tag) .tiles { padding-top: 15px; row-gap: 17px; }
   .meld { display: inline-flex; padding: 0; margin-right: 8px; border: none; background: none; cursor: pointer; }
   .fold { align-self: flex-start; margin: 2px 0; }
