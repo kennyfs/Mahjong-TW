@@ -47,12 +47,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -62,6 +64,7 @@ import io.github.kennyfs.mahjong.ui.AnalyzeScreen
 import io.github.kennyfs.mahjong.ui.BattleScreen
 import io.github.kennyfs.mahjong.ui.GuideScreen
 import io.github.kennyfs.mahjong.ui.LocalTable
+import io.github.kennyfs.mahjong.ui.LocalTableDensity
 import io.github.kennyfs.mahjong.ui.LocalTour
 import io.github.kennyfs.mahjong.ui.MahjongTheme
 import io.github.kennyfs.mahjong.ui.PlayScreen
@@ -192,7 +195,15 @@ private fun App(vm: AppModel) {
           selected = selected,
           onClick = { vm.go(t.screen) },
           icon = { Icon(if (selected) t.selected else t.icon, null) },
-          label = { Text(stringResource(t.label), maxLines = 1) },
+          // The rail's words no larger than the table's (a sideways phone at a large font size had no room for 設定).
+          label = {
+            if (type == NavigationSuiteType.NavigationRail) {
+              val d = LocalDensity.current
+              CompositionLocalProvider(LocalDensity provides Density(d.density, minOf(d.fontScale, LocalTableDensity.current.fontScale))) {
+                Text(stringResource(t.label), maxLines = 1)
+              }
+            } else Text(stringResource(t.label), maxLines = 1)
+          },
           modifier = Modifier.testTag("nav_${t.screen.name}").tourAnchor("nav_${t.screen.name}"),
           alwaysShowLabel = true,
         )

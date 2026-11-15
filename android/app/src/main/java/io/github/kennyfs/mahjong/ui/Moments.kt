@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -337,6 +338,12 @@ fun rememberFxTime(m: Moment, host: FxHost): FxTime {
 @Composable
 fun FxOverlay() {
   val h = FxStage.host ?: return
+  // (In the table's density, as the table: its tiles as large as the table's.)
+  CompositionLocalProvider(LocalDensity provides LocalTableDensity.current) { FxLayer(h) }
+}
+
+@Composable
+private fun FxLayer(h: FxHost) {
   var origin by remember { mutableStateOf(Offset.Zero) }
   Box(Modifier.fillMaxSize().onGloballyPositioned { val o = it.positionInRoot(); if (o != origin) origin = o }) {
     val m = h.cur

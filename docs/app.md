@@ -509,6 +509,14 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   the rivers stay at 26 dp or more while the hand can give room; the others' concealed tiles are drawn as backs when
   sideways and are a count on their name plates when upright. Upright, the others' name plates have two lines (name
   over count and score): the user's font scale 1.15 does not fit one line in a third of the width.
+- **The table ignores the system's display size and most of its font size** (the user's, 2026-11-15: older players set
+  both larger, and their tiles must not shrink for the words): the app's table (TableView and the moments over it) has
+  a density of its own, `LocalTableDensity` in `Theme.kt`: the phone's own (`DENSITY_DEVICE_STABLE`) and the font
+  scale at most 1.15, times the app's text size. The rail's labels (sideways) keep to the same font scale: at font 2.0
+  the rail had no room for 設定. The rest of the app follows the system. Before, display size 540 on a 420 phone made
+  the hand 101 px wide instead of 113 and cut its second row under the navigation bar; font 2.0 put the name plates
+  over the box in the middle. The page's table already draws in fixed px; browser zoom acts on it as display size
+  does.
 - **Tiles** are drawn from paths (`art/make_tiles.py`, glyphs from Noto Serif CJK, OFL): an ivory face with a blue back
   that shows on the felt; flowers as their characters in color. Same art in the app and on the page.
 - **No AI help while playing**, anywhere (the handoff's rule): the analysis is offered only for finished hands

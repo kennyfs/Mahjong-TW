@@ -40,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -192,10 +193,39 @@ private class Shown(val counts: List<Int>, val flowers: Int, val concealed: Int)
  * draw's: after a pause), then a pause, then the result's moment, which stops for a tap. `review`: a review's table:
  * its moments of a hand's end are small, by the player, and shorter (Timing's review_end). The player's own discard
  * moves from the hand to the river while the hand closes its gap (HandMotion).
+ *
+ * The table has a density of its own (Theme's LocalTableDensity): the phone's own whatever the system's display size,
+ * its words no larger than at TABLE_FONT_MAX of the system's font size. Its sizes are its own arithmetic
+ * (TableLayout.kt), which knows nothing of the words' size: so it is laid out on every phone as tested, its tiles as
+ * large as that gives, with nothing overlapping.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TableView(
+  view: View, me: Int, names: List<String>, modifier: Modifier = Modifier, scores: List<Double>? = null, revealed: List<String>? = null,
+  interactive: Boolean = true, onAct: ((Action) -> Unit)? = null, handLabel: String = "",
+  /** The hand in a few characters (3, a contest's 3/8): the round's label as 東-3 where the full one has no room. */
+  handShort: String = "", maxHand: Float = 64f,
+  away: List<Boolean> = listOf(false, false, false, false),
+  status: (@Composable () -> Unit)? = null, corner: (@Composable () -> Unit)? = null, overlay: (@Composable BoxScope.() -> Unit)? = null,
+  marks: Map<String, TileMark>? = null, notes: List<SeatNote?>? = null, strip: (@Composable () -> Unit)? = null,
+  onPick: ((String?) -> Unit)? = null, onNext: (() -> Unit)? = null, stay: Boolean = false, robbed: Int = -1, review: Boolean = false,
+  readyHint: Boolean = false, deal: String? = null, choiceMarks: ((Action) -> ChoiceMark?)? = null,
+  /** The tags' room kept over the hand whether it has tags now or not (the analysis shown as one plays: they come
+   *  and go with the turns, and the table keeps its size). */
+  tagRoom: Boolean = false,
+  /** The player's expected result (a practice hand with its hints), by their name plate where there is room for it
+   *  (ValueAt). */
+  value: Double? = null,
+) {
+  CompositionLocalProvider(LocalDensity provides LocalTableDensity.current) {
+    TableViewIn(view = view, me = me, names = names, modifier = modifier, scores = scores, revealed = revealed, interactive = interactive, onAct = onAct, handLabel = handLabel, handShort = handShort, maxHand = maxHand, away = away, status = status, corner = corner, overlay = overlay, marks = marks, notes = notes, strip = strip, onPick = onPick, onNext = onNext, stay = stay, robbed = robbed, review = review, readyHint = readyHint, deal = deal, choiceMarks = choiceMarks, tagRoom = tagRoom, value = value)
+  }
+}
+
+/** TableView in the table's density. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TableViewIn(
   view: View, me: Int, names: List<String>, modifier: Modifier = Modifier, scores: List<Double>? = null, revealed: List<String>? = null,
   interactive: Boolean = true, onAct: ((Action) -> Unit)? = null, handLabel: String = "",
   /** The hand in a few characters (3, a contest's 3/8): the round's label as 東-3 where the full one has no room. */
@@ -343,6 +373,15 @@ fun TableView(
     if (tagH > 0) {
       extra = (if (s0.wide) 1 else 2) * maxOf(0f, tagH - s0.hand * TILE_RATIO * LIFT)
       if (extra > 0) s0 = tableSizes(roomW, roomH - extra, maxHand)
+    }
+    // A tall table's line over the hand holds the player's name plate too: one higher than the line (its words in
+    // two lines on a narrow phone) takes its room from the rest, or the hand went under the screen's bottom.
+    if (!s0.wide) {
+      val over = maxOf(0f, (plates[Side.BOTTOM]?.second ?: 0f) - s0.meldLine)
+      if (over > 0) {
+        extra += over
+        s0 = tableSizes(roomW, roomH - extra, maxHand)
+      }
     }
     if (shownAll != null && !s0.wide) {
       val room = tallTopRoom(s0, roomH - extra, SHOWN_RIVER)

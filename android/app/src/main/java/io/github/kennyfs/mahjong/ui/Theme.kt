@@ -1,6 +1,7 @@
 package io.github.kennyfs.mahjong.ui
 
 import android.os.Build
+import android.util.DisplayMetrics
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
@@ -143,6 +144,17 @@ fun isDark(mode: DarkMode, system: Boolean) = when (mode) {
   DarkMode.DARK -> true
 }
 
+/** The table's words at most this much larger than the system's standard size (the user's own phone's). */
+const val TABLE_FONT_MAX = 1.15f
+
+/**
+ * The table's density (TableView, and the moments over it: FxOverlay): the phone's own whatever the system's display
+ * size (DENSITY_DEVICE_STABLE), the font size no larger than TABLE_FONT_MAX, times the app's text size. A larger
+ * display size or font size took the table's room for the words alone: its tiles got smaller, the hand went under the
+ * navigation bar, the name plates over the box in the middle (2026-11-15). The rest of the app follows the system.
+ */
+val LocalTableDensity = staticCompositionLocalOf { Density(1f) }
+
 @Composable
 fun MahjongTheme(style: ColorStyle, darkMode: DarkMode, textSize: TextSize, content: @Composable () -> Unit) {
   val dark = isDark(darkMode, isSystemInDarkTheme())
@@ -156,6 +168,7 @@ fun MahjongTheme(style: ColorStyle, darkMode: DarkMode, textSize: TextSize, cont
     LocalTable provides tableFor(style, scheme, dark),
     LocalOutcome provides outcome,
     LocalDensity provides Density(density.density, density.fontScale * textSize.scale),
+    LocalTableDensity provides Density(DisplayMetrics.DENSITY_DEVICE_STABLE / 160f, minOf(density.fontScale, TABLE_FONT_MAX) * textSize.scale),
   ) {
     MaterialTheme(colorScheme = scheme, typography = AppTypography, shapes = AppShapes, content = content)
   }
