@@ -1,22 +1,33 @@
 <!--
   What the hand would do next, by the network: after each tile it may draw (the best action and the hand's value then;
-  the tiles it would keep lit, the best of them ringed, the ones it would discard at once dim), and on each discard of the others that it would
-  do better to claim than to leave.
+  the tiles it would keep lit, the best quarter of them ringed, the ones it would discard at once dim; every cell as wide
+  as the widest, so that they stand in columns), and on each discard of the others that it would do better to claim
+  than to leave.
 -->
 <script lang="ts">
   import { actionText } from '../lib/actions';
   import { t } from '../lib/i18n.svelte';
   import { EQUAL, pts } from '../lib/review';
   import type { WhatIf, WhatIfClaim } from '../lib/types';
+  import { compareTiles } from '../lib/tiles';
   import Tile from './Tile.svelte';
 
   let { data, w = 30, seatName }: { data: WhatIf; w?: number; seatName: (seat: number) => string } = $props();
 
   // A draw is kept when the answer is anything but discarding that tile again.
-  const draws = $derived(data.draws.map((d) => ({ ...d, kept: !(d.action.type === 'discard' && d.action.tile === d.tile) })));
+  const draws = $derived(data.draws.map((d) => ({ ...d, kept: !(d.action.type === 'discard' && d.action.tile === d.tile) }))
+    .sort((a, b) => compareTiles(a.tile, b.tile)));
   const kept = $derived(draws.filter((d) => d.kept));
   const keptTiles = $derived(kept.reduce((a, d) => a + d.left, 0));
-  const top = $derived(Math.max(...draws.map((d) => d.value), -Infinity));
+  // Ringed: the kept draws at the 75th percentile of their values or above (the best within EQUAL of each other too).
+  const top = $derived.by(() => {
+    const v = kept.map((d) => d.value).sort((a, b) => b - a);
+    return v.length ? Math.min(v[Math.ceil(v.length / 4) - 1], v[0] - EQUAL) : Infinity;
+  });
+  // Every cell as wide as the widest one's contents (measured afresh for other draws: a cell's contents fill it).
+  let widths = $state<number[]>([]);
+  $effect(() => { void data; widths = []; });
+  const cw = $derived(Math.max(0, ...widths.filter((x) => x > 0)));
 
   const passOf = (c: WhatIfClaim) => c.options.find((o) => o.action.type === 'pass');
   const claims = $derived(data.claims.map((c) => {
@@ -35,9 +46,10 @@
     <span class="body-small dim">{t('whatif_keep', kept.length, keptTiles)}</span>
   </div>
   <p class="hint body-small dim">{t('whatif_draws_hint')}</p>
-  <div class="cells">
-    {#each draws as d (d.tile)}
-      <div class="cell" class:off={!d.kept} class:kept={d.kept} class:top={d.kept && d.value >= top - EQUAL}>
+  <div class="cells even" style:--cw={cw ? `${cw}px` : null}>
+    {#each draws as d, i (d.tile)}
+      <div class="cell" class:off={!d.kept} class:kept={d.kept} class:top={d.kept && d.value >= top}>
+        <div class="in" bind:clientWidth={widths[i]}>
         <div class="pair">
           <Tile tile={d.tile} {w} />
           {#if d.kept}
@@ -48,6 +60,7 @@
         <div class="under body-small">
           {#if d.kept}<b>{pts(d.value)}</b>{:else}<span>{t('whatif_tsumogiri')}</span>{/if}
           <span class="dim">{t('whatif_left', d.left)}</span>
+        </div>
         </div>
       </div>
     {/each}
@@ -81,6 +94,8 @@
   .hint { margin: 0; line-height: 1.5; }
   .cells { display: flex; flex-wrap: wrap; gap: 6px; }
   .cell { display: flex; flex-direction: column; gap: 2px; padding: 5px 7px; border-radius: 10px; background: var(--surface-container); }
+  .cells.even .cell { min-width: calc(var(--cw, 0px) + 14px); box-sizing: border-box; }
+  .in { width: max-content; min-width: 100%; display: flex; flex-direction: column; gap: 2px; }
   .cell.kept { background: var(--secondary-container); color: var(--on-secondary-container); }
   .cell.top { box-shadow: inset 0 0 0 2px var(--found); }
   .cell.off { opacity: 0.5; }

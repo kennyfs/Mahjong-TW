@@ -4,6 +4,7 @@
   tai, the best ones and the one chosen marked.
 -->
 <script lang="ts">
+  import { compareTiles } from '../lib/tiles';
   import { actionText, actionTiles, bestOf, isTaken, rank } from '../lib/actions';
   import { t } from '../lib/i18n.svelte';
   import type { Action, Analysis } from '../lib/types';
@@ -45,7 +46,7 @@
       {#if f.waits.length}
         <div class="waits">
           <span class="body-small dim">{t('analysis_waits')}</span>
-          {#each f.waits as wt (wt.tile)}
+          {#each [...f.waits].sort((a, b) => compareTiles(a.tile, b.tile)) as wt (wt.tile)}
             <span class="wait">
               <Tile tile={wt.tile} w={w * 0.75} />
               <span class="body-small">{t('analysis_wait_left', wt.left)}<br />{t('analysis_wait_tai', wt.ron_tai, wt.tsumo_tai)}</span>
