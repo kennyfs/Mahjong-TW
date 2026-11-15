@@ -10,32 +10,41 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.kennyfs.mahjong.EQUAL
 import io.github.kennyfs.mahjong.R
+import io.github.kennyfs.mahjong.Tiles
 import io.github.kennyfs.mahjong.WhatIf
 import io.github.kennyfs.mahjong.actionText
 import io.github.kennyfs.mahjong.pts
 
 /** A cell of a table: a tile and what follows it, with a line of figures under them. */
 @Composable
-private fun Cell(top: Boolean, off: Boolean, pair: @Composable () -> Unit, under: @Composable () -> Unit, lit: Boolean = top) {
+private fun Cell(top: Boolean, off: Boolean, pair: @Composable () -> Unit, under: @Composable () -> Unit, lit: Boolean = top,
+  minWidth: Dp = 0.dp, onWidth: ((Int) -> Unit)? = null) {
   val cs = MaterialTheme.colorScheme
   val shape = RoundedCornerShape(10.dp)
   Surface(
     shape = shape, color = if (lit) cs.secondaryContainer else cs.surfaceContainer, contentColor = if (lit) cs.onSecondaryContainer else cs.onSurface,
-    modifier = Modifier.alpha(if (off) 0.5f else 1f).let { if (top) it.border(2.dp, Marks.found, shape) else it },
+    modifier = Modifier.widthIn(min = minWidth).let { m -> onWidth?.let { f -> m.onSizeChanged { f(it.width) } } ?: m }
+      .alpha(if (off) 0.5f else 1f).let { if (top) it.border(2.dp, Marks.found, shape) else it },
   ) {
     Column(Modifier.width(IntrinsicSize.Max).padding(horizontal = 7.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) { pair() }
@@ -46,8 +55,9 @@ private fun Cell(top: Boolean, off: Boolean, pair: @Composable () -> Unit, under
 
 /**
  * What the hand would do next, by the network: after each tile it may draw (the best action and the hand's value then;
- * the tiles it would keep lit, the ones it would discard at once dim), and on each discard of the others that it would
- * do better to claim than to leave. The web page's WhatIfTables.svelte.
+ * the tiles it would keep lit, the best quarter of them ringed, the ones it would discard at once dim; every cell as
+ * wide as the widest, so that they stand in columns), and on each discard of the others that it would do better to
+ * claim than to leave. The web page's WhatIfTables.svelte.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -59,7 +69,13 @@ fun WhatIfTables(data: WhatIf, w: Float, seatName: (Int) -> String, modifier: Mo
   // A draw is kept when the answer is anything but discarding that tile again.
   fun kept(i: Int) = data.draws[i].let { !(it.action.type == "discard" && it.action.tile == it.tile) }
   val keptOnes = data.draws.indices.filter(::kept)
-  val top = data.draws.maxOfOrNull { it.value } ?: 0.0
+  // Ringed: the kept draws at the 75th percentile of their values or above (the best within EQUAL of each other too).
+  val top = keptOnes.map { data.draws[it].value }.sortedDescending().let { v ->
+    if (v.isEmpty()) Double.POSITIVE_INFINITY else minOf(v[(v.size + 3) / 4 - 1], v[0] - EQUAL)
+  }
+  // Every cell as wide as the widest (measured afresh for other draws).
+  val widths = remember(data) { mutableStateMapOf<Int, Int>() }
+  val cw = with(LocalDensity.current) { (widths.values.maxOrNull() ?: 0).toDp() }
   Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Bottom) {
       Text(stringResource(R.string.whatif_draws), style = MaterialTheme.typography.titleSmall, color = cs.primary)
@@ -67,10 +83,10 @@ fun WhatIfTables(data: WhatIf, w: Float, seatName: (Int) -> String, modifier: Mo
     }
     Text(stringResource(R.string.whatif_draws_hint), style = small, color = dim)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-      for (i in data.draws.indices) {
+      for (i in data.draws.indices.sortedBy { Tiles.index(data.draws[it].tile) }) {
         val d = data.draws[i]
         val keep = kept(i)
-        Cell(top = keep && d.value >= top - EQUAL, off = !keep, pair = {
+        Cell(top = keep && d.value >= top, off = !keep, minWidth = cw, onWidth = { widths[i] = it }, pair = {
           TileView(d.tile, w.dp)
           if (keep) {
             Text("→", color = dim)
