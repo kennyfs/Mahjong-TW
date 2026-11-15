@@ -5,7 +5,7 @@ package io.github.kennyfs.mahjong
 object Tiles {
   private const val SUITS = "mpszf"
 
-  /** All 34 kinds in order, and the 8 flowers. */
+  /** All 34 kinds in the engine's order (an index into its figures by kind), and the 8 flowers. */
   val KINDS: List<String> = listOf('m', 'p', 's').flatMap { s -> (1..9).map { "$it$s" } } + (1..7).map { "${it}z" }
   val FLOWERS: List<String> = (1..8).map { "${it}f" }
 
@@ -32,19 +32,23 @@ object Tiles {
     }
   }
 
-  /** Order of kinds: characters, dots, bamboo, honors, flowers. */
+  /** Order of kinds as shown: characters, dots, bamboo, honors (東南西北中發白, the way they are said: not the engine's
+   *  白發中), flowers. */
   fun index(t: String): Int {
     val n = t[0] - '0'
     return when (t[1]) {
       'm' -> n - 1
       'p' -> 8 + n
       's' -> 17 + n
-      'z' -> 26 + n
+      'z' -> if (n <= 4) 26 + n else 38 - n
       else -> 33 + n
     }
   }
 
   fun sort(ts: List<String>) = ts.sortedBy(::index)
+
+  /** All 34 kinds as shown (中發白). */
+  val KINDS_SHOWN: List<String> by lazy { sort(KINDS) }
 
   fun isFlower(t: String) = t.length == 2 && t[1] == 'f'
 

@@ -326,7 +326,7 @@ fun AnalyzeScreen(vm: AppModel) {
           }
         }
         if (wide || paletteOpen) {
-          val list = if (ed.section.kind == Section.Kind.FLOWERS) Tiles.FLOWERS else Tiles.KINDS
+          val list = if (ed.section.kind == Section.Kind.FLOWERS) Tiles.FLOWERS else Tiles.KINDS_SHOWN
           for (row in list.chunked(9)) Row {
             for (t in row) {
               val left = ed.left(t)

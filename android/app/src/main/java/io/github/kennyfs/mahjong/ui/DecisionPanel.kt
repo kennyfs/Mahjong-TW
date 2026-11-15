@@ -295,7 +295,7 @@ fun DecisionPanel(
           if (f.waits.isNotEmpty() && f.shanten == 0) FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
             itemVerticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.analysis_waits), style = small, color = soft)
-            for (wt in f.waits) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            for (wt in f.waits.sortedBy { Tiles.index(it.tile) }) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
               TileView(wt.tile, (w * 0.6f).dp)
               Text(stringResource(R.string.analysis_wait_left, wt.left), style = small)
             }
@@ -400,7 +400,7 @@ fun AnalysisList(analysis: Analysis, chosen: Action?, w: Float, modifier: Modifi
           if (f.waits.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
             itemVerticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.analysis_waits), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-            for (wt in f.waits) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            for (wt in f.waits.sortedBy { Tiles.index(it.tile) }) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
               TileView(wt.tile, (w * 0.75f).dp)
               Column {
                 Text(stringResource(R.string.analysis_wait_left, wt.left), style = MaterialTheme.typography.bodySmall)
