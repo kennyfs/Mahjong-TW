@@ -125,8 +125,8 @@ android {
     buildConfig = true
   }
   androidResources {
-    // The app's own languages (Taiwan's Traditional Chinese now, English later): the libraries bring strings in
-    // dozens more, which only make the APK larger.
+    // The app's own languages (Taiwan's Traditional Chinese and US English): the libraries bring strings in dozens
+    // more, which only make the APK larger.
     localeFilters += listOf("zh-rTW", "en")
   }
   // The network, copied by copyModel.

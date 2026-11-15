@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Words
 import androidx.compose.ui.platform.testTag
 import android.Manifest
 import android.content.pm.PackageManager
@@ -324,7 +325,7 @@ private fun roomRules(s: RoomSettings, short: Boolean = false) = rulesChip(s.rul
 private fun notes(battle: Battle, room: RoomView, p: PlayerView): String = listOfNotNull(
   if (p.id == room.host) stringResource(R.string.battle_host) else null,
   if (p.left) stringResource(R.string.battle_left) else if (!p.connected) stringResource(R.string.battle_away) else null,
-).joinToString("・").also { battle.hashCode() }
+).joinToString(Words.sep).also { battle.hashCode() }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -364,7 +365,7 @@ private fun LobbyPage(vm: AppModel, room: RoomView) {
             Box(Modifier.size(36.dp).background(MaterialTheme.colorScheme.tertiaryContainer, CircleShape), contentAlignment = Alignment.Center) {
               Text(p.name.take(1).ifEmpty { "?" }, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
             }
-            Text(p.name + if (p.id == battle.me) "（${stringResource(R.string.you)}）" else "", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
+            Text(p.name + if (p.id == battle.me) Words.paren(stringResource(R.string.you)) else "", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
               maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(notes(battle, room, p), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
           }
@@ -518,7 +519,8 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           if (table != null) {
             val wind = Tiles.wind(table.view.position.setup.round)
-            Text(if (level == 0) stringResource(R.string.round_wind, wind) + " " + handLabel else stringResource(R.string.round_short, wind, handNo),
+            val mark = Tiles.windMark(table.view.position.setup.round)
+            Text(if (level == 0) stringResource(R.string.round_wind, wind) + " " + handLabel else stringResource(R.string.round_short, mark, handNo),
               style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
           }
           Spacer(Modifier.weight(1f))

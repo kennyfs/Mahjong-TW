@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Words
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -61,7 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 fun rulesChip(tai: String, flowers: String, custom: Boolean = false, short: Boolean = false): String =
   stringResource(R.string.rules_chip, stringResource(Rules.taiLabel(tai)),
     stringResource(if (short) Rules.flowerShort(flowers) else Rules.flowerLabel(flowers))) +
-    if (custom) "・" + stringResource(R.string.rules_custom) else ""
+    if (custom) Words.sep + stringResource(R.string.rules_custom) else ""
 
 /**
  * Practice: the table against three bots; a bar over it (a phone upright) with the hand, the rules and a new game; the
@@ -139,7 +140,8 @@ fun PlayScreen(vm: AppModel) {
           Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (view != null) {
               val wind = Tiles.wind(view.position.setup.round)
-              Text(if (level == 0) stringResource(R.string.round_wind, wind) + " " + handLabel else stringResource(R.string.round_short, wind, handNo),
+              val mark = Tiles.windMark(view.position.setup.round)
+              Text(if (level == 0) stringResource(R.string.round_wind, wind) + " " + handLabel else stringResource(R.string.round_short, mark, handNo),
                 style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Box(Modifier.weight(1f)) { Chip(if (level < 2) chip else chipShort, onClick = { vm.open(Page.RULES) }, menu = true) }

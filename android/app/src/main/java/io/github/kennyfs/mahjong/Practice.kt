@@ -252,7 +252,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
             if (e != epoch || game !== g) break
             val at = Claims.robbedEvent(v.events, before, r.seat)
             val text = context.getString(R.string.claim_robbed, names().getOrElse(r.seat) { "" }, context.getString(actionWord(r.type)),
-              r.options.joinToString("、") { context.getString(actionWord(it)) })
+              r.options.joinToString(Words.list) { context.getString(actionWord(it)) })
             if (settings.speed == Speed.MANUAL) {
               ahead = Ahead(g.actions.size, pc.game, v, at, text)
               waiting = true

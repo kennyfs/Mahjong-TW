@@ -110,7 +110,7 @@
         {#if !last}<button class="btn text skip" onclick={() => tour.end()}>{t('tour_skip')}</button>{/if}
       </div>
       <h2 id="tour-title" class="title-large">{t(step.title)}</h2>
-      <p class="body-large">{t(step.text)}</p>
+      <p class="body-large words">{t(step.text)}</p>
       <div class="actions">
         {#if tour.step > 0}<button class="btn text" onclick={() => tour.prev()}>{t('tour_prev')}</button>{/if}
         <span class="grow"></span>
@@ -126,6 +126,7 @@
 {/if}
 
 <style>
+  .words { white-space: pre-line; }
   .tour { position: fixed; inset: 0; z-index: 50; }
   .shade { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); }
   .hole { position: absolute; border-radius: 14px; box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.55); outline: 3px solid var(--highlight);

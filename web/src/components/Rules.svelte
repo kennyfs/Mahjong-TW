@@ -6,6 +6,7 @@
   table here. Practice deals a new game under new rules when the page is left.
 -->
 <script lang="ts">
+  import { taiName } from '../lib/tiles';
   import { onDestroy } from 'svelte';
   import { has, t } from '../lib/i18n.svelte';
   import { practice } from '../lib/practice.svelte';
@@ -44,7 +45,7 @@
 
   // Each related flag right after its item; the parameters in three groups.
   const AFTER: Record<string, string> = { quanqiu_duting: 'quanqiu', dasixi_winds: 'dasixi' };
-  const names = $derived(new Map((full?.items ?? []).map((i) => [i.param, i.name])));
+  const names = $derived(new Map((full?.items ?? []).map((i) => [i.param, taiName(i.param, i.name)])));
   const groups = $derived.by(() => {
     if (!full) return [];
     const values = full.values;
@@ -124,7 +125,7 @@
               <span class="name">
                 <span class="body-large">{label(p)}</span>
                 {#if has('help_' + p)}
-                  <button class="btn icon text info" aria-label={`${t('rules_help')}：${label(p)}`} aria-haspopup="dialog"
+                  <button class="btn icon text info" aria-label={t('rules_help') + t('colon') + label(p)} aria-haspopup="dialog"
                     onclick={() => (helped = p)}><Icon name="info" size={20} /></button>
                 {/if}
               </span>
@@ -170,7 +171,7 @@
   .row { display: flex; align-items: center; gap: 12px; padding: 8px 16px; min-height: 56px; }
   .name { display: flex; align-items: center; gap: 2px; min-width: 0; }
   .info { flex: none; width: 36px; min-height: 36px; border-radius: 18px; color: var(--on-surface-variant); }
-  .help { margin: 0; line-height: 1.6; }
+  .help { margin: 0; line-height: 1.6; white-space: pre-line; }
   .mark { align-self: flex-start; padding: 1px 8px; border-radius: 8px; background: var(--tertiary-container); color: var(--on-tertiary-container); }
   .mark.off { visibility: hidden; }
   .stepper { display: inline-flex; align-items: center; gap: 6px; flex: none; }

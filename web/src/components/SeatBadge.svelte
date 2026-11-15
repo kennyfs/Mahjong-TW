@@ -12,7 +12,7 @@
   import { t } from '../lib/i18n.svelte';
   import { dangerLevel, dangerTiles, pct, type SeatNote } from '../lib/review';
   import { shorten } from '../lib/shorten';
-  import { windName } from '../lib/tiles';
+  import { windMark } from '../lib/tiles';
   import { signed } from '../lib/ui.svelte';
   import Tile from './Tile.svelte';
   let { wind, name, score = null, dealer = false, streak = 0, turn = false, count = null, compact = false, away = false,
@@ -30,14 +30,14 @@
     if (!open || !button || !card) return;
     const [b, c] = [button, card];
     return autoUpdate(b, c, () => {
-      computePosition(b, c, { strategy: 'fixed', placement: 'bottom', middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8 })] })
+      computePosition(b, c, { strategy: 'fixed', placement: 'bottom', middleware: [offset(6), flip({ padding: 8 }), shift({ padding: 8, crossAxis: true })] })
         .then(({ x, y }) => { c.style.left = `${x}px`; c.style.top = `${y}px`; });
     });
   });
 </script>
 
 <div class="badge-row" {@attach shorten} class:turn class:compact class:away class:noted={!!note || !!room}>
-  <span class="wind" class:dealer title={dealer ? t('dealer_mark') : undefined}>{windName(wind)}</span>
+  <span class="wind" class:dealer title={dealer ? t('dealer_mark') : undefined}>{windMark(wind)}</span>
   <span class="lines">
     <span class="name ellipsis">{name}</span>
     {#if dealer}<span class="deal">{t('dealer_mark')}{#if streak > 0}<span class="streak">{t('streak_n', streak)}</span>{/if}</span>{/if}
@@ -46,7 +46,7 @@
     {:else if note?.opp}
       <button bind:this={button} class="note tap l{note.level}" popovertarget={id} aria-haspopup="dialog" aria-expanded={open}
         aria-label={note.text}><span data-full={note.text} data-short={note.short ?? note.text}></span></button>
-    {:else if note}<span class="note l{note.level}">{#each note.text.split('・') as part, i (i)}{#if i}・<wbr />{/if}<span class="part">{part}</span>{/each}</span>{/if}
+    {:else if note}<span class="note l{note.level}">{#each note.text.split(t('sep')) as part, i (i)}{#if i}{t('sep')}<wbr />{/if}<span class="part">{part}</span>{/each}</span>{/if}
     {#if (!note && count !== null) || score !== null}
       <span class="tail">
         {#if !note && count !== null}<span class="count">{t('hand_cards', count)}</span>{/if}
@@ -58,7 +58,7 @@
     {@const o = note.opp}
     <div bind:this={card} {id} popover="auto" class="opp-card" onbeforetoggle={(e) => (open = e.newState === 'open')}>
       <div class="title-small">{name}</div>
-      <div class="body-medium">{t('opp_ready', pct(o.ready[0]))}・{t('opp_one_away', pct(o.ready[1] ?? 0))}</div>
+      <div class="body-medium">{t('opp_ready', pct(o.ready[0]))}{t('sep')}{t('opp_one_away', pct(o.ready[1] ?? 0))}</div>
       <div class="body-small dim">{t('opp_detail_danger')}</div>
       <div class="tiles body-small">
         {#each dangerTiles(o) as d (d.tile)}

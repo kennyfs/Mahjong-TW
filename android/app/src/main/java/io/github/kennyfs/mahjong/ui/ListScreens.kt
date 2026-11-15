@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Words
 import androidx.compose.ui.text.style.TextDecoration
 import android.os.Build
 import androidx.compose.foundation.background
@@ -358,8 +359,8 @@ private fun HandLine(h: HandRecord, onOpen: () -> Unit, onFav: () -> Unit) {
             .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Medium)
           Text(
-            localTime(h.time) + "・" + rulesOf(h.game.rules) + (h.index?.let { "・" + stringResource(R.string.record_hand_of, it) } ?: "") +
-              (h.rev?.let { "・" + stringResource(R.string.record_loss, pts(it.loss, false)) } ?: ""),
+            localTime(h.time) + Words.sep + rulesOf(h.game.rules) + (h.index?.let { Words.sep + stringResource(R.string.record_hand_of, it) } ?: "") +
+              (h.rev?.let { Words.sep + stringResource(R.string.record_loss, pts(it.loss, false)) } ?: ""),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
@@ -380,10 +381,10 @@ private fun BattleLine(b: BattleGroup, open: Boolean, onOpen: () -> Unit, onFav:
       verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
       Icon(Icons.Filled.ArrowDropDown, null, Modifier.rotate(if (open) 0f else -90f))
       Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
-        Text(b.names.joinToString("・"), style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(b.names.joinToString(Words.sep), style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(
-          localTime(b.time) + "・" + stringResource(if (b.via == "nearby") R.string.records_kind_nearby else R.string.records_kind_online) + "・" +
-            stringResource(R.string.records_battle_hands, b.hands) + if (b.left) "・" + stringResource(R.string.records_battle_left) else "",
+          localTime(b.time) + Words.sep + stringResource(if (b.via == "nearby") R.string.records_kind_nearby else R.string.records_kind_online) + Words.sep +
+            stringResource(R.string.records_battle_hands, b.hands) + if (b.left) Words.sep + stringResource(R.string.records_battle_left) else "",
           style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
@@ -469,7 +470,7 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
           Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = { choose(c.copy(overrides = emptyMap())) }, enabled = c.overrides.isNotEmpty()) { Text(stringResource(R.string.rules_reset)) }
           }
-          val names = f.items.associate { it.param to it.name }
+          val names = f.items.associate { it.param to it.label }
           for ((title, params) in ruleGroups(f)) {
             SectionHeader(stringResource(title))
             for (p in params) {
@@ -483,7 +484,7 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
                   Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
                     if (help != null) IconButton(onClick = { helped = p }, modifier = Modifier.testTag("rules_help_$p")) {
-                      Icon(Icons.Outlined.Info, stringResource(R.string.rules_help) + "：" + label, Modifier.size(20.dp),
+                      Icon(Icons.Outlined.Info, stringResource(R.string.rules_help) + Words.colon + label, Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                   }
@@ -503,7 +504,7 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
   val open = helped
   val openHelp = open?.let { RULE_HELP[it] }
   if (open != null && openHelp != null) {
-    val label = f?.items?.firstOrNull { it.param == open }?.name ?: paramName(open)
+    val label = f?.items?.firstOrNull { it.param == open }?.label ?: paramName(open)
     AlertDialog(
       onDismissRequest = { helped = null },
       confirmButton = { TextButton(onClick = { helped = null }) { Text(stringResource(R.string.close)) } },
@@ -774,7 +775,7 @@ private fun Block(title: String, help: String? = null, onHelp: ((String, String)
       Text(title, style = MaterialTheme.typography.bodyLarge)
       // ⓘ: the setting's longer words in a small window (the page stays short).
       IconButton(onClick = { onHelp(title, help) }, Modifier.size(40.dp)) {
-        Icon(Icons.Outlined.Info, stringResource(R.string.rules_help) + "：" + title, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.Outlined.Info, stringResource(R.string.rules_help) + Words.colon + title, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
       }
     } else Text(title, style = MaterialTheme.typography.bodyLarge)
     content()

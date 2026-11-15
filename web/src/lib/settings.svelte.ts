@@ -1,4 +1,5 @@
 // The settings, kept in localStorage. A port of the app's Settings.kt.
+import { browserLang, isLang, setLang, type Lang } from './i18n.svelte';
 import { DEFAULT_RULES, parseChoice, ruleSpec, type RuleChoice } from './rules';
 import { KEYS, load, save } from './store';
 
@@ -41,6 +42,8 @@ interface Stored {
   sound?: SoundLevel;
   readyHint?: boolean;
   practiceHints?: boolean;
+  /** The page's language; none: the browser's. */
+  lang?: Lang;
 }
 
 const DEFAULTS: Stored = {
@@ -66,6 +69,9 @@ class Settings {
   /** 練習時顯示分析: practice's decisions with the analysis shown, as a branch's; the hands played so count for
    *  nothing (lib/practice.svelte.ts). */
   practiceHints = $state(false);
+  /** The page's language (i18n): the browser's till one is chosen. */
+  lang = $state<Lang>('zh');
+  private langChosen = false;
 
   constructor() {
     const s = { ...DEFAULTS, ...load<Partial<Stored>>(KEYS.settings, {}) };
@@ -82,6 +88,17 @@ class Settings {
     this.sound = s.sound && SOUND_LEVELS.includes(s.sound) ? s.sound : 'full';
     this.readyHint = s.readyHint === true;
     this.practiceHints = s.practiceHints === true;
+    this.langChosen = isLang(s.lang);
+    this.lang = isLang(s.lang) ? s.lang : browserLang();
+    setLang(this.lang);
+  }
+
+  /** The page's language, chosen (kept from now on). */
+  chooseLang(l: Lang) {
+    this.lang = l;
+    this.langChosen = true;
+    setLang(l);
+    this.persist();
   }
 
   get spec(): string { return ruleSpec(this.rules); }
@@ -90,7 +107,7 @@ class Settings {
     save(KEYS.settings, {
       rules: this.rules, length: this.length, bot: this.bot, speed: this.speed, colors: this.colors, dark: this.dark,
       text: this.text, name: this.name, server: this.server, level: this.level, sound: this.sound,
-      readyHint: this.readyHint, practiceHints: this.practiceHints,
+      readyHint: this.readyHint, practiceHints: this.practiceHints, lang: this.langChosen ? this.lang : undefined,
     } satisfies Stored);
   }
 }

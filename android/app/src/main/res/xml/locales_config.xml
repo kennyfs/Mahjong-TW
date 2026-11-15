@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The app's languages, for the system's per-app language setting: Taiwan's Traditional Chinese now. -->
+<!-- The app's languages, for the system's per-app language setting (Android 13+), in this order: Taiwan's
+     Traditional Chinese (values/, also what any other language falls back to) and US English (values-en/). -->
 <locale-config xmlns:android="http://schemas.android.com/apk/res/android">
   <locale android:name="zh-TW" />
+  <locale android:name="en-US" />
 </locale-config>

@@ -148,10 +148,10 @@
     const r = final?.result;
     if (!r) return '';
     if (r.exhausted) return t('result_exhausted');
-    const who = r.winners.map((w) => names[w.seat]).join('、');
+    const who = r.winners.map((w) => names[w.seat]).join(t('sep_list'));
     if (r.flower_win) return t('result_flower_win', who);
     if (r.self_draw) return t('result_tsumo', who);
-    return t('result_ron', who) + (r.loser >= 0 ? '・' + t('result_ron_from', names[r.loser]) : '');
+    return t('result_ron', who) + (r.loser >= 0 ? t('sep') + t('result_ron_from', names[r.loser]) : '');
   });
 
   // The review: its decisions by step, and the ones to stop at.
@@ -281,7 +281,7 @@
     const all = parseTiles(pos.hand);
     const drawn = sv.view.phase === 'self' && pos.drawn ? pos.drawn : null;
     const p = pos.players[deciding.seat];
-    const head = `${t('round_wind', windName(pos.setup.round))}・${t('wall_left', pos.wall_left)}`;
+    const head = t('round_wind', windName(pos.setup.round)) + t('sep') + t('wall_left', pos.wall_left);
     return { tiles: sortTiles(drawn ? without(all, [drawn]) : all), drawn, melds: p.melds, flowers: flowersOf(p), claim: pos.claim, head };
   });
   const hw = $derived(ui.wide ? Math.min(44, ((ui.w - 208) * 0.46 - 24) / 9.3) : Math.min(44, (Math.min(ui.w, 720) - 28) / 9.3));
@@ -395,7 +395,7 @@
       <span class="label-large">{step >= n ? t('replay_over') : t('replay_step', stepNumber, stopList.length)}</span>
       {#if now}<span class="now"><span class="dim">{now.label}</span> <b>{pts(now.value)}</b></span>{/if}
       {#if deciding && rec}
-        <span class="decide">{deciding.seat === rec.me ? t('replay_you_chose', actionText(deciding.action)) : t('replay_seat_chose', names[deciding.seat], actionText(deciding.action))}{decidingNote ? `（${decidingNote}）` : ''}</span>
+        <span class="decide">{deciding.seat === rec.me ? t('replay_you_chose', actionText(deciding.action)) : t('replay_seat_chose', names[deciding.seat], actionText(deciding.action))}{decidingNote ? t('paren', decidingNote) : ''}</span>
       {:else if step >= n && outcome}
         <span class="decide">{outcome}</span>
       {/if}
@@ -413,7 +413,7 @@
       </div>
       {#if key.loss >= EQUAL && reasonOf(mine.analysis, mine.played)}<div class="reason dim body-small">{reasonOf(mine.analysis, mine.played)}</div>{/if}
       {#if key.notable}
-        <div class="notable body-small"><span class="star">★</span>{key.found ? t('note_found') + '：' : ''}{notableText(mine.analysis, key.notable)}</div>
+        <div class="notable body-small"><span class="star">★</span>{key.found ? t('note_found') + t('colon') : ''}{notableText(mine.analysis, key.notable)}</div>
       {/if}
     {/if}
   </div>
@@ -502,7 +502,7 @@
       <div class="list-view" class:halves={ui.wide} bind:this={listEl} onscroll={onListScroll}>
         <div class="seat-hand">
           {#if seatHand && deciding}
-            <div class="body-medium dim">{seatHand.head}・{deciding.seat === rec.me ? t('analysis_your_turn') : t('analysis_turn_of', names[deciding.seat])}</div>
+            <div class="body-medium dim">{seatHand.head}{t('sep')}{deciding.seat === rec.me ? t('analysis_your_turn') : t('analysis_turn_of', names[deciding.seat])}</div>
             <MyHand tiles={seatHand.tiles} drawn={seatHand.drawn} w={hw} perRow={8} bind:selected tagH={17}
               marks={focus ? tileMarks(focus.analysis, focus.played, unit) : NO_MARKS} />
             {#if seatHand.claim?.tile}

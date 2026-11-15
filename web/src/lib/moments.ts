@@ -53,4 +53,8 @@ export interface Moment {
 }
 
 export const FULL: Moment['kind'][] = ['sad', 'win', 'declare', 'drawn'];
+/** A word's width in the plaques' face, in Chinese characters (each about as wide as it is tall, with its spacing): a
+ *  letter of the bold serif is about 0.45 of one. The plaques size themselves by it, to keep a long English word
+ *  inside the screen. */
+export const wordChars = (word: string) => (/^[\u3040-\u30ff\u3400-\u9fff]+$/.test(word) ? [...word].length : word.length * 0.55);
 export const total = (p: Parts) => p.in + p.drop + p.hold + p.out;

@@ -538,13 +538,16 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   felt reaches under the camera's cutout while the tiles keep clear of it.
 - **Name plates**: one line (wind, name, dealer mark, tiles held, score); when a sideways seat's column is too narrow
   (a long name at font scale 1.15), the figures go under the name rather than cutting it; upright, always two lines.
-- **Languages**: zh-TW only (the user's request); English (US) may follow, no others.
+- **Languages**: zh-TW (`values/`, also every other language's fallback) and English (US) (`values-en/`), no others.
+  The app takes the system's per-app language (`res/xml/locales_config.xml`); the page takes the browser's, and its
+  settings have a row (語言 · Language). Words the code puts together (separators, brackets, tile names, the tai
+  items' names) are strings too (`Words.kt`, `lib/tiles.ts`); the engine's Chinese names are looked up by parameter.
 
 ## What the user said, and what was done
 
 - "Tiles must not be too small, or they are hard to read; the hand's tiles must be big to tap; an upright phone
   shows at most about 8 tiles a row." → The sizes above; 8 a row upright on both the app and the page.
-- "Only Taiwan Traditional Chinese for now; English (US) optional; no other languages." → zh-TW strings only.
+- "Only Taiwan Traditional Chinese for now; English (US) optional; no other languages." → zh-TW strings; English (US) added 2026-11-15, the user's guess being that Google Play's slow review comes from a listing with no English.
 - Everything else is the handoff's (docs/ui-handoff.md).
 
 ## Missing or rough (the next steps, roughly in order)
@@ -569,7 +572,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
    installed app larger (Android keeps an extracted copy beside the APK); declined by the user (2026-11-11): they
    stay uncompressed, as Thirteen's. Below.
 5. **The analysis** has the network since 0.1.0 (docs/analysis.md); a better network replaces the file.
-6. **English (US)** strings (`values-en/strings.xml`; the page would need its language picked from the browser).
+6. **English**: the tile faces are Chinese (萬 numerals, 東南西北, 中發白); an English player may want corner indexes.
 7. **Records export and import** (Thirteen's app has export and share): `records_export` is in the strings, unused.
 8. **Polish**: animations of tiles moving (only the callouts animate now), sound and haptics, predictive back, a
    tablet's side panel in the app (the page has one on a computer), TalkBack and keyboard focus checked through; a

@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Words
 import androidx.compose.ui.platform.testTag
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -506,7 +507,7 @@ fun TableView(
 
     @Composable
     fun badge(seat: Int, count: Int?) = SeatBadge(
-      Tiles.wind(winds[seat]), names[seat], scores?.get(seat), setup.dealer == seat, setup.streak, turnSeat == seat, count,
+      Tiles.windMark(winds[seat]), names[seat], scores?.get(seat), setup.dealer == seat, setup.streak, turnSeat == seat, count,
       compact = !s.wide, away = away[seat], font = s.font,
       // A review's words; in play, a declared ready hand (天聽, 地聽, 報聽); the player's own standing.
       note = (if (seat == me) null else notes?.getOrNull(seat))
@@ -681,9 +682,10 @@ fun TableView(
               .background(Color.Black.copy(alpha = 0.18f), RoundedCornerShape(12.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
           ) {
             val wind = Tiles.wind(setup.round)
+            val mark = Tiles.windMark(setup.round)
             Shorten(2) { level ->
               Text(if (level == 0 || handShort.isEmpty()) stringResource(R.string.round_wind, wind) + if (handLabel.isNotEmpty()) " $handLabel" else ""
-                else stringResource(R.string.round_short, wind, handShort),
+                else stringResource(R.string.round_short, mark, handShort),
                 color = c.onFelt, fontWeight = FontWeight.Bold, fontSize = s.font.sp, lineHeight = (s.font * 1.25f).sp)
             }
             Text(stringResource(R.string.wall_left, pos.wallLeft), color = c.onFeltDim, fontSize = (s.font * 0.92f).sp, lineHeight = (s.font * 1.2f).sp)
@@ -852,7 +854,13 @@ fun SeatBadge(
         }
         // An opponent's figures, by the note (a tap outside closes them).
         if (shown && note.opp != null) OppCard(name, note.opp) { shown = false }
-      } else if (count != null) Text(stringResource(R.string.hand_cards, count), color = c.onFeltDim, fontSize = f, maxLines = 1)
+      } else if (count != null) Box(Modifier.weight(1f, fill = false)) {
+        // The count, the number alone where the words don't fit (an English "16 tiles" in a side column): the score
+        // after it stays whole.
+        Shorten(2) { level ->
+          Text(if (level == 0) stringResource(R.string.hand_cards, count) else "$count", color = c.onFeltDim, fontSize = f, maxLines = 1)
+        }
+      }
       if (!scoreByName) scoreText()
     }
     val space = if (compact) 4.dp else 6.dp
@@ -916,7 +924,8 @@ private class UnderAnchor(private val gap: Int, private val margin: Int) : Popup
     val below = anchorBounds.bottom + gap
     val above = anchorBounds.top - gap - popupContentSize.height
     val y = if (below + popupContentSize.height <= windowSize.height - margin || anchorBounds.top < windowSize.height - anchorBounds.bottom) below else above
-    return IntOffset(x, y.coerceAtLeast(margin))
+    // (Neither fits whole: kept inside the window, over the plate.)
+    return IntOffset(x, y.coerceAtMost(windowSize.height - margin - popupContentSize.height).coerceAtLeast(margin))
   }
 }
 
@@ -934,7 +943,7 @@ private fun OppCard(name: String, o: Opponent, onClose: () -> Unit) {
     Surface(Modifier.widthIn(max = 320.dp).testTag("opp_card"), shape = RoundedCornerShape(12.dp), color = cs.surfaceContainerHigh, shadowElevation = 6.dp) {
       Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(name, style = MaterialTheme.typography.titleSmall)
-        Text(stringResource(R.string.opp_ready, pct(o.ready.getOrElse(0) { 0.0 })) + "・" + stringResource(R.string.opp_one_away, pct(o.ready.getOrElse(1) { 0.0 })),
+        Text(stringResource(R.string.opp_ready, pct(o.ready.getOrElse(0) { 0.0 })) + Words.sep + stringResource(R.string.opp_one_away, pct(o.ready.getOrElse(1) { 0.0 })),
           style = MaterialTheme.typography.bodyMedium)
         Text(stringResource(R.string.opp_detail_danger), style = small, color = cs.onSurfaceVariant)
         val dangers = dangerTiles(o)
@@ -1522,7 +1531,7 @@ private fun TableEvents(host: FxHost, view: View, me: Int, names: List<String>, 
           list += full(moment(MomentKind.WIN, 0).copy(
             tiles = if (other != null) own else own.dropLast(1), gap = if (other != null) own.size else maxOf(0, own.size - 1),
             tile = other ?: own.lastOrNull(), src = other?.let { FxFrom.Flower(it) }, from = if (other != null) sideOf(loser, me) else null,
-            note = item?.name ?: "",
+            note = item?.label ?: "",
           ), "flower_win")
           has = true
         }
@@ -1543,7 +1552,7 @@ private fun TableEvents(host: FxHost, view: View, me: Int, names: List<String>, 
             val last = evs.lastOrNull { it.type == "discard" || it.type == "kakan" }
             val loser = view.result?.loser?.takeIf { it >= 0 } ?: last?.seat ?: -1
             val rons = fresh.filter { it.type == "ron" }
-            val winners = rons.joinToString("、") { name(it.seat) }
+            val winners = rons.joinToString(Words.list) { name(it.seat) }
             if (loser >= 0 && loser != e.seat) {
               if (loser == me) list += full(Moment(host.nextId(), MomentKind.SAD, e.type, loser, Side.BOTTOM, dealIn, name(loser),
                 note = "$winners ${str(R.string.act_ron)}", mine = true, tile = e.tile, ms = 0), "sad")
@@ -1775,9 +1784,10 @@ internal fun Plaque(
       contentAlignment = Alignment.Center,
     ) {
       // 搶碰, 搶胡 (a claim taken from the player, in a moment): the 搶 in `robInk`.
-      val shown = if (robInk != null && text.startsWith("搶")) buildAnnotatedString {
-        withStyle(SpanStyle(color = robInk)) { append(text.substring(0, 1)) }
-        append(text.substring(1))
+      val rob = Words.robMark
+      val shown = if (robInk != null && rob.isNotEmpty() && text.startsWith(rob)) buildAnnotatedString {
+        withStyle(SpanStyle(color = robInk)) { append(rob) }
+        append(text.substring(rob.length))
       } else AnnotatedString(text)
       Text(shown, Modifier.wrapContentHeight(Alignment.CenterVertically, unbounded = true), maxLines = 1, softWrap = false,
         style = TextStyle(color = ink, fontWeight = if (flower) FontWeight.ExtraBold else FontWeight.Black, fontFamily = FontFamily.Serif,

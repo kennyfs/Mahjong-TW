@@ -10,7 +10,8 @@ import * as engine from './engine';
 import { t } from './i18n.svelte';
 import { records, type HandRecord, type ReviewSummary } from './records.svelte';
 import { settings, type Level } from './settings.svelte';
-import { KINDS, tileName, type Tile } from './tiles';
+import { KINDS, tileName, tilesShort, type Tile } from './tiles';
+export { tilesShort };
 import type { Action, Analysis, Figures, Opponent, Review, ReviewDecision } from './types';
 
 export const EQUAL = 0.05;
@@ -38,7 +39,7 @@ export const levelOrWorse = (level: Level) => (LEVEL_GRADE[level] < 3 ? t('grade
 export function mistakesText(grades: number[], level: Level): string {
   const out: string[] = [];
   for (let g = 3; g >= LEVEL_GRADE[level]; g--) if (grades[g - 1] > 0) out.push(t('review_mistakes', t(GRADE_NAME[g]), grades[g - 1]));
-  return out.length ? out.join('・') : t('review_count_none', levelWord(level));
+  return out.length ? out.join(t('sep')) : t('review_count_none', levelWord(level));
 }
 
 /** "+0.31", "−1.20": points with two decimals (one from 10 up). */
@@ -61,17 +62,6 @@ export const dangerLevel = (p: number | undefined): 0 | 1 | 2 | 3 => (p === unde
 /** How likely an opponent is ready, for its color: 0 under 10%, then up to 30%, up to 60%, and beyond. */
 export const readyLevel = (p: number): 0 | 1 | 2 | 3 => (p < 0.1 ? 0 : p < 0.3 ? 1 : p < 0.6 ? 2 : 3);
 
-/** Tiles in few words: ["3m", "6m", "2p", "5z"] -> "三六萬二筒白". */
-export function tilesShort(tiles: Tile[]): string {
-  let out = '';
-  for (let i = 0; i < tiles.length; i++) {
-    const x = tiles[i];
-    const name = tileName(x);
-    const sameSuitNext = i + 1 < tiles.length && tiles[i + 1][1] === x[1] && 'mps'.includes(x[1]);
-    out += sameSuitNext ? name[0] : name;
-  }
-  return out;
-}
 
 const cost = (a: Analysis, i: number) => (a.actions[a.best ?? 0].q ?? 0) - (a.actions[i].q ?? 0);
 export const costOf = cost;
@@ -118,7 +108,7 @@ export function notableText(a: Analysis, n: Notable): string {
   const alt = a.actions[n.alt].action;
   const what = n.kind === 'decline_win' ? t('note_alt_win') : n.kind === 'no_call' ? t('note_alt_call', actionText(alt))
     : t('note_alt_efficient', alt.tile ? tileName(alt.tile) : '');
-  return `${t('note_' + n.kind)}（${t('note_margin', what, pts(n.margin, false))}）`;
+  return t('note_' + n.kind) + t('paren', t('note_margin', what, pts(n.margin, false)));
 }
 
 /** Why `i` is worse than the best, from the parts of the two values: what it wins less, deals in more, is drawn on more. */
@@ -136,7 +126,7 @@ export function reasonOf(a: Analysis, i: number): string {
     else if (-d >= least) better.push(t(names[k][1], pts(-d, false)));
   }
   if (!worse.length) return '';
-  return worse.join('、') + (better.length ? t('reason_but') + better.join('、') : '');
+  return worse.join(t('sep_list')) + (better.length ? t('reason_but') + better.join(t('sep_list')) : '');
 }
 
 /** What a decision was about, for the statistics: a win to take or not, a call, a discard that deals in, a tile. */
@@ -290,14 +280,14 @@ export function figureItems(f: Figures, c: number | null, names: string[] | null
   if (f.q === undefined) return out;
   out.push([t('fig_value'), pts(f.q)]);
   if (c !== null && c >= EQUAL) out.push([t('fig_cost'), pts(-c)]);
-  out.push([t('fig_win'), pct(f.win ?? 0) + (f.win && f.win >= 0.005 ? `（${t('fig_tsumo')} ${pct(f.tsumo ?? 0)}・${t('fig_tai', (f.tai ?? 0).toFixed(1))}）` : '')]);
+  out.push([t('fig_win'), pct(f.win ?? 0) + (f.win && f.win >= 0.005 ? t('paren', `${t('fig_tsumo')} ${pct(f.tsumo ?? 0)}${t('sep')}${t('fig_tai', (f.tai ?? 0).toFixed(1))}`) : '')]);
   out.push([t('fig_deal_in'), pct(f.deal_in ?? 0)]);
   out.push([t('fig_others_tsumo'), pct(f.others_tsumo ?? 0)]);
   if (f.danger !== undefined) {
     let who = '';
     if (names && f.danger >= 0.01 && f.danger_each) {
       const top = f.danger_each.indexOf(Math.max(...f.danger_each));
-      who = `（${names[top]} ${pct(f.danger_each[top])}・${t('fig_tai', (f.danger_tai?.[top] ?? 0).toFixed(1))}）`;
+      who = t('paren', `${names[top]} ${pct(f.danger_each[top])}${t('sep')}${t('fig_tai', (f.danger_tai?.[top] ?? 0).toFixed(1))}`);
     }
     out.push([t('fig_danger'), pct(f.danger) + who]);
   }
@@ -339,15 +329,15 @@ export function figureCells(f: Figures, c: number | null, names: string[] | null
     out.push(cell('win', t('fig_win'), pct(win), win, best?.win));
     // （自摸 3.7%・0.9 台）: only the chance is colored (it is what is compared), not the words or the brackets.
     const some = win >= 0.005;
-    out.push(cell('tsumo', some ? `（${t('fig_tsumo')}` : '', some ? pct(f.tsumo ?? 0) : '', f.tsumo, best?.tsumo,
-      some ? `・${t('fig_tai', (f.tai ?? 0).toFixed(1))}）` : ''));
+    out.push(cell('tsumo', some ? `${parenOpen()}${t('fig_tsumo')}` : '', some ? pct(f.tsumo ?? 0) : '', f.tsumo, best?.tsumo,
+      some ? `${t('sep')}${t('fig_tai', (f.tai ?? 0).toFixed(1))}${parenClose()}` : ''));
     out.push(cell('deal', t('fig_deal_in'), pct(f.deal_in ?? 0), f.deal_in, best?.deal_in));
     out.push(cell('others', t('fig_others_tsumo'), pct(f.others_tsumo ?? 0), f.others_tsumo, best?.others_tsumo));
     out.push(cell('danger', f.danger !== undefined ? t('fig_danger') : '', f.danger !== undefined ? pct(f.danger) : '', f.danger, best?.danger));
     let who = '';
     if (names && f.danger !== undefined && f.danger >= 0.01 && f.danger_each) {
       const top = f.danger_each.indexOf(Math.max(...f.danger_each));
-      who = `（${names[top]} ${pct(f.danger_each[top])}・${t('fig_tai', (f.danger_tai?.[top] ?? 0).toFixed(1))}）`;
+      who = t('paren', `${names[top]} ${pct(f.danger_each[top])}${t('sep')}${t('fig_tai', (f.danger_tai?.[top] ?? 0).toFixed(1))}`);
     }
     out.push(cell('who', '', who));
   }
@@ -355,8 +345,12 @@ export function figureCells(f: Figures, c: number | null, names: string[] | null
   return out;
 }
 
+/** The brackets' halves (paren), for words put between them piece by piece. */
+const parenOpen = () => t('paren').split('%1$s')[0];
+const parenClose = () => t('paren').split('%1$s')[1] ?? '';
+
 /** Tile efficiency in words: "胡牌", "聽牌・進張 6", "1 向聽・進張 12". */
 export function efficiencyText(f: Figures): string {
-  if (f.shanten < 0) return t('analysis_win') + (f.win_tai >= 0 ? '・' + t('analysis_win_tai', f.win_tai) : '');
-  return (f.shanten === 0 ? t('analysis_ready') : t('analysis_shanten', f.shanten)) + '・' + t('analysis_ukeire', f.ukeire);
+  if (f.shanten < 0) return t('analysis_win') + (f.win_tai >= 0 ? t('sep') + t('analysis_win_tai', f.win_tai) : '');
+  return (f.shanten === 0 ? t('analysis_ready') : t('analysis_shanten', f.shanten)) + t('sep') + t('analysis_ukeire', f.ukeire);
 }

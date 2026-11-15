@@ -222,7 +222,7 @@ class Practice {
           if (epoch !== this.epoch || !this.game || this.game.actions.length !== from) break;
           const r = pc.robbed;
           const robbed = robbedEvent(view.events, before, r.seat);
-          const say = t('claim_robbed', this.names()[r.seat], t('act_' + r.type), r.options.map((o) => t('act_' + o)).join('、'));
+          const say = t('claim_robbed', this.names()[r.seat], t('act_' + r.type), r.options.map((o) => t('act_' + o)).join(t('sep_list')));
           if (settings.speed === 'manual') {
             this.ahead = { from, game: pc.game, view, robbed, say };
             this.waiting = true;

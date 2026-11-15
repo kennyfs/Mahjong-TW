@@ -93,7 +93,7 @@
   function rulesOf(spec: string): string {
     const [tai, flowers] = spec.split(',');
     const c = parseChoice({ tai, flowers });
-    return t('rules_chip', t(taiLabel(c.tai)), t(flowerLabel(c.flowers))) + (spec.split(',').length > 2 ? '・' + t('rules_custom') : '');
+    return t('rules_chip', t(taiLabel(c.tai)), t(flowerLabel(c.flowers))) + (spec.split(',').length > 2 ? t('sep') + t('rules_custom') : '');
   }
   const tabs: [RecordKind, string][] = [['practice', t('records_practice')], ['table', t('records_table')], ['contest', t('records_contest')]];
 </script>
@@ -104,7 +104,7 @@
     <button class="main" onclick={() => onreview(h.id)}>
       <span class="what">
         <span class="body-large" class:good={h.winners.includes(h.me)} class:bad={h.loser === h.me}>{summary(h)}</span>
-        <span class="body-small dim">{#if h.hints}<span class="hints" title={t('practice_hints_toggle')}>{t('practice_hints')}</span>{/if}{localTime(h.time)}・{rulesOf(h.game.rules)}{h.index ? '・' + t('record_hand_of', h.index) : ''}{h.rev ? '・' + t('record_loss', pts(h.rev.loss, false)) : ''}</span>
+        <span class="body-small dim">{#if h.hints}<span class="hints" title={t('practice_hints_toggle')}>{t('practice_hints')}</span>{/if}{localTime(h.time)}{t('sep')}{rulesOf(h.game.rules)}{h.index ? t('sep') + t('record_hand_of', h.index) : ''}{h.rev ? t('sep') + t('record_loss', pts(h.rev.loss, false)) : ''}</span>
       </span>
       <span class="pts" class:good={me > 0 && !h.hints} class:bad={me < 0 && !h.hints} class:void={h.hints}>{signed(me)}</span>
     </button>
@@ -120,8 +120,8 @@
     <div class="line">
       <button class="main" aria-expanded={openBattle === b.id} onclick={() => (openBattle = openBattle === b.id ? null : b.id)}>
         <span class="what">
-          <span class="body-large">{b.names.join('・')}</span>
-          <span class="body-small dim">{localTime(b.time)}・{t(b.via === 'nearby' ? 'records_kind_nearby' : 'records_kind_online')}・{t('records_battle_hands', b.hands)}{b.left ? '・' + t('records_battle_left') : ''}</span>
+          <span class="body-large">{b.names.join(t('sep'))}</span>
+          <span class="body-small dim">{localTime(b.time)}{t('sep')}{t(b.via === 'nearby' ? 'records_kind_nearby' : 'records_kind_online')}{t('sep')}{t('records_battle_hands', b.hands)}{b.left ? t('sep') + t('records_battle_left') : ''}</span>
         </span>
         <span class="pts" class:good={b.totals[b.me] > 0} class:bad={b.totals[b.me] < 0}>{signed(b.totals[b.me] ?? 0)}</span>
       </button>

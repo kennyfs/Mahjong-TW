@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Words
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -323,7 +324,7 @@ fun DecisionPanel(
               )
               Text(stringResource(R.string.opp_one_away, pct(o.ready.getOrElse(1) { 0.0 })), style = small, color = dim)
               if (tr != null) Text(
-                stringResource(R.string.opp_truth) + "：" + when {
+                stringResource(R.string.opp_truth) + Words.colon + when {
                   tr.missed -> stringResource(R.string.opp_missed)
                   tr.shanten == 0 -> stringResource(R.string.opp_ready, tilesShort(tr.waits.map { it.tile }))
                   else -> stringResource(R.string.analysis_shanten, tr.shanten)
@@ -384,7 +385,7 @@ fun AnalysisList(analysis: Analysis, chosen: Action?, w: Float, modifier: Modifi
           FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             val body = MaterialTheme.typography.bodyMedium
             when {
-              f.shanten < 0 -> Text(stringResource(R.string.analysis_win) + if (f.winTai >= 0) "・" + stringResource(R.string.analysis_win_tai, f.winTai) else "",
+              f.shanten < 0 -> Text(stringResource(R.string.analysis_win) + if (f.winTai >= 0) Words.sep + stringResource(R.string.analysis_win_tai, f.winTai) else "",
                 style = body, color = LocalOutcome.current.bad, fontWeight = FontWeight.Bold)
               f.shanten == 0 -> {
                 Text(stringResource(R.string.analysis_ready), style = body, fontWeight = FontWeight.Bold)

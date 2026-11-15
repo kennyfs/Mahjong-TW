@@ -11,7 +11,7 @@
   import { mistakesOf, mistakesText, pts } from '../lib/review';
   import { meldTiles, flowersOf } from '../lib/seats';
   import { settings } from '../lib/settings.svelte';
-  import { parseTiles, sortTiles, without } from '../lib/tiles';
+  import { parseTiles, sortTiles, taiName, without } from '../lib/tiles';
   import type { View } from '../lib/types';
   import { signed } from '../lib/ui.svelte';
   import Tile from './Tile.svelte';
@@ -29,7 +29,7 @@
     if (!w0) return t('result_exhausted');
     if (r.flower_win) return t('result_flower_win', names[w0.seat]);
     if (r.self_draw) return t('result_tsumo', names[w0.seat]);
-    return r.winners.map((x) => t('result_ron', names[x.seat])).join('、');
+    return r.winners.map((x) => t('result_ron', names[x.seat])).join(t('sep_list'));
   });
   const sub = $derived(!r.exhausted && !r.self_draw && r.loser >= 0 ? t('result_ron_from', names[r.loser]) : '');
   function winnerTiles(seat: number) {
@@ -70,7 +70,7 @@
     </div>
     <div class="items">
       {#each wn.items as it (it.item)}
-        <div class="item"><span>{it.name}</span><span class="tai">{t('tai_unit', it.tai)}</span></div>
+        <div class="item"><span>{taiName(it.item, it.name)}</span><span class="tai">{t('tai_unit', it.tai)}</span></div>
       {/each}
       {#if dealerIn(wn.seat)}<div class="item dealer"><span>{dealerWord}</span></div>{/if}
       <div class="item total"><span>{t('result_tai_total', wn.tai + (dealerIn(wn.seat) ? r.dealer_tai : 0))}</span></div>

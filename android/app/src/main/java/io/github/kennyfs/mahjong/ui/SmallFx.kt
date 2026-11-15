@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -115,8 +116,9 @@ fun SmallFx(m: Moment, host: FxHost, origin: Offset) {
   val dst = if (m.meld >= 0) host.melds["${m.seat}-${m.meld}"] else null
   val before = if (m.gap >= 0) m.tiles.take(m.gap) else m.tiles
   val after = if (m.gap >= 0) m.tiles.drop(m.gap) else emptyList()
-  val chars = m.word.length
-  val fs = tw * 1.2f
+  val chars = wordChars(m.word)
+  // (Smaller for a long word, an English one: the plaque within about 60% of the screen's width.)
+  val fs = minOf(tw * 1.2f, LocalConfiguration.current.screenWidthDp * 0.6f / (chars * 1.04f + 0.9f))
   // The phases' ends, ms.
   val come = parts.come.toFloat()
   val dropEnd = come + parts.drop
@@ -231,7 +233,7 @@ fun SmallFx(m: Moment, host: FxHost, origin: Offset) {
       }
     }
     // The word, large, over the panel's lower left corner; the name on a tab over its top edge.
-    val len = if (!isCjk(m.word)) 3 else if (chars > 1) 2 else 1
+    val len = if (!isCjk(m.word)) 3 else if (m.word.length > 1) 2 else 1
     Box(
       Modifier.align(Alignment.BottomStart).layout { measurable, _ ->
         val p = measurable.measure(Constraints())
@@ -257,4 +259,7 @@ fun SmallFx(m: Moment, host: FxHost, origin: Offset) {
 }
 
 /** One to four Chinese characters (a plaque's word, sized as such). */
+/** A word's width on a plaque, in Chinese characters (each about as wide as it is tall): a letter up to about 0.55 of one. */
+fun wordChars(word: String) = if (isCjk(word)) word.length.toFloat() else word.length * 0.55f
+
 fun isCjk(text: String) = text.length in 1..4 && text.all { it in '぀'..'ヿ' || it in '㐀'..'鿿' }

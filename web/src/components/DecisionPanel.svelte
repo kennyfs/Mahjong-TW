@@ -156,7 +156,7 @@
             <span class="ready l{readyLevel(o.ready[0])}">{t('opp_ready', pct(o.ready[0]))}</span>
             <span class="body-small dim">{t('opp_one_away', pct(o.ready[1]))}</span>
             {#if tr}
-              <span class="truth body-small">{t('opp_truth')}：{tr.missed ? t('opp_missed') : tr.shanten === 0 ? t('opp_ready', tilesShort(tr.waits.map((x) => x.tile))) : t('analysis_shanten', tr.shanten)}</span>
+              <span class="truth body-small">{t('opp_truth')}{t('colon')}{tr.missed ? t('opp_missed') : tr.shanten === 0 ? t('opp_ready', tilesShort(tr.waits.map((x) => x.tile))) : t('analysis_shanten', tr.shanten)}</span>
             {/if}
           </div>
           <div class="opp-danger body-small">
@@ -190,7 +190,7 @@
   .star { color: var(--found); }
   .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 0 4px; color: var(--on-surface-variant); }
   .info { margin-left: auto; width: 32px; min-height: 32px; border-radius: 16px; color: var(--on-surface-variant); }
-  .help { margin: 0; line-height: 1.6; }
+  .help { margin: 0; line-height: 1.6; white-space: pre-line; }
   .key { display: inline-flex; align-items: center; gap: 4px; }
   .key i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
   .win { background: var(--found); }
@@ -238,6 +238,6 @@
   .ready.l2 { background: var(--danger-2); color: var(--on-danger); }
   .ready.l3 { background: var(--danger-3); color: #fff; }
   .truth { margin-left: auto; font-weight: 700; }
-  .source { margin: 6px 4px 0; line-height: 1.5; }
+  .source { margin: 6px 4px 0; line-height: 1.5; white-space: pre-line; }
   .panel :global(.section-header) { padding: 10px 4px 2px; }
 </style>

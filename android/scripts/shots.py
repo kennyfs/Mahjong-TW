@@ -9,7 +9,7 @@ explained (with its quiz answered) and the tour, and battles (the entry's steps,
 the emulator reaches, e.g. 10.0.2.2:8091, a table game's lobby and table). Each screen in landscape (the phone
 sideways, first) and portrait, PNGs in OUT (default $WORK/shots/android). ONLY=name,... takes
 only those shots; STEPS=step,... runs only those steps (practice, practice_result, analyze, records, settings, manual,
-guide, tour, battle, battle_table), e.g. STEPS=battle_table.
+guide, tour, battle, battle_table), e.g. STEPS=battle_table. APP_LOCALE=en-US: the app in English, its words found so.
 
 Usage: python3 android/scripts/shots.py   (ANDROID_SERIAL picks the emulator, e.g. emulator-5556)
 
@@ -35,6 +35,28 @@ STORE_SIZE = (1920, 1080)
 SERVER = os.environ.get('BATTLE_SERVER', '')
 ONLY = [x for x in os.environ.get('ONLY', '').split(',') if x]
 STEPS = [x for x in os.environ.get('STEPS', '').split(',') if x]
+# The app's language (device-tests.sh APP_LOCALE): the words looked for here are Chinese, found by their English
+# strings when the app is in English (values-en/strings.xml, by the names of the Chinese ones).
+LOCALE = os.environ.get('APP_LOCALE', '')
+
+
+def _strings(d):
+  path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'app', 'src', 'main', 'res', d, 'strings.xml')
+  root = ET.parse(path).getroot()
+  return {e.get('name'): (e.text or '').strip().strip('"').replace("\\'", "'") for e in root.iter('string')}
+
+
+WORDS = {}
+if LOCALE.startswith('en'):
+  _en = _strings('values-en')
+  for _name, _zh in _strings('values').items():
+    WORDS.setdefault(_zh, _en.get(_name, _zh))
+
+
+def W(text):
+  return WORDS.get(text, text) if text is not None else None
+
+
 # A test build's id has MAHJONG_ID_SUFFIX (.test) after it.
 PKG = 'io.github.kennyfs.mahjong' + os.environ.get('MAHJONG_ID_SUFFIX', '')
 
@@ -89,6 +111,7 @@ def ui():
 
 
 def find(nodes, text=None, desc=None, exact=True, rid=None):
+  text, desc = W(text), W(desc)
   for n in nodes:
     if rid is not None and n.rid == rid:
       return n
@@ -462,6 +485,8 @@ def manual(orient):
 def guide(orient):
   """The rules explained, from the settings: its first page (the rules to explain), the tiles, tai, and the quiz."""
   go('設定')
+  # (Further down in English, or with a large font: scrolled to.)
+  scroll_to('settings_guide')
   tap_id('settings_guide')
   wait_for(lambda ns: find(ns, rid='guide_next'), 10)
   shot(f'guide-rules-{orient}')
@@ -722,6 +747,8 @@ def store():
   log('plan', plan['seed'], plan['rules'], len(hands), 'hands; the table at move', table_at)
   sh(f'am force-stop {PKG}')
   sh(f'pm clear {PKG}')
+  # The app's language (pm clear forgets it): APP_LOCALE's, or the system's.
+  sh(f"cmd locale set-app-locales {PKG} --locales '{LOCALE}'")
   time.sleep(2)
   # A new task and a new process (-S, --activity-clear-task): the system restarts an app it has just updated (Android
   # 17), without the extras, and a start without these flags only comes to that one. The store's rules on the screen
@@ -738,6 +765,8 @@ def store():
     log('the app did not start with the store\'s game; starting it again')
     sh(f'am force-stop {PKG}')
     sh(f'pm clear {PKG}')
+    # The app's language (pm clear forgets it): APP_LOCALE's, or the system's.
+    sh(f"cmd locale set-app-locales {PKG} --locales '{LOCALE}'")
     time.sleep(2)
   else:
     raise RuntimeError('the app did not start with the store\'s game')
@@ -864,6 +893,8 @@ def store_rules():
   """The rules explained (from the settings): its page of ready hands and their waits, a little up so that its last
   row clears the buttons."""
   go('設定')
+  # (Further down in English, or with a large font: scrolled to.)
+  scroll_to('settings_guide')
   tap_id('settings_guide')
   wait_for(lambda ns: find(ns, rid='guide_next'), 10)
   for _ in range(4):
@@ -884,6 +915,8 @@ def main():
     return
   sh(f'am force-stop {PKG}')
   sh(f'pm clear {PKG}')
+  # The app's language (pm clear forgets it): APP_LOCALE's, or the system's.
+  sh(f"cmd locale set-app-locales {PKG} --locales '{LOCALE}'")
   # pm clear kills the app on its own time: a start right after can lose that race and leave the splash screen up
   # with no process behind it. So wait, and start again until the app shows its navigation.
   time.sleep(2)

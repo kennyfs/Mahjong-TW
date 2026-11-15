@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Words
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -276,7 +277,7 @@ fun GuideScreen(vm: AppModel, onBack: () -> Unit, onPlay: () -> Unit, onTour: ()
                     .clickable { helped = if (open) null else it.param }.padding(horizontal = 14.dp, vertical = 10.dp),
                   verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                  Text(it.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                  Text(it.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                   Text(stringResource(R.string.tai_unit, n(it.param)), style = MaterialTheme.typography.titleSmall)
                 }
                 val help = RULE_HELP[it.param]
@@ -336,7 +337,7 @@ fun GuideScreen(vm: AppModel, onBack: () -> Unit, onPlay: () -> Unit, onTour: ()
               }
             }
             if (checked) {
-              Text(if (right) stringResource(R.string.guide_try_right) else stringResource(R.string.guide_try_wrong, quiz.waits.joinToString("、", transform = Tiles::name)),
+              Text(if (right) stringResource(R.string.guide_try_right) else stringResource(R.string.guide_try_wrong, quiz.waits.joinToString(Words.list, transform = Tiles::name)),
                 style = MaterialTheme.typography.titleMedium, color = if (right) good else bad)
               para(stringResource(quiz.why))
               Text(stringResource(R.string.guide_try_legend), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)

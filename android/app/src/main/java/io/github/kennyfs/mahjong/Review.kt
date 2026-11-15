@@ -58,21 +58,28 @@ fun dangerLevel(p: Double?): Int = if (p == null || p < 0.01) 0 else if (p < 0.0
 /** How likely an opponent is ready, for its color: 0 under 10%, then up to 30%, up to 60%, and beyond. */
 fun readyLevel(p: Double): Int = if (p < 0.1) 0 else if (p < 0.3) 1 else if (p < 0.6) 2 else 3
 
-/** Tiles in few words: 3m 6m 2p 5z -> "三六萬二筒白". */
-fun tilesShort(tiles: List<String>): String = buildString {
-  for (i in tiles.indices) {
+/** Tiles in few words: 3m 6m 2p 5z -> "三六萬二筒白", "3/6 Characters, 2 Dots, White": a suit's numerals together
+ *  before its name (Words). */
+fun tilesShort(tiles: List<String>): String {
+  val groups = mutableListOf<String>()
+  var i = 0
+  while (i < tiles.size) {
     val x = tiles[i]
-    val name = Tiles.name(x)
-    val sameSuitNext = i + 1 < tiles.size && tiles[i + 1][1] == x[1] && x[1] in "mps"
-    append(if (sameSuitNext) name.substring(0, 1) else name)
+    val suit = "mps".indexOf(x[1])
+    if (suit < 0) { groups += Tiles.name(x); i++; continue }
+    var j = i
+    while (j < tiles.size && tiles[j][1] == x[1]) j++
+    groups += Words.suited(tiles.subList(i, j).joinToString(Words.numSep) { Words.numerals[it[0] - '1'] }, suit)
+    i = j
   }
+  return groups.joinToString(Words.tilesSep)
 }
 
 /** An action in words: "打出 五萬", "吃 三四五萬". */
 fun actionText(res: Resources, a: Action): String {
   val word = res.getString(actionLabel(a.type))
   val ts = actionTiles(a)
-  return if (ts.isEmpty()) word else "$word ${ts.joinToString("") { Tiles.name(it) }}"
+  return if (ts.isEmpty()) word else "$word ${tilesShort(ts)}"
 }
 
 /** What action `i` costs against the best. */
@@ -128,7 +135,7 @@ fun notableText(res: Resources, a: Analysis, n: Notable): String {
     Notable.Kind.NO_CALL -> res.getString(R.string.note_alt_call, actionText(res, alt))
     else -> res.getString(R.string.note_alt_efficient, alt.tile?.let(Tiles::name) ?: "")
   }
-  return "${res.getString(n.kind.label)}（${res.getString(R.string.note_margin, what, pts(n.margin, false))}）"
+  return "${res.getString(n.kind.label)}${Words.open}${res.getString(R.string.note_margin, what, pts(n.margin, false))}${Words.close}"
 }
 
 /** Why `i` is worse than the best, from the parts of the two values: what it wins less, deals in more, is drawn on more. */
@@ -151,7 +158,7 @@ fun reasonOf(res: Resources, a: Analysis, i: Int): String {
     else if (-d >= least) better += res.getString(names[k].second, pts(-d, false))
   }
   if (worse.isEmpty()) return ""
-  return worse.joinToString("、") + if (better.isNotEmpty()) res.getString(R.string.reason_but) + better.joinToString("、") else ""
+  return worse.joinToString(Words.list) + if (better.isNotEmpty()) res.getString(R.string.reason_but) + better.joinToString(Words.list) else ""
 }
 
 /** What a decision was about, for the statistics: a tile, a discard that deals in, a call, a win to take or not. */
@@ -214,7 +221,7 @@ fun levelOrWorse(res: Resources, level: Level): String =
 fun mistakesText(res: Resources, level: Level, grades: List<Int>): String {
   val out = (3 downTo level.grade).filter { grades.getOrElse(it - 1) { 0 } > 0 }
     .map { res.getString(R.string.review_mistakes, res.getString(GRADE_NAME[it]), grades[it - 1].toString()) }
-  return if (out.isNotEmpty()) out.joinToString("・") else res.getString(R.string.review_count_none, levelWord(res, level))
+  return if (out.isNotEmpty()) out.joinToString(Words.sep) else res.getString(R.string.review_count_none, levelWord(res, level))
 }
 
 private val reviews = LinkedHashMap<String, Review>()
@@ -318,7 +325,7 @@ fun figureItems(res: Resources, f: ActionFigures, c: Double?, names: List<String
   if (c != null && c >= EQUAL) out += res.getString(R.string.fig_cost) to pts(-c)
   val win = f.win ?: 0.0
   out += res.getString(R.string.fig_win) to pct(win) +
-    if (win >= 0.005) "（${res.getString(R.string.fig_tsumo)} ${pct(f.tsumo ?: 0.0)}・${res.getString(R.string.fig_tai, fixed(f.tai ?: 0.0, 1))}）" else ""
+    if (win >= 0.005) "${Words.open}${res.getString(R.string.fig_tsumo)} ${pct(f.tsumo ?: 0.0)}${Words.sep}${res.getString(R.string.fig_tai, fixed(f.tai ?: 0.0, 1))}${Words.close}" else ""
   out += res.getString(R.string.fig_deal_in) to pct(f.dealIn ?: 0.0)
   out += res.getString(R.string.fig_others_tsumo) to pct(f.othersTsumo ?: 0.0)
   val danger = f.danger
@@ -327,7 +334,7 @@ fun figureItems(res: Resources, f: ActionFigures, c: Double?, names: List<String
     val each = f.dangerEach
     if (names != null && danger >= 0.01 && !each.isNullOrEmpty()) {
       val top = each.indices.maxBy { each[it] }
-      who = "（${names.getOrElse(top) { "" }} ${pct(each[top])}・${res.getString(R.string.fig_tai, fixed(f.dangerTai?.getOrNull(top) ?: 0.0, 1))}）"
+      who = "${Words.open}${names.getOrElse(top) { "" }} ${pct(each[top])}${Words.sep}${res.getString(R.string.fig_tai, fixed(f.dangerTai?.getOrNull(top) ?: 0.0, 1))}${Words.close}"
     }
     out += res.getString(R.string.fig_danger) to pct(danger) + who
   }
@@ -371,8 +378,8 @@ fun figureCells(res: Resources, f: ActionFigures, c: Double?, names: List<String
     out += cell(FigureKey.WIN, res.getString(R.string.fig_win), pct(win), win, best?.win)
     // （自摸 3.7%・0.9 台）: only the chance is colored (it is what is compared), not the words or the brackets.
     val some = win >= 0.005
-    out += cell(FigureKey.TSUMO, if (some) "（${res.getString(R.string.fig_tsumo)}" else "", if (some) pct(f.tsumo ?: 0.0) else "",
-      f.tsumo, best?.tsumo, if (some) "・${res.getString(R.string.fig_tai, fixed(f.tai ?: 0.0, 1))}）" else "")
+    out += cell(FigureKey.TSUMO, if (some) "${Words.open}${res.getString(R.string.fig_tsumo)}" else "", if (some) pct(f.tsumo ?: 0.0) else "",
+      f.tsumo, best?.tsumo, if (some) "${Words.sep}${res.getString(R.string.fig_tai, fixed(f.tai ?: 0.0, 1))}${Words.close}" else "")
     out += cell(FigureKey.DEAL, res.getString(R.string.fig_deal_in), pct(f.dealIn ?: 0.0), f.dealIn, best?.dealIn)
     out += cell(FigureKey.OTHERS, res.getString(R.string.fig_others_tsumo), pct(f.othersTsumo ?: 0.0), f.othersTsumo, best?.othersTsumo)
     val danger = f.danger
@@ -381,7 +388,7 @@ fun figureCells(res: Resources, f: ActionFigures, c: Double?, names: List<String
     val each = f.dangerEach
     if (names != null && danger != null && danger >= 0.01 && !each.isNullOrEmpty()) {
       val top = each.indices.maxBy { each[it] }
-      who = "（${names.getOrElse(top) { "" }} ${pct(each[top])}・${res.getString(R.string.fig_tai, fixed(f.dangerTai?.getOrNull(top) ?: 0.0, 1))}）"
+      who = "${Words.open}${names.getOrElse(top) { "" }} ${pct(each[top])}${Words.sep}${res.getString(R.string.fig_tai, fixed(f.dangerTai?.getOrNull(top) ?: 0.0, 1))}${Words.close}"
     }
     out += cell(FigureKey.WHO, "", who)
   }
@@ -391,7 +398,7 @@ fun figureCells(res: Resources, f: ActionFigures, c: Double?, names: List<String
 
 /** Tile efficiency in words: "胡牌", "聽牌・進張 6", "1 向聽・進張 12". */
 fun efficiencyText(res: Resources, f: ActionFigures): String {
-  if (f.shanten < 0) return res.getString(R.string.analysis_win) + if (f.winTai >= 0) "・" + res.getString(R.string.analysis_win_tai, f.winTai) else ""
-  return (if (f.shanten == 0) res.getString(R.string.analysis_ready) else res.getString(R.string.analysis_shanten, f.shanten)) + "・" +
+  if (f.shanten < 0) return res.getString(R.string.analysis_win) + if (f.winTai >= 0) Words.sep + res.getString(R.string.analysis_win_tai, f.winTai) else ""
+  return (if (f.shanten == 0) res.getString(R.string.analysis_ready) else res.getString(R.string.analysis_shanten, f.shanten)) + Words.sep +
     res.getString(R.string.analysis_ukeire, f.ukeire)
 }

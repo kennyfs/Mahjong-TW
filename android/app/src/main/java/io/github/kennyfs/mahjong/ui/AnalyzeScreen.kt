@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Words
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -304,7 +305,7 @@ fun AnalyzeScreen(vm: AppModel) {
       Chip(
         rulesOf(spec), onClick = { if (own) ed.rules = null else vm.open(Page.RULES) }, modifier = Modifier.testTag("analyze_rules"), on = own, menu = !own,
         leading = if (own) ({
-          Icon(Icons.Filled.Close, stringResource(R.string.analysis_rules_of_hand) + "：" + stringResource(R.string.analysis_rules_reset), Modifier.size(18.dp))
+          Icon(Icons.Filled.Close, stringResource(R.string.analysis_rules_of_hand) + Words.colon + stringResource(R.string.analysis_rules_reset), Modifier.size(18.dp))
         }) else null,
       )
     }
@@ -366,9 +367,9 @@ fun AnalyzeScreen(vm: AppModel) {
         if (!wide) results()
 
         if (!tableShown) TextButton(onClick = { tableOpen = true }, Modifier.testTag("analyze_table_open")) {
-          Text(stringResource(R.string.analysis_melds) + "・" + stringResource(R.string.analysis_flowers) + "・" + stringResource(R.string.analysis_discards))
+          Text(stringResource(R.string.analysis_melds) + Words.sep + stringResource(R.string.analysis_flowers) + Words.sep + stringResource(R.string.analysis_discards))
         } else for (seat in 0..3) {
-          Text(seatName[seat] + if (ed.dealer == seat) "・" + stringResource(R.string.dealer_mark) else "", Modifier.padding(top = 12.dp, bottom = 4.dp),
+          Text(seatName[seat] + if (ed.dealer == seat) Words.sep + stringResource(R.string.dealer_mark) else "", Modifier.padding(top = 12.dp, bottom = 4.dp),
             style = MaterialTheme.typography.titleSmall, color = cs.primary)
           section(Section(Section.Kind.MELDS, seat), stringResource(R.string.analysis_melds), "analyze_melds_$seat") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {

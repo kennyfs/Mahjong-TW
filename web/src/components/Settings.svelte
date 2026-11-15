@@ -6,7 +6,7 @@
   its name (a dialog), so that the list stays short.
 -->
 <script lang="ts">
-  import { t } from '../lib/i18n.svelte';
+  import { LANGS, t, type Lang } from '../lib/i18n.svelte';
   import { nav } from '../lib/nav.svelte';
   import { practice } from '../lib/practice.svelte';
   import { flowerLabel, taiLabel } from '../lib/rules';
@@ -31,7 +31,7 @@
   const sounds: [SoundLevel, string][] = [['off', t('sound_off')], ['soft', t('sound_soft')], ['full', t('sound_full')]];
   const levels: [Level, string][] = [['beginner', t('level_beginner')], ['mid', t('level_mid')], ['expert', t('level_expert')]];
   const rulesValue = $derived(t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerLabel(settings.rules.flowers))) +
-    (Object.keys(settings.rules.overrides).length ? '・' + t('rules_custom') : ''));
+    (Object.keys(settings.rules.overrides).length ? t('sep') + t('rules_custom') : ''));
 
   function setLength(v: Length) { settings.length = v; settings.persist(); void practice.settingsChanged(); }
   function setBot(v: string) { settings.bot = v; settings.persist(); void practice.settingsChanged(); }
@@ -61,7 +61,7 @@
 {#snippet head(title: string, help: string)}
   <div class="head">
     <span class="body-large">{title}</span>
-    <button class="btn icon text info" aria-label={`${t('rules_help')}：${title}`} title={t('rules_help')} aria-haspopup="dialog"
+    <button class="btn icon text info" aria-label={t('rules_help') + t('colon') + title} title={t('rules_help')} aria-haspopup="dialog"
       onclick={() => (helped = { title, text: help })}><Icon name="info" size={20} /></button>
   </div>
 {/snippet}
@@ -81,6 +81,11 @@
       </SettingRow>
       <SettingRow title={t('settings_dark')}>
         {#snippet trailing()}<Menu label={label(darks, settings.dark)} options={darks} selected={settings.dark} onselect={setDark} chip={false} />{/snippet}
+      </SettingRow>
+      <!-- (Named in both languages, as Thirteen's: whoever cannot read one finds it by the other.) -->
+      <SettingRow title={settings.lang === 'en' ? 'Language' : `${t('settings_language')} · Language`}>
+        {#snippet trailing()}<Menu label={LANGS.find((l) => l.id === settings.lang)?.name ?? ''} options={LANGS.map((l) => [l.id, l.name] as [Lang, string])}
+          selected={settings.lang} onselect={(v) => settings.chooseLang(v)} chip={false} />{/snippet}
       </SettingRow>
 
       <div class="section-header">{t('settings_game')}</div>

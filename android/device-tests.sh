@@ -9,7 +9,8 @@
 # (font scale 1.15, a hole cutout, no animations, light mode), installs the debug APK (built first unless NOBUILD=1) and
 # stops the emulator after, unless KEEP=1. Needs the emulator and system-images;android-$API;google_apis;x86_64 in the
 # SDK (API defaults to 37.0), and /dev/kvm. Paths as in build-apk.sh, plus ANDROID_AVD_HOME (default ~/.android/avd).
-# The log is device-tests.log.
+# The log is device-tests.log. APP_LOCALE=en-US: the app in that language (shots.py sets the system's per-app language;
+# none: the system's), and the shots found by its words.
 #
 # STORE=1: Google Play's screenshots instead (shots.py STORE=1, the game of scripts/store-plan.json), into $OUT (default
 # $WORK/shots/store), from a test build (MAHJONG_ID_SUFFIX, default .test). Its own AVD, "mahjong-store-$API" (a Pixel

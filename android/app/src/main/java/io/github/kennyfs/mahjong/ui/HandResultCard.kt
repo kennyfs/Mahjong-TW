@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Words
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -68,7 +69,7 @@ fun HandResultCard(
     r.exhausted || r.winners.isEmpty() -> stringResource(R.string.result_exhausted)
     r.flowerWin -> stringResource(R.string.result_flower_win, names[r.winners[0].seat])
     r.selfDraw -> stringResource(R.string.result_tsumo, names[r.winners[0].seat])
-    else -> r.winners.map { stringResource(R.string.result_ron, names[it.seat]) }.joinToString("、")
+    else -> r.winners.map { stringResource(R.string.result_ron, names[it.seat]) }.joinToString(Words.list)
   }
   val sub = if (!r.exhausted && !r.selfDraw && r.loser >= 0) stringResource(R.string.result_ron_from, names[r.loser]) else ""
   val setup = final.position.setup
@@ -113,7 +114,7 @@ fun HandResultCard(
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
           for (it in wn.items) Pill(cs.secondaryContainer, cs.onSecondaryContainer) {
-            Text(it.name, fontWeight = FontWeight.Medium)
+            Text(it.label, fontWeight = FontWeight.Medium)
             Text(stringResource(R.string.tai_unit, it.tai.toString()), fontWeight = FontWeight.Bold)
           }
           if (dealerIn(wn.seat)) Pill(cs.tertiaryContainer, cs.onTertiaryContainer) { Text(dealerWord, fontWeight = FontWeight.Medium) }

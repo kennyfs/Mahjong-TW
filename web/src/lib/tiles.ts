@@ -1,6 +1,8 @@
 // Tiles by their engine names: "1m"-"9m" (萬), "1p"-"9p" (筒), "1s"-"9s" (條), "1z"-"7z" (東南西北白發中), "1f"-"8f"
 // (春夏秋冬梅蘭菊竹). TILES strings list them grouped by suit ("123m55z"). A port of the app's Tiles.kt.
 
+import { has, t as tr, ta } from './i18n.svelte';
+
 export type Tile = string;
 
 const SUIT_ORDER = 'mpszf';
@@ -57,24 +59,42 @@ export const FLOWERS: Tile[] = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `${n}f`);
 export const isFlower = (t: Tile) => t[1] === 'f';
 export const isHonor = (t: Tile) => t[1] === 'z';
 
-const NUMERALS = '一二三四五六七八九';
-const HONORS = '東南西北白發中';
-const FLOWER_NAMES = '春夏秋冬梅蘭菊竹';
+/** A suited tile's name from its numeral (or numerals) and suit (0 萬, 1 筒, 2 條): 「五萬」, "5 Characters". */
+export const suitedName = (numerals: string, suit: number) => tr('tile_name', numerals, ta('tile_suits')[suit]);
+/** A numeral's word: 五, "5". */
+export const numeral = (n: number) => ta('tile_numerals')[n - 1];
 
-/** "五萬", "三筒", "七條", "東", "白", "春". */
+/** "五萬", "三筒", "七條", "東", "白", "春" (in the page's language). */
 export function tileName(t: Tile): string {
   const n = Number(t[0]);
-  switch (t[1]) {
-    case 'm': return NUMERALS[n - 1] + '萬';
-    case 'p': return NUMERALS[n - 1] + '筒';
-    case 's': return NUMERALS[n - 1] + '條';
-    case 'z': return HONORS[n - 1];
-    default: return FLOWER_NAMES[n - 1];
-  }
+  const suit = 'mps'.indexOf(t[1]);
+  if (suit >= 0) return suitedName(numeral(n), suit);
+  return ta(t[1] === 'z' ? 'tile_honors' : 'tile_flowers')[n - 1];
 }
 
-/** A wind (0-3) as its character. */
-export const windName = (w: number) => HONORS[w] ?? '?';
+/** Tiles in few words: ["3m", "6m", "2p", "5z"] -> "三六萬二筒白", "3/6 Characters, 2 Dots, White": a suit's numerals
+ *  together before its name. */
+export function tilesShort(tiles: Tile[]): string {
+  const groups: string[] = [];
+  for (let i = 0; i < tiles.length;) {
+    const x = tiles[i];
+    const suit = 'mps'.indexOf(x[1]);
+    if (suit < 0) { groups.push(tileName(x)); i++; continue; }
+    let j = i;
+    while (j < tiles.length && tiles[j][1] === x[1]) j++;
+    groups.push(suitedName(tiles.slice(i, j).map((y) => numeral(Number(y[0]))).join(tr('tiles_num_sep')), suit));
+    i = j;
+  }
+  return groups.join(tr('tiles_sep'));
+}
+
+/** A tai item's name by its parameter, in the page's language (the engine names it in Chinese: `fallback`). */
+export const taiName = (param: string, fallback: string) => (has('tai_' + param) ? tr('tai_' + param) : fallback);
+
+/** A wind (0-3) by name: 東, "East". */
+export const windName = (w: number) => ta('tile_honors')[w] ?? '?';
+/** A wind's mark on a seat's plate: 東, "E". */
+export const windMark = (w: number) => ta('wind_marks')[w] ?? '?';
 
 export function countOf(tiles: Tile[], t: Tile): number {
   let n = 0;

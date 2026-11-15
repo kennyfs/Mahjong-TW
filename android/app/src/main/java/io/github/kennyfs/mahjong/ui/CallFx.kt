@@ -228,7 +228,8 @@ fun CallFx(m: Moment, host: FxHost) {
     }
 
     // The word and the tiles, upright on the band.
-    val fs = (0.15f * minOf(wDp, hDp)).coerceIn(48f, 120f)
+    // (Smaller for a long word, an English one: the plaque within the screen's width.)
+    val fs = minOf((0.15f * minOf(wDp, hDp)).coerceIn(48f, 120f), wDp * 0.88f / (wordChars(m.word) * 1.04f + 0.9f))
     // A long hand in smaller tiles on one line; tiles that would be smaller than MIN_TW: two lines. (The window's
     // width, at most 900.)
     val n = tiles.size + (if (gap >= 0) 1.4f else 0f)

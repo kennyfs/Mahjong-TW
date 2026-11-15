@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Words
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -82,9 +83,9 @@ fun DecisionView(
     val hand = @Composable {
       Text(
         listOfNotNull(
-          pos?.let { stringResource(R.string.round_wind, Tiles.wind(it.setup.round)) + "・" + stringResource(R.string.wall_left, it.wallLeft) },
+          pos?.let { stringResource(R.string.round_wind, Tiles.wind(it.setup.round)) + Words.sep + stringResource(R.string.wall_left, it.wallLeft) },
           heading.takeIf { it.isNotEmpty() },
-        ).joinToString("・"),
+        ).joinToString(Words.sep),
         Modifier.heightIn(min = 40.dp).padding(top = 10.dp), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
       )
       if (pos != null) {

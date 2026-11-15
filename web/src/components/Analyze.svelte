@@ -198,7 +198,7 @@
 {:else}
 <div class="page">
   <TitleBar title={t('analyze_title')}>
-    <button class="chip" class:on={!!ed.rules} title={ed.rules ? `${t('analysis_rules_of_hand')}：${t('analysis_rules_reset')}` : t('settings_rules')}
+    <button class="chip" class:on={!!ed.rules} title={ed.rules ? t('analysis_rules_of_hand') + t('colon') + t('analysis_rules_reset') : t('settings_rules')}
       onclick={() => { if (ed.rules) ed.rules = null; else nav.open('rules', 'SETTINGS'); }}>{rulesLabel}</button>
     <button class="btn text" onclick={() => ed.random()}>{t('analysis_random')}</button>
     <button class="btn text" onclick={() => ed.clear()}>{t('analysis_clear')}</button>
@@ -242,10 +242,10 @@
       {#if !ui.wide}{@render results()}{/if}
 
       {#if !tableShown}
-        <button class="btn text fold" onclick={() => (tableOpen = true)}>{t('analysis_melds')}・{t('analysis_flowers')}・{t('analysis_discards')}</button>
+        <button class="btn text fold" onclick={() => (tableOpen = true)}>{t('analysis_melds')}{t('sep')}{t('analysis_flowers')}{t('sep')}{t('analysis_discards')}</button>
       {:else}
         {#each [0, 1, 2, 3] as seat (seat)}
-          <div class="seat-title title-small">{seatName(seat)}{ed.dealer === seat ? '・' + t('dealer_mark') : ''}</div>
+          <div class="seat-title title-small">{seatName(seat)}{ed.dealer === seat ? t('sep') + t('dealer_mark') : ''}</div>
           {#snippet meldsBody()}
             <div class="tiles">
               {#each ed.melds[seat] as m, i (i)}

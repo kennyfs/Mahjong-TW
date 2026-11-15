@@ -48,7 +48,7 @@
   } from '../lib/layout';
   import { concealedCount, meldTiles, seatAt, sideOf, flowersOf, type Side } from '../lib/seats';
   import { pts, type ChoiceMark, type SeatNote, type TileMark } from '../lib/review';
-  import { groupIndices, parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
+  import { groupIndices, parseTiles, sortTiles, taiName, windMark, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
   import { dealsShown, movesShown, resultTap, setFx } from '../lib/fx.svelte';
   import { playSound } from '../lib/sound';
@@ -114,7 +114,7 @@
   const setup = $derived(pos.setup);
   /** The round and the hand (東風圈 第 3 局), and the same in a few characters (東-3) for a corner with no room. */
   const roundFull = $derived(t('round_wind', windName(setup.round)) + (handLabel ? ' ' + handLabel : ''));
-  const roundShort = $derived(handShort ? t('round_short', windName(setup.round), handShort) : roundFull);
+  const roundShort = $derived(handShort ? t('round_short', windMark(setup.round), handShort) : roundFull);
   /** What another seat shows: its melds' tile counts, its flowers, and its concealed tiles when they are shown. */
   function shownOf(seat: number) {
     const p = pos.players[seat];
@@ -693,7 +693,7 @@
             const item = view.result?.winners.find((x) => x.seat === e.seat)?.items.find((x) => x.item === 'eight_flowers' || x.item === 'seven_rob_one');
             list.push(full({ kind: 'win', key: 'flower_win', tiles: other ? mine : mine.slice(0, -1), gap: other ? mine.length : mine.length - 1,
               tile: other ?? mine[mine.length - 1] ?? null, src: other ? `[data-flower="${other}"]` : null, from: other ? sideOf(loser, me) : null,
-              note: item?.name ?? '' }));
+              note: item ? taiName(item.item, item.name) : '' }));
             has = true;
           } else if (e.type === 'declare') {
             // The declared hand: the player's own; another's backs.
@@ -709,7 +709,7 @@
             const last = [...evs].reverse().find((x) => x.type === 'discard' || x.type === 'kakan');
             const loser = view.result?.loser ?? last?.seat ?? -1;
             const rons = fresh.filter((x) => x.type === 'ron');
-            const winners = rons.map((x) => names[x.seat]).join('、');
+            const winners = rons.map((x) => names[x.seat]).join(t('sep_list'));
             if (loser >= 0 && loser !== e.seat) {
               if (loser === me) list.push(full({ kind: 'sad', key: 'sad', seat: loser, side: 'bottom', word: t('call_deal_in'), who: names[loser], mine: true,
                 note: `${winners} ${t('act_ron')}`, tile: e.tile }));

@@ -72,7 +72,10 @@ data class GameEvent(
 )
 
 @Serializable
-data class TaiItem(val item: String, val name: String, val tai: Int)
+data class TaiItem(val item: String, val name: String, val tai: Int) {
+  /** Its name in the app's language. */
+  val label: String get() = Words.tai(item) ?: name
+}
 
 @Serializable
 data class Winner(val seat: Int, val tai: Int, val items: List<TaiItem> = emptyList())
@@ -217,7 +220,10 @@ data class WhatIfClaim(val seat: Int, val tile: String, val left: Int = 0, val b
 data class WhatIf(val draws: List<WhatIfDraw> = emptyList(), val claims: List<WhatIfClaim> = emptyList())
 
 @Serializable
-data class RuleItem(val param: String, val name: String)
+data class RuleItem(val param: String, val name: String) {
+  /** Its name in the app's language. */
+  val label: String get() = Words.tai(param) ?: name
+}
 
 /** The rules of a spec: every parameter's value, the presets' names, and the tai items with their names. */
 @Serializable

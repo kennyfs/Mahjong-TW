@@ -4,9 +4,6 @@ package io.github.kennyfs.mahjong
 // (春夏秋冬梅蘭菊竹). TILES strings list them grouped by suit ("123m55z"). The web page's lib/tiles.ts and lib/seats.ts.
 object Tiles {
   private const val SUITS = "mpszf"
-  private const val NUMERALS = "一二三四五六七八九"
-  private const val HONORS = "東南西北白發中"
-  private const val FLOWER_NAMES = "春夏秋冬梅蘭菊竹"
 
   /** All 34 kinds in order, and the 8 flowers. */
   val KINDS: List<String> = listOf('m', 'p', 's').flatMap { s -> (1..9).map { "$it$s" } } + (1..7).map { "${it}z" }
@@ -51,19 +48,22 @@ object Tiles {
 
   fun isFlower(t: String) = t.length == 2 && t[1] == 'f'
 
-  /** "五萬", "三筒", "七條", "東", "白", "春". */
+  /** "五萬", "三筒", "七條", "東", "白", "春" (in the app's language: Words). */
   fun name(t: String): String {
     val n = t[0] - '0'
     return when (t[1]) {
-      'm' -> "${NUMERALS[n - 1]}萬"
-      'p' -> "${NUMERALS[n - 1]}筒"
-      's' -> "${NUMERALS[n - 1]}條"
-      'z' -> HONORS[n - 1].toString()
-      else -> FLOWER_NAMES[n - 1].toString()
+      'm' -> Words.suited(Words.numerals[n - 1], 0)
+      'p' -> Words.suited(Words.numerals[n - 1], 1)
+      's' -> Words.suited(Words.numerals[n - 1], 2)
+      'z' -> Words.honors[n - 1]
+      else -> Words.flowers[n - 1]
     }
   }
 
-  fun wind(w: Int): String = HONORS.getOrNull(w)?.toString() ?: "?"
+  /** A wind (0-3) by name: 東, "East". */
+  fun wind(w: Int): String = Words.honors.getOrNull(w) ?: "?"
+  /** A wind's mark on a seat's plate: 東, "E". */
+  fun windMark(w: Int): String = Words.windMarks.getOrNull(w) ?: "?"
 
   /**
    * Where a hand's tiles that its waits use (the engine's wait_tiles, ready_tiles: 聽的相關牌組) are: indices into `tiles`

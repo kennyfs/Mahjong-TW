@@ -1,6 +1,6 @@
 // Actions in words ("打出 五萬", "吃 三四五萬"), and which of an analysis' actions are the best by its figures.
 import { t } from './i18n.svelte';
-import { tileName, type Tile } from './tiles';
+import { tilesShort, type Tile } from './tiles';
 import type { Action, ActionFigures } from './types';
 
 const WORD: Record<string, string> = {
@@ -18,7 +18,7 @@ export function actionTiles(a: Action): Tile[] {
 export function actionText(a: Action): string {
   const word = t(WORD[a.type] ?? a.type);
   const tiles = actionTiles(a);
-  return tiles.length ? `${word} ${tiles.map(tileName).join('')}` : word;
+  return tiles.length ? `${word} ${tilesShort(tiles)}` : word;
 }
 
 /** Lower is better: a win first (more tai first), then fewer steps to ready (shanten), then more tiles that help. */

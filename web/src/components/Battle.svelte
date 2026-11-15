@@ -18,7 +18,7 @@
   import { FLOWER_PRESETS, flowerLabel, flowerShort, TAI_PRESETS, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import { shorten } from '../lib/shorten';
-  import { windName } from '../lib/tiles';
+  import { windMark, windName } from '../lib/tiles';
   import { localTime, signed, ui } from '../lib/ui.svelte';
   import TapOn from './TapOn.svelte';
   import Dialog from './Dialog.svelte';
@@ -100,10 +100,10 @@
   /** The hand in a few characters (3, a contest's 3/8): the round's label as 東-3 where the full one has no room. */
   const handNo = $derived(room && s ? (s.mode === 'CONTEST' ? `${room.hand + 1}/${s.hands}` : String(room.hand + 1)) : '');
   const rulesText = $derived(s ? t('rules_chip', t(taiLabel(s.rules.tai)), t(flowerLabel(s.rules.flowers))) +
-    (Object.keys(s.rules.overrides).length ? '・' + t('rules_custom') : '') : '');
+    (Object.keys(s.rules.overrides).length ? t('sep') + t('rules_custom') : '') : '');
   /** The same in fewer words (見花見台 as 見花), for the table's corner where it has no room. */
   const rulesShort = $derived(s ? t('rules_chip', t(taiLabel(s.rules.tai)), t(flowerShort(s.rules.flowers))) +
-    (Object.keys(s.rules.overrides).length ? '・' + t('rules_custom') : '') : '');
+    (Object.keys(s.rules.overrides).length ? t('sep') + t('rules_custom') : '') : '');
   const lengthLabel = (l: Length) => t(`length_${l.toLowerCase()}`);
   /** A short window (a phone held sideways): the lobby's start in its title bar, the standings beside a result. */
   const short = $derived(ui.h < 560);
@@ -115,7 +115,7 @@
     if (room && p.id === room.host) n.push(t('battle_host'));
     if (p.left) n.push(t('battle_left'));
     else if (!p.connected) n.push(t('battle_away'));
-    return n.join('・');
+    return n.join(t('sep'));
   }
 
   async function copyLink() {
@@ -250,7 +250,7 @@
           {#each people as p (p.id)}
             <div class="player" class:me={p.id === battle.me}>
               <span class="avatar">{[...p.name][0] ?? '?'}</span>
-              <span class="body-large ellipsis grow">{p.name}{p.id === battle.me ? `（${t('you')}）` : ''}</span>
+              <span class="body-large ellipsis grow">{p.name}{p.id === battle.me ? t('paren', t('you')) : ''}</span>
               <span class="body-medium dim">{notes(p)}</span>
             </div>
           {/each}
@@ -301,7 +301,7 @@
     {#if !ui.wide}
       <header class="topbar" {@attach shorten}>
         {#if table}<span class="title-medium ellipsis" data-full="{t('round_wind', windName(table.view.position.setup.round))} {handLabel}"
-          data-short={t('round_short', windName(table.view.position.setup.round), handNo)}></span>{/if}
+          data-short={t('round_short', windMark(table.view.position.setup.round), handNo)}></span>{/if}
         <span class="grow"></span>
         {@render clock()}
         <button class="btn text" onclick={() => (confirmLeave = true)}>{t('battle_leave')}</button>
@@ -324,8 +324,8 @@
             <div class="panel">
               <div class="p-head">
                 <div class="title-large">{t('round_wind', windName(table.view.position.setup.round))} {handLabel}</div>
-                <div class="body-medium p-dim">{t('wall_left', table.view.position.wall_left)}・{t('battle_room_number')} {room.pin}</div>
-                <div class="body-medium p-dim">{rulesText}・{t('battle_time_n', s.timeLimit)}</div>
+                <div class="body-medium p-dim">{t('wall_left', table.view.position.wall_left)}{t('sep')}{t('battle_room_number')} {room.pin}</div>
+                <div class="body-medium p-dim">{rulesText}{t('sep')}{t('battle_time_n', s.timeLimit)}</div>
               </div>
               <div class="p-card">
                 <div class="label-large p-dim">{t('battle_standings')}</div>

@@ -42,7 +42,7 @@
     const all = parseTiles(pos.hand);
     const drawn = view.phase === 'self' && pos.drawn ? pos.drawn : null;
     const p = pos.players[pos.me];
-    const where = `${t('round_wind', windName(pos.setup.round))}・${t('wall_left', pos.wall_left)}`;
+    const where = t('round_wind', windName(pos.setup.round)) + t('sep') + t('wall_left', pos.wall_left);
     return { tiles: sortTiles(drawn ? without(all, [drawn]) : all), drawn, melds: p.melds, flowers: flowersOf(p), claim: pos.claim, where };
   });
   const discardable = $derived(new Set(canPlay && view ? view.legal.filter((a) => a.type === 'discard').map((a) => a.tile as T) : []));
@@ -65,7 +65,7 @@
 <div class="list-view" class:halves={wide}>
   <div class="seat-hand" bind:clientWidth={colW}>
     <div class="head body-medium">
-      <span class="dim">{[hand?.where, heading].filter(Boolean).join('・')}</span>
+      <span class="dim">{[hand?.where, heading].filter(Boolean).join(t('sep'))}</span>
     </div>
     {#if hand}
       <MyHand tiles={hand.tiles} drawn={hand.drawn} {w} perRow={8} bind:selected tagH={17}

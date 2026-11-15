@@ -12,7 +12,7 @@
   import { practice } from '../lib/practice.svelte';
   import { FLOWER_PARAMS, FLOWER_PRESETS, flowerLabel, info, TAI_PRESETS, taiLabel } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
-  import { parseTiles, tileName } from '../lib/tiles';
+  import { parseTiles, taiName as itemName, tileName } from '../lib/tiles';
   import { tour } from '../lib/tour.svelte';
   import type { RulesInfo } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
@@ -209,7 +209,7 @@
       <div class="items">
         {#each taiItems as it (it.param)}
           <button class="item" class:open={helped === it.param} onclick={() => (helped = helped === it.param ? null : it.param)}>
-            <span class="body-large">{it.name}</span><span class="title-small">{t('tai_unit', n(it.param))}</span>
+            <span class="body-large">{itemName(it.param, it.name)}</span><span class="title-small">{t('tai_unit', n(it.param))}</span>
           </button>
           {#if helped === it.param}<p class="body-medium help">{t('help_' + it.param)}</p>{/if}
         {/each}
@@ -235,7 +235,7 @@
       </div>
       {#if checked}
         <p class="title-medium" class:good={right} class:bad={!right}>
-          {right ? t('guide_try_right') : t('guide_try_wrong', quiz.waits.map(tileName).join('、'))}</p>
+          {right ? t('guide_try_right') : t('guide_try_wrong', quiz.waits.map(tileName).join(t('sep_list')))}</p>
         <p class="body-large">{t(quiz.why)}</p>
         <p class="body-small dim">{t('guide_try_legend')}</p>
         <div class="buttons">
@@ -295,7 +295,7 @@
   .item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; min-height: 48px; border: none;
     background: none; color: inherit; cursor: pointer; text-align: left; border-bottom: 1px solid var(--surface-container-highest); }
   .item.open { background: var(--secondary-container); }
-  .help { padding: 8px 14px 12px; color: var(--on-surface-variant); }
+  .help { padding: 8px 14px 12px; color: var(--on-surface-variant); white-space: pre-line; }
   .quiz-hand { align-self: flex-start; max-width: 100%; }
   /* The nine candidates in rows of five on a phone (big enough to tap), in one row elsewhere. */
   .picks { display: grid; grid-template-columns: repeat(var(--cols), max-content); gap: 6px; }

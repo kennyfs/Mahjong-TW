@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Words
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -226,11 +227,11 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
   val outcome = final?.result?.let { r ->
     if (r.exhausted || r.winners.isEmpty()) res.getString(R.string.result_exhausted)
     else {
-      val who = r.winners.joinToString("、") { names[it.seat] }
+      val who = r.winners.joinToString(Words.list) { names[it.seat] }
       when {
         r.flowerWin -> res.getString(R.string.result_flower_win, who)
         r.selfDraw -> res.getString(R.string.result_tsumo, who)
-        else -> res.getString(R.string.result_ron, who) + if (r.loser >= 0) "・" + res.getString(R.string.result_ron_from, names[r.loser]) else ""
+        else -> res.getString(R.string.result_ron, who) + if (r.loser >= 0) Words.sep + res.getString(R.string.result_ron_from, names[r.loser]) else ""
       }
     }
   } ?: ""
@@ -466,7 +467,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
             if (deciding != null) Text(
               (if (deciding.first == rec.me) stringResource(R.string.replay_you_chose, actionText(res, deciding.second))
               else stringResource(R.string.replay_seat_chose, names[deciding.first], actionText(res, deciding.second))) +
-                if (decidingNote.isNotEmpty()) "（$decidingNote）" else "",
+                if (decidingNote.isNotEmpty()) Words.paren(decidingNote) else "",
               style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.testTag("replay_choice"),
             ) else if (step >= n && outcome.isNotEmpty()) Text(outcome, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
               modifier = Modifier.testTag("replay_choice"))
@@ -491,7 +492,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
           key.notable?.let { notable ->
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("replay_notable")) {
               Text("★", color = Marks.found, style = MaterialTheme.typography.bodySmall)
-              Text((if (key.found) stringResource(R.string.note_found) + "：" else "") + notableText(res, mine.analysis, notable),
+              Text((if (key.found) stringResource(R.string.note_found) + Words.colon else "") + notableText(res, mine.analysis, notable),
                 style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
             }
           }
@@ -653,7 +654,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         val tiles = Tiles.sort(if (drawn != null) Tiles.without(all, listOf(drawn)) else all)
         val p = pos.players[deciding.first]
         Text(
-          stringResource(R.string.round_wind, Tiles.wind(pos.setup.round)) + "・" + stringResource(R.string.wall_left, pos.wallLeft) + "・" +
+          stringResource(R.string.round_wind, Tiles.wind(pos.setup.round)) + Words.sep + stringResource(R.string.wall_left, pos.wallLeft) + Words.sep +
             (if (deciding.first == rec.me) stringResource(R.string.analysis_your_turn) else stringResource(R.string.analysis_turn_of, names[deciding.first])),
           style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
         )

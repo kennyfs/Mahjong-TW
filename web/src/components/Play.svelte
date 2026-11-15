@@ -25,7 +25,7 @@
   import { flowerLabel, flowerShort, taiLabel } from '../lib/rules';
   import { shorten } from '../lib/shorten';
   import { settings } from '../lib/settings.svelte';
-  import { windName, type Tile as T } from '../lib/tiles';
+  import { windMark, windName, type Tile as T } from '../lib/tiles';
   import type { Action, Analysis, GameRecord } from '../lib/types';
   import { signed, ui } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
@@ -140,7 +140,7 @@
   <header class="bar" data-tour="top" {@attach shorten}>
     <!-- The round's label, then the rules', in a few characters where the bar has no room for them (東-3). -->
     {#if view}<div class="where title-medium ellipsis" data-full="{t('round_wind', windName(view.position.setup.round))} {handLabel}"
-      data-short={t('round_short', windName(view.position.setup.round), handNo)}></div>{/if}
+      data-short={t('round_short', windMark(view.position.setup.round), handNo)}></div>{/if}
     <button class="chip" aria-label={rulesChip} onclick={() => nav.open('rules')}><span data-full={rulesChip} data-short={rulesShort}></span><Icon name="dropDown" size={18} /></button>
     <div class="spacer"></div>
     <button class="btn text" onclick={() => (confirmNew = true)}>{t('practice_new')}</button>
@@ -173,7 +173,7 @@
               <div class="label-large dim">{t('scores_title')}</div>
               {#each [0, 1, 2, 3] as seat}
                 <div class="p-score" class:me={seat === ME}>
-                  <span class="p-wind" class:dealer={shown.position.setup.dealer === seat}>{windName(shown.seat_winds[seat])}</span>
+                  <span class="p-wind" class:dealer={shown.position.setup.dealer === seat}>{windMark(shown.seat_winds[seat])}</span>
                   <span class="p-name">{names[seat]}</span>
                   {#if shown.position.setup.dealer === seat}<span class="p-deal">{t('dealer_mark')}{shown.position.setup.streak > 0 ? t('streak_n', shown.position.setup.streak) : ''}</span>{/if}
                   <span class="p-pts" class:good={totals[seat] > 0} class:bad={totals[seat] < 0}>{signed(totals[seat])}</span>

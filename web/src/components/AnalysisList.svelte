@@ -33,7 +33,7 @@
       </div>
       <div class="figs body-medium">
         {#if f.shanten < 0}
-          <span class="fig win">{t('analysis_win')}{f.win_tai >= 0 ? '・' + t('analysis_win_tai', f.win_tai) : ''}</span>
+          <span class="fig win">{t('analysis_win')}{f.win_tai >= 0 ? t('sep') + t('analysis_win_tai', f.win_tai) : ''}</span>
         {:else if f.shanten === 0}
           <span class="fig ready">{t('analysis_ready')}</span>
           <span class="fig">{t('analysis_ukeire', f.ukeire)}</span>

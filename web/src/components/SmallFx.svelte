@@ -11,9 +11,10 @@
   listener).
 -->
 <script lang="ts">
+  import { t } from '../lib/i18n.svelte';
   import { onMount } from 'svelte';
   import { later } from '../lib/clock';
-  import type { Moment } from '../lib/moments';
+  import { wordChars, type Moment } from '../lib/moments';
   import Tile from './Tile.svelte';
 
   let { m, w, root }: { m: Moment; w: number; root: HTMLElement | undefined } = $props();
@@ -25,7 +26,7 @@
   const parts = $derived(m.parts ?? { in: 0, drop: 0, hold: m.ms, out: 0 });
   const before = $derived(m.gap >= 0 ? m.tiles.slice(0, m.gap) : m.tiles);
   const after = $derived(m.gap >= 0 ? m.tiles.slice(m.gap) : []);
-  const chars = $derived([...m.word].length);
+  const chars = $derived(wordChars(m.word));
   const centre = (r: DOMRect) => [r.left + r.width / 2, r.top + r.height / 2];
   const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 
@@ -105,7 +106,7 @@
 
 <div class="sfx slant {m.kind}" class:mine={m.mine} bind:this={box} style="--tw: {w}px; --chars: {chars}" aria-hidden="true">
   <div class="panel deco"></div>
-  <div class="word deco"><span class="face">{#if m.word.startsWith('搶')}<span class="rob">搶</span>{m.word.slice(1)}{:else}{m.word}{/if}</span></div>
+  <div class="word deco"><span class="face">{#if m.word.startsWith(t('rob_mark'))}<span class="rob">{t('rob_mark')}</span>{m.word.slice(t('rob_mark').length)}{:else}{m.word}{/if}</span></div>
   {#if m.who}<div class="who deco">{m.who}</div>{/if}
   {#if m.tiles.length || m.tile}
     <div class="row" bind:this={row}>
@@ -121,7 +122,8 @@
 <style>
   .sfx { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; visibility: hidden; display: flex; align-items: center;
     --face: #f6b93b; --ink: #3b2200; --back: #b9780f; --line: rgba(59, 34, 0, 0.42); --edge: #f6c453; --cut: 0.24em;
-    --fs: calc(var(--tw) * 1.2); }
+    /* (Smaller for a long word, an English one: the plaque within about 60% of the window's width.) */
+    --fs: min(calc(var(--tw) * 1.2), calc(60vw / (var(--chars) * 1.04 + 0.68))); }
   .sfx.dealin { --face: #2e383e; --ink: #ffb3a7; --back: #12171a; --line: rgba(255, 179, 167, 0.45); --edge: #ff9d8c; }
   .sfx.small { --face: #d5382d; --ink: #fff6dc; --back: #8c1c15; --line: rgba(255, 214, 120, 0.9); --edge: #ff8a73; }
   .row { position: relative; z-index: 1; display: flex; align-items: flex-end; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5)); }

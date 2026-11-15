@@ -17,8 +17,9 @@
   player's tap (Table.svelte), what turns and runs behind it going on. Nothing here takes a touch: a tap anywhere lets it go (the table's own listener).
 -->
 <script lang="ts">
+  import { t } from '../lib/i18n.svelte';
   import { onMount } from 'svelte';
-  import type { Moment, Side } from '../lib/moments';
+  import { wordChars, type Moment, type Side } from '../lib/moments';
   import Tile from './Tile.svelte';
 
   let { m, w, ms }: { m: Moment; w: number; ms: number } = $props();
@@ -81,9 +82,9 @@
   {/if}
   {#if lively}<div class="rays"><div class="spin"></div></div>{/if}
   <div class="stage">
-    <div class="plaque">
+    <div class="plaque" style="--chars: {wordChars(m.word)}">
       <!-- 搶胡 (a claim taken from the player): the 搶 in another color. -->
-      <span class="word"><span class="face">{#if m.word.startsWith('搶')}<span class="rob">搶</span>{m.word.slice(1)}{:else}{m.word}{/if}</span></span>
+      <span class="word"><span class="face">{#if m.word.startsWith(t('rob_mark'))}<span class="rob">{t('rob_mark')}</span>{m.word.slice(t('rob_mark').length)}{:else}{m.word}{/if}</span></span>
       {#if m.who}<span class="who">{m.who}</span>{/if}
       {#if m.note}<span class="note">{m.note}</span>{/if}
     </div>
@@ -166,7 +167,7 @@
 
   /* The word and the tiles, upright on the band. */
   .stage { position: relative; display: flex; flex-direction: column; align-items: center; gap: clamp(26px, 6vh, 48px); }
-  .plaque { display: flex; flex-direction: column; align-items: center; font-size: clamp(3rem, 15vmin, 7.5rem);
+  .plaque { display: flex; flex-direction: column; align-items: center; font-size: min(clamp(3rem, 15vmin, 7.5rem), calc(88vw / (var(--chars) * 1.04 + 0.76)));
     animation: plaque var(--ms) cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
   @keyframes plaque { 0% { transform: scale(1.6); opacity: 0; } 10% { transform: scale(1); opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(0.94); } }
   .quiet .plaque { animation-name: plaque-quiet; animation-timing-function: ease-out; }
