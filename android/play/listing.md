@@ -129,15 +129,15 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 
 zh-TW:
 
-新增英文介面（系統設定的「應用程式語言」）。練習顯示分析時，點對手名牌上的聽牌機率會列出詳細數字和最可能放槍的牌。失誤門檻的說明更正為實際數值（約 0.5、0.25、0.1 台）。摸牌表裡會留下的牌都亮起，表格排整齊，較好的四分之一加框；中發白依習慣順序排列。吃、碰、槓動畫開始時多了提示音，所有音效稍微大聲一些。系統的顯示大小或字型調大時，牌桌的牌不再縮小、字也不再重疊。設定的說明改成條列、更精簡。修正胡牌動畫中間的黃點，放槍等字樣不再超出畫面。
+新增英文介面（系統設定的「應用程式語言」）。練習顯示分析時，點對手名牌上的聽牌機率會列出詳細數字和最可能放槍的牌。失誤門檻的說明更正為實際數值（約 0.5、0.25、0.1 台）。摸牌表裡會留下的牌都亮起，表格排整齊，較好的四分之一加框；中發白依習慣順序排列。吃、碰、槓動畫開始時多了提示音，所有音效稍微大聲一些。系統的顯示大小或字型調大時，有牌的畫面都不再縮小牌、字也不再重疊；窄螢幕上的副露和攤開的手牌不再被切掉。分析還沒算好時，先以灰色方塊標出位置。設定的說明改成條列、更精簡。修正胡牌動畫中間的黃點，放槍等字樣不再超出畫面。
 
 en-US:
 
-English is here (set it in the system's App languages). In practice with the analysis shown, tap an opponent's chance
-of being ready for details and the tiles most likely to deal in. Mistake levels' help gives their real sizes. The
-draw table stands in columns and rings the best quarter; dragons go 中發白. Calls ring a chime, and all sounds are a
-little louder. Tiles stay large at larger display or font sizes. Shorter settings help. Fixed a dot in the win
-animation; call words stay on screen.
+English is here (in the system's App languages). With the analysis on, tap an opponent's chance of being ready to see
+the tiles most likely to deal in. Mistake levels show their real sizes. The draw table has columns and rings the best
+quarter; dragons go 中發白. Calls chime; sounds are louder. Tiles stay large at larger display or font sizes and fit
+narrow phones. Grey shapes stand in while the analysis loads. Shorter settings help. Fixed a dot in the win animation;
+call words stay on screen.
 
 
 ### 1.1.0
