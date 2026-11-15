@@ -454,7 +454,7 @@
   <string name="level_beginner">入門</string>
   <string name="level_mid">中級</string>
   <string name="level_expert">高手</string>
-  <string name="level_hint">回顧時，哪些決定算失誤、要停下來看：\n• 入門：大失誤（損失約 1 台以上）\n• 中級：失誤（約 0.5 台以上）\n• 高手：連疑問手也看（約 0.2 台以上）\n門檻會隨規則的台數大小調整；差 0.05 台以內算一樣好。</string>
+  <string name="level_hint">回顧時，哪些決定算失誤、要停下來看：\n• 入門：大失誤（損失約 0.5 台以上）\n• 中級：失誤（約 0.25 台以上）\n• 高手：連疑問手也看（約 0.1 台以上）\n門檻會隨規則的台數大小調整；差 0.05 台以內算一樣好。</string>
   <string name="grade_questionable">疑問手</string>
   <string name="grade_mistake">失誤</string>
   <string name="grade_blunder">大失誤</string>
@@ -525,7 +525,7 @@
   <string name="whatif_show">算出摸牌表與鳴牌表</string>
   <string name="whatif_draws">摸牌表</string>
   <string name="whatif_claims">鳴牌表</string>
-  <string name="whatif_draws_hint">下一張摸到每種牌時的最佳打法。亮的是摸到會留下的牌，暗的是摸到就打掉。</string>
+  <string name="whatif_draws_hint">下一張摸到每種牌時的最佳打法。亮的是摸到會留下的牌（綠框是最好的幾種），暗的是摸到就打掉。</string>
   <string name="whatif_claims_hint">別人打出這些牌時，吃、碰、槓或胡比不理好。</string>
   <string name="whatif_keep">會留下 %1$d 種、%2$d 張</string>
   <string name="whatif_left">剩 %1$d</string>

@@ -204,4 +204,4 @@ in brackets), decisions a hand above each step: 0.1: 0.77 (1.04), 0.25: 0.33 (0.
 (0.06). The network sampling, by itself: 0.1: 0.96, 0.25: 0.11, 0.5: 0.015. The steps were 0.2, 0.5, 1 (questionable,
 mistake, blunder, for a payment of 4); the user found them too large, and they are halved to **0.1, 0.25, 0.5**: the
 lowest is still above the noise of the action played (its p95), and `greedy` then has about one questionable decision
-a hand and one mistake in three hands.
+a hand and one mistake in three hands. (The settings' help went on saying 0.2, 0.5, 1 until 2026-11-15.)

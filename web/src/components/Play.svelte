@@ -239,7 +239,7 @@
       </Table>
       {/key}
     {:else}
-      <TableSkeleton />
+      <TableSkeleton {names} scores={totals} handLabel={ui.wide ? handLabel : ''} handShort={ui.wide ? handNo : ''} maxHand={ui.desk ? 72 : 64} me={ME} />
     {/if}
   </div>
 </div>

@@ -1,5 +1,6 @@
 // The table's sounds (public/sounds: scripts/make_sounds.py): the shuffle, a packet of
-// tiles dealt, a tile discarded (a few takes, one at random each time), a call's, a kong's, a flower; at a hand's end,
+// tiles dealt, a tile discarded (a few takes, one at random each time), each call its own (a chow, a pung, an open,
+// concealed or added kong), a flower; at a hand's end,
 // as the hands are shown: the player's own win, another's (neither gaining nor losing by it), another's they pay for,
 // a draw; and with the result's moment, a jingle: the player's success, failure, or neither; a declared ready hand
 // (天聽, 地聽, 報聽): surprise. Tiles as they sound (a second set, made from scratch, was dropped
@@ -9,7 +10,9 @@
 import { settings } from './settings.svelte';
 
 export type SoundName = 'shuffle' | 'deal' | 'discard' | 'call' | 'kong' | 'win' | 'other' | 'lose' | 'drawn' | 'flower'
-  | 'success' | 'failure' | 'neutral' | 'declare';
+  | 'success' | 'failure' | 'neutral' | 'declare' | 'chi' | 'pon' | 'kan' | 'ankan' | 'kakan';
+/** A call's own sound (a chow, a pung, an open, concealed or added kong); 'call' for any other. */
+export const callSound = (type: string): SoundName => (['chi', 'pon', 'kan', 'ankan', 'kakan'].includes(type) ? (type as SoundName) : 'call');
 
 /** Each sound's files (takes of the same, one picked at random) and its own loudness at the full level. */
 const FILES: Record<SoundName, { files: string[]; gain: number }> = {
@@ -27,6 +30,11 @@ const FILES: Record<SoundName, { files: string[]; gain: number }> = {
   failure: { files: ['failure'], gain: 0.3 },
   neutral: { files: ['neutral'], gain: 0.22 },
   declare: { files: ['declare'], gain: 0.45 },
+  chi: { files: ['chi'], gain: 0.7 },
+  pon: { files: ['pon'], gain: 0.75 },
+  kan: { files: ['kan'], gain: 0.8 },
+  ankan: { files: ['ankan'], gain: 0.7 },
+  kakan: { files: ['kakan'], gain: 0.7 },
 };
 const LEVEL = { off: 0, soft: 0.4, full: 1 };
 

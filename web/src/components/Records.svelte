@@ -95,7 +95,7 @@
     const c = parseChoice({ tai, flowers });
     return t('rules_chip', t(taiLabel(c.tai)), t(flowerLabel(c.flowers))) + (spec.split(',').length > 2 ? t('sep') + t('rules_custom') : '');
   }
-  const tabs: [RecordKind, string][] = [['practice', t('records_practice')], ['table', t('records_table')], ['contest', t('records_contest')]];
+  const tabs: [RecordKind, string][] = $derived([['practice', t('records_practice')], ['table', t('records_table')], ['contest', t('records_contest')]]);
 </script>
 
 {#snippet line(h: HandRecord)}

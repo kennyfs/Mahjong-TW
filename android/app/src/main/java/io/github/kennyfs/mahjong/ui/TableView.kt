@@ -1581,9 +1581,8 @@ private fun TableEvents(host: FxHost, view: View, me: Int, names: List<String>, 
         "flower" -> Sounds.play(Sounds.Name.FLOWER)
         // (Its sound as the hands are shown.)
         "exhausted", "ron", "tsumo", "flower_win" -> {}
-        "kan", "ankan", "kakan" -> Sounds.play(Sounds.Name.KONG)
         "declare" -> Sounds.play(Sounds.Name.DECLARE)
-        else -> Sounds.play(Sounds.Name.CALL)
+        else -> Sounds.play(Sounds.callSound(e.type))
       }
       val kind = when (e.type) {
         "tsumo", "ron", "flower_win" -> CalloutKind.WIN

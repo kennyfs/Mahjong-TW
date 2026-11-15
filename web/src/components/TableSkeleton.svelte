@@ -1,46 +1,41 @@
 <!--
-  A table before there is one (the engine still downloading, a battle's first view on its way): the felt with the
-  shapes of the players' plates, the middle and the hand in a lighter tone, pulsing, as a page shows while it loads.
+  A table before there is one (the engine still downloading, a battle's first view on its way): the table itself
+  (Table.svelte) with a placeholder hand, so that every part is where and as large as it will be once dealt, drawn as
+  shapes in a lighter tone of the felt, pulsing, as a page shows while it loads. The screen gives what its table will
+  have: the names, the scores, the hand's label, the tiles' cap.
 -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
+  import type { View } from '../lib/types';
+  import Table from './Table.svelte';
+
+  let { names = null, scores = null, handLabel = '', handShort = '', maxHand = 64, me = 0 }: {
+    names?: string[] | null; scores?: number[] | null; handLabel?: string; handShort?: string; maxHand?: number; me?: number;
+  } = $props();
+  // (Words of a plate's length where the names are not known yet.)
+  const shownNames = $derived(names ?? [0, 1, 2, 3].map((s) => (s === me ? t('you') : t('cpu_n', s))));
+  const empty = { melds: [], flowers: '', discards: [] };
+  const view = $derived<View>({
+    rules: 'simple1,none',
+    position: { setup: { dealer: me, east: -1, round: 0, streak: 0 }, me, hand: '123456789m1234567p', drawn: null, after_call: false,
+      claim: null, players: [empty, empty, empty, empty], wall_left: 56 },
+    phase: 'self', current: (me + 1) % 4, seat_winds: [0, 1, 2, 3].map((s) => (s - me + 4) % 4), my_turn: false, legal: [], events: [],
+    event_count: 0, result: null,
+  });
 </script>
 
 <div class="skel-table" role="status" aria-label={t('loading')}>
-  <div class="top"><span class="plate"></span><span class="backs">{#each Array(8) as _, i (i)}<span class="back"></span>{/each}</span></div>
-  <div class="left"><span class="plate"></span></div>
-  <div class="middle"><span class="box"></span></div>
-  <div class="right"><span class="plate"></span></div>
-  <div class="me">
-    <span class="plate"></span>
-    <div class="hand">{#each Array(16) as _, i (i)}<span class="tile"></span>{/each}</div>
-  </div>
+  <Table {view} {me} names={shownNames} {scores} interactive={false} {handLabel} {handShort} {maxHand} hints={false} />
 </div>
 
 <style>
-  .skel-table { position: absolute; inset: 0; overflow: hidden; background: var(--felt); display: grid;
-    grid-template-columns: 1fr 2fr 1fr; grid-template-rows: auto 1fr auto; grid-template-areas: "top top top" "left middle right" "me me me";
-    gap: 12px; padding: 12px; }
-  .top { grid-area: top; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .left { grid-area: left; display: flex; align-items: center; }
-  .right { grid-area: right; display: flex; align-items: center; justify-content: flex-end; }
-  .middle { grid-area: middle; display: flex; align-items: center; justify-content: center; }
-  .me { grid-area: me; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-  .plate, .back, .box, .tile { display: block; background: var(--on-felt); opacity: 0.14; border-radius: 6px; animation: pulse 1.6s ease-in-out infinite; }
-  .plate { width: 112px; height: 24px; border-radius: 12px; }
-  .backs { display: flex; gap: 3px; }
-  .back { width: 18px; height: 26px; border-radius: 3px; }
-  .box { width: min(150px, 60%); aspect-ratio: 1; border-radius: 12px; }
-  .hand { display: flex; flex-wrap: wrap; gap: 3px; max-width: 100%; }
-  .tile { width: clamp(30px, calc((100vw - 96px) / 16), 46px); aspect-ratio: 60 / 87; }
-  /* Upright (as the table): the three others' plates in a line at the top. */
-  @media (max-width: 599px) {
-    .skel-table { grid-template-areas: "left top right" "middle middle middle" "me me me"; }
-    .left, .right { align-items: flex-start; }
-    .top .plate, .left .plate, .right .plate { width: min(112px, 100%); }
-  }
-  @media (max-width: 599px) { .hand { max-width: calc(8 * (min(46px, (100vw - 48px) / 8) + 3px)); }
-    .tile { width: min(46px, calc((100vw - 48px) / 8 - 3px)); } }
-  @keyframes pulse { 0%, 100% { opacity: 0.1; } 50% { opacity: 0.2; } }
-  @media (prefers-reduced-motion: reduce) { .plate, .back, .box, .tile { animation: none; } }
+  .skel-table { position: absolute; inset: 0; overflow: hidden; background: var(--felt); pointer-events: none; }
+  /* Every shape a block of the felt's lighter tone; no words, no faces. */
+  .skel-table :global(svg.tile > *) { display: none; }
+  .skel-table :global(svg.tile), .skel-table :global(.badge-row), .skel-table :global(.corner-info), .skel-table :global(.box) {
+    background: color-mix(in srgb, var(--on-felt) 14%, transparent); border-color: transparent; box-shadow: none; border-radius: 6px;
+    animation: pulse 1.6s ease-in-out infinite; }
+  .skel-table :global(.badge-row *), .skel-table :global(.corner-info *), .skel-table :global(.box *) { visibility: hidden; }
+  @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .skel-table :global(*) { animation: none !important; } }
 </style>

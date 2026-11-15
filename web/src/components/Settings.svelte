@@ -22,14 +22,14 @@
   import TitleBar from './TitleBar.svelte';
   import Toggle from './Toggle.svelte';
 
-  const lengths: [Length, string][] = [['hand', t('length_hand')], ['round', t('length_round')], ['game', t('length_game')]];
-  const speeds: [Speed, string][] = [['slow', t('speed_slow')], ['normal', t('speed_normal')], ['fast', t('speed_fast')], ['manual', t('speed_manual')]];
-  const colors: [Colors, string][] = [['TABLE', t('colors_table')], ['MINIMAL', t('colors_minimal')]];
-  const darks: [Dark, string][] = [['SYSTEM', t('dark_system')], ['LIGHT', t('dark_light')], ['DARK', t('dark_dark')]];
-  const texts: [TextSize, string][] = [['SMALL', t('text_small')], ['NORMAL', t('text_normal')], ['LARGE', t('text_large')]];
-  const bots: [string, string][] = BOTS.map((b) => [b.spec, t(b.label)]);
-  const sounds: [SoundLevel, string][] = [['off', t('sound_off')], ['soft', t('sound_soft')], ['full', t('sound_full')]];
-  const levels: [Level, string][] = [['beginner', t('level_beginner')], ['mid', t('level_mid')], ['expert', t('level_expert')]];
+  const lengths: [Length, string][] = $derived([['hand', t('length_hand')], ['round', t('length_round')], ['game', t('length_game')]]);
+  const speeds: [Speed, string][] = $derived([['slow', t('speed_slow')], ['normal', t('speed_normal')], ['fast', t('speed_fast')], ['manual', t('speed_manual')]]);
+  const colors: [Colors, string][] = $derived([['TABLE', t('colors_table')], ['MINIMAL', t('colors_minimal')]]);
+  const darks: [Dark, string][] = $derived([['SYSTEM', t('dark_system')], ['LIGHT', t('dark_light')], ['DARK', t('dark_dark')]]);
+  const texts: [TextSize, string][] = $derived([['SMALL', t('text_small')], ['NORMAL', t('text_normal')], ['LARGE', t('text_large')]]);
+  const bots: [string, string][] = $derived(BOTS.map((b) => [b.spec, t(b.label)]));
+  const sounds: [SoundLevel, string][] = $derived([['off', t('sound_off')], ['soft', t('sound_soft')], ['full', t('sound_full')]]);
+  const levels: [Level, string][] = $derived([['beginner', t('level_beginner')], ['mid', t('level_mid')], ['expert', t('level_expert')]]);
   const rulesValue = $derived(t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerLabel(settings.rules.flowers))) +
     (Object.keys(settings.rules.overrides).length ? t('sep') + t('rules_custom') : ''));
 
@@ -40,7 +40,7 @@
   function setColors(v: Colors) { settings.colors = v; settings.persist(); }
   function setDark(v: Dark) { settings.dark = v; settings.persist(); }
   function setSound(v: SoundLevel) { settings.sound = v; settings.persist(); playSound('discard'); }
-  const onOff: [string, string][] = [['off', t('sound_off')], ['on', t('ready_hint_on')]];
+  const onOff: [string, string][] = $derived([['off', t('sound_off')], ['on', t('ready_hint_on')]]);
   function setReady(v: string) { settings.readyHint = v === 'on'; settings.persist(); }
   // (Turned on while a practice hand is in play: that hand has had it, and keeps it till its end.)
   function setHints(v: string) {

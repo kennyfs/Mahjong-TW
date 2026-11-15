@@ -10,8 +10,8 @@ import kotlin.random.Random
 
 /**
  * The table's sounds (the web page's lib/sound.ts; the files are its public/sounds, copied in by the build: a name's
- * '-' as '_'): the shuffle, the tiles dealt, a tile discarded (a few takes, one at random each time), a call's, a
- * kong's, a flower; at a hand's end, as the hands are shown: the player's own win, another's (neither gaining nor
+ * '-' as '_'): the shuffle, the tiles dealt, a tile discarded (a few takes, one at random each time), each call its
+ * own (a chow, a pung, an open, concealed or added kong), a flower; at a hand's end, as the hands are shown: the player's own win, another's (neither gaining nor
  * losing by it), another's they pay for, a draw; with the result's moment, a jingle: the player's success, failure, or
  * neither; a declared ready hand (天聽, 地聽, 報聽): surprise. Each loaded once (SoundPool) at the start; one asked for
  * before it is in is not played late. The level: the settings' (off, soft, full). Nothing while the app is not on the
@@ -34,6 +34,21 @@ object Sounds {
     FAILURE(intArrayOf(R.raw.failure), 0.3f),
     NEUTRAL(intArrayOf(R.raw.neutral), 0.22f),
     DECLARE(intArrayOf(R.raw.declare), 0.45f),
+    CHI(intArrayOf(R.raw.chi), 0.7f),
+    PON(intArrayOf(R.raw.pon), 0.75f),
+    KAN(intArrayOf(R.raw.kan), 0.8f),
+    ANKAN(intArrayOf(R.raw.ankan), 0.7f),
+    KAKAN(intArrayOf(R.raw.kakan), 0.7f),
+  }
+
+  /** A call's own sound (a chow, a pung, an open, concealed or added kong); CALL for any other. */
+  fun callSound(type: String): Name = when (type) {
+    "chi" -> Name.CHI
+    "pon" -> Name.PON
+    "kan" -> Name.KAN
+    "ankan" -> Name.ANKAN
+    "kakan" -> Name.KAKAN
+    else -> Name.CALL
   }
 
   private var pool: SoundPool? = null

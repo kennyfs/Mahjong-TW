@@ -51,7 +51,7 @@
   import { groupIndices, parseTiles, sortTiles, taiName, windMark, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
   import { dealsShown, movesShown, resultTap, setFx } from '../lib/fx.svelte';
-  import { playSound } from '../lib/sound';
+  import { callSound, playSound } from '../lib/sound';
   import { later } from '../lib/clock';
   import CallFx from './CallFx.svelte';
   import SadFx from './SadFx.svelte';
@@ -393,7 +393,7 @@
     return untrack(() => {
       if (c.kind === 'call') {
         const p = c.parts;
-        const offs = [playSound(c.type === 'chi' || c.type === 'pon' ? 'call' : 'kong', p ? p.in + 0.82 * p.drop : 0)];
+        const offs = [playSound(callSound(c.type), p ? p.in + 0.82 * p.drop : 0)];
         if (p && c.dst) offs.push(playSound('discard', p.in + p.drop + p.hold + p.out));
         return () => offs.forEach((f) => f());
       }
@@ -737,8 +737,7 @@
         if (e.type === 'flower') playSound('flower');
         else if (e.type === 'exhausted' || e.type === 'ron' || e.type === 'tsumo' || e.type === 'flower_win') {
           // (Its sound as the hands are shown.)
-        } else if (e.type === 'kan' || e.type === 'ankan' || e.type === 'kakan') playSound('kong');
-        else playSound(e.type === 'declare' ? 'declare' : 'call');
+        } else playSound(e.type === 'declare' ? 'declare' : callSound(e.type));
         const kind: CalloutKind = e.type === 'tsumo' || e.type === 'ron' || e.type === 'flower_win' ? 'win'
           : e.type === 'flower' ? 'flower' : e.type === 'exhausted' ? 'drawn' : 'call';
         say(e.type === 'exhausted' ? 'top' : side, t(word), kind, e.type === 'flower' ? flowerMs() : callMs(),

@@ -446,7 +446,7 @@
   <string name="level_beginner">Beginner</string>
   <string name="level_mid">Intermediate</string>
   <string name="level_expert">Expert</string>
-  <string name="level_hint">Which decisions a review stops at as mistakes:\n• Beginner: blunders (a loss of about 1 tai or more)\n• Intermediate: mistakes (about 0.5 tai or more)\n• Expert: questionable moves too (about 0.2 tai or more)\nThe thresholds scale with the rules\' tai; within 0.05 tai counts as equally good.</string>
+  <string name="level_hint">Which decisions a review stops at as mistakes:\n• Beginner: blunders (a loss of about 0.5 tai or more)\n• Intermediate: mistakes (about 0.25 tai or more)\n• Expert: questionable moves too (about 0.1 tai or more)\nThe thresholds scale with the rules\' tai; within 0.05 tai counts as equally good.</string>
   <string name="grade_questionable">Questionable</string>
   <string name="grade_mistake">Mistake</string>
   <string name="grade_blunder">Blunder</string>
@@ -516,7 +516,7 @@
   <string name="whatif_show">Work out the draw and call tables</string>
   <string name="whatif_draws">Draw table</string>
   <string name="whatif_claims">Call table</string>
-  <string name="whatif_draws_hint">The best play for each tile you might draw next. Bright: you would keep it; dim: you would discard it.</string>
+  <string name="whatif_draws_hint">The best play for each tile you might draw next. Bright: you would keep it (green frame: the best ones); dim: you would discard it.</string>
   <string name="whatif_claims_hint">When someone discards one of these, chow, pung, kong or win beats letting it go.</string>
   <string name="whatif_keep">Keeps %1$d kinds, %2$d tiles</string>
   <string name="whatif_left">%1$d left</string>

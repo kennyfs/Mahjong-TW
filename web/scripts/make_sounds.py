@@ -226,6 +226,37 @@ def real():
     place(b, knock(), 0.3, 0.25)
     save('flower', room(b, 0.08), 0.55)
 
+    # Each call its own (2026-11-15; 'call' and 'kong' above stay for what has no word of its own), from a random state
+    # of their own so that the sounds above stay as they are. A chow: the tile slid in beside the two, light and quick
+    # (a soft set-down, two small clicks). A pung: firmer, the tile set down and knocked into the pair at once. An open
+    # kong: the pung's knock, then the fourth slammed on a beat later. A concealed kong: the four turned over in a quick
+    # run, duller. An added kong: one tile set on the pung, a single click.
+    rng.bit_generator.state = np.random.default_rng(20261115).bit_generator.state
+    b = np.zeros(int(SR * 0.35))
+    place(b, tile_down(1.25, 0.0), 0.0, 0.55)
+    place(b, knock(), 0.035, 0.45)
+    place(b, knock(), 0.07, 0.3)
+    save('chi', room(highpass(b, 250), 0.06), 0.7)
+    b = np.zeros(int(SR * 0.35))
+    place(b, tile_down(1.05, 0.2), 0.0, 0.75)
+    clatter(4, 0.014, 1.0, 0.004, b)
+    save('pon', room(b, 0.06), 0.85)
+    b = np.zeros(int(SR * 0.5))
+    place(b, tile_down(1.05, 0.2), 0.0, 0.6)
+    clatter(4, 0.014, 0.85, 0.004, b)
+    place(b, tile_down(0.95, 0.3), 0.13, 0.9)
+    clatter(3, 0.01, 0.9, 0.132, b)
+    save('kan', room(b, 0.07), 0.9)
+    b = np.zeros(int(SR * 0.5))
+    for k in range(4):
+        place(b, knock(), 0.055 * k, 0.75 - 0.08 * k)
+    place(b, thump(170, 0.025), 0.17, 0.25)
+    save('ankan', room(lowpass(b, 6000), 0.06), 0.75)
+    b = np.zeros(int(SR * 0.3))
+    place(b, knock(), 0.0, 0.9)
+    place(b, tile_down(1.1, 0.1), 0.006, 0.4)
+    save('kakan', room(b, 0.06), 0.7)
+
 def jingles():
     """A hand's result to the player: their own win (rising), a hand they pay for (falling), neither."""
     for name, src in [('success', 'jingles_STEEL02.ogg'), ('failure', 'jingles_STEEL01.ogg'), ('neutral', 'jingles_STEEL13.ogg')]:

@@ -182,7 +182,7 @@ class FxHost {
     val p = c.parts
     when {
       c.kind == MomentKind.CALL -> {
-        sounds += Sounds.play(if (c.type == "chi" || c.type == "pon") Sounds.Name.CALL else Sounds.Name.KONG,
+        sounds += Sounds.play(Sounds.callSound(c.type),
           if (p != null) p.come + (0.82 * p.drop).toLong() else 0L)
         if (p != null && c.meld >= 0) sounds += Sounds.play(Sounds.Name.DISCARD, p.total)
       }

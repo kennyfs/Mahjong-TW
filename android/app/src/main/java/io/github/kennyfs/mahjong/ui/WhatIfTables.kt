@@ -30,11 +30,11 @@ import io.github.kennyfs.mahjong.pts
 
 /** A cell of a table: a tile and what follows it, with a line of figures under them. */
 @Composable
-private fun Cell(top: Boolean, off: Boolean, pair: @Composable () -> Unit, under: @Composable () -> Unit) {
+private fun Cell(top: Boolean, off: Boolean, pair: @Composable () -> Unit, under: @Composable () -> Unit, lit: Boolean = top) {
   val cs = MaterialTheme.colorScheme
   val shape = RoundedCornerShape(10.dp)
   Surface(
-    shape = shape, color = if (top) cs.secondaryContainer else cs.surfaceContainer, contentColor = if (top) cs.onSecondaryContainer else cs.onSurface,
+    shape = shape, color = if (lit) cs.secondaryContainer else cs.surfaceContainer, contentColor = if (lit) cs.onSecondaryContainer else cs.onSurface,
     modifier = Modifier.alpha(if (off) 0.5f else 1f).let { if (top) it.border(2.dp, Marks.found, shape) else it },
   ) {
     Column(Modifier.width(IntrinsicSize.Max).padding(horizontal = 7.dp, vertical = 5.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -82,7 +82,7 @@ fun WhatIfTables(data: WhatIf, w: Float, seatName: (Int) -> String, modifier: Mo
           if (keep) Text(pts(d.value), style = small, fontWeight = FontWeight.Bold, maxLines = 1)
           else Text(stringResource(R.string.whatif_tsumogiri), style = small, maxLines = 1)
           Text(stringResource(R.string.whatif_left, d.left), style = small, color = dim, maxLines = 1)
-        })
+        }, lit = keep)
       }
     }
 
