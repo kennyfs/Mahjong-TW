@@ -1,6 +1,6 @@
 <!--
   What the hand would do next, by the network: after each tile it may draw (the best action and the hand's value then;
-  the tiles it would keep lit, the ones it would discard at once dim), and on each discard of the others that it would
+  the tiles it would keep lit, the best of them ringed, the ones it would discard at once dim), and on each discard of the others that it would
   do better to claim than to leave.
 -->
 <script lang="ts">
@@ -37,7 +37,7 @@
   <p class="hint body-small dim">{t('whatif_draws_hint')}</p>
   <div class="cells">
     {#each draws as d (d.tile)}
-      <div class="cell" class:off={!d.kept} class:top={d.kept && d.value >= top - EQUAL}>
+      <div class="cell" class:off={!d.kept} class:kept={d.kept} class:top={d.kept && d.value >= top - EQUAL}>
         <div class="pair">
           <Tile tile={d.tile} {w} />
           {#if d.kept}
@@ -81,7 +81,8 @@
   .hint { margin: 0; line-height: 1.5; }
   .cells { display: flex; flex-wrap: wrap; gap: 6px; }
   .cell { display: flex; flex-direction: column; gap: 2px; padding: 5px 7px; border-radius: 10px; background: var(--surface-container); }
-  .cell.top { background: var(--secondary-container); color: var(--on-secondary-container); box-shadow: inset 0 0 0 2px var(--found); }
+  .cell.kept { background: var(--secondary-container); color: var(--on-secondary-container); }
+  .cell.top { box-shadow: inset 0 0 0 2px var(--found); }
   .cell.off { opacity: 0.5; }
   .pair { display: flex; align-items: center; gap: 3px; }
   .arrow { color: var(--on-surface-variant); }

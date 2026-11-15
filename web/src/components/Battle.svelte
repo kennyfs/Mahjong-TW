@@ -388,7 +388,7 @@
           {/snippet}
         </Table>
       {:else}
-        <TableSkeleton />
+        <TableSkeleton maxHand={ui.desk ? 72 : 64} />
       {/if}
       {#if battle.reconnecting}
         <div class="reconnect"><span class="spinner"></span>{t('battle_reconnecting')}</div>
