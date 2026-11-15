@@ -113,6 +113,9 @@
     return () => clearTimeout(timer);
   });
   const marks = $derived(result ? tileMarks(result, -1, undefined) : null);
+  /** Another's discard the player can do nothing with (no chow, pung, kong or win): nothing to analyze, but the hand
+   *  can be entered on from it (手動繼續: the others' answers are the player's to enter). */
+  const noDecision = $derived(!!error && ed.mode === 'claim' && /has nothing to decide/.test(error));
 
   /** 與電腦繼續: the hand played on from the position, the player at `me` (a review's step: its seat; else 0). (The
    *  branch gives the base its own seed.) */
@@ -168,9 +171,15 @@
 {#snippet results()}
   <div class="status">
     {#if missing}<span class="body-medium dim">{missing}</span>
+    {:else if noDecision}<span class="body-medium dim">{t('analysis_no_decision')}</span>
     {:else if error}<span class="body-medium bad">{t('analysis_error', error)}</span>
     {/if}
   </div>
+  {#if noDecision}
+    <div class="play-row">
+      <button class="btn filled" title={t('analysis_manual_hint')} onclick={() => playFrom(true)}>{t('analysis_manual')}</button>
+    </div>
+  {/if}
   {#if !missing && !error && running && !result}<PanelSkeleton w={sw} rows={4} />{/if}
   {#if result}
     <div class="results" class:stale={running}>

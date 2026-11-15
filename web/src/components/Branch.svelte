@@ -28,9 +28,14 @@
   taken from.
 
   手動繼續 (`manual`, from the analysis): no computer players; the player enters what happens at a real table, a step
-  at a time (under the table; the next discard first, a call on the one on the table after it, as calls are rarer): their own draws, the others' discards (摸切 or not), flowers and calls, and on their
-  own decisions the analysis is shown as above. The engine fits the tiles the player cannot see to what is entered
-  (lib/manual.ts). Another's win is not entered: the hand just ends there.
+  at a time, at the newest step or at one gone back to (what came after is then dropped): their own draws, the
+  others' discards (摸切 or not), flowers and calls, and on their own decisions the analysis is shown as above. Under
+  the table: on another's discard who called it (the seats that could, then that seat's calls, their tiles large) or
+  won, and the palette for the next tile (the player's draw on a tinted ground); a phone's tap marks a tile, a second
+  enters it (a computer's click enters it). The hand shows only when the player discards (its room is the table's
+  otherwise); the name plate framed is the seat whose move is entered. The screens' bar is put away. The engine fits
+  the tiles the player cannot see to what is entered (lib/manual.ts). Another's win is not entered: the hand just
+  ends there.
 
   The controls as the review has them: under the table on an upright window (the words there keep the room of their
   longest, so that the table does not move from step to step), in a column at the right on a wide one (the table the
@@ -48,7 +53,7 @@
   import { settings } from '../lib/settings.svelte';
   import type { Tile as T } from '../lib/tiles';
   import { chows, enter, passes, unseen, withoutStandIn, cut, type Entry } from '../lib/manual';
-  import { FLOWERS, KINDS, tileName } from '../lib/tiles';
+  import { FLOWERS, KINDS, KINDS_SHOWN, tileName } from '../lib/tiles';
   import { recordAction, type Action, type Analysis, type GameRecord, type View } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
   import DecisionPanel from './DecisionPanel.svelte';
@@ -142,7 +147,8 @@
   async function lookAt(g: GameRecord, k: number, v: View): Promise<Look | null> {
     if (v.phase === 'over') return null;
     const decides = v.my_turn && !v.draw_needed && (!manual || v.legal.some((a) => a.type !== 'pass'));
-    const d = k < g.actions.length ? recordAction(g.actions[k]) : decides ? { seat: me, action: null } : null;
+    // (手動繼續: every seat answers each discard, the player's answer among the others'.)
+    const d = manual && decides ? { seat: me, action: myAnswer(g, k) } : k < g.actions.length ? recordAction(g.actions[k]) : decides ? { seat: me, action: null } : null;
     if (!d) return null;
     const cut = at(g, k);
     const [analysis, seatView] = await Promise.all([
@@ -150,6 +156,15 @@
       !listView ? Promise.resolve(null) : d.seat === me ? Promise.resolve(v) : engine.view(cut, d.seat).catch(() => null),
     ]);
     return { seat: d.seat, action: d.action ? fullAction(d.action) : null, analysis, seatView };
+  }
+  /** 手動繼續: what the player did from step k on, before anyone's call (null: nothing entered yet). */
+  function myAnswer(g: GameRecord, k: number): Action | null {
+    for (let j = k; j < g.actions.length; j++) {
+      const r = recordAction(g.actions[j]);
+      if (r.seat === me) return r.action;
+      if (r.action.type !== 'pass') break;
+    }
+    return null;
   }
   // The list opened or closed: the step's decision again, with what the list needs.
   $effect(() => {
@@ -354,6 +369,7 @@
       ended = false;
       flowerMode = false;
       tsumogiri = false;
+      claimSeat = null;
       showResult = true;
       await show();
     } catch (x) {
@@ -372,7 +388,7 @@
   /** What is to be entered at the newest step. */
   type Ask = { kind: 'draw' } | { kind: 'turn'; seat: number; afterCall: boolean } | { kind: 'claim'; from: number; tile: string; next: number } | { kind: 'mine' } | null;
   const ask = $derived.by<Ask>(() => {
-    if (!manual || !view || !atHead || ended || over) return null;
+    if (!manual || !view || ended || over) return null;
     if (view.phase === 'self') {
       if (view.current === me) return view.draw_needed ? { kind: 'draw' } : { kind: 'mine' };
       const last = [...view.events].reverse().find((e) => e.seat === view!.current && e.type !== 'flower');
@@ -385,11 +401,27 @@
     }
     return view.my_turn ? { kind: 'mine' } : null;
   });
-  const hasFlowers = $derived(!!view && !view.rules.includes(',none'));
+  // (The view's rules are the full spec: "flowers=0,..." for none.)
+  const hasFlowers = $derived(!!view && !/(^|,)(none|flowers=0)(,|$)/.test(view.rules));
   const left = $derived(view && manual ? unseen(view, hasFlowers) : new Map<string, number>());
   /** Whose tile the palette enters: the player's draw, or another's discard (or flower). */
   const paletteSeat = $derived(ask?.kind === 'draw' ? me : ask?.kind === 'turn' ? ask.seat : ask?.kind === 'claim' ? ask.next : -1);
-  const paletteTiles = $derived(flowerMode ? FLOWERS : paletteSeat === me && hasFlowers ? [...KINDS, ...FLOWERS] : KINDS);
+  /** The palette's rows: a suit a row, the honors (東南西北中發白), the flowers on a row of their own. */
+  const ROWS = [0, 9, 18, 27].map((i) => KINDS_SHOWN.slice(i, i + 9));
+  const paletteRows = $derived(flowerMode ? [FLOWERS] : paletteSeat === me && hasFlowers ? [...ROWS, FLOWERS] : ROWS);
+  /** The palette's tile tapped once (a phone: a second tap enters it; a computer's click enters it at once). */
+  let pending = $state<string | null>(null);
+  /** The seat whose call on the tile on the table is being entered (its calls in the palette's place). */
+  let claimSeat = $state<number | null>(null);
+  $effect(() => { void ask; void flowerMode; pending = null; });
+  $effect(() => { void cursor; void game; claimSeat = null; });
+  function tapTile(tile: string) {
+    if ((left.get(tile) ?? 0) <= 0 || busy) return;
+    if (ui.desk || pending === tile) {
+      pending = null;
+      void tapPalette(tile);
+    } else pending = tile;
+  }
   function tapPalette(tile: string) {
     if (!ask || (left.get(tile) ?? 0) <= 0) return;
     const flower = tile[1] === 'f';
@@ -411,7 +443,6 @@
   function claim(seat: number, a: Action) {
     return make(async (g) => ({ actions: [...(await passes(g, [seat])), [seat, a]] }));
   }
-  const noCalls = () => make(async (g) => ({ actions: await passes(g) }));
   /** The calls another seat could make on the tile on the table, as far as the tiles not seen allow. */
   const callsOf = (seat: number, tile: string): { label: string; action: Action; tiles: string[] }[] => {
     const n = left.get(tile) ?? 0;
@@ -435,6 +466,18 @@
   /** The table the player sees: their draw left out while it is a stand-in. */
   const shown = $derived(view && manual ? withoutStandIn(view, me) : view);
   const manualInteractive = $derived(!!shown?.my_turn && !busy && (shown.phase === 'self' || shown.legal.some((a) => a.type !== 'pass')));
+  /** 手動繼續: the hand only when the player discards (its room the table's), and the name plate framed of the seat
+   *  whose move is being entered. */
+  const handShown = $derived(!manual || over || (!!shown?.my_turn && shown.phase === 'self'));
+  const entering = $derived(!manual || !ask ? null : ask.kind === 'draw' || ask.kind === 'mine' ? me : ask.kind === 'turn' ? ask.seat : (claimSeat ?? ask.next));
+  // 手動繼續: the whole window (no bar of the screens under it).
+  $effect(() => {
+    if (!manual) return;
+    ui.fullTable = true;
+    return () => { ui.fullTable = false; };
+  });
+  /** The seats that could call the tile on the table, as far as the tiles not seen allow. */
+  const callers = $derived(ask?.kind === 'claim' ? [1, 2, 3].map((r) => (ask.from + r) % 4).filter((o) => o !== me && callsOf(o, ask.tile).length > 0) : []);
 
   /** A step: the actions that show (others' passes do not; in 手動繼續 no pass). */
   const isStop = (k: number) => !!game && (manual ? game.actions[k][1] !== 'pass' : game.actions[k][0] === me || game.actions[k][1] !== 'pass');
@@ -451,7 +494,7 @@
   function prev() { let k = cursor - 1; while (k > start && !isStop(k - 1)) k--; go(k); }
   function next() { if (!game) return; let k = cursor + 1; while (k < game.actions.length && !isStop(k - 1)) k++; go(k); }
   /** The player's own decisions: the step at which they decide (the newest step when none is after). */
-  const isMine = (k: number) => !!game && game.actions[k][0] === me;
+  const isMine = (k: number) => !!game && game.actions[k][0] === me && (!manual || game.actions[k][1] !== 'pass');
   function prevMine() { let k = cursor - 1; while (k > start && !isMine(k)) k--; go(k); }
   function nextMine() { if (!game) return; let k = cursor + 1; while (k < game.actions.length && !isMine(k)) k++; go(k); }
   function onkey(e: KeyboardEvent) {
@@ -477,7 +520,7 @@
   const atHead = $derived(!!game && cursor === game.actions.length);
   const steps = $derived(game ? game.actions.slice(start, cursor).filter((_, i) => isStop(start + i)).length : 0);
   const status = $derived(error ? error : entryError ? t('manual_error', entryError) : ended ? t('manual_ended') : over ? t('branch_over')
-    : manual ? (!atHead ? t('branch_back_note') : ask?.kind === 'mine' && manualInteractive ? t(view?.phase === 'self' ? 'manual_your_turn' : 'branch_your_call') : '')
+    : manual ? ''
     : view?.my_turn ? t(view.legal.some((a) => a.type === 'discard') ? 'branch_your_turn' : 'branch_your_call') : atHead ? t('branch_others') : t('branch_back_note'));
 
   // What the analysis shows: on the table the player's own decision; in the list any seat's.
@@ -495,10 +538,10 @@
   const notes = $derived(mine ? opponentNotes(mine) : atHead && !over ? keptNotes : null);
 
   // The list in place of the table: the deciding seat's own tiles over it; the player's own while the others play.
-  // 手動繼續's palette: nine a row, in the column at the right (420px) or across the controls.
+  // 手動繼續's palette: nine a row, the width of the column at the right or of the controls (2px apart).
   // (The column: 420px by the list on a large window; else 40% of the window, 300 to 420px.)
   const colW = $derived(inlinePanel ? 420 : Math.max(300, Math.min(420, ui.w * 0.4)));
-  const pw = $derived(side ? Math.min(42, (colW - 24) / 9.4) : Math.min(36, (Math.min(ui.w, 720) - 24) / 9.6));
+  const pw = $derived(Math.min(side ? 48 : 60, ((side ? colW : Math.min(ui.w, 720)) - 24 - 16) / 9));
   const hw = $derived(ui.wide ? Math.min(44, ((ui.w - 208) * 0.46 - 24) / 9.3) : Math.min(44, (Math.min(ui.w, 720) - 28) / 9.3));
   /** The player may play from the list: their decision, now. */
   const canPlay = $derived(!!view?.my_turn && !deciding && !over && look?.seat === me);
@@ -588,62 +631,86 @@
   {/if}
 {/snippet}
 
-<!-- 手動繼續: what to enter at the newest step (a tile of the palette; another's calls on the tile on the table). -->
+<!-- 手動繼續: what to enter at the step shown (going back and entering otherwise drops what came after): on another's
+     discard first who called it (the seats that could, and a win), then the palette for the next tile (the player's
+     draw, or the next seat's discard), the player's draw on a tinted ground. A seat chosen: its calls in the palette's
+     place, their tiles as large as the palette's. -->
 {#snippet entry()}
   {#if ask && ask.kind !== 'mine'}
     <div class="entry" class:busy>
-      <div class="ask-row">
-        <span class="ask title-small">
-          {#if flowerMode}{t('manual_flower_of', paletteSeat === me ? t('you') : names[paletteSeat])}
-          {:else if paletteSeat === me}{t('manual_your_draw')}
-          {:else}{t('manual_discard_of', names[paletteSeat])}{/if}
-        </span>
-        {#if paletteSeat !== me}
-          {#if !(ask.kind === 'turn' && ask.afterCall)}
-            <label class="check body-medium" title={t('manual_tsumogiri_hint')}><input type="checkbox" bind:checked={tsumogiri} disabled={flowerMode} />{t('manual_tsumogiri')}</label>
-          {/if}
-          {#if hasFlowers}
-            <button class="btn text small" class:on={flowerMode} aria-pressed={flowerMode} onclick={() => (flowerMode = !flowerMode)}>{t('manual_flower')}</button>
-          {/if}
-          {#if ask.kind === 'turn'}
-            <button class="btn text small" onclick={() => hiddenKong(ask.seat)}>{t('act_ankan')}</button>
-            {#each pongsOf(ask.seat) as x (x)}
-              <button class="btn text small" onclick={() => make({ actions: [[ask.seat, { type: 'kakan', tile: x }]] })}>{t('act_kakan')} <Tile tile={x} w={15} /></button>
+      {#if ask.kind === 'claim' && claimSeat !== null}
+        {@const o = claimSeat}
+        <div class="ask-row">
+          <span class="ask title-small">{t('manual_call_of', names[o], tileName(ask.tile))}</span>
+          <button class="btn text small" onclick={() => (claimSeat = null)}>{t('cancel')}</button>
+        </div>
+        <div class="calls">
+          {#each callsOf(o, ask.tile) as c (c.label + c.tiles.join(''))}
+            <button class="btn tonal big-call" disabled={busy} onclick={() => claim(o, c.action)}>
+              <span class="title-medium">{c.label}</span>
+              <span class="call-tiles">{#each c.tiles as x, i (i)}<Tile tile={x} w={pw} />{/each}</span>
+            </button>
+          {/each}
+        </div>
+      {:else}
+        {#if ask.kind === 'claim'}
+          <div class="call-row">
+            <span class="ask title-small claim-q" title={t('manual_claim_of', names[ask.from], tileName(ask.tile))}><Tile tile={ask.tile} w={18} />{t('manual_claim_q')}</span>
+            {#each callers as o (o)}
+              <button class="btn tonal seat-btn" disabled={busy} onclick={() => (claimSeat = o)}>{names[o]}</button>
             {/each}
-            <button class="btn text small" onclick={() => (ended = true)}>{t('manual_win')}</button>
-          {/if}
+            <button class="btn tonal seat-btn" disabled={busy} onclick={() => (ended = true)}>{t('manual_win')}</button>
+          </div>
         {/if}
-      </div>
-      <div class="palette" style="--pw: {pw}px">
-        {#each paletteTiles as x (x)}
-          {@const n = left.get(x) ?? 0}
-          <button class="tile-btn" aria-label={tileName(x)} disabled={n <= 0 || busy} onclick={() => tapPalette(x)}>
-            <Tile tile={x} w={pw} dim={n <= 0} />
-          </button>
-        {/each}
-      </div>
-      {#if ask.kind === 'claim'}
-        <div class="ask title-small claim-ask">{t('manual_claim_of', names[ask.from], tileName(ask.tile))}</div>
-        {#each [1, 2, 3].map((r) => (ask.from + r) % 4).filter((x) => x !== me) as o (o)}
-          {@const cs = callsOf(o, ask.tile)}
-          {#if cs.length}
-            <div class="call-row">
-              <span class="label-large who">{names[o]}</span>
-              {#each cs as c (c.label + c.tiles.join(''))}
-                <button class="btn tonal call" onclick={() => claim(o, c.action)}>
-                  {c.label}{#if c.action.type === 'chi'}<span class="mini">{#each c.tiles as x, i (i)}<Tile tile={x} w={15} />{/each}</span>{/if}
+        <div class="pick" class:draw={paletteSeat === me}>
+          <div class="ask-row">
+            <span class="ask title-small">
+              {#if flowerMode}{t('manual_flower_of', paletteSeat === me ? t('you') : names[paletteSeat])}
+              {:else if paletteSeat === me}{t('manual_your_draw')}
+              {:else}{t('manual_discard_of', names[paletteSeat])}{/if}
+            </span>
+            {#if paletteSeat !== me}
+              {#if !(ask.kind === 'turn' && ask.afterCall)}
+                <label class="check body-medium" title={t('manual_tsumogiri_hint')}><input type="checkbox" bind:checked={tsumogiri} disabled={flowerMode} />{t('manual_tsumogiri')}</label>
+              {/if}
+              {#if hasFlowers}
+                <button class="btn text small" class:on={flowerMode} aria-pressed={flowerMode} onclick={() => (flowerMode = !flowerMode)}>{t('manual_flower')}</button>
+              {/if}
+              {#if ask.kind === 'turn'}
+                <button class="btn text small" onclick={() => hiddenKong(ask.seat)}>{t('act_ankan')}</button>
+                {#each pongsOf(ask.seat) as x (x)}
+                  <button class="btn text small" onclick={() => make({ actions: [[ask.seat, { type: 'kakan', tile: x }]] })}>{t('act_kakan')} <Tile tile={x} w={15} /></button>
+                {/each}
+                <button class="btn text small" onclick={() => (ended = true)}>{t('manual_win')}</button>
+              {/if}
+            {/if}
+          </div>
+          <div class="palette" style="--pw: {pw}px">
+            {#each paletteRows as row, r (r)}
+              {#each row as x, i (x)}
+                {@const n = left.get(x) ?? 0}
+                <button class="tile-btn" class:picked={pending === x} style:grid-column-start={i === 0 ? 1 : null} aria-label={tileName(x)}
+                  disabled={n <= 0 || busy} onclick={() => tapTile(x)}>
+                  <Tile tile={x} w={pw} dim={n <= 0} />
                 </button>
               {/each}
-            </div>
-          {/if}
-        {/each}
-        <div class="call-row">
-          <button class="btn filled call" onclick={noCalls}>{t('manual_none_claim')}</button>
-          <button class="btn text call" onclick={() => (ended = true)}>{t('manual_win')}</button>
+            {/each}
+          </div>
         </div>
       {/if}
     </div>
   {/if}
+{/snippet}
+
+<!-- 手動繼續 on an upright window: the step, the expected result and the way between steps in one line. -->
+{#snippet manualBar()}
+  <div class="mbar">
+    <span class="label-large">{t('manual_step', steps)}</span>
+    {#if mine?.value !== undefined}<b class="now" title={t('review_now')}>{pts(mine.value)}</b>{/if}
+    <span class="grow"></span>
+    {#each ['prevMine', 'prev', 'next', 'nextMine', 'newest'] as k (k)}{@render nb(k)}{/each}
+  </div>
+  {#if status}<div class="mstatus body-medium dim">{status}</div>{/if}
 {/snippet}
 
 <div class="page" class:side class:manual>
@@ -658,7 +725,7 @@
       <div class="table-wrap">
         {#if view && shown}
           <Table view={shown} {me} {names} revealed={view.phase === 'over' ? (final?.hands ?? null) : null} interactive={manual ? manualInteractive : !!view.my_turn && !deciding} {robbed}
-            onact={act} oneClick={ui.desk} maxHand={ui.desk ? 64 : 56} upright={manual && !side} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom>
+            onact={act} oneClick={ui.desk} maxHand={ui.desk ? 64 : 56} upright={manual && !side} hideHand={!handShown} turnOf={entering} {marks} {notes} {strip} bind:selected onpick={(x) => (picked = x)} choiceMarks={choices} tagRoom>
             {#snippet overlay()}
               {#if over && (held || fxOn.on)}<TapOn onnext={() => (held = false)} />{/if}
               {#if sheet && final}
@@ -679,7 +746,7 @@
     {/if}
     <!-- (Under the table, not under the result: on a low window it takes the room the result needs.) -->
     {#if !side && !sheet}
-      <div class="controls">{@render info()}{@render entry()}{@render buttons()}</div>
+      <div class="controls">{#if manual}{@render manualBar()}{@render entry()}{:else}{@render info()}{@render buttons()}{/if}</div>
     {/if}
   </div>
   {#if side}
@@ -754,21 +821,33 @@
   .entry.busy { opacity: 0.6; }
   .ask { color: var(--primary); }
   .call-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
-  .who { min-width: 3em; }
-  .call { min-height: 34px; padding: 0 12px; gap: 4px; }
-  .mini { display: inline-flex; margin-left: 4px; }
+  .seat-btn { min-height: 36px; padding: 0 10px; }
+  .claim-q { display: inline-flex; align-items: center; gap: 4px; }
+  .calls { display: flex; flex-wrap: wrap; gap: 8px; }
+  .big-call { align-items: center; gap: 8px; padding: 6px 10px; height: auto; border-radius: 14px; }
+  .call-tiles { display: inline-flex; }
   .ask-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; }
   .ask-row .ask { margin-right: 4px; }
   .ask-row .small { min-height: 34px; padding: 0 8px; }
   .ask-row .on { background: var(--secondary-container); color: var(--on-secondary-container); }
   .check { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; cursor: pointer; min-height: 34px; }
-  /* 手動繼續 on an upright window: the table keeps its room, what is entered scrolls under it. */
-  .page.manual:not(.side) .table-wrap { min-height: 54%; }
-  .claim-ask { margin-top: 6px; }
-  .page.manual:not(.side) .controls { flex: 0 1 auto; min-height: 0; overflow: auto; }
-  .page.manual:not(.side) .buttons .btn.icon { width: 38px; min-height: 38px; }
   .check input { width: 18px; height: 18px; accent-color: var(--primary); }
-  .palette { display: grid; grid-template-columns: repeat(9, var(--pw)); gap: 4px 0; justify-content: center; }
-  .tile-btn { padding: 0; border: none; background: none; cursor: pointer; }
+  /* The player's own draw on a tinted ground; another's discard on the plain one. */
+  .pick { display: flex; flex-direction: column; gap: 4px; border-radius: 14px; }
+  .pick.draw { background: var(--secondary-container); padding: 4px 6px 8px; margin: 0 -6px; }
+  .pick.draw .ask { color: var(--on-secondary-container); }
+  .palette { display: grid; grid-template-columns: repeat(9, var(--pw)); gap: 2px; justify-content: center; }
+  .tile-btn { padding: 0; border: none; background: none; cursor: pointer; border-radius: 6px; position: relative; -webkit-tap-highlight-color: transparent; }
   .tile-btn:disabled { cursor: default; }
+  /* Tapped once: framed and tinted (a second tap enters it). */
+  .tile-btn.picked { outline: 3px solid var(--highlight); outline-offset: 0; background: var(--highlight); }
+  .tile-btn.picked :global(svg) { opacity: 0.85; }
+  /* 手動繼續 on an upright window: the table takes what the controls leave (they scroll when they need more). */
+  .page.manual:not(.side) .table-wrap { min-height: 42%; }
+  .page.manual:not(.side) .controls { flex: 0 1 auto; min-height: 0; overflow: auto; padding-top: 4px; }
+  .mbar { display: flex; align-items: center; gap: 4px; }
+  .mbar .grow { flex: 1; }
+  .mbar .now { font-variant-numeric: tabular-nums; margin-left: 6px; }
+  .mbar .btn.icon { width: 36px; min-height: 36px; border-radius: 18px; }
+  .mstatus { line-height: 1.3; }
 </style>

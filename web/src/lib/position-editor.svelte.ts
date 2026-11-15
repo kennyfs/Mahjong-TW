@@ -37,7 +37,7 @@ class Editor {
   discards = $state<Tile[][]>([[], [], [], []]);
   dealer = $state(0);
   round = $state(0);
-  wallLeft = $state(40);
+  wallLeft = $state(55);
   section = $state<Section>({ kind: 'hand' });
   /** From a hand's review: its rules (null: the settings'), and what the editor does not show of its position. */
   rules = $state<string | null>(null);

@@ -331,15 +331,15 @@
   <string name="analysis_manual_hint">Enter a real game as it goes: your draws, the others\' discards and calls. Each of your decisions is analyzed. Not scored or recorded.</string>
   <string name="manual_your_draw">What did you draw?</string>
   <string name="manual_discard_of">What did %1$s discard?</string>
-  <string name="manual_claim_of">%1$s discarded %2$s. Any chow, pung or kong?</string>
-  <string name="manual_none_claim">No calls</string>
+  <string name="manual_claim_of">%1$s discarded %2$s. Anyone calling or winning?</string>
+  <string name="manual_claim_q">Who called it?</string>
+  <string name="manual_call_of">How did %1$s call %2$s?</string>
   <string name="manual_tsumogiri">Just drawn</string>
   <string name="manual_tsumogiri_hint">The discard was the tile just drawn</string>
   <string name="manual_flower">Flower</string>
   <string name="manual_flower_of">Which flower did %1$s show?</string>
   <string name="manual_win">Won</string>
   <string name="manual_ended">This hand is over (another player won)</string>
-  <string name="manual_your_turn">Your turn: tap a tile, then tap it again to discard; kongs and self-draw wins are under the hand</string>
   <string name="manual_note">Entered by hand; not scored or recorded</string>
   <string name="manual_step">Move %1$d</string>
   <string name="manual_error">That can\'t happen: %1$s</string>
@@ -370,6 +370,7 @@
   <string name="analysis_pon_of">Pung %1$s</string>
   <string name="analysis_kan_of">Exposed kong %1$s</string>
   <string name="analysis_ankan_of">Concealed kong %1$s</string>
+  <string name="analysis_no_decision">You can\'t chow, pung, kong or win on this tile, so there is no decision to analyze; Continue by hand enters the game on from here.</string>
   <string name="analysis_error">This position can\'t happen: %1$s</string>
   <!-- Battles -->
   <string name="battle_title">Play</string>

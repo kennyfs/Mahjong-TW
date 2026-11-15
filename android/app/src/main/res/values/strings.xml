@@ -338,15 +338,15 @@
   <string name="analysis_manual_hint">照實際牌局一步步輸入：你摸到的牌、別家打的牌和吃碰槓；輪到你時都有分析。不計分、不記錄。</string>
   <string name="manual_your_draw">你摸到什麼？</string>
   <string name="manual_discard_of">%1$s打了什麼？</string>
-  <string name="manual_claim_of">%1$s打出 %2$s：有人吃、碰、槓嗎？</string>
-  <string name="manual_none_claim">沒人要</string>
+  <string name="manual_claim_of">%1$s打出 %2$s：有人吃、碰、槓或胡嗎？</string>
+  <string name="manual_claim_q">誰吃碰槓胡？</string>
+  <string name="manual_call_of">%1$s怎麼吃碰槓 %2$s？</string>
   <string name="manual_tsumogiri">摸切</string>
   <string name="manual_tsumogiri_hint">打的是剛摸到的那張</string>
   <string name="manual_flower">補花</string>
   <string name="manual_flower_of">%1$s補了哪張花？</string>
   <string name="manual_win">胡了</string>
   <string name="manual_ended">這手結束了（別家胡牌）</string>
-  <string name="manual_your_turn">輪到你：點一下牌再點一次打出；暗槓、自摸在牌下方</string>
   <string name="manual_note">照實際輸入；不計分、不記錄</string>
   <string name="manual_step">第 %1$d 步</string>
   <string name="manual_error">輸入不合理：%1$s</string>
@@ -377,6 +377,7 @@
   <string name="analysis_pon_of">碰 %1$s</string>
   <string name="analysis_kan_of">明槓 %1$s</string>
   <string name="analysis_ankan_of">暗槓 %1$s</string>
+  <string name="analysis_no_decision">你不能吃、碰、槓或胡這張牌，沒有要分析的決定；可以用「手動繼續」從這裡輸入下去。</string>
   <string name="analysis_error">這個局面不成立：%1$s</string>
   <!-- Battles -->
   <string name="battle_title">對戰</string>

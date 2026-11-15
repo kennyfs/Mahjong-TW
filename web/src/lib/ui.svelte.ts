@@ -3,7 +3,8 @@
 export const NAV_BAR = 80;
 export const NAV_RAIL = 88;
 
-export const ui = $state({ w: 0, h: 0, wide: false, desk: false, showKeys: false });
+// `fullTable`: a screen's table wants the whole window (手動繼續's entries under it): no bar of the screens.
+export const ui = $state({ w: 0, h: 0, wide: false, desk: false, showKeys: false, fullTable: false });
 
 export function measure() {
   const shell = document.querySelector('.shell');

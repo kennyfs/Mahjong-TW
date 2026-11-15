@@ -89,8 +89,8 @@
     then?.();
   }
   // At a battle's table, the other screens are out of reach (a tap away from leaving it by mistake).
-  // Nor over a hand's review: its Back leads out, and the table takes the room.
-  const immersive = $derived((battle.playing && nav.screen === 'BATTLE' && nav.sub === null) || nav.sub === 'review');
+  // Nor over a hand's review (or 手動繼續's table): its Back leads out, and the table takes the room.
+  const immersive = $derived((battle.playing && nav.screen === 'BATTLE' && nav.sub === null) || nav.sub === 'review' || ui.fullTable);
 </script>
 
 <TileDefs />

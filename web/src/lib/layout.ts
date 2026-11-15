@@ -142,8 +142,9 @@ const LOW = 500;
 
 /** Sizes for a table of w x h px; `maxHand` caps the hand's tiles (a computer's big window). `top`: a tall table's
  *  others' strip is this high when that is more than it would be (everyone's tiles shown): the rivers give the room.
- *  `upright`: tall whatever its shape (a phone's table with things to enter under it, 手動繼續). */
-export function tableSizes(w: number, h: number, maxHand = 64, top = 0, upright = false): TableSizes {
+ *  `upright`: tall whatever its shape (a phone's table with things to enter under it, 手動繼續). `noHand`: no room
+ *  for the hand (手動繼續 while the player does not discard): the melds' line alone. */
+export function tableSizes(w: number, h: number, maxHand = 64, top = 0, upright = false, noHand = false): TableSizes {
   const wide = !upright && w >= h * 1.1;
   // A table no wider than this for its height: the side players stay near the middle on a large window.
   if (wide) w = Math.min(w, h * 2.3);
@@ -157,7 +158,7 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0, upright 
     // The player's melds and flowers in a line over the hand, at its left (the user: over the hand and at the left,
     // whatever the screen); the hand under it.
     const meldLine = Math.max(30, H(meld));
-    const meH = meldLine + 4 + H(hand) * (1 + LIFT) + 10;
+    const meH = meldLine + 4 + (noHand ? 0 : H(hand) * (1 + LIFT)) + 10;
     const topH = H(opp) + 12;
     const centerH = h - meH - topH - 6;
     const sideMin = Math.max(opp * 3.4 + 16, 128);
@@ -201,7 +202,7 @@ export function tableSizes(w: number, h: number, maxHand = 64, top = 0, upright 
     const meld = Math.min(hand * 0.72, 40);
     const opp = Math.max(22, Math.min(hand * 0.6, 32));
     const meldLine = Math.max(30, H(meld));
-    const meH = meldLine + 4 + H(hand) * (2 + ROW_GAP + LIFT) + 6;
+    const meH = meldLine + 4 + (noHand ? 0 : H(hand) * (2 + ROW_GAP + LIFT)) + 6;
     // The name plate, the column's padding (4 above and below) and the gap under the plate (4), then the lines.
     const own = 28 + 12 + OPP_LINES * H(opp) + (OPP_LINES - 1) * meldGaps(opp).row;
     const topH = Math.max(more, own);
