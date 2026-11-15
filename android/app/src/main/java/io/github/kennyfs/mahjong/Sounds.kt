@@ -4,7 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.SoundPool
 import android.os.Handler
-import android.os.Looper
+import android.os.HandlerThread
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
@@ -58,7 +58,13 @@ object Sounds {
   /** A file (its resource) → its sound in the pool. */
   private val ids = HashMap<Int, Int>()
   private val loaded = ConcurrentHashMap.newKeySet<Int>()
-  private val handler = Handler(Looper.getMainLooper())
+  /** The sounds' timers: a thread of their own, so that the screen's work does not hold them up. */
+  private val handler = Handler(HandlerThread("sounds").apply { start() }.looper)
+
+  /** How much later a sound is heard here than on the web page once started, ms: SoundPool's way out (it mixes, and
+   *  resamples a discard's pitch) is a slow one, a browser's Web Audio a quick one. A sound timed to the screen is
+   *  started this much earlier, to be heard as on the web page. */
+  private const val LATENCY = 60L
 
   /** The settings' level (AppModel sets it). */
   var level: () -> SoundLevel = { SoundLevel.full }
@@ -76,15 +82,17 @@ object Sounds {
     pool = p
   }
 
-  /** Plays a sound, `delay` ms from now (a discard's when it lands, a meld's tile as it lands in its gap). Nothing when
+  /** Plays a sound, `delay` ms from now (a discard's when it lands, a meld's tile as it lands in its gap, the web
+   *  page's times): one timed so (`delay` > 0) is started LATENCY earlier, heard when the web page's is. Nothing when
    *  the settings have them off or the app is not on the screen. Gives what calls it off if it has not started yet. */
   fun play(name: Name, delay: Long = 0): () -> Unit {
-    if (delay <= 0) {
+    val d = if (delay > 0) delay - LATENCY else 0L
+    if (d <= 0) {
       start(name)
       return {}
     }
     val r = Runnable { start(name) }
-    handler.postDelayed(r, delay)
+    handler.postDelayed(r, d)
     return { handler.removeCallbacks(r) }
   }
 

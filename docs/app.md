@@ -300,10 +300,14 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     animations) none.
   - **Sounds** (Sounds.kt: SoundPool; the files are the page's web/public/sounds, copied in by the build's
     copySounds, a name's '-' as '_'): the shuffle; one knock of tiles as the deal lands; a discard as it lands; a
-    call's or a kong's tile knocking in, then a tile set down as the meld lands; a flower; 天聽, 地聽, 報聽 two
-    mallet notes; the hands shown at a hand's end, by what it is to the player (their win, another's they pay for,
-    another's, a draw); with the result's moment a jingle (success, failure, neither; without the moments 400 ms
-    after the hands). The settings' 音效: 關, 小聲, 正常 (the page's levels). None while the app is not on the screen.
+    call's cue as its moment starts (steel pan notes, one shape each for a chow, a pung, an open, concealed and added
+    kong; since 2026-11-15), its tile knocking in, then a tile set down as the meld lands; a flower; 天聽, 地聽, 報聽
+    two mallet notes; the hands shown at a hand's end, by what it is to the player (their win, another's they pay
+    for, another's, a draw); with the result's moment a jingle (success, failure, neither; without the moments
+    400 ms after the hands). The settings' 音效: 關, 小聲, 正常 (the page's levels). None while the app is not on the
+    screen. Each file is as loud as it can be and each sound's gain (at most 1) sets how loud it plays (about 3 dB
+    louder than 1.1.0, 2026-11-15). A sound timed to the screen starts 60 ms earlier than the page's (SoundPool's
+    output is slower than Web Audio's), on a timer thread of its own.
 - **After 0.8.0** (2026-11-13, the user's; its version the local session's, likely 1.0.0):
   - **The advanced settings (設定 > 進階) are gone**, each fixed at what the user chose: a decision's list shows bars
     (DecisionPanel), a review's hand shows each discard's cost and its danger (tileMarks), and the moments always
