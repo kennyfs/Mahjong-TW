@@ -10,7 +10,8 @@ phone screenshots (eight at 1920 x 1080, sideways, in store order) come from the
 
 The app is in Traditional Chinese (Taiwan) and US English (since 2026-11-15), so is the listing; the words are the
 app's own (`values/strings.xml`, `values-en/strings.xml`). Written by the session that makes the changes (it knows
-what changed); the release session may edit it. The game scores in 台 (tai) and points and shows no money, chips or
+what changed); the release session may edit it. The store text keeps every line break as written, so each
+paragraph, bullet and release note is a single line here, however long. The game scores in 台 (tai) and points and shows no money, chips or
 bets: keep it that way here (no 賭, 籌碼, 錢, 現金, 贏錢; no gambling, betting, cash, chips), and answer the content
 rating to match (no real-money and no simulated gambling).
 
@@ -77,8 +78,7 @@ rating to match (no real-money and no simulated gambling).
 
 **Full description:**
 
-Taiwanese 16-tile mahjong: practice against three computer players, review and analyze every hand you play, and
-play friends online or face to face.
+Taiwanese 16-tile mahjong: practice against three computer players, review and analyze every hand you play, and play friends online or face to face.
 
 Practice
 • Computer players: a neural network, or tile efficiency (shanten and tile acceptance)
@@ -86,8 +86,7 @@ Practice
 • Slow, normal or fast pace, or manual: the computer moves only when you press Next
 • Chows, pungs, kongs and wins are animated with sounds; the sounds can be turned down or off
 • Ready hint: marks the discards that make your hand ready, and the tiles of a ready hand
-• Show analysis: while practicing, see each discard's loss and danger and what the opponents may be waiting on
-  (a hand played this way is not scored)
+• Show analysis: while practicing, see each discard's loss and danger and what the opponents may be waiting on (a hand played this way is not scored)
 
 Review and analysis
 • Review any hand: the neural network marks the decisions worth a look, how many tai each lost, and the best play
@@ -95,8 +94,7 @@ Review and analysis
 • For each choice: the expected result, the chances of winning, dealing in and another's self-draw, and its danger
 • Mistake thresholds for beginner, intermediate and expert
 • Branch: play on from any of your decisions differently and see what changes, with the analysis at every step
-• Analysis: set up any position (hand, melds, discards) and see how each choice does, then play it on against the
-  computer
+• Analysis: set up any position (hand, melds, discards) and see how each choice does, then play it on against the computer
 • Statistics: whether your losses come from tile choice, dealing in, calls, or wins passed up
 
 Rules
@@ -125,7 +123,7 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 
 ## What's new (release notes, 500 characters each)
 
-### Next (the version is the user's to choose)
+### 1.2.0
 
 zh-TW:
 
@@ -133,11 +131,7 @@ zh-TW:
 
 en-US:
 
-English is here (in the system's App languages). With the analysis on, tap an opponent's chance of being ready to see
-the tiles most likely to deal in. Mistake levels show their real sizes. The draw table has columns and rings the best
-quarter; dragons go 中發白. Calls chime; sounds are louder. Tiles stay large at larger display or font sizes and fit
-narrow phones. Grey shapes stand in while the analysis loads. Shorter settings help. Fixed a dot in the win animation;
-call words stay on screen.
+English is here (in the system's App languages). With the analysis on, tap an opponent's chance of being ready to see the tiles most likely to deal in. Mistake levels show their real sizes. The draw table has columns and rings the best quarter; dragons go 中發白. Calls chime; sounds are louder. Tiles stay large at larger display or font sizes and fit narrow phones. Grey shapes stand in while the analysis loads. Shorter settings help. Fixed a dot in the win animation; call words stay on screen.
 
 
 ### 1.1.0
