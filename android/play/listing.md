@@ -8,9 +8,11 @@ Images: `icon-512.png` and `feature-zh.png` (1024 x 500) come from `images.py`, 
 phone screenshots (eight at 1920 x 1080, sideways, in store order) come from the emulator scripts' store mode,
 `STORE=1 ./device-tests.sh` (android/README.md, "The store's screenshots"); they are not kept in the repository.
 
-The app is in Traditional Chinese (Taiwan) only, so is the listing. The words are the app's own (`strings.xml`).
-The game scores in 台 and points and shows no money, chips or bets: keep it that way here (no 賭, 籌碼, 錢, 現金,
-贏錢), and answer the content rating to match (no real-money and no simulated gambling).
+The app is in Traditional Chinese (Taiwan) and US English (since 2026-11-15), so is the listing; the words are the
+app's own (`values/strings.xml`, `values-en/strings.xml`). Written by the session that makes the changes (it knows
+what changed); the release session may edit it. The game scores in 台 (tai) and points and shows no money, chips or
+bets: keep it that way here (no 賭, 籌碼, 錢, 現金, 贏錢; no gambling, betting, cash, chips), and answer the content
+rating to match (no real-money and no simulated gambling).
 
 ## zh-TW
 
@@ -57,6 +59,7 @@ The game scores in 台 and points and shows no money, chips or bets: keep it tha
 其他
 • 每一局都存在手機上，可以收藏、看統計，也能分享或匯出
 • 配色：牌桌綠、簡約，或跟隨桌布（Android 12 以上）
+• 介面語言：繁體中文、英文（在系統設定的「應用程式語言」切換）
 • 練習和分析完全在手機上離線運算
 • 沒有廣告、沒有內購、不需要帳號
 • 也有網頁版，電腦也能玩，還能和 app 的玩家連線對戰：https://mahjong.1li.tw
@@ -64,7 +67,77 @@ The game scores in 台 and points and shows no money, chips or bets: keep it tha
 
 本遊戲不涉及任何金錢或賭博。
 
+## en-US
+
+**Title:** Taiwan Mahjong: AI Analysis
+
+**Short description:**
+
+16-tile Taiwanese mahjong against neural-network AI. Review every hand you play.
+
+**Full description:**
+
+Taiwanese 16-tile mahjong: practice against three computer players, review and analyze every hand you play, and
+play friends online or face to face.
+
+Practice
+• Computer players: a neural network, or tile efficiency (shanten and tile acceptance)
+• Play one hand, one round, or a full game (four rounds)
+• Slow, normal or fast pace, or manual: the computer moves only when you press Next
+• Chows, pungs, kongs and wins are animated with sounds; the sounds can be turned down or off
+• Ready hint: marks the discards that make your hand ready, and the tiles of a ready hand
+• Show analysis: while practicing, see each discard's loss and danger and what the opponents may be waiting on
+  (a hand played this way is not scored)
+
+Review and analysis
+• Review any hand: the neural network marks the decisions worth a look, how many tai each lost, and the best play
+• A graph of your expected result through the hand; tap it to jump to a decision
+• For each choice: the expected result, the chances of winning, dealing in and another's self-draw, and its danger
+• Mistake thresholds for beginner, intermediate and expert
+• Branch: play on from any of your decisions differently and see what changes, with the analysis at every step
+• Analysis: set up any position (hand, melds, discards) and see how each choice does, then play it on against the
+  computer
+• Statistics: whether your losses come from tile choice, dealing in, calls, or wins passed up
+
+Rules
+• Scoring tables: Simple 1, Simple 2, Standard, Masters (the 2025 Mahjong Masters' table)
+• Flowers: none, flowers count when shown, or seat flowers
+• Every rule can be changed, each explained; declared ready hands (天聽, 地聽, 報聽) can be turned on
+• A short guide to Taiwanese mahjong, with a quiz: which tiles does this hand wait on?
+• A one-minute tour of every screen
+
+Online play
+• Open a table for one to four players; the computer fills the empty seats
+• Duplicate contest: everyone plays the same tiles at their own table; the best score wins
+• Play through the online server, or face to face with Nearby (Bluetooth and Wi-Fi, no internet needed)
+• No analysis or hints during online play; review the hands afterwards in Records
+
+More
+• Every hand is kept on your phone: star it, see statistics, share or export it
+• Colors: table green, minimal, or from your wallpaper (Android 12 and up)
+• Languages: Traditional Chinese and English (switch in the system's App languages)
+• Practice and analysis run entirely on your phone, offline
+• No ads, no in-app purchases, no account
+• A web version too, for computers, which plays online with the app: https://mahjong.1li.tw
+• Open source (GPLv3): https://github.com/kennyfs/Mahjong-TW
+
+The tiles show their traditional Chinese faces. No money or gambling of any kind is involved.
+
 ## What's new (release notes, 500 characters each)
+
+### Next (the version is the user's to choose)
+
+zh-TW:
+
+新增英文介面（系統設定的「應用程式語言」）。練習顯示分析時，點對手名牌上的聽牌機率會列出詳細數字和最可能放槍的牌。失誤門檻的說明更正為實際數值（約 0.5、0.25、0.1 台）。摸牌表裡會留下的牌都亮起，最好的加綠框。設定的說明改成條列、更精簡。修正胡牌動畫中間的黃點，放槍等字樣不再超出畫面。
+
+en-US:
+
+English is here (choose it in the system's App languages). With the analysis shown in practice, tap an
+opponent's chance of being ready for the details and the tiles most likely to deal in. The mistake levels' help
+gives their real sizes (0.5, 0.25, 0.1 tai). The draw table lights every tile you would keep and frames the best.
+Settings help is shorter, in bullets. Fixed a yellow dot in the win animation; call words stay on screen.
+
 
 ### 1.1.0
 
