@@ -123,6 +123,16 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 
 ## What's new (release notes, 500 characters each)
 
+### Next (the version is the user's to choose)
+
+zh-TW:
+
+修正回顧時連續快速點「上一個決定」會讓 app 當掉的問題。
+
+en-US:
+
+Fixed a crash when going back quickly through a review's decisions.
+
 ### 1.2.0
 
 zh-TW:
