@@ -127,11 +127,11 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 
 zh-TW:
 
-修正回顧時連續快速點「上一個決定」會讓 app 當掉的問題。
+修正回顧時連續快速點「上一個決定」會讓 app 當掉的問題。修正筒子的圓圈有時看起來不同心（例如七筒、八筒的內圈）。
 
 en-US:
 
-Fixed a crash when going back quickly through a review's decisions.
+Fixed a crash when going back quickly through a review's decisions. The Dots tiles' rings are now concentric (7 and 8 Dots' inner rings were off).
 
 ### 1.2.0
 

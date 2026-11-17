@@ -80,6 +80,11 @@ def glyph(ch, box, mode='ink', valign='center'):
 
 
 def circle(cx, cy, r):
+    # The radius is rounded once, and the start and the diameter come from it. Rounded apart, the radius could come out
+    # longer than half the chord (r 3.956 to 4, the chord 7.912 to 7.9); each half's arc was then more than a half
+    # circle and bulged out: 7p's and 8p's inner discs were 9.3 high and 7.9 wide, 6p's middle circle 14.2 by 12.5, so
+    # the white rings were thin at the top and bottom.
+    r = float(num(r))
     return f'M{num(cx - r)} {num(cy)}a{num(r)} {num(r)} 0 1 0 {num(2 * r)} 0a{num(r)} {num(r)} 0 1 0 {num(-2 * r)} 0Z'
 
 
