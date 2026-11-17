@@ -328,6 +328,12 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     the tile all but filled the circle; a page's shortcut in Firefox (Thirteen's, from its maskable icon) showed
     its card 5/6 as large as the app's and looked better (measured on the user's Pixel: card 0.53 of the circle's
     width before, 0.44 in the shortcut). The test build's moon shrinks with it; Thirteen's card by the same 5/6.
+- **AI 講評 / AI coach** (2026-11-18, the user's; the app only, not yet the page): from the records, the latest 50,
+  100 or 200 hands of one set of rules, reviewed by the network, put in a digest and read by Claude Sonnet 5.5,
+  Gemini 4 Hydrogen, ChatGPT (GPT-6.1 Sol) or any OpenAI-compatible service, with the player's own key (the settings;
+  encrypted by the Keystore, kept out of backups); the answer's habits link each example to its moment in the review,
+  and can be asked more about. The network exported again with two more outputs for it (ready within N draws, tai
+  items). docs/coach.md.
 - **Play with the analysis** (2026-11-14, the user's; the page first, then the app):
   - **練習時顯示分析** (the settings; on in a hand at any point, on till its end, and that hand counts for
     nothing): the costs and dangers on the tiles, the choices' costs on their buttons, the opponents' chances of
@@ -616,8 +622,9 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
    tablet's side panel in the app (the page has one on a computer), TalkBack and keyboard focus checked through; a
    connection error shows the system's message (English) in parentheses, which could become plain words; upright, the analysis screen's palette takes the lower half, so the section being
    edited may need a scroll.
-9. **Tests**: the app has no unit or instrumented tests (Thirteen's ScreenshotTest is a model); `RoomTest` misses
-   resuming, leaving and the claim window's timing.
+9. **Tests**: the app's unit tests cover only the AI coach's requests and answers (`app/src/test`), and it has no
+   instrumented tests (Thirteen's ScreenshotTest is a model); `RoomTest` misses resuming, leaving and the claim
+   window's timing.
 10. **Docker** was built with the legacy builder only (this host has no BuildKit).
 
 ## The APK's size (0.2.0)

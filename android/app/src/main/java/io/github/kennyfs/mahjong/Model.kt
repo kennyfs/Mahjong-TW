@@ -156,11 +156,20 @@ data class Opponent(
   @SerialName("danger_tai") val dangerTai: List<Double> = emptyList(),
 )
 
+/**
+ * The deciding seat's own outlook (a network exported from 2026-11-17; docs/gui-engine.md): the chances of being ready
+ * within its next 1, 2, 4, 8 draws, and of each tai item (by its parameter) being in its win, the win's chance in it.
+ */
+@Serializable
+data class MeFigures(
+  @SerialName("ready_within") val readyWithin: List<Double> = emptyList(), @SerialName("tai_items") val taiItems: Map<String, Double> = emptyMap(),
+)
+
 /** `source` "efficiency": tile efficiency alone; "network": the network's figures too, the best action and its value. */
 @Serializable
 data class Analysis(
   val source: String = "efficiency", val actions: List<ActionFigures> = emptyList(), val best: Int? = null, val value: Double? = null,
-  @SerialName("policy_value") val policyValue: Double? = null, val opponents: List<Opponent>? = null,
+  @SerialName("policy_value") val policyValue: Double? = null, val opponents: List<Opponent>? = null, val me: MeFigures? = null,
 ) {
   /** The network's figures are there. */
   val net: Boolean get() = source == "network" && best != null

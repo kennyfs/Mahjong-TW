@@ -1,7 +1,7 @@
 # Privacy policy / 隱私權政策
 
 Taiwan Mahjong (台灣麻將): the Android app `io.github.kennyfs.mahjong` and the web page <https://mahjong.1li.tw>.
-Last updated 2026-11-13.
+Last updated 2026-11-18.
 
 ## 中文
 
@@ -10,6 +10,11 @@ Last updated 2026-11-13.
 **手機上的資料。** 設定、暱稱和對局紀錄都只存在你的手機上，不會自動傳出去。如果你開啟了 Google 備份，Android 可能會把這些資料一起備份，大部分 app 都是這樣。只有你自己按「分享」或「匯出」時，紀錄檔才會交給你選的 app。解除安裝 app 時，這些資料會一併刪除。
 
 **練習和分析** 完全在手機上運算，不會傳送任何資料。
+
+**AI 講評（app）。** 這個功能只在你自己填入 API 金鑰、並按下「送出」時才會傳送資料：
+- 傳給你選的服務（Anthropic 的 Claude、Google 的 Gemini、OpenAI 的 ChatGPT，或你自己填網址的服務），用你的金鑰、記在你的帳號，資料依該服務的條款處理（例如 Gemini 的免費方案會用內容改進 Google 的產品，付費方案不會）。本專案沒有任何伺服器經手。
+- 傳送的內容是你選的那些牌局的摘要：規則、每局結果、值得一提的決策（手牌、打了什麼、神經網路的數字），以及你另外打的問題；不含任何名字或暱稱。送出前可以先看完整內容。
+- 金鑰用 Android 系統的金鑰庫加密，只存在這支手機上，不會備份，也不會顯示出來；在設定裡可以隨時刪除。AI 的回答存在手機上（最近幾次）。
 
 **連線對戰。** 在伺服器上開桌或加入房間時，app 會把下列資料傳給該伺服器：
 - 你取的暱稱；
@@ -40,6 +45,17 @@ does for most apps. A records file leaves the phone only when you tap Share or E
 Uninstalling the app deletes them.
 
 **Practice and analysis** run entirely on the phone. They send nothing anywhere.
+
+**The AI coach (app).** It sends anything only once you have entered an API key of your own and tap Send:
+- It goes to the service you chose (Anthropic's Claude, Google's Gemini, OpenAI's ChatGPT, or a service at an address
+  you entered), with your key, billed to your account, and is handled under that service's terms (Gemini's free
+  tier, for one, uses it to improve Google's products; its paid tier does not). No server of this project is
+  involved.
+- What is sent is a digest of the hands you chose: the rules, each hand's result, the decisions worth a note (the
+  hand, what was played, the neural network's figures), and any question you type; no names or nicknames. You can
+  read all of it before sending.
+- The keys are encrypted with Android's keystore, kept on this phone only, never backed up and never shown; the
+  settings remove them at any time. The coach's answers are kept on the phone (the last few).
 
 **Online battles.** When you open a table or join a room on a server, the app sends that server:
 - the nickname you chose;

@@ -3,6 +3,7 @@
 #include "../command/guiengine.h"
 #include "../core/global.h"
 #include "../game/shape.h"
+#include "../game/tai.h"
 #include "../learn/features.h"
 #include "../learn/outcome.h"
 #include "../players/analysis.h"
@@ -167,6 +168,17 @@ json GuiAnalysis::Batch::analysis(int i) const {
                              {"danger_tai", dangerTai}});
   }
   j["opponents"] = opponents;
+  if(model_->hasMe()) {
+    json within = json::array();
+    for(int c = 0; c < 4; c++)
+      within.push_back(r4(item.out->readyWithin[c]));
+    // The items likely enough to say anything (1% and up), by their parameters' names (docs/rules.md).
+    json items = json::object();
+    for(int t = 0; t < Learn::NUM_TAI_ITEMS; t++)
+      if(item.out->taiItems[t] >= 0.01f)
+        items[Tai::PARAM_NAMES[t]] = r4(item.out->taiItems[t]);
+    j["me"] = json{{"ready_within", within}, {"tai_items", items}};
+  }
   return j;
 }
 

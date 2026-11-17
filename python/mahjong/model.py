@@ -17,8 +17,9 @@ context: a policy logit (from a head of its own); the logits of 17 outcome event
 cpp/learn/outcome.h, the six among the other seats, the exhaustive draw); and for each of my ten events the tai of
 its winner, given that it happens. The expected result of an action is composed from these exactly by the rules'
 coefficients (compose_q, the same as Learn::eventCoefficients). Per opponent: how far from ready, and per kind the
-chance that it wins on a discard of it now, and with how many tai. Everything else is for training only and is cut
-at export.
+chance that it wins on a discard of it now, and with how many tai. For the deciding seat (from 2026-11-17, for the
+app's LLM review): the chance of being ready within its next 1, 2, 4, 8 draws, and of each tai item being in its win.
+Everything else is for training only and is cut at export.
 """
 
 import math
@@ -336,16 +337,22 @@ class Shipped(nn.Module):
         m = self.m
         h = m.trunk(kind, seat, glob)
         hk, hs = h[:, :NUM_KINDS], h[:, NUM_KINDS:]
-        act, _ = m.outcome_head(h, kind, glob)
+        act, ctx = m.outcome_head(h, kind, glob)
         policy = m.policy_head(h, kind, glob)[0][..., 0]
         events = torch.sigmoid(act[..., :NUM_EVENTS])
         tai = act[..., NUM_OUTCOMES:] * TAI_SCALE
         pair = m.pair_heads(hk, hs[:, 1:])
         ready = torch.softmax(m.seat_out(hs[:, 1:])[..., :4], dim=-1)
-        return policy, events, tai, ready, torch.sigmoid(pair[..., 0]), pair[..., 1] * TAI_SCALE
+        # The deciding seat's own: ready within its next 1, 2, 4, 8 draws; each tai item in its win (and it wins).
+        # Calibrated on hands no network trained on (2026-11-17, docs/llm-review.md); the engine reads them when a file
+        # has them, and older files without them still load.
+        me = m.me_out(ctx)
+        o = NUM_TAI_ITEMS + TAI_CLASSES
+        return (policy, events, tai, ready, torch.sigmoid(pair[..., 0]), pair[..., 1] * TAI_SCALE,
+                torch.sigmoid(me[:, o:o + 4]), torch.sigmoid(me[:, :NUM_TAI_ITEMS]))
 
 
-OUTPUT_NAMES = ("policy", "events", "tai", "ready", "danger", "danger_tai")
+OUTPUT_NAMES = ("policy", "events", "tai", "ready", "danger", "danger_tai", "ready_within", "tai_items")
 
 
 def export_onnx(model, path, opset=17):

@@ -215,6 +215,10 @@ fun RecordsScreen(vm: AppModel) {
         if (reviewed.isNotEmpty() || pending.isNotEmpty()) item {
           ReviewStats(reviewed, pending.size, level, vm.reviewing, onRun = { vm.reviewAll(pending.asReversed()) }, onStop = vm::stopReviews)
         }
+        // The AI coach: the latest hands of a set of rules, of every kind, read by a language model (ui/CoachScreen.kt).
+        if (records.hands.isNotEmpty()) item(key = "coach") {
+          SettingRow(stringResource(R.string.coach_title), stringResource(R.string.coach_row), Modifier.testTag("records_coach")) { vm.open(Page.COACH) }
+        }
         if (tab == RecordKind.practice) {
           items(hands, key = { it.id }) { h -> HandLine(h, onOpen = { vm.review(h.id) }) { records.setFav(h.id, !h.fav) } }
           if (hands.isEmpty()) item { Empty() }
@@ -729,6 +733,12 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
             s.level, { s.level = it; save() }, Modifier.fillMaxWidth().testTag("settings_level"),
           )
         }
+
+        // The AI coach's keys: the player's own, for the providers it can ask (coach/Keys.kt).
+        SectionHeader(stringResource(R.string.coach_title))
+        Text(stringResource(R.string.coach_keys_note), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant)
+        CoachKeyRows(vm.coach.keys)
 
         SectionHeader(stringResource(R.string.settings_help))
         SettingRow(stringResource(R.string.guide_title), stringResource(R.string.guide_row), Modifier.testTag("settings_guide")) { vm.open(Page.GUIDE) }

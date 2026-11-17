@@ -1,7 +1,9 @@
 #include "../learn/netmodel.h"
 
 #include "../core/global.h"
+#include "../game/tai.h"
 
+#include <algorithm>
 #include <cstring>
 #include <map>
 #include <mutex>
@@ -11,6 +13,8 @@
 #endif
 
 using namespace std;
+
+static_assert(Learn::NUM_TAI_ITEMS == Tai::NUM_ITEMS, "the network's tai items are the scorer's");
 
 void Learn::NetOutput::compose(const float coefP[NUM_EVENTS], const float coefT[NUM_EVENTS],
                                float q[NUM_ACTIONS]) const {
@@ -71,6 +75,19 @@ Learn::NetModel::NetModel(const string& path) : path_(path), impl_(new Impl()) {
         throw StringError("its inputs are not this build's features (version " +
                           Global::intToString(Features::VERSION) + ")");
     }
+    // The deciding seat's own outputs, in networks exported from 2026-11-17: read when both are there, as this build
+    // has them.
+    Ort::AllocatorWithDefaultOptions allocator;
+    int found = 0;
+    for(size_t i = 0; i < impl_->session->GetOutputCount(); i++) {
+      const string name = impl_->session->GetOutputNameAllocated(i, allocator).get();
+      vector<int64_t> shape = impl_->session->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape();
+      if(name == "ready_within" && shape.size() == 2 && shape[1] == 4)
+        found++;
+      if(name == "tai_items" && shape.size() == 2 && shape[1] == NUM_TAI_ITEMS)
+        found++;
+    }
+    hasMe_ = found == 2;
   }
   catch(const Ort::Exception& e) {
     delete impl_;
@@ -103,18 +120,25 @@ void Learn::NetModel::evaluate(int n, const float* kind, const float* seat, cons
     Ort::Value::CreateTensor<float>(mem, const_cast<float*>(global), (size_t)n * globalSize, globalShape, 2),
   };
   static const char* inputNames[3] = {"kind", "seat", "global"};
-  static const char* outputNames[6] = {"policy", "events", "tai", "ready", "danger", "danger_tai"};
+  static const char* outputNames[8] = {"policy", "events", "tai", "ready", "danger", "danger_tai", "ready_within",
+                                       "tai_items"};
+  const int count = hasMe_ ? 8 : 6;
   try {
-    vector<Ort::Value> outputs = impl_->session->Run(Ort::RunOptions{nullptr}, inputNames, inputs, 3, outputNames, 6);
-    const float* src[6];
-    for(int i = 0; i < 6; i++)
+    vector<Ort::Value> outputs = impl_->session->Run(Ort::RunOptions{nullptr}, inputNames, inputs, 3, outputNames, count);
+    const float* src[8];
+    for(int i = 0; i < count; i++)
       src[i] = outputs[i].GetTensorData<float>();
-    const size_t sizes[6] = {sizeof(out->policy), sizeof(out->events),    sizeof(out->tai),
-                             sizeof(out->ready),  sizeof(out->danger),    sizeof(out->dangerTai)};
+    const size_t sizes[8] = {sizeof(out->policy), sizeof(out->events), sizeof(out->tai),         sizeof(out->ready),
+                             sizeof(out->danger), sizeof(out->dangerTai), sizeof(out->readyWithin), sizeof(out->taiItems)};
     for(int i = 0; i < n; i++) {
-      void* dst[6] = {out[i].policy, out[i].events, out[i].tai, out[i].ready, out[i].danger, out[i].dangerTai};
-      for(int j = 0; j < 6; j++)
+      void* dst[8] = {out[i].policy, out[i].events,    out[i].tai,         out[i].ready,
+                      out[i].danger, out[i].dangerTai, out[i].readyWithin, out[i].taiItems};
+      for(int j = 0; j < count; j++)
         memcpy(dst[j], (const char*)src[j] + (size_t)i * sizes[j], sizes[j]);
+      if(!hasMe_) {
+        fill(begin(out[i].readyWithin), end(out[i].readyWithin), 0.0f);
+        fill(begin(out[i].taiItems), end(out[i].taiItems), 0.0f);
+      }
     }
   }
   catch(const Ort::Exception& e) {

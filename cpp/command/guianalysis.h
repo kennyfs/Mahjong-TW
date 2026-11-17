@@ -16,7 +16,11 @@
 //            "best": index of the action with the best expected result, "value": that result,
 //            "policy_value": the policy's mean result,
 //            "opponents": [{"seat": s, "ready": [P ready, 1, 2, 3 or more tiles away],
-//                           "danger": [34: P it wins on a discard of the kind now], "danger_tai": [34]} x3]}
+//                           "danger": [34: P it wins on a discard of the kind now], "danger_tai": [34]} x3],
+//            and with a network that has them (exported from 2026-11-17), the deciding seat's own:
+//            "me": {"ready_within": [P ready (or won) within its next 1, 2, 4, 8 draws],
+//                   "tai_items": {PARAM: P the item is in its win (and it wins)}: the items from 1%, by docs/rules.md's
+//                   parameter names}}
 //           The opponents are the seats 1, 2, 3 places after the deciding one; the kinds in the order 1m-9m, 1p-9p,
 //           1s-9s, 1z-7z.
 // FIGURES   {"action": ACTION, "shanten": n (-1 a win), "ukeire": n, "waits": [...], "win_tai": n}, and with a network:

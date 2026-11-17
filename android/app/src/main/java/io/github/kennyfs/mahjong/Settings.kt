@@ -91,6 +91,9 @@ private data class StoredSettings(
   val practiceHints: Boolean = false,
   /** 1: saved by a version with the network (before it, the bot could only be tile efficiency). */
   val version: Int = 0,
+  /** The AI coach's last choices: how many of the latest hands, and which provider (coach/Providers.kt). */
+  val coachHands: Int = 100,
+  val coachProvider: String = "",
 )
 
 /** The settings, kept in the app's preferences. The web page's lib/settings.svelte.ts. */
@@ -114,6 +117,8 @@ class Settings(context: Context) {
    *  nothing (Practice.kt). */
   var practiceHints by mutableStateOf(stored.practiceHints)
   var sound by mutableStateOf(stored.sound)
+  var coachHands = stored.coachHands.takeIf { it in listOf(50, 100, 200) } ?: 100
+  var coachProvider = stored.coachProvider
 
   val spec: String get() = rules.spec
 
@@ -123,7 +128,8 @@ class Settings(context: Context) {
     set(v) = prefs.edit().putBoolean("welcome.seen", v).apply()
 
   fun persist() {
-    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, level, readyHint, sound, practiceHints, version = 1)
+    val s = StoredSettings(rules, length, bot, speed, colors, dark, text, name, server, level, readyHint, sound, practiceHints, version = 1,
+      coachHands = coachHands, coachProvider = coachProvider)
     prefs.edit().putString("settings", EngineJson.encodeToString(s)).apply()
   }
 }

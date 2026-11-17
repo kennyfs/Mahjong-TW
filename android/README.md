@@ -89,6 +89,8 @@ The network is an actor's `.onnx` (not in the repository): `MAHJONG_MODEL`, or e
 `web/engine-files/actor.onnx`; it goes into the assets, and the start of its SHA-256 is the network's id (shown in the
 settings, and kept with each record's summary: another network reviews the records again). `python/fp16_weights.py`
 stores its weights as float16 (half the file; it computes in float32 as before: docs/app.md has what that changes).
+`python/export_actor.py` exports a checkpoint again with the outputs the AI coach reads (ready within N draws, tai
+items: docs/coach.md); with an older file everything works, the coach's digest without them.
 ONNX Runtime comes from its AAR, or `MAHJONG_ORT_DIR` names a reduced build of it: `build-ort.sh` builds the release's
 ONNX Runtime version with only the operators in `ort-ops.config` (the network's and the fused ones ONNX Runtime makes
 of them), no telemetry and no classic ML operators, 10 MB for arm64-v8a where the AAR's library is 34 MB. A network

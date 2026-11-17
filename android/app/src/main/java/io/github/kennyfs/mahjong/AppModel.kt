@@ -15,8 +15,9 @@ import kotlinx.coroutines.launch
 /** The top-level screens, in the navigation bar or rail. */
 enum class Screen { PLAY, BATTLE, ANALYZE, RECORDS, SETTINGS }
 
-/** A page opened from a screen: Back returns to what was under it. GUIDE: the rules explained (ui/GuideScreen.kt). */
-enum class Page { RULES, REVIEW, GUIDE }
+/** A page opened from a screen: Back returns to what was under it. GUIDE: the rules explained (ui/GuideScreen.kt);
+ *  COACH: the AI coach (ui/CoachScreen.kt). */
+enum class Page { RULES, REVIEW, GUIDE, COACH }
 
 /**
  * What the screens share, for as long as the app runs: the settings, the records, practice, battles, the pages opened
@@ -37,6 +38,8 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
     StoreMode.rules?.let { s.rules = it; s.persist() }
   }
   val records = Records(app)
+  /** The AI coach: the player's hands read by a language model with the player's key (coach/Coach.kt). */
+  val coach = io.github.kennyfs.mahjong.coach.Coach(app, viewModelScope, records)
   var error by mutableStateOf<String?>(null)
 
   private fun names() = listOf(app.getString(R.string.you)) + (1..3).map { app.getString(R.string.cpu_n, it) }
@@ -105,9 +108,10 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
     settings.welcomeSeen = true
   }
 
-  fun review(id: String) {
+  /** A record's review, at a step (the coach's links open a decision's moment). */
+  fun review(id: String, step: Int = 0) {
     reviewId = id
-    reviewStep = 0
+    reviewStep = step
     open(Page.REVIEW)
   }
 

@@ -141,7 +141,10 @@ With `"model": FILE` (a network's `.onnx`, in a build with ONNX Runtime; `{"cmd"
 points), `policy`, the chances `win`, `tsumo`, `deal_in`, `others_tsumo`, the `tai` of a win, `parts` (what winning,
 dealing in and others' self-draws add to `q`), and for a discard its `danger` now, per opponent too. The answer then
 also has `best`, `value`, and `opponents` (per opponent: the chances of being ready or 1, 2, 3+ tiles away, and the
-danger of each of the 34 kinds). Two more requests use the network (cpp/command/guiengine.h has their forms):
+danger of each of the 34 kinds), and with a network exported from 2026-11-17 `me`, the deciding seat's own: the
+chances of being ready within its next 1, 2, 4, 8 draws (`ready_within`) and of each tai item in its win (`tai_items`,
+by the parameters' names, from 1%); older networks' files load as before, without it. Two more requests use the
+network (cpp/command/guiengine.h has their forms):
 
 - `review`: a finished hand for one seat: every decision that had a choice with its analysis, the action taken,
   what it lost against the best, and what the three opponents really held then (tiles from ready, waits); the hand's

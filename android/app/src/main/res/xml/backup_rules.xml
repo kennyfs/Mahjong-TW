@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and earlier: as data_extraction_rules.xml, the AI coach's API keys stay out of backups. -->
+<full-backup-content>
+  <exclude domain="sharedpref" path="coach_keys.xml" />
+</full-backup-content>
