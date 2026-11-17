@@ -324,6 +324,10 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     cleared field is still its own server.
   - **A test build's icon**: the moon in its top right, over the tile's corner on a disc of the night felt (as
     Thirteen's test icon).
+  - **The launcher icon's tile 5/6 as large** (2026-11-17, the user's: scale 0.55, was 0.66): on a round launcher
+    the tile all but filled the circle; a page's shortcut in Firefox (Thirteen's, from its maskable icon) showed
+    its card 5/6 as large as the app's and looked better (measured on the user's Pixel: card 0.53 of the circle's
+    width before, 0.44 in the shortcut). The test build's moon shrinks with it; Thirteen's card by the same 5/6.
 - **Play with the analysis** (2026-11-14, the user's; the page first, then the app):
   - **練習時顯示分析** (the settings; on in a hand at any point, on till its end, and that hand counts for
     nothing): the costs and dangers on the tiles, the choices' costs on their buttons, the opponents' chances of
