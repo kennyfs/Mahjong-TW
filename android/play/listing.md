@@ -43,6 +43,7 @@ rating to match (no real-money and no simulated gambling).
 • 分支：從自己的任何一個決定改打，看結果有什麼不同，每一步都有分析
 • 分析頁：擺出任何局面（手牌、副露、牌河），看每個選擇怎麼樣，還能「從這裡打」接著打下去
 • 分析統計：損失來自選牌、放槍風險、吃碰槓還是胡不胡
+• AI 講評：用你自己的 API 金鑰（Claude、Gemini、ChatGPT 或相容服務），讓 AI 讀同一套規則最近的牌局，找出你一再出現的習慣並解說；點代號就跳到那一手
 
 規則
 • 台數表：簡單1（南部打法）、簡單2、標準、大師（2025 麻將大師賽的台數表）
@@ -61,8 +62,8 @@ rating to match (no real-money and no simulated gambling).
 • 每一局都存在手機上，可以收藏、看統計，也能分享或匯出
 • 配色：牌桌綠、簡約，或跟隨桌布（Android 12 以上）
 • 介面語言：繁體中文、英文（在系統設定的「應用程式語言」切換）
-• 練習和分析完全在手機上離線運算
-• 沒有廣告、沒有內購、不需要帳號
+• 練習和分析完全在手機上離線運算；只有 AI 講評會連到你選的 AI 服務
+• 沒有廣告、沒有內購、不需要帳號（AI 講評要用你自己在 AI 服務的金鑰，費用記在你的帳號）
 • 也有網頁版，電腦也能玩，還能和 app 的玩家連線對戰：https://mahjong.1li.tw
 • 開放原始碼（GPLv3）：https://github.com/kennyfs/Mahjong-TW
 
@@ -96,6 +97,7 @@ Review and analysis
 • Branch: play on from any of your decisions differently and see what changes, with the analysis at every step
 • Analysis: set up any position (hand, melds, discards) and see how each choice does, then play it on against the computer
 • Statistics: whether your losses come from tile choice, dealing in, calls, or wins passed up
+• AI coach: with your own API key (Claude, Gemini, ChatGPT or a compatible service), an AI reads your recent hands of one set of rules, finds the habits that keep coming back and explains them; tap a hand's id to open that moment
 
 Rules
 • Scoring tables: Simple 1, Simple 2, Standard, Masters (the 2025 Mahjong Masters' table)
@@ -114,8 +116,8 @@ More
 • Every hand is kept on your phone: star it, see statistics, share or export it
 • Colors: table green, minimal, or from your wallpaper (Android 12 and up)
 • Languages: Traditional Chinese and English (switch in the system's App languages)
-• Practice and analysis run entirely on your phone, offline
-• No ads, no in-app purchases, no account
+• Practice and analysis run entirely on your phone, offline; only the AI coach connects, to the AI service you choose
+• No ads, no in-app purchases, no account (the AI coach uses your own key from an AI service, billed to you)
 • A web version too, for computers, which plays online with the app: https://mahjong.1li.tw
 • Open source (GPLv3): https://github.com/kennyfs/Mahjong-TW
 
