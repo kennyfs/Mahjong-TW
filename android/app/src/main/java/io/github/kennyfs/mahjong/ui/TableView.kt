@@ -909,9 +909,10 @@ fun SeatBadge(
           maxLines = 1)
       } else if (note != null) Box(Modifier.weight(1f, fill = false)) {
         var shown by remember(note.opp) { mutableStateOf(false) }
+        // (A level over 0 may come with a note that has no short words: Shorten.)
         Shorten(if (note.short != null) 2 else 1) { level ->
           Text(
-            if (level == 0) note.text else note.short!!, color = if (note.level > 0) Marks.on(note.level) else c.onFelt, fontWeight = FontWeight.Bold,
+            if (level == 0) note.text else note.short ?: note.text, color = if (note.level > 0) Marks.on(note.level) else c.onFelt, fontWeight = FontWeight.Bold,
             fontSize = f, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (note.level > 0) Marks.danger(note.level) else Color.Black.copy(alpha = 0.3f))
               .let { if (note.opp != null) it.clickable(role = Role.Button) { shown = true } else it }

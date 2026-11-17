@@ -11,6 +11,10 @@ import androidx.compose.ui.layout.SubcomposeLayout
  * levels tried are composed. The web page's lib/shorten.ts.
  *
  * (Its parent must not ask it for its intrinsic sizes: a SubcomposeLayout has none.)
+ *
+ * `content` must give something for any level it was ever given room for, not only for the levels of now: a level
+ * composed last time (its slot) is recomposed with the new content before the next measure drops it. A name plate's
+ * note that had short words, then one without, crashed the app at `short!!` (a review's steps gone through quickly).
  */
 @Composable
 fun Shorten(levels: Int, modifier: Modifier = Modifier, content: @Composable (level: Int) -> Unit) {
