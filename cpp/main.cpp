@@ -18,6 +18,7 @@ static void printHelp(const string& program) {
   cout << "  gen0       Write stage 0 training data: greedy hands with every action's outcome (docs/plan.md 3.4)." << endl;
   cout << "  selfplay   Write stage 1 training data: the network's hands with marked decisions and forks." << endl;
   cout << "  review     Write what a network says about every decision of some players' hands (docs/analysis.md)." << endl;
+  cout << "  study      Write the network's figures beside tile efficiency's choice at every decision of its own hands." << endl;
   cout << endl;
   cout << "Run '" << program << " SUBCOMMAND -h' for a subcommand's arguments." << endl;
 }
@@ -52,6 +53,8 @@ int main(int argc, const char* argv[]) {
       return Commands::selfplay(subArgs);
     if(sub == "review")
       return Commands::review(subArgs);
+    if(sub == "study")
+      return Commands::study(subArgs);
   }
   catch(const StringError& e) {
     cerr << "Error: " << e.what() << endl;
