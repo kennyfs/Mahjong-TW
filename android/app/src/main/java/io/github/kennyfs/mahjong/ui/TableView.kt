@@ -129,7 +129,7 @@ import kotlin.math.roundToInt
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.withFrameMillis
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import io.github.kennyfs.mahjong.Timing
 import io.github.kennyfs.mahjong.Sounds
 import kotlin.math.roundToLong
@@ -1514,7 +1514,7 @@ private fun comingMelds(view: View, fresh: List<GameEvent>): Map<Int, Int> {
 @Composable
 private fun TableEvents(host: FxHost, view: View, me: Int, names: List<String>, robbed: Int, review: Boolean, stay: Boolean,
   words: SnapshotStateList<Callout>) {
-  val context = LocalContext.current
+  val res = LocalResources.current
   val next = remember { intArrayOf(0) }
   LaunchedEffect(view.eventCount) {
     val count = view.eventCount
@@ -1537,7 +1537,7 @@ private fun TableEvents(host: FxHost, view: View, me: Int, names: List<String>, 
     }
     val anim = FxClock.enabled()
     val pos = view.position
-    fun str(id: Int) = context.getString(id)
+    fun str(id: Int) = res.getString(id)
     fun name(seat: Int) = names.getOrElse(seat) { "" }
     val dealIn = str(R.string.call_deal_in)
     val list = ArrayList<Moment>()

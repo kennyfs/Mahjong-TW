@@ -61,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -153,12 +154,13 @@ private fun EntryPage(vm: AppModel) {
   val battle = vm.battle
   val settings = vm.settings
   val context = LocalContext.current
+  val res = LocalResources.current
   var editServer by remember { mutableStateOf(settings.server.isBlank()) }
   // What to do once the permissions asked for are granted, and what to say if they are not.
   var then by remember { mutableStateOf<(() -> Unit)?>(null) }
   var denied by remember { mutableIntStateOf(R.string.battle_permissions) }
   val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-    if (granted.values.all { it }) then?.invoke() else vm.error = context.getString(denied)
+    if (granted.values.all { it }) then?.invoke() else vm.error = res.getString(denied)
     then = null
   }
   fun ask(needed: List<String>, deniedText: Int, action: () -> Unit) {
