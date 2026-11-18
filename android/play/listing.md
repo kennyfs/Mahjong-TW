@@ -125,7 +125,7 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 
 ## What's new (release notes, 500 characters each)
 
-### Next (the version is the user's to choose)
+### 1.3.0
 
 zh-TW:
 

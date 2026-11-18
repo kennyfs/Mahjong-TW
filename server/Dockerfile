@@ -10,11 +10,12 @@
 
 # The network: server/model/actor.onnx when the build context has it (put there by hand, kept out of git), else
 # MODEL_URL (a release asset of this repository's); either way it must match MODEL_SHA256 (network 221 of the run s3,
-# its weights as float16). A new network: both arguments, here and in the release.
+# its weights as float16, exported with the two outlook outputs the AI coach reads). A new network: both arguments,
+# here and in the release.
 FROM ubuntu:26.04 AS model
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
-ARG MODEL_URL=https://github.com/kennyfs/Mahjong-TW/releases/download/v1.0.0/actor_s3_221.fp16.onnx
-ARG MODEL_SHA256=f1bce44e58cb47b65e95777c9039419f0c7b10f53d3600b791770253a63663db
+ARG MODEL_URL=https://github.com/kennyfs/Mahjong-TW/releases/download/v1.3.0/actor_s3_221_me.fp16.onnx
+ARG MODEL_SHA256=b5573a5330bc28c44e671dc76eb9fb97094660041a89083c24cdfe3287d6e302
 COPY server/model /model
 RUN if [ ! -f /model/actor.onnx ]; then curl -fsSL -o /model/actor.onnx "$MODEL_URL"; fi \
   && echo "$MODEL_SHA256  /model/actor.onnx" | sha256sum -c -
