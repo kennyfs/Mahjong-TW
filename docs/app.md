@@ -381,6 +381,18 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     the app's `Shorten` (the content at levels, the first that fits). A plate keeps its name whole: the dealer's 莊連N,
     the count and the score go under it where the line has no room (before, at 320 to 411 px upright and on a wide
     table's narrow side columns, the name was cut to 電… or to nothing).
+- **Records import** (2026-11-18, the user's; the app only): the records page's end (its title 紀錄檔 now, was 給開發者)
+  has 匯入 beside 分享 and 匯出. It opens the system's file picker (any type: a chat app may save the JSON as
+  anything), reads a file exported by the app or the page (`app` `mahjong-tw`), and adds its hands and battles:
+  - one already here (its id) is kept as it is, the file's copy skipped, so importing the same file twice adds nothing;
+  - the rest go in by when they ended (the lists stay newest last); past 3,000 the oldest that are not favorites go,
+    as when playing;
+  - a hand's review summary comes with it and counts if the same network made it; otherwise 統計 offers to review it;
+  - a window says how many were added, already here, or not kept; another file is refused with a message.
+
+  For moving a player's records from the store's app to a test build (`.test`), or to another phone. It was left out
+  at first so that an exported file would hold only hands really played; as the app is open source, anyone could
+  write such a file anyway (the user's, 2026-11-18). `Records.parse`, `Records.merge` (RecordsImportTest).
 
 ## Built and checked
 
@@ -599,7 +611,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
    stay uncompressed, as Thirteen's. Below.
 5. **The analysis** has the network since 0.1.0 (docs/analysis.md); a better network replaces the file.
 6. **English**: the tile faces are Chinese (萬 numerals, 東南西北, 中發白); an English player may want corner indexes.
-7. **Records export and import** (Thirteen's app has export and share): `records_export` is in the strings, unused.
+7. **Records import on the page**: the app imports (2026-11-18); the page exports only.
 8. **Polish**: animations of tiles moving (only the callouts animate now), sound and haptics, predictive back, a
    tablet's side panel in the app (the page has one on a computer), TalkBack and keyboard focus checked through; a
    connection error shows the system's message (English) in parentheses, which could become plain words; upright, the analysis screen's palette takes the lower half, so the section being

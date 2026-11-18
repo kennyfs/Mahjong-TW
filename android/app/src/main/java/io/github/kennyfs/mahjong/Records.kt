@@ -82,6 +82,12 @@ data class ExportedRecords(
   val app: String, val version: String, val time: String, val hands: List<HandRecord>, val battles: List<BattleGroup>,
 )
 
+/** What an import did (Records.import): the hands added, the hands already here, the oldest past MAX not kept. */
+data class Imported(val added: Int, val had: Int, val dropped: Int)
+
+/** A file that is not records exported by the app or the page. */
+class BadRecordsFile(cause: Throwable? = null) : IllegalArgumentException(cause)
+
 @Serializable
 private data class StoredRecords(val hands: List<HandRecord> = emptyList(), val battles: List<BattleGroup> = emptyList())
 
@@ -133,9 +139,20 @@ class Records(context: Context) {
     persist()
   }
 
-  /** Every record, as a file to hand on (to find a bug in a hand played). */
+  /** Every record, as a file to hand on (to find a bug in a hand played, or to another phone or version). */
   fun exportText(version: String): String =
-    EngineJson.encodeToString(ExportedRecords("mahjong-tw", version, Instant.now().toString(), hands, battles))
+    EngineJson.encodeToString(ExportedRecords(APP, version, Instant.now().toString(), hands, battles))
+
+  /** The records of a file (`parse`) added to these: see `merge`. */
+  fun import(file: ExportedRecords): Imported {
+    val m = merge(hands, battles, file)
+    if (m.hands != hands || m.battles != battles) {
+      hands = m.hands
+      battles = m.battles
+      persist()
+    }
+    return m.imported
+  }
 
   fun get(id: String) = hands.firstOrNull { it.id == id }
 
@@ -153,6 +170,45 @@ class Records(context: Context) {
   companion object {
     /** Records kept at most: the oldest that are not favorites go first. */
     const val MAX = 3000
+
+    /** The exported file's `app`. */
+    const val APP = "mahjong-tw"
+
+    /** A records file's text (exportText, or the page's): BadRecordsFile when it is not one. */
+    fun parse(text: String): ExportedRecords {
+      val file = try {
+        EngineJson.decodeFromString<ExportedRecords>(text)
+      } catch (e: Exception) {
+        throw BadRecordsFile(e)
+      }
+      if (file.app != APP) throw BadRecordsFile()
+      return file
+    }
+
+    class Merged(val hands: List<HandRecord>, val battles: List<BattleGroup>, val imported: Imported)
+
+    /**
+     * A file's records added to these. A hand or a battle already here (its id) stays as it is, the file's copy
+     * skipped; the rest go in by when they ended, so the lists stay newest last. Past MAX the oldest that are not
+     * favorites go, as when playing. A hand's review comes with it (`rev`): kept when the same network made it.
+     */
+    fun merge(hands: List<HandRecord>, battles: List<BattleGroup>, file: ExportedRecords): Merged {
+      val ids = hands.mapTo(HashSet()) { it.id }
+      val new = file.hands.filter { ids.add(it.id) }
+      val battleIds = battles.mapTo(HashSet()) { it.id }
+      val newBattles = file.battles.filter { battleIds.add(it.id) }
+      if (new.isEmpty() && newBattles.isEmpty()) return Merged(hands, battles, Imported(0, file.hands.size, 0))
+      var list = (hands + new).sortedBy { instantOf(it.time) }
+      val all = list.size
+      if (all > MAX) {
+        var drop = all - MAX
+        list = list.filter { it.fav || drop-- <= 0 }
+      }
+      return Merged(list, (battles + newBattles).sortedBy { instantOf(it.time) }, Imported(new.size, file.hands.size - new.size, all - list.size))
+    }
+
+    /** A record's time; one that cannot be read as the oldest. */
+    private fun instantOf(time: String): Instant = runCatching { Instant.parse(time) }.getOrDefault(Instant.EPOCH)
 
     private val random = SecureRandom()
 

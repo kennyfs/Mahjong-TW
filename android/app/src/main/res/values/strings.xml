@@ -258,8 +258,15 @@
   <string name="records_clear_confirm">清除所有沒收藏的紀錄？</string>
   <string name="records_export">匯出</string>
   <string name="records_share">分享</string>
-  <string name="records_dev_title">給開發者</string>
+  <string name="records_dev_title">紀錄檔</string>
   <string name="records_dev_info">每一局都只存在這裡（規則、牌山、每家的每個決定），不會自動傳出去。遇到問題時，把紀錄檔（JSON）分享或匯出給開發者，就能重現那一局。</string>
+  <string name="records_import_info">從別的手機、別的版本或網頁匯出的紀錄檔，可以在這裡匯入；已經有的局不會重複加入。</string>
+  <string name="records_import">匯入</string>
+  <string name="records_imported">匯入了 %1$d 局。</string>
+  <string name="records_import_had">%1$d 局已經有了，沒有重複加入。</string>
+  <string name="records_import_dropped">超過上限 %1$d 局，最舊的 %2$d 局沒有保留。</string>
+  <string name="records_import_empty">檔案裡沒有紀錄。</string>
+  <string name="records_import_bad">這個檔案不是台灣麻將匯出的紀錄檔。</string>
   <string name="records_dev_count">共 %1$d 局</string>
   <string name="records_reset_scores">分數歸零</string>
   <string name="records_reset_scores_confirm">把練習的分數歸零，從東風圈第 1 局重新開始？目前這一將會放棄，紀錄不會刪除。</string>

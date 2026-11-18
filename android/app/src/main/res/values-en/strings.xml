@@ -252,8 +252,15 @@
   <string name="records_clear_confirm">Clear every record that isn\'t a favorite?</string>
   <string name="records_export">Export</string>
   <string name="records_share">Share</string>
-  <string name="records_dev_title">For the developer</string>
+  <string name="records_dev_title">Records file</string>
   <string name="records_dev_info">Every hand is kept only here (the rules, the wall, each player\'s every decision) and is never sent anywhere by itself. If something goes wrong, share or export the records file (JSON) to the developer, who can then replay that hand.</string>
+  <string name="records_import_info">A records file exported from another phone, another version of the app or the web page can be imported here; hands already here are not added again.</string>
+  <string name="records_import">Import</string>
+  <string name="records_imported">Hands imported: %1$d.</string>
+  <string name="records_import_had">Already here, not added again: %1$d.</string>
+  <string name="records_import_dropped">Over the limit of %1$d hands, the oldest %2$d were not kept.</string>
+  <string name="records_import_empty">The file holds no records.</string>
+  <string name="records_import_bad">This isn\'t a records file exported by Taiwan Mahjong.</string>
   <string name="records_dev_count">Hands kept: %1$d</string>
   <string name="records_reset_scores">Reset scores</string>
   <string name="records_reset_scores_confirm">Reset the practice scores and start again from East Round, hand 1? This game is given up; no records are deleted.</string>

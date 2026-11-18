@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Contrast
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Button
@@ -88,6 +89,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.kennyfs.mahjong.AppModel
 import io.github.kennyfs.mahjong.BOTS
+import io.github.kennyfs.mahjong.BadRecordsFile
 import io.github.kennyfs.mahjong.BattleGroup
 import io.github.kennyfs.mahjong.ColorStyle
 import io.github.kennyfs.mahjong.BuildConfig
@@ -95,6 +97,7 @@ import io.github.kennyfs.mahjong.DarkMode
 import io.github.kennyfs.mahjong.Engine
 import io.github.kennyfs.mahjong.EngineException
 import io.github.kennyfs.mahjong.HandRecord
+import io.github.kennyfs.mahjong.Imported
 import io.github.kennyfs.mahjong.Length
 import io.github.kennyfs.mahjong.Level
 import io.github.kennyfs.mahjong.LossKind
@@ -102,6 +105,7 @@ import io.github.kennyfs.mahjong.Page
 import io.github.kennyfs.mahjong.R
 import io.github.kennyfs.mahjong.RULE_HELP
 import io.github.kennyfs.mahjong.RecordKind
+import io.github.kennyfs.mahjong.Records
 import io.github.kennyfs.mahjong.RuleChoice
 import io.github.kennyfs.mahjong.Rules
 import io.github.kennyfs.mahjong.RulesInfo
@@ -171,6 +175,22 @@ fun RecordsScreen(vm: AppModel) {
         .onFailure { vm.error = it.message }
     }
   }
+  // A records file from another phone, version or the page (any type: a chat app may save it as anything), read and
+  // checked off the main thread, then added; what it did, in a window.
+  val res = LocalResources.current
+  var imported by remember { mutableStateOf<String?>(null) }
+  val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    if (uri != null) scope.launch {
+      runCatching {
+        val file = withContext(Dispatchers.IO) {
+          val text = context.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+          Records.parse(text)
+        }
+        records.import(file)
+      }.onSuccess { imported = importedText(res, it) }
+        .onFailure { vm.error = if (it is BadRecordsFile) res.getString(R.string.records_import_bad) else it.message }
+    }
+  }
   val stats = stringResource(
     R.string.records_stats, all.size, all.count { it.me in it.winners }, all.count { it.loser == it.me }, signed(all.sumOf { it.points[it.me] }),
   )
@@ -212,8 +232,8 @@ fun RecordsScreen(vm: AppModel) {
           if (battles.isEmpty()) item { Empty() }
         }
         item(key = "dev") {
-          ForDeveloper(records.hands.size, onShare = { scope.launch { shareRecords(context, records.exportText(BuildConfig.VERSION_NAME ?: "")) } },
-            onSave = { save.launch(exportName()) }, onReset = { confirmReset = true },
+          RecordsFile(records.hands.size, onShare = { scope.launch { shareRecords(context, records.exportText(BuildConfig.VERSION_NAME ?: "")) } },
+            onSave = { save.launch(exportName()) }, onImport = { open.launch(arrayOf("*/*")) }, onReset = { confirmReset = true },
             canClear = records.hands.any { !it.fav }, onClear = { confirmClear = true })
         }
       }
@@ -223,7 +243,21 @@ fun RecordsScreen(vm: AppModel) {
     onDismiss = { confirmReset = false }, confirm = stringResource(R.string.records_reset_scores_ok))
   if (confirmClear) ConfirmDialog(stringResource(R.string.records_clear_confirm), onConfirm = { records.clear() }, onDismiss = { confirmClear = false },
     confirm = stringResource(R.string.delete))
+  imported?.let { text ->
+    AlertDialog(
+      onDismissRequest = { imported = null },
+      confirmButton = { TextButton(onClick = { imported = null }) { Text(stringResource(R.string.ok)) } },
+      text = { Text(text, Modifier.testTag("records_imported"), style = MaterialTheme.typography.bodyLarge) },
+    )
+  }
 }
+
+/** What an import did, in a line or three. */
+private fun importedText(res: android.content.res.Resources, r: Imported): String = buildList {
+  add(if (r.added == 0 && r.had == 0) res.getString(R.string.records_import_empty) else res.getString(R.string.records_imported, r.added))
+  if (r.had > 0) add(res.getString(R.string.records_import_had, r.had))
+  if (r.dropped > 0) add(res.getString(R.string.records_import_dropped, Records.MAX, r.dropped))
+}.joinToString("\n")
 
 /**
  * What the reviews of a tab's hands add up to: how many are reviewed (and a button to review the rest), the points
@@ -301,13 +335,19 @@ private suspend fun shareRecords(context: Context, text: String) {
   context.startActivity(Intent.createChooser(send, null))
 }
 
-/** The records' end: every record as a file for the developer (shared or saved), and practice's scores set to zero. */
+/**
+ * The records' end: every record as a file (shared or saved: for the developer, or for another phone or version), a
+ * file's records imported, and practice's scores set to zero.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ForDeveloper(count: Int, onShare: () -> Unit, onSave: () -> Unit, onReset: () -> Unit, canClear: Boolean, onClear: () -> Unit) {
+private fun RecordsFile(
+  count: Int, onShare: () -> Unit, onSave: () -> Unit, onImport: () -> Unit, onReset: () -> Unit, canClear: Boolean, onClear: () -> Unit,
+) {
   SectionHeader(stringResource(R.string.records_dev_title), Modifier.padding(top = 8.dp))
   Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
     Text(stringResource(R.string.records_dev_info), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(stringResource(R.string.records_import_info), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text(stringResource(R.string.records_dev_count, count), style = MaterialTheme.typography.titleSmall)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       Button(onClick = onShare, Modifier.heightIn(min = 48.dp).testTag("records_share"), enabled = count > 0) {
@@ -317,6 +357,10 @@ private fun ForDeveloper(count: Int, onShare: () -> Unit, onSave: () -> Unit, on
       OutlinedButton(onClick = onSave, Modifier.heightIn(min = 48.dp).testTag("records_save"), enabled = count > 0) {
         Icon(Icons.Outlined.Save, null, Modifier.padding(end = 8.dp))
         Text(stringResource(R.string.records_export))
+      }
+      OutlinedButton(onClick = onImport, Modifier.heightIn(min = 48.dp).testTag("records_import")) {
+        Icon(Icons.Outlined.FileOpen, null, Modifier.padding(end = 8.dp))
+        Text(stringResource(R.string.records_import))
       }
     }
   }
