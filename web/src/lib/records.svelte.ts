@@ -68,7 +68,32 @@ export interface BattleGroup {
 }
 
 /** Records kept at most: the oldest that are not favorites go first. */
-const MAX = 3000;
+export const MAX = 3000;
+
+/** What an import did: the hands added, the hands already here, the oldest not kept (past MAX, or past the browser's
+ *  room: `room`). */
+export interface Imported { added: number; had: number; dropped: number; room: boolean }
+
+/** A records file's hands and battles: one exported by the app or the page (exportText, Records.kt's), else null. */
+export function parseRecords(text: string): { hands: HandRecord[]; battles: BattleGroup[] } | null {
+  let o: { app?: unknown; hands?: unknown; battles?: unknown };
+  try {
+    o = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!o || typeof o !== 'object' || o.app !== 'mahjong-tw' || !Array.isArray(o.hands)) return null;
+  const isHand = (h: any) => !!h && typeof h.id === 'string' && typeof h.time === 'string' && !!h.game && typeof h.game === 'object'
+    && typeof h.me === 'number' && Array.isArray(h.points) && Array.isArray(h.names);
+  const isBattle = (b: any) => !!b && typeof b.id === 'string' && typeof b.time === 'string' && Array.isArray(b.names);
+  return { hands: o.hands.filter(isHand), battles: Array.isArray(o.battles) ? o.battles.filter(isBattle) : [] };
+}
+
+/** A record's time, for the order; one that cannot be read as the oldest. */
+const when = (time: string) => {
+  const x = Date.parse(time);
+  return Number.isNaN(x) ? 0 : x;
+};
 
 class Records {
   hands = $state<HandRecord[]>(load<HandRecord[]>(KEYS.records, []));
@@ -115,7 +140,36 @@ class Records {
     save(KEYS.battles, this.battles);
   }
 
-  /** Every record, as a file to hand on (to find a bug in a hand played): the app's form (Records.kt). */
+  /**
+   * A file's records (parseRecords) added to these, as the app's Records.merge: a hand or a battle already here (its
+   * id) stays as it is, the file's copy skipped; the rest go in by when they ended; past MAX the oldest that are not
+   * favorites go, as when playing (and more if the browser has no room for them all).
+   */
+  import(file: { hands: HandRecord[]; battles: BattleGroup[] }): Imported {
+    const ids = new Set(this.hands.map((h) => h.id));
+    const fresh = file.hands.filter((h) => !ids.has(h.id) && !!ids.add(h.id));
+    const battleIds = new Set(this.battles.map((b) => b.id));
+    const freshBattles = file.battles.filter((b) => !battleIds.has(b.id) && !!battleIds.add(b.id));
+    const had = file.hands.length - fresh.length;
+    if (!fresh.length && !freshBattles.length) return { added: 0, had, dropped: 0, room: false };
+    // (Array.prototype.sort is stable: the same time keeps the order it had.)
+    let list = [...this.hands, ...fresh].sort((a, b) => when(a.time) - when(b.time));
+    const all = list.length;
+    if (all > MAX) {
+      const drop = all - MAX;
+      let dropped = 0;
+      list = list.filter((h) => h.fav || dropped++ >= drop);
+    }
+    const kept = list.length;
+    this.hands = list;
+    this.persist();
+    this.battles = [...this.battles, ...freshBattles].sort((a, b) => when(a.time) - when(b.time));
+    save(KEYS.battles, this.battles);
+    return { added: fresh.length, had, dropped: all - this.hands.length, room: this.hands.length < kept };
+  }
+
+  /** Every record, as a file to hand on (to find a bug in a hand played, or to another browser, phone or version):
+   *  the app's form (Records.kt). */
   exportText(): string {
     return JSON.stringify({ app: 'mahjong-tw', version: 'web', time: new Date().toISOString(), hands: this.hands, battles: this.battles });
   }

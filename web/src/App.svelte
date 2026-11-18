@@ -17,6 +17,7 @@
   import Analyze from './components/Analyze.svelte';
   import Battle from './components/Battle.svelte';
   import Play from './components/Play.svelte';
+  import Coach from './components/Coach.svelte';
   import Records from './components/Records.svelte';
   import Replay from './components/Replay.svelte';
   import Rules from './components/Rules.svelte';
@@ -108,6 +109,9 @@
       <Guide onback={() => nav.back()} />
     {:else if (nav.screen === 'PLAY' || nav.screen === 'RECORDS' || nav.screen === 'BATTLE') && nav.sub === 'review'}
       <Replay id={shared.reviewId} onback={() => nav.back()} />
+    {:else if nav.screen === 'RECORDS' && nav.sub === 'coach'}
+      <!-- (A moment of an answer opens over it: Back comes back to the answer.) -->
+      <Coach onback={() => nav.back()} onreview={(id, step) => { shared.reviewId = id; shared.reviewStep = step; nav.open('review', 'RECORDS', true); }} />
     {:else if nav.screen === 'PLAY' && nav.sub === 'rules'}
       <Rules onback={() => nav.back()} />
     {:else if nav.screen === 'PLAY'}

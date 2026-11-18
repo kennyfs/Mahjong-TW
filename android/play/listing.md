@@ -129,11 +129,11 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 
 zh-TW:
 
-新增「AI 講評」：用你自己的 API 金鑰（Claude、Gemini、ChatGPT 或相容服務），讓 AI 讀同一套規則最近的牌局，找出常犯的習慣並解說，可點代號跳到那一手。紀錄頁可以匯入從別的手機、別的版本或網頁匯出的紀錄檔。修正回顧時連續快速點「上一個決定」會讓 app 當掉的問題。修正筒子的圓圈有時看起來不同心（例如七筒、八筒的內圈）。
+新增「AI 講評」：用你自己的 API 金鑰（Claude、Gemini、ChatGPT 或相容服務，可選模型與思考強度），讓 AI 讀同一套規則最近的牌局，找出常犯的習慣並解說，可點代號跳到那一手。紀錄頁可以匯入從別的手機、別的版本或網頁匯出的紀錄檔。修正回顧時連續快速點「上一個決定」會讓 app 當掉的問題。修正筒子的圓圈有時看起來不同心（例如七筒、八筒的內圈）。
 
 en-US:
 
-New AI coach: with your own API key (Claude, Gemini, ChatGPT or a compatible service), an AI reads your recent hands of one set of rules, finds the habits that keep coming back and explains them; tap a hand's id to open that moment. Records can be imported from a file exported on another phone, another version or the web page. Fixed a crash when going back quickly through a review's decisions. The Dots tiles' rings are now concentric (7 and 8 Dots' inner rings were off).
+New AI coach: with your own API key (Claude, Gemini, ChatGPT or a compatible service; the model and its thinking can be chosen), an AI reads your recent hands of one set of rules, finds your recurring habits and explains them; tap an id to open that moment. Records can be imported from a file exported on another phone, version or the web page. Fixed a crash when going back quickly through a review. The Dots tiles' rings are now concentric (7 and 8 Dots' inner rings were off).
 
 ### 1.2.0
 

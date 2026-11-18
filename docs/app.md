@@ -328,12 +328,13 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     the tile all but filled the circle; a page's shortcut in Firefox (Thirteen's, from its maskable icon) showed
     its card 5/6 as large as the app's and looked better (measured on the user's Pixel: card 0.53 of the circle's
     width before, 0.44 in the shortcut). The test build's moon shrinks with it; Thirteen's card by the same 5/6.
-- **AI 講評 / AI coach** (2026-11-18, the user's; the app only, not yet the page): from the records, the latest 50,
-  100 or 200 hands of one set of rules, reviewed by the network, put in a digest and read by Claude Sonnet 5.5,
-  Gemini 4 Hydrogen, ChatGPT (GPT-6.1 Sol) or any OpenAI-compatible service, with the player's own key (the settings;
-  encrypted by the Keystore, kept out of backups); the answer's habits link each example to its moment in the review,
-  and can be asked more about. The network exported again with two more outputs for it (ready within N draws, tai
-  items). docs/coach.md.
+- **AI 講評 / AI coach** (2026-11-18, the user's; the app, then the page): from the records, the latest 50, 100 or
+  200 hands of one set of rules, reviewed by the network, put in a digest and read by Claude (Haiku, Sonnet or Opus
+  5.5; Sonnet at first), Gemini 4 Hydrogen, ChatGPT (GPT-6.1 Sol) or any OpenAI-compatible service, with the player's
+  own key (the settings; in the app encrypted by the Keystore and kept out of backups, on the page in the browser's
+  storage); the model and how much it thinks (low, medium, high) can be changed (模型與思考); the answer's habits
+  link each example to its moment in the review, and can be asked more about. The network exported again with two
+  more outputs for it (ready within N draws, tai items). docs/coach.md.
 - **Play with the analysis** (2026-11-14, the user's; the page first, then the app):
   - **練習時顯示分析** (the settings; on in a hand at any point, on till its end, and that hand counts for
     nothing): the costs and dangers on the tiles, the choices' costs on their buttons, the opponents' chances of
@@ -387,7 +388,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     the app's `Shorten` (the content at levels, the first that fits). A plate keeps its name whole: the dealer's 莊連N,
     the count and the score go under it where the line has no room (before, at 320 to 411 px upright and on a wide
     table's narrow side columns, the name was cut to 電… or to nothing).
-- **Records import** (2026-11-18, the user's; the app only): the records page's end (its title 紀錄檔 now, was 給開發者)
+- **Records import** (2026-11-18, the user's; the app, then the page): the records page's end (its title 紀錄檔 now, was 給開發者)
   has 匯入 beside 分享 and 匯出. It opens the system's file picker (any type: a chat app may save the JSON as
   anything), reads a file exported by the app or the page (`app` `mahjong-tw`), and adds its hands and battles:
   - one already here (its id) is kept as it is, the file's copy skipped, so importing the same file twice adds nothing;
@@ -399,6 +400,8 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   For moving a player's records from the store's app to a test build (`.test`), or to another phone. It was left out
   at first so that an exported file would hold only hands really played; as the app is open source, anyone could
   write such a file anyway (the user's, 2026-11-18). `Records.parse`, `Records.merge` (RecordsImportTest).
+  The page the same (`parseRecords`, `records.import`), from a file input; when the browser's storage has no room
+  for them all, the oldest are dropped, and the window says so.
 
 ## Built and checked
 
@@ -617,7 +620,8 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
    stay uncompressed, as Thirteen's. Below.
 5. **The analysis** has the network since 0.1.0 (docs/analysis.md); a better network replaces the file.
 6. **English**: the tile faces are Chinese (萬 numerals, 東南西北, 中發白); an English player may want corner indexes.
-7. **Records import on the page**: the app imports (2026-11-18); the page exports only.
+7. **The AI coach with a real key on the page**: only a wrong key's error and a mocked answer were tried
+   (2026-11-18); and Gemini, ChatGPT and a custom server with a real key, in the app or on the page.
 8. **Polish**: animations of tiles moving (only the callouts animate now), sound and haptics, predictive back, a
    tablet's side panel in the app (the page has one on a computer), TalkBack and keyboard focus checked through; a
    connection error shows the system's message (English) in parentheses, which could become plain words; upright, the analysis screen's palette takes the lower half, so the section being

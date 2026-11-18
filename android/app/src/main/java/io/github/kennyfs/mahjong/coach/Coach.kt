@@ -36,11 +36,14 @@ import java.time.Instant
  *  `flowers`: the presets nearest to them, with `changed` parameters set otherwise. */
 data class RulesGroup(val key: String, val spec: String, val tai: String, val flowers: String, val changed: Int, val hands: List<HandRecord>)
 
-/** A coach's review and the questions after it. `hands`: the records' ids, H1 the first; turns[0] the digest. */
+/** A coach's review and the questions after it. `hands`: the records' ids, H1 the first; turns[0] the digest. `model`:
+ *  the model as it answered (shown); `asked` and `effort`: the model asked and its thinking, which questions after it
+ *  keep (empty in sessions from before the choice: the provider's default, medium). */
 @Serializable
 data class CoachSession(
   val id: String, val time: String, val provider: String, val model: String, val lang: String, val rules: String,
   val hands: List<String>, val system: String, val turns: List<Turn>, val input: Int = 0, val output: Int = 0, val cost: Double? = null,
+  val asked: String = "", val effort: String = "",
 )
 
 @Serializable
@@ -195,8 +198,9 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
     phase = (phase as? Phase.Failed)?.prepared?.let { Phase.Ready(it) } ?: Phase.Idle
   }
 
-  /** Sends the prepared digest to `provider`; the answer becomes the newest session. */
-  fun send(res: Resources, prepared: Prepared, provider: Provider, level: Level) {
+  /** Sends the prepared digest to `provider`'s `model` (null: a custom server's), thinking at `effort`; the answer
+   *  becomes the newest session. */
+  fun send(res: Resources, prepared: Prepared, provider: Provider, model: CoachModel?, effort: Effort, level: Level) {
     if (job?.isActive == true) return
     val zh = res.getString(R.string.coach_lang) == "zh-TW"
     val key = keys.get(provider) ?: if (provider == Provider.CUSTOM) "" else run {
@@ -208,12 +212,14 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
     job = scope.launch {
       phase = Phase.Asking(provider)
       try {
-        val r = Providers.ask(provider, key, keys.custom, system, listOf(first), COACH_SCHEMA)
+        val asked = model?.id ?: keys.custom.model
+        val r = Providers.ask(provider, asked, effort, key, keys.custom, system, listOf(first), COACH_SCHEMA)
         if (r.text.isBlank()) throw CoachException(CoachException.Kind.BAD_ANSWER, "")
-        val model = if (provider == Provider.CUSTOM) keys.custom.model else r.model
+        val shown = if (provider == Provider.CUSTOM) keys.custom.model else r.model
         val s = CoachSession(
-          io.github.kennyfs.mahjong.Records.newId(), Instant.now().toString(), provider.id, model, if (zh) "zh" else "en", prepared.rulesName,
-          prepared.hands.map { it.id }, system, listOf(first, Turn(false, r.text, r.raw)), r.input, r.output, costOf(provider, r),
+          io.github.kennyfs.mahjong.Records.newId(), Instant.now().toString(), provider.id, shown, if (zh) "zh" else "en", prepared.rulesName,
+          prepared.hands.map { it.id }, system, listOf(first, Turn(false, r.text, r.raw)), r.input, r.output, costOf(model, r),
+          asked = asked, effort = effort.id,
         )
         sessions = (listOf(s) + sessions).take(KEEP)
         persist()
@@ -227,10 +233,12 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
     }
   }
 
-  /** Asks more about a session: the answer is added to it. */
+  /** Asks more about a session, of the same model at the same thinking: the answer is added to it. */
   fun followUp(session: CoachSession, question: String) {
     if (job?.isActive == true || question.isBlank()) return
     val provider = Provider.entries.firstOrNull { it.id == session.provider } ?: return
+    val model = provider.model(session.asked.ifEmpty { null })
+    val asked = if (provider == Provider.CUSTOM) session.asked.ifEmpty { keys.custom.model } else model?.id ?: return
     val key = keys.get(provider) ?: if (provider == Provider.CUSTOM) "" else run {
       phase = Phase.Failed(CoachException.Kind.KEY, "")
       return
@@ -239,8 +247,8 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
     job = scope.launch {
       phase = Phase.Asking(provider)
       try {
-        val r = Providers.ask(provider, key, keys.custom, session.system, turns, null)
-        val cost = costOf(provider, r)
+        val r = Providers.ask(provider, asked, Effort.of(session.effort), key, keys.custom, session.system, turns, null)
+        val cost = costOf(model, r)
         val s = session.copy(
           turns = turns + Turn(false, r.text, r.raw), input = session.input + r.input, output = session.output + r.output,
           cost = if (session.cost != null && cost != null) session.cost + cost else null,
@@ -284,9 +292,6 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
       return (cjk * 1.3 + (text.length - cjk) / 3.5).toInt()
     }
 
-    /** The thinking and the answer, roughly, in tokens: for the estimate (Claude's answer to 48 hands, 2026-11-18: 1.6k,
-     *  no thinking at medium effort; a review that thinks takes more). */
-    const val OUTPUT_GUESS = 3000
   }
 }
 

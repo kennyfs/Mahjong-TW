@@ -1,11 +1,13 @@
-# The AI coach (app)
+# The AI coach
 
 The records page's **AI 講評 / AI coach** (2026-11-18, the user's): the player's latest hands of one set of rules,
 reviewed by the network, are put in a digest and read by a language model with the player's own API key, which finds
-the habits that keep coming back and explains them. Android only for now; the web page has none.
+the habits that keep coming back and explains them. In the app and on the web page alike.
 
 Code: `android/app/src/main/java/io/github/kennyfs/mahjong/coach/` (Coach.kt the flow, Digest.kt the digest,
-Providers.kt the requests, Keys.kt the keys) and `ui/CoachScreen.kt`; tests in `android/app/src/test/.../coach/`.
+Providers.kt the requests, Keys.kt the keys) and `ui/CoachScreen.kt`; tests in `android/app/src/test/.../coach/`. The
+page's is a port of it, word for word where it can be: `web/src/lib/coach/` (coach.svelte.ts, digest.ts,
+providers.ts, keys.svelte.ts), `web/src/components/Coach.svelte` and `CoachKeys.svelte` (see "On the page" below).
 
 ## The division of work
 
@@ -40,7 +42,7 @@ discarded the kind, how many copies are on the table).
   open the review at that step; an id that names no hand or step of the session stays plain text.
 - **Size.** About 550 tokens a hand by Claude's count (48 hands in Chinese, 52 key decisions: 26k tokens with the
   instructions); 100 hands some 50k. A hand's part is kept (`coach-cache.json`, the latest 400 hands, by network and
-  language), so a second run reviews only the new hands.
+  language; on the page, while it is open), so a second run reviews only the new hands.
 
 The page shows the digest's size and an estimated price before anything is sent, and the whole text on request; the
 first sending to each provider says what goes where (and, for Gemini, that its free tier uses the content).
@@ -64,18 +66,27 @@ A new export changes the network's id (BuildConfig.MODEL_ID), so every record's 
 The player's own key, straight from the phone to the provider; no server of ours. Raw HTTP on OkHttp (the app has it
 for battles): three providers' SDKs would add much to the APK for one request each.
 
-| | Model | Request | Thinking | JSON |
+| | Models | Request | Thinking | JSON |
 | --- | --- | --- | --- | --- |
-| Claude | `claude-sonnet-5-5` | Messages API, `anthropic-version: 2026-10-21` | adaptive, `output_config.effort: medium` | `output_config.format` json_schema |
-| Gemini | `gemini-4-hydrogen` | `v1beta/models/…:generateContent`, `x-goog-api-key` | `thinkingConfig.thinkingLevel: MEDIUM` | `responseMimeType` + `responseJsonSchema` |
-| ChatGPT | `gpt-6.1-sol` | Responses API, `store: false` | `reasoning.effort: medium` | `text.format` json_schema, strict |
+| Claude | `claude-haiku-5-5`, `claude-sonnet-5-5` (default), `claude-opus-5-5` | Messages API, `anthropic-version: 2026-10-21` | adaptive, `output_config.effort` | `output_config.format` json_schema |
+| Gemini | `gemini-4-hydrogen` | `v1beta/models/…:generateContent`, `x-goog-api-key` | `thinkingConfig.thinkingLevel` | `responseMimeType` + `responseJsonSchema` |
+| ChatGPT | `gpt-6.1-sol` | Responses API, `store: false` | `reasoning.effort` | `text.format` json_schema, strict |
 | Custom | the player's | `{url}/chat/completions` (OpenAI-compatible), https only | — | `response_format` json_schema; once more without it on a 400/422 |
 
-Medium: reading a long digest is analysis, but the network has done the hard part; higher levels cost more for
-little. Not a setting. Prices for the estimate (US$ per million tokens, input/cached/output, 2026-11-17): Claude
-2/0.10/10, Gemini 1.5/0.075/7.5, ChatGPT 2/0.10/10. The estimate counts the digest's characters (Coach.tokens, times
-Claude's measured 1.2 for Claude) and guesses 3k tokens of answer. Claude, 48 hands: US$0.07 the review (1.6k tokens
-of answer, no thinking), about as much again each question after it; 100 hands about twice that.
+**Model and thinking** (模型與思考, 2026-11-18): under the provider, a line names the model and the thinking
+(`Claude Sonnet 5.5・思考：中`) with 變更, which opens a dialog: the provider's models with their prices, and the
+thinking low, medium or high (each provider's own levels by these names: Claude's effort, Gemini's thinkingLevel in
+capitals, OpenAI's reasoning effort). Kept per provider in the settings (`coachModels`, `coachEffort`); a session
+keeps the model asked and the thinking (`asked`, `effort`), and questions after it use them. Gemini and ChatGPT have
+one model each here (not known well enough to offer more); a custom server's model is the one in its settings, and no
+thinking is sent to it. The default stays Sonnet at medium: reading a long digest is analysis, but the network has
+done the hard part. Haiku costs a twentieth of it, for those who want it cheap; Opus twice.
+
+Prices for the estimate (US$ per million tokens, input/cached/output, 2026-11-18): Claude Haiku 5.5 0.10/0.01/0.50,
+Sonnet 5.5 2/0.10/10, Opus 5.5 4/0.20/20; Gemini 1.5/0.075/7.5; ChatGPT 2/0.10/10. The estimate counts the digest's
+characters (Coach.tokens, times Claude's measured 1.2 for Claude) and guesses the answer and its thinking by the
+level: 2k, 3k, 6k tokens. Claude Sonnet at medium, 48 hands: US$0.07 the review (1.6k tokens of answer, no thinking),
+about as much again each question after it; 100 hands about twice that.
 
 The answer is JSON (COACH_SCHEMA): `summary`, `habits` [{`title`, `body`, `refs`, `rule`}], `strengths`, `practice`.
 Questions after it are answered in plain text. Follow-ups send the whole conversation again, the model's turns as they
@@ -97,6 +108,29 @@ network. Nothing is retried by itself.
 shapes follow each provider's documentation of 2026-11-17 (Gemini's for this model shows generateContent's fields but
 no example with `thinkingLevel`; its enum values are written in capitals as the reference lists them). The unit tests
 check the shapes and the reading of documented answers.
+
+On the page (2026-11-18, headless Firefox, the same 48 hands imported): the same digest (52 key decisions, about 26k
+tokens; the outlook lines there); Claude with a wrong key, its 401 read across origins and shown as a wrong key; then
+an answer mocked at the network level: the request named the chosen model and thinking (Haiku, low) and carried the
+browser header, the ids opened the review at their steps and Back came back to the answer, a question after it sent
+the conversation again. Not tried on the page with a real key, nor any provider but Claude.
+
+## On the page
+
+The same flow and words (the strings are the app's), with what a page can do instead:
+
+- **Requests** with `fetch`, straight from the browser to the provider (no server of ours). Claude's take the header
+  `anthropic-dangerous-direct-browser-access: true`, which Anthropic asks of a page that calls it with the user's
+  own key. Gemini's and OpenAI's APIs answer a page's requests by their documentation; a custom server must allow
+  them (CORS), and the error for an unreachable service says so.
+- **Keys** in the browser's storage (`mahjong.coach.keys`), not encrypted: a page has no key store like Android's.
+  The settings and the key dialog say so, and that a shared computer should not keep one; Delete removes it. They go
+  only to their provider, when the player sends.
+- **Kept**: the latest five sessions in the browser's storage (`mahjong.coach.sessions`; the oldest go first when
+  there is no room beside the records); the hands' parts of the digest while the page is open.
+- **Links** open the review over the coach's page (nav.open's `over`): Back comes back to the answer.
+- The engine: the page's WebAssembly engine must be built with a network that has the two outputs (web/README.md);
+  without them the digest has no outlook lines, as with an older network in the app.
 
 ## The keys
 

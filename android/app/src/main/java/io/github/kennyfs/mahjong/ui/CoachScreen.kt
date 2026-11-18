@@ -72,8 +72,10 @@ import io.github.kennyfs.mahjong.Words
 import io.github.kennyfs.mahjong.coach.Coach
 import io.github.kennyfs.mahjong.coach.CoachException
 import io.github.kennyfs.mahjong.coach.CoachKeys
+import io.github.kennyfs.mahjong.coach.CoachModel
 import io.github.kennyfs.mahjong.coach.CoachSession
 import io.github.kennyfs.mahjong.coach.CustomServer
+import io.github.kennyfs.mahjong.coach.Effort
 import io.github.kennyfs.mahjong.coach.Prepared
 import io.github.kennyfs.mahjong.coach.Provider
 import io.github.kennyfs.mahjong.coach.RulesGroup
@@ -131,6 +133,12 @@ fun CoachScreen(vm: AppModel, onBack: () -> Unit) {
   var preview by remember { mutableStateOf<String?>(null) }
   var tell by remember { mutableStateOf<Pair<Prepared, Provider>?>(null) }
   var confirmDelete by remember { mutableStateOf<String?>(null) }
+  var choosingModel by remember { mutableStateOf(false) }
+  // The model and the thinking chosen for each provider (the settings keep them).
+  var models by remember { mutableStateOf(vm.settings.coachModels) }
+  var efforts by remember { mutableStateOf(vm.settings.coachEffort) }
+  fun modelOf(p: Provider) = p.model(models[p.id])
+  fun effortOf(p: Provider) = Effort.of(efforts[p.id])
   val cs = MaterialTheme.colorScheme
   val phase = coach.phase
   val busy = phase is Coach.Phase.Gathering || phase is Coach.Phase.Asking
@@ -140,7 +148,7 @@ fun CoachScreen(vm: AppModel, onBack: () -> Unit) {
     else {
       vm.settings.coachProvider = to.id
       vm.settings.persist()
-      coach.send(res, p, to, vm.settings.level)
+      coach.send(res, p, to, modelOf(to), effortOf(to), vm.settings.level)
       shownId = null
     }
   }
@@ -170,8 +178,19 @@ fun CoachScreen(vm: AppModel, onBack: () -> Unit) {
               }
               if (group != null && group.hands.size < 20) Text(stringResource(R.string.coach_few), style = MaterialTheme.typography.bodySmall, color = cs.error)
               Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.coach_model), Modifier.width(72.dp), style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.coach_provider), Modifier.width(72.dp), style = MaterialTheme.typography.bodyLarge)
                 ToggleGroup(ready.map { it to providerName(it) }, provider ?: ready.first(), { providerId = it.id }, Modifier.weight(1f).testTag("coach_provider"))
+              }
+              // Its model and thinking, for those who want another (the default: the provider's, medium).
+              val p = provider ?: ready.first()
+              Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.coach_model), Modifier.width(72.dp), style = MaterialTheme.typography.bodyLarge)
+                if (p == Provider.CUSTOM) Text(keys.custom.model, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                else {
+                  Text(stringResource(R.string.coach_model_line, modelOf(p)?.label ?: "", effortName(effortOf(p))), Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium)
+                  TextButton(onClick = { choosingModel = true }, Modifier.testTag("coach_model_change")) { Text(stringResource(R.string.coach_change)) }
+                }
               }
               OutlinedTextField(
                 question, { question = it.take(500) }, Modifier.fillMaxWidth().testTag("coach_question"),
@@ -195,7 +214,8 @@ fun CoachScreen(vm: AppModel, onBack: () -> Unit) {
               is Coach.Phase.Gathering -> Progress(stringResource(R.string.coach_gathering, phase.done, phase.total),
                 phase.done.toFloat() / maxOf(1, phase.total), onCancel = coach::cancel)
               is Coach.Phase.Asking -> Progress(stringResource(R.string.coach_asking, providerName(phase.provider)), null, onCancel = coach::cancel)
-              is Coach.Phase.Ready -> ReadyCard(phase.prepared, provider, onPreview = { preview = phase.prepared.firstMessage(isZh(res)) },
+              is Coach.Phase.Ready -> ReadyCard(phase.prepared, provider, provider?.let(::modelOf), provider?.let(::effortOf) ?: Effort.MEDIUM,
+                onPreview = { preview = phase.prepared.firstMessage(isZh(res)) },
                 onSend = { p -> send(phase.prepared, p) }, onClose = coach::dismiss)
               is Coach.Phase.Failed -> ErrorCard(phase.kind, phase.detail, onClose = coach::dismiss)
             }
@@ -222,6 +242,16 @@ fun CoachScreen(vm: AppModel, onBack: () -> Unit) {
       group?.key, onPick = { groupKey = it; pickRules = false }, onDismiss = { pickRules = false })
   }
   if (keysOpen) KeysDialog(keys, onDismiss = { keysOpen = false })
+  if (choosingModel && provider != null && provider != Provider.CUSTOM) {
+    ModelDialog(provider, modelOf(provider), effortOf(provider), onDismiss = { choosingModel = false }) { m, e ->
+      models = models + (provider.id to m.id)
+      efforts = efforts + (provider.id to e.id)
+      vm.settings.coachModels = models
+      vm.settings.coachEffort = efforts
+      vm.settings.persist()
+      choosingModel = false
+    }
+  }
   preview?.let { text ->
     AlertDialog(
       onDismissRequest = { preview = null },
@@ -289,15 +319,16 @@ private fun Card(modifier: Modifier = Modifier, color: Color = MaterialTheme.col
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReadyCard(p: Prepared, provider: Provider?, onPreview: () -> Unit, onSend: (Provider) -> Unit, onClose: () -> Unit) {
+private fun ReadyCard(p: Prepared, provider: Provider?, model: CoachModel?, effort: Effort, onPreview: () -> Unit, onSend: (Provider) -> Unit, onClose: () -> Unit) {
   val res = LocalResources.current
   val tokens = ((Coach.tokens(p.firstMessage(isZh(res))) + 1500) * (provider?.tokenScale ?: 1.0)).toInt()
   Card(Modifier.testTag("coach_ready")) {
     Text(stringResource(R.string.coach_ready, p.hands.size, p.rulesName), style = MaterialTheme.typography.titleSmall)
     if (p.skipped > 0) Text(stringResource(R.string.coach_skipped, p.skipped), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    val cost = provider?.takeIf { it.inPrice > 0 }?.let { (tokens * it.inPrice + Coach.OUTPUT_GUESS * it.outPrice) / 1e6 }
+    val cost = model?.takeIf { it.inPrice > 0 }?.let { (tokens * it.inPrice + effort.outputGuess * it.outPrice) / 1e6 }
     Text(
-      if (cost != null) stringResource(R.string.coach_estimate, tokens / 1000, String.format(Locale.ROOT, "%.2f", cost))
+      // (A cent or more to the cent; less, as Haiku's, to a tenth of one.)
+      if (cost != null) stringResource(R.string.coach_estimate, tokens / 1000, String.format(Locale.ROOT, if (cost < 0.01) "%.3f" else "%.2f", cost))
       else stringResource(R.string.coach_estimate_tokens, tokens / 1000),
       style = MaterialTheme.typography.bodyMedium,
     )
@@ -342,7 +373,57 @@ private fun sessionLine(s: CoachSession): String {
   val time = runCatching {
     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(Instant.parse(s.time).atZone(ZoneId.systemDefault()))
   }.getOrDefault(s.time)
-  return "$time" + Words.sep + s.model + Words.sep + s.rules + Words.sep + stringResource(R.string.coach_hands_n, s.hands.size)
+  val effort = if (s.effort.isEmpty()) "" else stringResource(R.string.coach_session_effort, effortName(Effort.of(s.effort)))
+  return "$time" + Words.sep + s.model + effort + Words.sep + s.rules + Words.sep + stringResource(R.string.coach_hands_n, s.hands.size)
+}
+
+@Composable
+private fun effortName(e: Effort) = stringResource(
+  when (e) {
+    Effort.LOW -> R.string.coach_effort_low
+    Effort.MEDIUM -> R.string.coach_effort_medium
+    Effort.HIGH -> R.string.coach_effort_high
+  },
+)
+
+/** A provider's model (each with its price) and how much it thinks: the choice of those who want another. */
+@Composable
+private fun ModelDialog(p: Provider, model: CoachModel?, effort: Effort, onDismiss: () -> Unit, onDone: (CoachModel, Effort) -> Unit) {
+  val colors = MaterialTheme.colorScheme
+  var m by remember { mutableStateOf(model ?: p.models.first()) }
+  var e by remember { mutableStateOf(effort) }
+  fun price(x: Double) = if (x >= 1) String.format(Locale.ROOT, "%.0f", x) else String.format(Locale.ROOT, "%.2f", x)
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    confirmButton = { TextButton(onClick = { onDone(m, e) }, Modifier.testTag("coach_model_ok")) { Text(stringResource(R.string.ok)) } },
+    dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    title = { Text(stringResource(R.string.coach_model_title)) },
+    text = {
+      Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(R.string.coach_model_help), style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+        Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          for (x in p.models) {
+            val on = x.id == m.id
+            Surface(Modifier.fillMaxWidth().selectable(on, role = Role.RadioButton) { m = x }.testTag("coach_model_${x.id}"), shape = RoundedCornerShape(16.dp),
+              color = if (on) colors.secondaryContainer else Color.Transparent) {
+              Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                  Text(x.label, style = MaterialTheme.typography.bodyLarge)
+                  Text(stringResource(R.string.coach_model_price, price(x.inPrice), price(x.outPrice)), style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant)
+                }
+                RadioButton(selected = on, onClick = null)
+              }
+            }
+          }
+        }
+        Text(stringResource(R.string.coach_effort), style = MaterialTheme.typography.titleSmall)
+        ToggleGroup(Effort.entries.map { it to effortName(it) }, e, { e = it }, Modifier.fillMaxWidth().testTag("coach_effort"))
+        Text(stringResource(R.string.coach_effort_help), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+      }
+    },
+    modifier = Modifier.testTag("coach_model_dialog"),
+  )
 }
 
 /** Text with its ids ([H9-73], H9-73) as links to the moments, where the hand and the step are there. */

@@ -103,9 +103,13 @@ export type Figures = ActionFigures & Partial<NetFigures>;
 /** What the network thinks of an opponent: the chances that it is ready, 1, 2, 3 or more tiles away, and per kind
  *  (tiles.ts KINDS) the chance that a discard of it deals in to it now, with how many tai. */
 export interface Opponent { seat: number; ready: number[]; danger: number[]; danger_tai: number[] }
+/** What the network expects of the deciding seat's own hand, as it would play it on (networks exported from
+ *  2026-11-17): the chances of being ready within its next 1, 2, 4, 8 draws, and of each tai item (by its parameter)
+ *  being in its win. */
+export interface MeFigures { ready_within: number[]; tai_items: Record<string, number> }
 /** `source` "efficiency": tile efficiency alone; "network": the network's figures too, the best action and its value. */
 export interface Analysis {
-  source: string; actions: Figures[]; best?: number; value?: number; policy_value?: number; opponents?: Opponent[];
+  source: string; actions: Figures[]; best?: number; value?: number; policy_value?: number; opponents?: Opponent[]; me?: MeFigures;
 }
 /** What an opponent really held: the tiles from ready, whether it had passed a win this turn, and its waits. */
 export interface Truth { seat: number; shanten: number; missed: boolean; waits: { tile: Tile; tai: number }[] }

@@ -27,4 +27,7 @@ export const KEYS = {
   battles: 'mahjong.battles',
   welcome: 'mahjong.welcome',
   battleSession: 'mahjong.battle.session',
+  /** The AI coach's keys (lib/coach/keys.svelte.ts) and its last answers. */
+  coachKeys: 'mahjong.coach.keys',
+  coachSessions: 'mahjong.coach.sessions',
 };

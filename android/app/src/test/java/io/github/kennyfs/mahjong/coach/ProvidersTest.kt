@@ -33,9 +33,14 @@ class ProvidersTest {
   private val turns = listOf(Turn(true, "digest"), Turn(false, "{\"a\":1}", claudeAnswer), Turn(true, "why?"))
 
   @Test fun claudeRequest() {
-    val b = claudeBody("sys", turns, COACH_SCHEMA)
+    val b = claudeBody("claude-sonnet-5-5", Effort.MEDIUM, "sys", turns, COACH_SCHEMA)
     assertEquals("claude-sonnet-5-5", b.s("model"))
     assertEquals("medium", b.o("output_config").s("effort"))
+    // Another model and thinking, as chosen.
+    val h = claudeBody("claude-haiku-5-5", Effort.LOW, "sys", turns, null)
+    assertEquals("claude-haiku-5-5", h.s("model"))
+    assertEquals("low", h.o("output_config").s("effort"))
+    assertNull(h.o("output_config")["format"])
     assertEquals("json_schema", b.o("output_config").o("format").s("type"))
     assertNull(b["temperature"])
     val m = b["messages"]!!.jsonArray
@@ -48,20 +53,21 @@ class ProvidersTest {
 
   @Test fun claudeAnswer() {
     val r = parseClaude(obj("""{"model":"claude-sonnet-5-5","stop_reason":"end_turn","content":$claudeAnswer,
-      "usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":1000,"output_tokens":50}}"""))
+      "usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":1000,"output_tokens":50}}"""), "claude-sonnet-5-5")
     assertEquals("{\"a\":1}", r.text)
     assertEquals(1110, r.input)
     assertEquals(1000, r.cached)
     assertEquals(50, r.output)
-    assertEquals(CoachException.Kind.REFUSED, kindOf { parseClaude(obj("""{"stop_reason":"refusal","content":[]}""")) })
-    assertEquals(CoachException.Kind.TRUNCATED, kindOf { parseClaude(obj("""{"stop_reason":"max_tokens","content":[]}""")) })
+    assertEquals(CoachException.Kind.REFUSED, kindOf { parseClaude(obj("""{"stop_reason":"refusal","content":[]}"""), "claude-sonnet-5-5") })
+    assertEquals(CoachException.Kind.TRUNCATED, kindOf { parseClaude(obj("""{"stop_reason":"max_tokens","content":[]}"""), "claude-sonnet-5-5") })
   }
 
   @Test fun geminiRequest() {
     val raw = obj("""{"role":"model","parts":[{"text":"{}","thoughtSignature":"xyz"}]}""")
-    val b = geminiBody("sys", listOf(Turn(true, "digest"), Turn(false, "{}", raw), Turn(true, "why?")), COACH_SCHEMA)
+    val b = geminiBody(Effort.MEDIUM, "sys", listOf(Turn(true, "digest"), Turn(false, "{}", raw), Turn(true, "why?")), COACH_SCHEMA)
     val g = b.o("generationConfig")
     assertEquals("MEDIUM", g.o("thinkingConfig").s("thinkingLevel"))
+    assertEquals("HIGH", geminiBody(Effort.HIGH, "sys", listOf(Turn(true, "x")), null).o("generationConfig").o("thinkingConfig").s("thinkingLevel"))
     assertEquals("application/json", g.s("responseMimeType"))
     assertEquals(COACH_SCHEMA, g["responseJsonSchema"])
     val c = b["contents"]!!.jsonArray
@@ -73,20 +79,21 @@ class ProvidersTest {
   @Test fun geminiAnswer() {
     val r = parseGemini(obj("""{"candidates":[{"content":{"role":"model","parts":[{"text":"thinking...","thought":true},{"text":"{\"a\":2}"}]},
       "finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":900,"cachedContentTokenCount":100,"candidatesTokenCount":40,"thoughtsTokenCount":60},
-      "modelVersion":"gemini-4-hydrogen"}"""))
+      "modelVersion":"gemini-4-hydrogen"}"""), "gemini-4-hydrogen")
     assertEquals("{\"a\":2}", r.text)
     assertEquals(900, r.input)
     assertEquals(100, r.output)
     assertTrue(r.raw is JsonObject)
-    assertEquals(CoachException.Kind.TRUNCATED, kindOf { parseGemini(obj("""{"candidates":[{"content":{"parts":[]},"finishReason":"MAX_TOKENS"}]}""")) })
-    assertEquals(CoachException.Kind.REFUSED, kindOf { parseGemini(obj("""{"promptFeedback":{"blockReason":"SAFETY"}}""")) })
+    assertEquals(CoachException.Kind.TRUNCATED, kindOf { parseGemini(obj("""{"candidates":[{"content":{"parts":[]},"finishReason":"MAX_TOKENS"}]}"""), "gemini-4-hydrogen") })
+    assertEquals(CoachException.Kind.REFUSED, kindOf { parseGemini(obj("""{"promptFeedback":{"blockReason":"SAFETY"}}"""), "gemini-4-hydrogen") })
   }
 
   @Test fun openaiRequest() {
-    val b = openaiBody("sys", turns, COACH_SCHEMA)
+    val b = openaiBody("gpt-6.1-sol", Effort.MEDIUM, "sys", turns, COACH_SCHEMA)
     assertEquals("gpt-6.1-sol", b.s("model"))
     assertEquals("sys", b.s("instructions"))
     assertEquals("medium", b.o("reasoning").s("effort"))
+    assertEquals("low", openaiBody("gpt-6.1-sol", Effort.LOW, "sys", turns, null).o("reasoning").s("effort"))
     assertEquals("false", b["store"]!!.jsonPrimitive.content)
     val f = b.o("text").o("format")
     assertEquals("json_schema", f.s("type"))
@@ -97,13 +104,13 @@ class ProvidersTest {
   @Test fun openaiAnswer() {
     val r = parseOpenai(obj("""{"status":"completed","model":"gpt-6.1-sol","output":[{"type":"reasoning","summary":[]},
       {"type":"message","role":"assistant","content":[{"type":"output_text","text":"{\"a\":3}"}]}],
-      "usage":{"input_tokens":75,"input_tokens_details":{"cached_tokens":5},"output_tokens":1186}}"""))
+      "usage":{"input_tokens":75,"input_tokens_details":{"cached_tokens":5},"output_tokens":1186}}"""), "gpt-6.1-sol")
     assertEquals("{\"a\":3}", r.text)
     assertEquals(5, r.cached)
     assertEquals(CoachException.Kind.TRUNCATED,
-      kindOf { parseOpenai(obj("""{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"output":[]}""")) })
+      kindOf { parseOpenai(obj("""{"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"output":[]}"""), "gpt-6.1-sol") })
     assertEquals(CoachException.Kind.REFUSED,
-      kindOf { parseOpenai(obj("""{"status":"completed","output":[{"type":"message","content":[{"type":"refusal","refusal":"no"}]}]}""")) })
+      kindOf { parseOpenai(obj("""{"status":"completed","output":[{"type":"message","content":[{"type":"refusal","refusal":"no"}]}]}"""), "gpt-6.1-sol") })
   }
 
   @Test fun chatCompletions() {
@@ -137,10 +144,16 @@ class ProvidersTest {
 
   @Test fun cost() {
     val r = Reply("", null, 1_000_000, 0, 100_000, "")
-    assertEquals(3.0, costOf(Provider.CLAUDE, r)!!, 1e-9)
+    val sonnet = Provider.CLAUDE.model(null)
+    assertEquals("claude-sonnet-5-5", sonnet?.id)
+    assertEquals(3.0, costOf(sonnet, r)!!, 1e-9)
     // The 2026-11-18 review and its question, each writing the whole prompt to the cache: about the US$0.15 billed.
-    assertEquals(0.155, costOf(Provider.CLAUDE, Reply("", null, 54_155, 0, 1_995, "", written = 54_155))!!, 0.001)
-    assertNull(costOf(Provider.CUSTOM, r))
+    assertEquals(0.155, costOf(sonnet, Reply("", null, 54_155, 0, 1_995, "", written = 54_155))!!, 0.001)
+    // Haiku: a twentieth of it.
+    assertEquals(0.15, costOf(Provider.CLAUDE.model("claude-haiku-5-5"), r)!!, 1e-9)
+    assertEquals("claude-sonnet-5-5", Provider.CLAUDE.model("no-such-model")?.id)
+    assertNull(Provider.CUSTOM.model(null))
+    assertNull(costOf(Provider.CUSTOM.model(null), r))
     assertNotNull(COACH_SCHEMA["properties"])
     assertTrue(COACH_SCHEMA.o("properties").o("habits").o("items")["required"] is JsonArray)
   }

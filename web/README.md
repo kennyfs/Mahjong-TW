@@ -38,7 +38,8 @@ npm ci
 source $THIRTEEN_WORK/emsdk/emsdk_env.sh
 # It links a reduced ONNX Runtime for WebAssembly (ORT_WASM_DIR; Thirteen's build covers this network's operators)
 # and copies the network the page ships (MODEL) to engine-files/actor.onnx: the app's, with float16 weights (2.2 MB;
-# android/README.md makes it with python/fp16_weights.py).
+# android/README.md makes it with python/fp16_weights.py), exported with the outputs the AI coach reads
+# (python/export_actor.py; an older file works, the coach's digest without them).
 TMPDIR=$WORK/tmp JOBS=16 ORT_WASM_DIR=$THIRTEEN_WORK/ort-wasm \
   MODEL=$WORK/models/actor_50.fp16.onnx ./build-engine.sh 2>&1 | tee $WORK/logs/web-engine-build.log
 # The same answers as the native engine (built with ONNX Runtime), the network's figures to 0.002.

@@ -259,6 +259,7 @@
   <string name="records_imported">Hands imported: %1$d.</string>
   <string name="records_import_had">Already here, not added again: %1$d.</string>
   <string name="records_import_dropped">Over the limit of %1$d hands, the oldest %2$d were not kept.</string>
+  <string name="records_import_room">The browser had no room for them all: the oldest %1$d were not kept.</string>
   <string name="records_import_empty">The file holds no records.</string>
   <string name="records_import_bad">This isn\'t a records file exported by Taiwan Mahjong.</string>
   <string name="records_dev_count">Hands kept: %1$d</string>
@@ -728,7 +729,7 @@
   <string name="coach_lang">en-US</string>
   <string name="coach_title">AI coach</string>
   <string name="coach_row">Let an AI read your recent hands and find your habits</string>
-  <string name="coach_intro">Your recent hands of one set of rules (the neural network\'s review of them, in short) are read by an AI model, which finds the habits that keep coming back and explains them. Every figure comes from the app\'s network; the AI finds the patterns and says why. It uses your own API key, billed to your account.</string>
+  <string name="coach_intro">Your recent hands of one set of rules (the neural network\'s review of them, in short) are read by an AI model, which finds the habits that keep coming back and explains them. Every figure comes from the network\'s review; the AI finds the patterns and says why. It uses your own API key, billed to your account.</string>
   <string name="coach_need_key">No API key yet. Set one first: Claude, Gemini, ChatGPT or a custom service.</string>
   <string name="coach_set_keys">Set keys</string>
   <string name="coach_keys_title">API keys</string>
@@ -740,6 +741,18 @@
   <string name="coach_latest">Latest</string>
   <string name="coach_few">Few hands of these rules: the habits may not show well (20 or more is better).</string>
   <string name="coach_model">Model</string>
+  <string name="coach_provider">Service</string>
+  <string name="coach_model_line">%1$s · thinking: %2$s</string>
+  <string name="coach_change">Change</string>
+  <string name="coach_model_title">Model and thinking</string>
+  <string name="coach_model_help">A cheaper model is faster and costs less, but its explanations may be rougher or wrong; a stronger one costs more. Gemini and ChatGPT have one each for now.</string>
+  <string name="coach_model_price">Per million tokens: US$%1$s in, US$%2$s out</string>
+  <string name="coach_effort">Thinking</string>
+  <string name="coach_effort_low">Low</string>
+  <string name="coach_effort_medium">Medium</string>
+  <string name="coach_effort_high">High</string>
+  <string name="coach_effort_help">More thinking may give a more careful answer, and is slower and costs more (thinking is billed as output tokens). Medium at first.</string>
+  <string name="coach_session_effort"> (thinking: %1$s)</string>
   <string name="coach_question">Anything to ask (optional)</string>
   <string name="coach_question_hint">For example: do I deal in too often?</string>
   <string name="coach_prepare">Gather the hands</string>
@@ -787,4 +800,8 @@
   <string name="coach_key">API key</string>
   <string name="coach_key_optional">API key (optional)</string>
   <string name="coach_key_save">Save</string>
+  <!-- The page's own (web/): its keys kept in the browser, and a server that must allow a page's requests. -->
+  <string name="coach_keys_note_web">The AI coach uses your own keys (billed to your account). They are kept in this browser, not encrypted, and sent from the browser straight to a service only when you tap Send, through no other server. Don\'t keep a key on a shared or someone else\'s computer; you can delete it here when done.</string>
+  <string name="coach_key_help_web">Make an API key at %1$s and paste it here. It is kept in this browser, not encrypted, and sent to %2$s only when you tap Send; usage is billed to your account. Don\'t keep one on a shared computer.</string>
+  <string name="coach_error_network_web">Cannot reach the service: check the connection. A custom service must also allow a web page\'s requests (CORS).</string>
 </resources>

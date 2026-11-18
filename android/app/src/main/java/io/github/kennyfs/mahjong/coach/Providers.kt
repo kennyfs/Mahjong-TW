@@ -37,27 +37,57 @@ import kotlin.coroutines.resumeWithException
 // provider; nothing goes through a server of ours. Raw HTTP on OkHttp (already the battles'): one request and its
 // answer each, so three providers' SDKs (and their dependencies) would add much to the app for little.
 //
-// Each provider's request asks for the answer as JSON of COACH_SCHEMA (its structured output), at a medium depth of
-// thinking: the reading of a hundred hands' digest is analysis, not a quick reply, and higher levels cost more for
-// little (the network has done the mahjong; the model finds habits and explains them).
+// Each provider's request asks for the answer as JSON of COACH_SCHEMA (its structured output), at the depth of thinking
+// the player chose (Effort; medium at first: the reading of a hundred hands' digest is analysis, not a quick reply, and
+// higher levels cost more for little, as the network has done the mahjong and the model finds habits and explains them).
+
+/** How much a model thinks before it answers: more may be more careful, and is slower and costs more (thinking is
+ *  billed as output). Each provider's own levels by these names (Claude's effort, Gemini's thinkingLevel, OpenAI's
+ *  reasoning effort); a custom server is sent none. */
+enum class Effort(val id: String) {
+  LOW("low"), MEDIUM("medium"), HIGH("high");
+
+  /** The tokens of thinking and answer, roughly, for the estimate (Claude's answer to 48 hands at medium, 2026-11-18:
+   *  1.6k, no thinking; a review that thinks takes more). */
+  val outputGuess: Int get() = when (this) { LOW -> 2000; MEDIUM -> 3000; HIGH -> 6000 }
+
+  companion object {
+    fun of(id: String?) = entries.firstOrNull { it.id == id } ?: MEDIUM
+  }
+}
+
+/** A model a provider offers here, with its US$ per million tokens: input, input read from the provider's cache,
+ *  output (thinking included). The providers' published prices (2026-11-18), for the estimate only: their bills decide. */
+data class CoachModel(val id: String, val label: String, val inPrice: Double, val cachedPrice: Double, val outPrice: Double)
 
 enum class Provider(
-  val id: String, val label: String, val model: String,
-  /** US$ per million tokens: input, input read from the provider's cache, output (thinking included); the providers'
-   *  published prices of 2026-11-17, for the estimate only (their bills decide). */
-  val inPrice: Double, val cachedPrice: Double, val outPrice: Double,
+  val id: String, val label: String,
+  /** The models to choose from (the settings' 模型與思考), cheapest first; `defaultModel` unless the player chose another. */
+  val models: List<CoachModel>, private val defaultModel: String,
   /** Where a key is made, as words (not a link: the providers move their pages). */
   val keySite: String,
   /** Its tokenizer's count of a digest against Coach.tokens: Claude's, measured on a 48-hand digest in Chinese
    *  (2026-11-18: 26k tokens, estimated 22k); the others' are not known. */
   val tokenScale: Double = 1.0,
 ) {
-  CLAUDE("claude", "Claude Sonnet 5.5", "claude-sonnet-5-5", 2.0, 0.10, 10.0, "platform.claude.com", 1.2),
-  GEMINI("gemini", "Gemini 4 Hydrogen", "gemini-4-hydrogen", 1.5, 0.075, 7.5, "aistudio.google.com"),
-  OPENAI("openai", "ChatGPT (GPT-6.1 Sol)", "gpt-6.1-sol", 2.0, 0.10, 10.0, "platform.openai.com"),
+  CLAUDE(
+    "claude", "Claude",
+    listOf(
+      CoachModel("claude-haiku-5-5", "Claude Haiku 5.5", 0.10, 0.01, 0.50),
+      CoachModel("claude-sonnet-5-5", "Claude Sonnet 5.5", 2.0, 0.10, 10.0),
+      CoachModel("claude-opus-5-5", "Claude Opus 5.5", 4.0, 0.20, 20.0),
+    ),
+    "claude-sonnet-5-5", "platform.claude.com", 1.2,
+  ),
+  GEMINI("gemini", "Gemini", listOf(CoachModel("gemini-4-hydrogen", "Gemini 4 Hydrogen", 1.5, 0.075, 7.5)), "gemini-4-hydrogen", "aistudio.google.com"),
+  OPENAI("openai", "ChatGPT", listOf(CoachModel("gpt-6.1-sol", "GPT-6.1 Sol", 2.0, 0.10, 10.0)), "gpt-6.1-sol", "platform.openai.com"),
   /** Any server that speaks OpenAI's Chat Completions (OpenRouter, a company's gateway, a local model behind HTTPS):
-   *  its address and model are the player's. No price is known. */
-  CUSTOM("custom", "", "", 0.0, 0.0, 0.0, ""),
+   *  its address and model are the player's (CustomServer). No price is known. */
+  CUSTOM("custom", "", emptyList(), "", ""),
+  ;
+
+  /** The model of this id, else the default (null for a custom server: its model is the player's). */
+  fun model(id: String?): CoachModel? = models.firstOrNull { it.id == id } ?: models.firstOrNull { it.id == defaultModel }
 }
 
 /** A server of the Chat Completions kind: its base address (…/v1) and the model to ask. */
@@ -116,17 +146,20 @@ object Providers {
     .writeTimeout(1, TimeUnit.MINUTES).callTimeout(8, TimeUnit.MINUTES).build()
 
   /**
-   * Asks `provider` with `key`: `system`, then the turns (the last one the user's). With `schema`, the answer is JSON
-   * of it. Throws CoachException.
+   * Asks `provider`'s `model` (its id; a custom server's own) with `key`, thinking at `effort`: `system`, then the
+   * turns (the last one the user's). With `schema`, the answer is JSON of it. Throws CoachException.
    */
-  suspend fun ask(provider: Provider, key: String, custom: CustomServer?, system: String, turns: List<Turn>, schema: JsonObject?): Reply =
+  suspend fun ask(
+    provider: Provider, model: String, effort: Effort, key: String, custom: CustomServer?, system: String, turns: List<Turn>, schema: JsonObject?,
+  ): Reply =
     try {
       when (provider) {
-        Provider.CLAUDE -> parseClaude(post("https://api.anthropic.com/v1/messages", claudeBody(system, turns, schema),
-          "x-api-key" to key, "anthropic-version" to "2026-10-21"))
-        Provider.GEMINI -> parseGemini(post("https://generativelanguage.googleapis.com/v1beta/models/${provider.model}:generateContent",
-          geminiBody(system, turns, schema), "x-goog-api-key" to key))
-        Provider.OPENAI -> parseOpenai(post("https://api.openai.com/v1/responses", openaiBody(system, turns, schema), "Authorization" to "Bearer $key"))
+        Provider.CLAUDE -> parseClaude(post("https://api.anthropic.com/v1/messages", claudeBody(model, effort, system, turns, schema),
+          "x-api-key" to key, "anthropic-version" to "2026-10-21"), model)
+        Provider.GEMINI -> parseGemini(post("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent",
+          geminiBody(effort, system, turns, schema), "x-goog-api-key" to key), model)
+        Provider.OPENAI -> parseOpenai(post("https://api.openai.com/v1/responses", openaiBody(model, effort, system, turns, schema),
+          "Authorization" to "Bearer $key"), model)
         Provider.CUSTOM -> {
           val server = custom?.takeIf { it.ready } ?: throw CoachException(CoachException.Kind.KEY, "")
           val url = server.url.trim().trimEnd('/') + "/chat/completions"
@@ -196,8 +229,8 @@ fun httpError(code: Int, body: String): CoachException {
 
 // ---- Claude (the Messages API) ----
 
-fun claudeBody(system: String, turns: List<Turn>, schema: JsonObject?): JsonObject = buildJsonObject {
-  put("model", Provider.CLAUDE.model)
+fun claudeBody(model: String, effort: Effort, system: String, turns: List<Turn>, schema: JsonObject?): JsonObject = buildJsonObject {
+  put("model", model)
   put("max_tokens", MAX_OUTPUT)
   putJsonArray("system") { addJsonObject { put("type", "text"); put("text", system) } }
   putJsonArray("messages") {
@@ -214,12 +247,12 @@ fun claudeBody(system: String, turns: List<Turn>, schema: JsonObject?): JsonObje
     }
   }
   putJsonObject("output_config") {
-    put("effort", "medium")
+    put("effort", effort.id)
     if (schema != null) putJsonObject("format") { put("type", "json_schema"); put("schema", schema) }
   }
 }
 
-fun parseClaude(o: JsonObject): Reply {
+fun parseClaude(o: JsonObject, model: String): Reply {
   val stop = o["stop_reason"]?.jsonPrimitive?.contentOrNull
   if (stop == "refusal") throw CoachException(CoachException.Kind.REFUSED, o["stop_details"]?.toString() ?: "")
   if (stop == "max_tokens") throw CoachException(CoachException.Kind.TRUNCATED, "max_tokens")
@@ -231,12 +264,12 @@ fun parseClaude(o: JsonObject): Reply {
   val cached = n("cache_read_input_tokens")
   val written = n("cache_creation_input_tokens")
   return Reply(text, content, n("input_tokens") + written + cached, cached, n("output_tokens"),
-    o["model"]?.jsonPrimitive?.contentOrNull ?: Provider.CLAUDE.model, written)
+    o["model"]?.jsonPrimitive?.contentOrNull ?: model, written)
 }
 
 // ---- Gemini (generateContent) ----
 
-fun geminiBody(system: String, turns: List<Turn>, schema: JsonObject?): JsonObject = buildJsonObject {
+fun geminiBody(effort: Effort, system: String, turns: List<Turn>, schema: JsonObject?): JsonObject = buildJsonObject {
   putJsonObject("systemInstruction") { putJsonArray("parts") { addJsonObject { put("text", system) } } }
   putJsonArray("contents") {
     for (t in turns) {
@@ -250,7 +283,7 @@ fun geminiBody(system: String, turns: List<Turn>, schema: JsonObject?): JsonObje
   }
   putJsonObject("generationConfig") {
     put("maxOutputTokens", MAX_OUTPUT)
-    putJsonObject("thinkingConfig") { put("thinkingLevel", "MEDIUM") }
+    putJsonObject("thinkingConfig") { put("thinkingLevel", effort.id.uppercase()) }
     if (schema != null) {
       put("responseMimeType", "application/json")
       put("responseJsonSchema", schema)
@@ -258,7 +291,7 @@ fun geminiBody(system: String, turns: List<Turn>, schema: JsonObject?): JsonObje
   }
 }
 
-fun parseGemini(o: JsonObject): Reply {
+fun parseGemini(o: JsonObject, model: String): Reply {
   o["promptFeedback"]?.jsonObject?.get("blockReason")?.jsonPrimitive?.contentOrNull?.let {
     throw CoachException(CoachException.Kind.REFUSED, it)
   }
@@ -275,18 +308,18 @@ fun parseGemini(o: JsonObject): Reply {
   val u = o["usageMetadata"]?.jsonObject
   fun n(k: String) = u?.get(k)?.jsonPrimitive?.intOrNull ?: 0
   return Reply(text, content, n("promptTokenCount"), n("cachedContentTokenCount"), n("candidatesTokenCount") + n("thoughtsTokenCount"),
-    o["modelVersion"]?.jsonPrimitive?.contentOrNull ?: Provider.GEMINI.model)
+    o["modelVersion"]?.jsonPrimitive?.contentOrNull ?: model)
 }
 
 // ---- OpenAI (the Responses API) ----
 
-fun openaiBody(system: String, turns: List<Turn>, schema: JsonObject?): JsonObject = buildJsonObject {
-  put("model", Provider.OPENAI.model)
+fun openaiBody(model: String, effort: Effort, system: String, turns: List<Turn>, schema: JsonObject?): JsonObject = buildJsonObject {
+  put("model", model)
   put("instructions", system)
   putJsonArray("input") {
     for (t in turns) addJsonObject { put("role", if (t.user) "user" else "assistant"); put("content", t.text) }
   }
-  putJsonObject("reasoning") { put("effort", "medium") }
+  putJsonObject("reasoning") { put("effort", effort.id) }
   put("max_output_tokens", MAX_OUTPUT)
   // Not kept on OpenAI's side for later retrieval (its default is to keep it 30 days).
   put("store", false)
@@ -295,7 +328,7 @@ fun openaiBody(system: String, turns: List<Turn>, schema: JsonObject?): JsonObje
   }
 }
 
-fun parseOpenai(o: JsonObject): Reply {
+fun parseOpenai(o: JsonObject, model: String): Reply {
   if (o["status"]?.jsonPrimitive?.contentOrNull == "incomplete") {
     val why = o["incomplete_details"]?.jsonObject?.get("reason")?.jsonPrimitive?.contentOrNull ?: ""
     throw CoachException(if (why == "max_output_tokens") CoachException.Kind.TRUNCATED else CoachException.Kind.REFUSED, why)
@@ -310,7 +343,7 @@ fun parseOpenai(o: JsonObject): Reply {
   val u = o["usage"]?.jsonObject
   fun n(k: String) = u?.get(k)?.jsonPrimitive?.intOrNull ?: 0
   val cached = u?.get("input_tokens_details")?.jsonObject?.get("cached_tokens")?.jsonPrimitive?.intOrNull ?: 0
-  return Reply(text, null, n("input_tokens"), cached, n("output_tokens"), o["model"]?.jsonPrimitive?.contentOrNull ?: Provider.OPENAI.model)
+  return Reply(text, null, n("input_tokens"), cached, n("output_tokens"), o["model"]?.jsonPrimitive?.contentOrNull ?: model)
 }
 
 // ---- Chat Completions (CUSTOM) ----
@@ -339,11 +372,11 @@ fun parseChat(o: JsonObject, model: String): Reply {
   return Reply(text, null, n("prompt_tokens"), cached, n("completion_tokens"), o["model"]?.jsonPrimitive?.contentOrNull ?: model)
 }
 
-/** US$ an answer cost by the provider's prices (null without them: a custom server). A write to the prompt cache costs
- *  a quarter more than input (Claude's 5-minute cache; the others write theirs for nothing). */
-fun costOf(p: Provider, r: Reply): Double? =
-  if (p.inPrice <= 0) null
-  else ((r.input - r.cached + r.written * 0.25) * p.inPrice + r.cached * p.cachedPrice + r.output * p.outPrice) / 1e6
+/** US$ an answer cost by the model's prices (null without them: a custom server). A write to the prompt cache costs a
+ *  quarter more than input (Claude's 5-minute cache; the others write theirs for nothing). */
+fun costOf(m: CoachModel?, r: Reply): Double? =
+  if (m == null || m.inPrice <= 0) null
+  else ((r.input - r.cached + r.written * 0.25) * m.inPrice + r.cached * m.cachedPrice + r.output * m.outPrice) / 1e6
 
 /** The answer's JSON object, from its text: as it is, or the outermost {…} of it (a model that wrapped it in words or
  *  a code fence, when its server took no schema). */

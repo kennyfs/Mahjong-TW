@@ -44,6 +44,11 @@ interface Stored {
   practiceHints?: boolean;
   /** The page's language; none: the browser's. */
   lang?: Lang;
+  /** The AI coach's last choices: how many of the latest hands, which provider; each provider's model and thinking. */
+  coachHands?: number;
+  coachProvider?: string;
+  coachModels?: Record<string, string>;
+  coachEffort?: Record<string, string>;
 }
 
 const DEFAULTS: Stored = {
@@ -72,6 +77,11 @@ class Settings {
   /** The page's language (i18n): the browser's till one is chosen. */
   lang = $state<Lang>('zh');
   private langChosen = false;
+  /** The AI coach's (lib/coach): how many hands, which provider, and per provider its model and thinking. */
+  coachHands = $state(100);
+  coachProvider = $state('');
+  coachModels = $state<Record<string, string>>({});
+  coachEffort = $state<Record<string, string>>({});
 
   constructor() {
     const s = { ...DEFAULTS, ...load<Partial<Stored>>(KEYS.settings, {}) };
@@ -91,6 +101,11 @@ class Settings {
     this.langChosen = isLang(s.lang);
     this.lang = isLang(s.lang) ? s.lang : browserLang();
     setLang(this.lang);
+    this.coachHands = [50, 100, 200].includes(s.coachHands as number) ? s.coachHands! : 100;
+    this.coachProvider = typeof s.coachProvider === 'string' ? s.coachProvider : '';
+    const strings = (o: unknown) => (o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).filter(([, v]) => typeof v === 'string')) : {});
+    this.coachModels = strings(s.coachModels);
+    this.coachEffort = strings(s.coachEffort);
   }
 
   /** The page's language, chosen (kept from now on). */
@@ -108,6 +123,7 @@ class Settings {
       rules: this.rules, length: this.length, bot: this.bot, speed: this.speed, colors: this.colors, dark: this.dark,
       text: this.text, name: this.name, server: this.server, level: this.level, sound: this.sound,
       readyHint: this.readyHint, practiceHints: this.practiceHints, lang: this.langChosen ? this.lang : undefined,
+      coachHands: this.coachHands, coachProvider: this.coachProvider || undefined, coachModels: this.coachModels, coachEffort: this.coachEffort,
     } satisfies Stored);
   }
 }

@@ -1,7 +1,7 @@
 <!--
   The settings, in Thirteen's order: the look (text size; the colors and dark theme, each a menu), the game (the
   rules, practice's length, the computer players and their pace, sounds), what helps in practice (聽牌提示, 顯示分析),
-  the analysis (from which loss on a decision is a mistake), help, and about (the source, the app, the privacy
+  the analysis (from which loss on a decision is a mistake), the AI coach's keys, help, and about (the source, the app, the privacy
   policy). A computer shows the list at the left and the rules beside it. A setting's longer words are behind an ⓘ by
   its name (a dialog), so that the list stays short.
 -->
@@ -14,6 +14,7 @@
   import { playSound } from '../lib/sound';
   import { tour } from '../lib/tour.svelte';
   import { ui } from '../lib/ui.svelte';
+  import CoachKeys from './CoachKeys.svelte';
   import Dialog from './Dialog.svelte';
   import Icon from './Icon.svelte';
   import Menu from './Menu.svelte';
@@ -125,6 +126,11 @@
         <Toggle options={levels} selected={settings.level} onselect={setLevel} />
       </div>
 
+      <!-- The AI coach's keys: the player's own, kept in this browser (lib/coach/keys.svelte.ts). -->
+      <div class="section-header">{t('coach_title')}</div>
+      <p class="note body-small dim">{t('coach_keys_note_web')}</p>
+      <CoachKeys />
+
       <div class="section-header">{t('settings_help')}</div>
       <SettingRow title={t('guide_title')} value={t('guide_row')} onclick={() => nav.open('guide')} />
       <SettingRow title={t('tour_title')} value={t('tour_row')} onclick={() => tour.start()} />
@@ -166,6 +172,7 @@
   .info { flex: none; width: 36px; min-height: 36px; border-radius: 18px; color: var(--on-surface-variant); }
   .help { margin: 0; line-height: 1.6; white-space: pre-line; }
   .about { padding: 8px 16px 0; line-height: 1.6; }
+  .note { margin: 0; padding: 4px 16px; line-height: 1.5; }
   .desk { height: 100%; display: flex; min-height: 0; }
   .desk-list { flex: 0 0 380px; border-right: 1px solid var(--outline-variant, var(--surface-container-highest)); }
   .desk-pane { flex: 1; min-width: 0; }

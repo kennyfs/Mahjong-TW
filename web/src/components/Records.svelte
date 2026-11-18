@@ -2,13 +2,16 @@
   The records: every finished hand, newest first, in three tabs (practice, table battles, same-tiles contests); a
   line's tap opens the hand's review (replay, and each decision's analysis). Favorites stay when the rest are cleared.
   Battles are listed as groups of their hands. Over the list, what the network's reviews of these hands add up to:
-  the points lost a hand, the mistakes a hand at the settings' level, and which kind of decision lost them.
-  At the end, for the developer: every record as a JSON file (shared where the browser can, else saved), and
-  practice's scores set to zero (a new game from the first hand; the records stay).
+  the points lost a hand, the mistakes a hand at the settings' level, and which kind of decision lost them; and the AI
+  coach (Coach.svelte), which has a language model read the latest hands of a set of rules.
+  At the end (紀錄檔): every record as a JSON file (shared where the browser can, else saved), for the developer or
+  another browser, phone or version; a file's records imported (the app's or the page's); and practice's scores set
+  to zero (a new game from the first hand; the records stay).
 -->
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
-  import { records, type BattleGroup, type HandRecord, type RecordKind } from '../lib/records.svelte';
+  import { nav } from '../lib/nav.svelte';
+  import { MAX, parseRecords, records, type BattleGroup, type HandRecord, type Imported, type RecordKind } from '../lib/records.svelte';
   import * as engine from '../lib/engine';
   import { keepSummary, KINDS_OF_LOSS, levelOrWorse, mistakesOf, pts } from '../lib/review';
   import { flowerLabel, parseChoice, taiLabel } from '../lib/rules';
@@ -16,6 +19,7 @@
   import { localTime, signed } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
   import Icon from './Icon.svelte';
+  import SettingRow from './SettingRow.svelte';
   import TitleBar from './TitleBar.svelte';
   import Toggle from './Toggle.svelte';
   import { practice } from '../lib/practice.svelte';
@@ -45,6 +49,23 @@
     } catch (e) {
       if ((e as Error).name !== 'AbortError') saveRecords();
     }
+  }
+  // A records file from the app, another browser or version: read, checked, its hands added; what it did, in a window.
+  let picker = $state<HTMLInputElement>();
+  let imported = $state<string | null>(null);
+  async function importRecords(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const f = input.files?.[0];
+    input.value = '';
+    if (!f) return;
+    const file = parseRecords(await f.text());
+    imported = file ? importedText(records.import(file)) : t('records_import_bad');
+  }
+  function importedText(r: Imported): string {
+    const lines = [r.added === 0 && r.had === 0 ? t('records_import_empty') : t('records_imported', r.added)];
+    if (r.had > 0) lines.push(t('records_import_had', r.had));
+    if (r.dropped > 0) lines.push(r.room ? t('records_import_room', r.dropped) : t('records_import_dropped', MAX, r.dropped));
+    return lines.join('\n');
   }
   let openBattle = $state<string | null>(null);
 
@@ -172,6 +193,10 @@
         {/if}
       </div>
     {/if}
+    <!-- The AI coach: the latest hands of a set of rules, of every kind, read by a language model. -->
+    {#if records.hands.length}
+      <SettingRow title={t('coach_title')} value={t('coach_row')} onclick={() => nav.open('coach')} />
+    {/if}
     {#if tab === 'practice'}
       {#each hands as h (h.id)}{@render line(h)}{:else}<p class="empty body-large dim">{t('records_empty')}</p>{/each}
     {:else}
@@ -180,6 +205,7 @@
     <section class="dev">
       <h2 class="title-small">{t('records_dev_title')}</h2>
       <p class="body-medium dim">{t('records_dev_info')}</p>
+      <p class="body-medium dim">{t('records_import_info')}</p>
       <p class="title-small">{t('records_dev_count', records.hands.length)}</p>
       <div class="dev-actions">
         {#if canShare}
@@ -188,6 +214,8 @@
         <button class={canShare ? 'btn outlined' : 'btn filled'} disabled={!records.hands.length} onclick={saveRecords}>
           <Icon name="download" size={18} />{t('records_export')}
         </button>
+        <button class="btn outlined" onclick={() => picker?.click()}><Icon name="upload" size={18} />{t('records_import')}</button>
+        <input bind:this={picker} type="file" accept=".json,application/json" hidden onchange={importRecords} />
       </div>
       <!-- (At the very bottom, the two that throw something away: the user's.) -->
       <div class="resets">
@@ -204,6 +232,15 @@
     {#snippet actions()}
       <button class="btn text" onclick={() => (confirmReset = false)}>{t('cancel')}</button>
       <button class="btn text" onclick={() => { confirmReset = false; void practice.newGame(); }}>{t('records_reset_scores_ok')}</button>
+    {/snippet}
+  </Dialog>
+{/if}
+
+{#if imported !== null}
+  <Dialog onclose={() => (imported = null)}>
+    <p class="body-large imported" style="margin:0">{imported}</p>
+    {#snippet actions()}
+      <button class="btn text" onclick={() => (imported = null)}>{t('ok')}</button>
     {/snippet}
   </Dialog>
 {/if}
@@ -251,5 +288,6 @@
   .dev p { margin: 0; }
   .dev-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .dev-actions .btn { display: inline-flex; align-items: center; gap: 8px; }
+  .imported { white-space: pre-line; }
   .dev .resets { display: flex; flex-wrap: wrap; gap: 8px; margin-left: -8px; }
 </style>

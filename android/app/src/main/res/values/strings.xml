@@ -265,6 +265,7 @@
   <string name="records_imported">匯入了 %1$d 局。</string>
   <string name="records_import_had">%1$d 局已經有了，沒有重複加入。</string>
   <string name="records_import_dropped">超過上限 %1$d 局，最舊的 %2$d 局沒有保留。</string>
+  <string name="records_import_room">瀏覽器的儲存空間不夠，最舊的 %1$d 局沒有保留。</string>
   <string name="records_import_empty">檔案裡沒有紀錄。</string>
   <string name="records_import_bad">這個檔案不是台灣麻將匯出的紀錄檔。</string>
   <string name="records_dev_count">共 %1$d 局</string>
@@ -738,7 +739,7 @@
   <string name="coach_lang">zh-TW</string>
   <string name="coach_title">AI 講評</string>
   <string name="coach_row">讓 AI 讀你最近的牌局，找出常犯的習慣</string>
-  <string name="coach_intro">把同一套規則最近的牌局（神經網路分析過的摘要）交給 AI 模型讀，找出你一再出現的習慣並解說。數字都來自 app 的神經網路，AI 負責找規律、說明為什麼。要用你自己的 API 金鑰，費用記在你的帳號。</string>
+  <string name="coach_intro">把同一套規則最近的牌局（神經網路分析過的摘要）交給 AI 模型讀，找出你一再出現的習慣並解說。數字都來自神經網路的分析，AI 負責找規律、說明為什麼。要用你自己的 API 金鑰，費用記在你的帳號。</string>
   <string name="coach_need_key">還沒有 API 金鑰。先設定 Claude、Gemini、ChatGPT 或自訂服務其中一個。</string>
   <string name="coach_set_keys">設定金鑰</string>
   <string name="coach_keys_title">API 金鑰</string>
@@ -750,6 +751,18 @@
   <string name="coach_latest">最近</string>
   <string name="coach_few">這套規則的局數不多，習慣可能看不準（建議 20 局以上）。</string>
   <string name="coach_model">模型</string>
+  <string name="coach_provider">服務</string>
+  <string name="coach_model_line">%1$s・思考：%2$s</string>
+  <string name="coach_change">變更</string>
+  <string name="coach_model_title">模型與思考</string>
+  <string name="coach_model_help">較便宜的模型比較快、費用低，但說明可能比較粗略或出錯；較強的模型比較貴。Gemini 和 ChatGPT 目前各只有一種。</string>
+  <string name="coach_model_price">每百萬 tokens：輸入 US$%1$s、輸出 US$%2$s</string>
+  <string name="coach_effort">思考強度</string>
+  <string name="coach_effort_low">低</string>
+  <string name="coach_effort_medium">中</string>
+  <string name="coach_effort_high">高</string>
+  <string name="coach_effort_help">思考越多，回答可能越仔細，但比較慢、比較貴（思考也算輸出的 tokens）。預設是中。</string>
+  <string name="coach_session_effort">（思考：%1$s）</string>
   <string name="coach_question">想特別問的（可不填）</string>
   <string name="coach_question_hint">例如：我是不是太常放槍？</string>
   <string name="coach_prepare">整理牌局</string>
@@ -797,4 +810,8 @@
   <string name="coach_key">API 金鑰</string>
   <string name="coach_key_optional">API 金鑰（可不填）</string>
   <string name="coach_key_save">儲存</string>
+  <!-- The page's own (web/): its keys kept in the browser, and a server that must allow a page's requests. -->
+  <string name="coach_keys_note_web">AI 講評用你自己的金鑰（費用記在你的帳號）。金鑰存在這個瀏覽器（沒有加密），只在你按「送出」時從瀏覽器直接傳給該服務，不經過其他伺服器。公用或別人的電腦請不要存金鑰；用完可以在這裡刪除。</string>
+  <string name="coach_key_help_web">到 %1$s 建立一把 API 金鑰貼在這裡。金鑰存在這個瀏覽器（沒有加密），只在你按「送出」時直接傳給 %2$s；費用記在你的帳號。公用電腦請不要存。</string>
+  <string name="coach_error_network_web">連不上服務，請檢查網路。自訂服務也要允許網頁直接呼叫（CORS）。</string>
 </resources>

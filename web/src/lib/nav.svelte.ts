@@ -86,21 +86,25 @@ class Nav {
     this.route = r;
   }
 
-  /** A page under the screen `screen` (this one by default): Back comes back here. */
-  open(sub: string, screen: Screen = this.route.screen) {
+  /** A page under the screen `screen` (this one by default): Back comes back here. `over`: opened over the page shown
+   *  (a moment of a review from the AI coach's answer), Back comes back to that page; else from one page to another
+   *  under the same screen, Back still goes to the screen. */
+  open(sub: string, screen: Screen = this.route.screen, over = false) {
     const r = { screen, sub };
     if (screen === this.route.screen && sub === this.route.sub) return;
     if (screen !== this.route.screen) this.go(screen);
-    // From one page to another under the same screen, Back still goes to the screen.
-    if (this.route.sub) history.replaceState(history.state, '', path(r));
+    const depth = (history.state as { depth?: number } | null)?.depth ?? 0;
+    if (this.route.sub && over && depth >= 1) history.pushState({ depth: depth + 1 }, '', path(r));
+    else if (this.route.sub) history.replaceState(history.state, '', path(r));
     else history.pushState({ depth: 1 }, '', path(r));
     this.route = r;
   }
 
-  /** Back from a page to its screen: the browser's Back when the page was opened here, else to the screen's top. */
+  /** Back from a page: the browser's Back when the page was opened here (to the page under it, or the screen), else to
+   *  the screen's top. */
   back() {
     if (!this.route.sub) return;
-    if ((history.state as { depth?: number } | null)?.depth === 1) history.back();
+    if (((history.state as { depth?: number } | null)?.depth ?? 0) >= 1) history.back();
     else {
       const r = { screen: this.route.screen, sub: null };
       history.replaceState({ depth: 0 }, '', path(r));
