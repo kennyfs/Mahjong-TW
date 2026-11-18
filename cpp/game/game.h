@@ -53,6 +53,7 @@ struct Discard {
   uint8_t kind;
   bool tsumogiri;  // the tile just drawn (摸切)
   bool called;     // taken by a chow, pung or kong
+  bool afterCall = false;  // the seat's first discard after a chow, pung or exposed kong of its own
 };
 
 struct SeatState {
@@ -64,6 +65,7 @@ struct SeatState {
   int draws = 0;           // ordinary draws so far
   bool hasDiscarded = false;
   bool declaredKong = false;
+  bool justCalled = false;  // a chow, pung or exposed kong, and no discard since (Discard::afterCall)
   // Declared ready (docs/rules.md 6): 0 no, 1 天聽, 2 地聽, 3 報聽. From the declaration on the hand is locked: the seat
   // discards what it draws and may only win. `declaring`: declared, and the discard that goes with it is still due.
   uint8_t declared = 0;

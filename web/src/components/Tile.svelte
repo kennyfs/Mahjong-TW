@@ -3,6 +3,7 @@
   w * TILE_RATIO high. A null tile is a back (another player's tile, a concealed kong).
   `danger` (1 to 3): a band along its foot, how likely a discard of it is to deal in (an analysis' figure).
   `wait`: one of the tiles a ready hand waits with (聽的相關牌組, with the hints): a blue face.
+  `tsumogiri`: a discard that was the tile just drawn (摸切): a greyer face, in the river.
 -->
 <script lang="ts" module>
   /** Height over width: the face (3:4) and the edge under it. */
@@ -11,13 +12,14 @@
 
 <script lang="ts">
   import { tileName } from '../lib/tiles';
-  let { tile = null, w, selected = false, dim = false, glow = false, mark = false, label = true, cls = '', danger = 0, wait = false }: {
+  let { tile = null, w, selected = false, dim = false, glow = false, mark = false, label = true, cls = '', danger = 0, wait = false,
+    tsumogiri = false }: {
     tile?: string | null; w: number; selected?: boolean; dim?: boolean; glow?: boolean; mark?: boolean; label?: boolean; cls?: string;
-    danger?: number; wait?: boolean;
+    danger?: number; wait?: boolean; tsumogiri?: boolean;
   } = $props();
 </script>
 
-<svg class="tile {cls}" class:selected class:dim class:glow class:mark class:wait width={w} height={w * TILE_RATIO} viewBox="0 0 60 87"
+<svg class="tile {cls}" class:selected class:dim class:glow class:mark class:wait class:tg={tsumogiri} width={w} height={w * TILE_RATIO} viewBox="0 0 60 87"
   role={label && tile ? 'img' : undefined} aria-label={label && tile ? tileName(tile) : undefined} aria-hidden={label && tile ? undefined : 'true'}>
   <rect class="back" x="0" y="0" width="60" height="87" rx="7" />
   {#if tile}
@@ -38,6 +40,7 @@
   .selected .face { fill: var(--tile-selected); stroke: var(--highlight); stroke-width: 3; }
   .glow .face { stroke: var(--highlight); stroke-width: 4; }
   .mark .face { fill: var(--tile-mark); }
+  .tg .face { fill: var(--tile-drawn); }
   .dim { opacity: 0.38; }
   .danger.d1 { fill: var(--danger-1); }
   .danger.d2 { fill: var(--danger-2); }

@@ -47,7 +47,9 @@ is over):
 
 `view` gives the screen of a seat: the seat's POSITION (its hand, the drawn tile, every player's melds, flowers
 and discards, tiles left in the wall), the phase, whose turn it is, the seat's legal actions, and the events since
-an index (to animate only what is new):
+an index (to animate only what is new). A discard is `{"tile": T, "drawn": the tile just drawn (摸切), "called": taken
+by a call}`, and `"after_call": true` on a seat's first discard after a chow, pung or exposed kong of its own (from
+2026-11-19; the river marks both, as the network sees them):
 
 ```
 >> {"cmd":"view","game":GAME,"seat":1}

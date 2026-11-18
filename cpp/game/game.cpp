@@ -470,6 +470,8 @@ void Game::act(int s, const Action& a) {
         d.kind = a.kind;
         d.tsumogiri = a.kind == drawn_;
         d.called = false;
+        d.afterCall = st.justCalled;
+        st.justCalled = false;
         st.discards.push_back(d);
         st.missedWin = false;
         st.hasDiscarded = true;
@@ -598,6 +600,7 @@ void Game::resolveReact() {
       if(k != t)
         st.hand[k]--;
     st.melds.push_back(m);
+    st.justCalled = true;
     log(Event::CHI, caller, t, a.kind);
     enterSelf(caller, -1, true);
     return;
@@ -607,6 +610,7 @@ void Game::resolveReact() {
     m.type = Meld::PON;
     st.hand[t] -= 2;
     st.melds.push_back(m);
+    st.justCalled = true;
     log(Event::PON, caller, t);
     enterSelf(caller, -1, true);
     return;
@@ -615,6 +619,7 @@ void Game::resolveReact() {
   st.hand[t] -= 3;
   st.melds.push_back(m);
   st.declaredKong = true;
+  st.justCalled = true;
   log(Event::MINKAN, caller, t);
   drawFor(caller, true, false);
 }

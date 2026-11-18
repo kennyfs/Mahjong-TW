@@ -22,7 +22,9 @@ export interface Action { type: ActionType; tile?: Tile | null; tiles?: Tile[] }
 export type MeldType = 'chi' | 'pon' | 'kan' | 'ankan' | 'kakan';
 /** tile null: another player's concealed kong. */
 export interface Meld { type: MeldType; tile: Tile | null; tiles?: Tile[]; called?: Tile; from?: number }
-export interface Discard { tile: Tile; drawn: boolean; called: boolean }
+/** `drawn`: the tile just drawn (摸切); `called`: taken by a call; `after_call`: the seat's first discard after a call of
+ *  its own (an engine from 2026-11-19). */
+export interface Discard { tile: Tile; drawn: boolean; called: boolean; after_call?: boolean }
 /** `declared`: a ready hand declared (天聽, 地聽 on the first turn; 報聽 later: docs/rules.md 5.1); the hand is locked from then on. */
 export interface PlayerPos { melds: Meld[]; flowers: string; discards: Discard[]; declared?: 'tianting' | 'diting' | 'baoting' }
 export interface Claim { seat: number; tile: Tile | null; rob_kong: boolean }

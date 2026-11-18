@@ -38,8 +38,11 @@ data class Action(val type: String, val tile: String? = null, val tiles: List<St
 @Serializable
 data class Meld(val type: String, val tile: String? = null, val tiles: List<String>? = null, val called: String? = null, val from: Int? = null)
 
+/** `drawn`: straight from the draw (摸切); `called`: taken by a call; `afterCall`: the seat's first discard after a call of
+ *  its own (an engine from 2026-11-19). */
 @Serializable
-data class Discard(val tile: String, val drawn: Boolean = false, val called: Boolean = false)
+data class Discard(val tile: String, val drawn: Boolean = false, val called: Boolean = false,
+  @SerialName("after_call") val afterCall: Boolean = false)
 
 /** `declared`: "tianting" or "diting", a ready hand declared on the first turn, or "baoting", later (docs/rules.md 5.1). */
 @Serializable

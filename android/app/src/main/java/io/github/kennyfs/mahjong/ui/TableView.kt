@@ -1115,10 +1115,19 @@ fun Melds(
   else Row(horizontalArrangement = Arrangement.spacedBy(g.col.d), verticalAlignment = Alignment.Bottom) { content() }
 }
 
+/** The bar at the left of a player's first discard after its own call (a tile `w` wide). */
+@Composable
+fun CallBar(w: Float) {
+  val c = LocalTable.current
+  Box(Modifier.offset(x = (-1).dp, y = (w * TILE_RATIO * 0.12f).d).size(maxOf(2f, w * 0.08f).d, (w * TILE_RATIO * 0.62f).d)
+    .background(c.callMark, RoundedCornerShape(2.dp)))
+}
+
 /**
- * One player's discards in order, `cols` a row; the tiles taken by a meld faded, the last discard lit. `claim`: the
- * player may claim the last discard: it stands out, larger and pulsing. `fly`: the table's moves; a new discard comes
- * from the hand (`mine`: discardFly) or in from the table's edge (`seat`'s: discardIn).
+ * One player's discards in order, `cols` a row; the tiles taken by a meld faded, the last discard lit, the tiles
+ * straight from the draw (摸切) greyer, the first discard after the player's own call marked by a bar at its left.
+ * `claim`: the player may claim the last discard: it stands out, larger and pulsing. `fly`: the table's moves; a new
+ * discard comes from the hand (`mine`: discardFly) or in from the table's edge (`seat`'s: discardIn).
  */
 @Composable
 fun River(
@@ -1140,7 +1149,8 @@ fun River(
           Box(anchor.then(if (out) Modifier.zIndex(1f).scale(1.25f + 0.15f * pulse) else Modifier)
             .then(if (fly != null && i == discards.size - 1) Modifier.zIndex(2f).then(if (mine) Modifier.discardFly(fly, i) else Modifier.discardIn(fly, seat, i))
               else Modifier)) {
-            TileView(d.tile, tw.d, dim = d.called, glow = (last || out) && i == discards.size - 1 && !d.called)
+            TileView(d.tile, tw.d, dim = d.called, glow = (last || out) && i == discards.size - 1 && !d.called, tsumogiri = d.drawn)
+            if (d.afterCall) CallBar(tw)
           }
         }
       }

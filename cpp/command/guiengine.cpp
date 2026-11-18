@@ -137,7 +137,10 @@ static Meld parseMeld(const json& j) {
 }
 
 static json discardJson(const Discard& d) {
-  return json{{"tile", Tiles::name(d.kind)}, {"drawn", d.tsumogiri}, {"called", d.called}};
+  json j{{"tile", Tiles::name(d.kind)}, {"drawn", d.tsumogiri}, {"called", d.called}};
+  if(d.afterCall)
+    j["after_call"] = true;
+  return j;
 }
 
 static Discard parseDiscard(const json& j) {
@@ -150,6 +153,7 @@ static Discard parseDiscard(const json& j) {
   d.kind = (uint8_t)parseTile(j.at("tile"));
   d.tsumogiri = getBool(j, "drawn");
   d.called = getBool(j, "called");
+  d.afterCall = getBool(j, "after_call");
   return d;
 }
 

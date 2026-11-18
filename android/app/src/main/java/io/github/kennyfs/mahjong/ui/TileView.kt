@@ -45,7 +45,7 @@ private object Faces {
 @Composable
 fun TileView(
   tile: String?, w: Dp, modifier: Modifier = Modifier, selected: Boolean = false, dim: Boolean = false, glow: Boolean = false,
-  mark: Boolean = false, danger: Int = 0, wait: Boolean = false,
+  mark: Boolean = false, danger: Int = 0, wait: Boolean = false, tsumogiri: Boolean = false,
 ) {
   val c = LocalTable.current
   val label = tile?.let(Tiles::name)
@@ -62,6 +62,7 @@ fun TileView(
         selected -> c.tileSelected
         mark -> c.tileMark
         wait -> c.tileWait
+        tsumogiri -> c.tileDrawn
         else -> c.tileFace
       }
       drawRoundRect(face, Offset(0.6f, 0.6f), Size(58.8f, 79.4f), CornerRadius(6.6f), alpha = alpha)
