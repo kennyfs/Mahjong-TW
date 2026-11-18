@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Explain
 import io.github.kennyfs.mahjong.Words
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -53,6 +54,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -250,6 +252,13 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
   val prevKeyStep = stops.lastOrNull { it.step < step }?.step ?: -1
   val mine = r?.decisions?.firstOrNull { it.step == step }
   val key = keys.firstOrNull { it.step == step }
+  /** The player's decision here explained by rules (解說, Explain.kt), when there is something to say. */
+  val explanation = remember(mine, view, unit) {
+    val v = view
+    if (mine != null && v != null && hasNet) Explain.explain(res, mine.analysis, mine.played, v, unit) else null
+  }
+  var explaining by remember { mutableStateOf(false) }
+  var tipsOpen by remember { mutableStateOf(false) }
   val deciding = if (step < n) actions[step].let { (s, a) -> s to fullAction(a) } else null
   /** What the step's line adds to the action: who dealt in to a win; for a claim that was not made, whose came first. */
   val decidingNote = if (deciding == null) "" else {
@@ -478,6 +487,9 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
           if (step >= last && n > 0 && !(step >= n && showResult)) FilledTonalButton(
             onClick = ::openResult, modifier = Modifier.testTag("replay_result").heightIn(min = 36.dp), contentPadding = PaddingValues(horizontal = 16.dp),
           ) { Text(stringResource(R.string.replay_result)) }
+          else if (explanation != null) FilledTonalButton(
+            onClick = { explaining = true }, modifier = Modifier.testTag("replay_explain").heightIn(min = 36.dp), contentPadding = PaddingValues(horizontal = 16.dp),
+          ) { Text(stringResource(R.string.explain_button)) }
         }
         val best = mine?.analysis?.best
         if (mine != null && key != null && best != null && mine.played >= 0) {
@@ -548,7 +560,10 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         DecisionPanel(focus.analysis, played = focus.played, unit = unit, w = if (inlinePanel) 34f else maxOf(30f, hw * 0.8f),
           names = names, truth = focus.truth, showTruth = showAll, picked = pickedIndex, brief = focus.seat == rec.me && mine != null,
           who = if (focus.seat == rec.me) "" else names[focus.seat])
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.End) {
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+          if (explanation != null && focus.seat == rec.me) OutlinedButton(onClick = { explaining = true }, modifier = Modifier.testTag("panel_explain")) {
+            Text(stringResource(R.string.explain_button))
+          }
           FilledTonalButton(onClick = ::toAnalysis, modifier = Modifier.testTag("replay_to_analysis")) {
             Icon(Icons.Filled.Assessment, null, Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
@@ -741,4 +756,8 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
       }
     }
   }
+  explanation?.takeIf { explaining }?.let { e ->
+    ExplainDialog(e, onTips = { explaining = false; tipsOpen = true }) { explaining = false }
+  }
+  if (tipsOpen) TipsDialog { tipsOpen = false }
 }

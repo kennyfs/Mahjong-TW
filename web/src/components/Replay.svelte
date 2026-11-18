@@ -34,6 +34,7 @@
   import { records } from '../lib/records.svelte';
   import { costOf, EQUAL, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pts, reasonOf, reviewOf, summarize,
     tagCost, tileMarks, tilesShort, opponentNote, type TileMark } from '../lib/review';
+  import { explain } from '../lib/explain';
   import { flowersOf, meldTiles } from '../lib/seats';
   import { settings } from '../lib/settings.svelte';
   import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
@@ -41,6 +42,8 @@
   import { ui } from '../lib/ui.svelte';
   import Branch from './Branch.svelte';
   import DecisionPanel from './DecisionPanel.svelte';
+  import Dialog from './Dialog.svelte';
+  import ExplainDialog from './ExplainDialog.svelte';
   import HandResult from './HandResult.svelte';
   import Icon from './Icon.svelte';
   import MyHand from './MyHand.svelte';
@@ -48,6 +51,7 @@
   import PickedFigures from './PickedFigures.svelte';
   import Table from './Table.svelte';
   import Tile from './Tile.svelte';
+  import TipsContent from './TipsContent.svelte';
   import TitleBar from './TitleBar.svelte';
   import ValueGraph from './ValueGraph.svelte';
 
@@ -167,6 +171,10 @@
   const prevKeyStep = $derived([...stops].reverse().find((k) => k.step < step)?.step ?? -1);
   const mine = $derived(rev?.decisions.find((d) => d.step === step));
   const key = $derived(keys.find((k) => k.step === step));
+  /** The player's decision here explained by rules (解說, lib/explain.ts), when there is something to say. */
+  const explanation = $derived(mine && view && hasNet ? explain(mine.analysis, mine.played, view, unit) : null);
+  let explaining = $state(false);
+  let tipsOpen = $state(false);
   /** The player's expected result at this step, as the review knows it (see the top); at the end the result. */
   const now = $derived.by((): { label: string; value: number } | null => {
     if (!rev || !hasNet) return null;
@@ -401,6 +409,8 @@
       {/if}
       {#if step >= last && n > 0 && !(step >= n && showResult)}
         <button class="btn tonal to-result" onclick={openResult}>{t('replay_result')}</button>
+      {:else if explanation}
+        <button class="btn tonal to-result" onclick={() => (explaining = true)}>{t('explain_button')}</button>
       {/if}
     </div>
     {#if mine && key && mine.analysis.best !== undefined && mine.played >= 0}
@@ -465,6 +475,7 @@
       names={names} truth={focus.truth} showTruth={showAll} picked={pickedIndex} brief={focus.seat === rec?.me && !!mine}
       who={focus.seat === rec?.me ? '' : names[focus.seat]} />
     <div class="panel-foot">
+      {#if explanation && focus.seat === rec?.me}<button class="btn outlined" onclick={() => (explaining = true)}>{t('explain_button')}</button>{/if}
       <button class="btn tonal" onclick={toAnalysis}><Icon name="assessment" size={20} />{t('review_to_analysis')}</button>
     </div>
   {:else if deciding}
@@ -570,6 +581,15 @@
   {/if}
 </div>
 {/if}
+{#if explaining && explanation}
+  <ExplainDialog e={explanation} onclose={() => (explaining = false)} ontips={() => { explaining = false; tipsOpen = true; }} />
+{/if}
+{#if tipsOpen}
+  <Dialog title={t('tips_title')} wide onclose={() => (tipsOpen = false)}>
+    <TipsContent />
+    {#snippet actions()}<button class="btn text" onclick={() => (tipsOpen = false)}>{t('close')}</button>{/snippet}
+  </Dialog>
+{/if}
 
 <style>
   .page { height: 100%; display: flex; flex-direction: column; min-height: 0; }
@@ -615,7 +635,7 @@
   .now .dim, .sum .dim { color: var(--on-surface-variant); }
   .mirror :global(svg) { transform: scaleX(-1); }
   .inline-panel { flex: 1; min-height: 120px; overflow: auto; margin-top: 4px; padding-right: 2px; }
-  .panel-foot { display: flex; justify-content: flex-end; padding: 10px 0 4px; }
+  .panel-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 0 4px; }
   .list-view { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 12px 16px; }
   .list-view.halves { flex-direction: row; overflow: hidden; gap: 12px; }
   .seat-hand { display: flex; flex-direction: column; gap: 8px; }

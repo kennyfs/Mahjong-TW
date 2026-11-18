@@ -133,6 +133,7 @@
 
       <div class="section-header">{t('settings_help')}</div>
       <SettingRow title={t('guide_title')} value={t('guide_row')} onclick={() => nav.open('guide')} />
+      <SettingRow title={t('tips_title')} value={t('tips_row')} onclick={() => nav.open('tips')} />
       <SettingRow title={t('tour_title')} value={t('tour_row')} onclick={() => tour.start()} />
 
       <div class="section-header">{t('settings_about')}</div>

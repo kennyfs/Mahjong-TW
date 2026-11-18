@@ -42,7 +42,8 @@ export function t(name: string, ...args: (string | number)[]): string {
   if (typeof s !== 'string') return name;
   if (!args.length) return s;
   let i = 0;
-  return s.replace(/%(?:(\d+)\$)?([sd])/g, (_, n: string | undefined) => {
+  return s.replace(/%(?:(\d+)\$)?([sd%])/g, (_, n: string | undefined, c: string) => {
+    if (c === '%') return '%';
     const v = n ? args[Number(n) - 1] : args[i++];
     return v === undefined ? '' : String(v);
   });

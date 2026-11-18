@@ -64,6 +64,7 @@ import io.github.kennyfs.mahjong.ui.AnalyzeScreen
 import io.github.kennyfs.mahjong.ui.BattleScreen
 import io.github.kennyfs.mahjong.ui.CoachScreen
 import io.github.kennyfs.mahjong.ui.GuideScreen
+import io.github.kennyfs.mahjong.ui.TipsScreen
 import io.github.kennyfs.mahjong.ui.LocalTable
 import io.github.kennyfs.mahjong.ui.LocalTableDensity
 import io.github.kennyfs.mahjong.ui.LocalTour
@@ -225,6 +226,7 @@ private fun App(vm: AppModel) {
         Page.RULES -> words { RulesScreen(vm, vm::back) }
         Page.REVIEW -> ReplayScreen(vm, vm::back)
         Page.COACH -> words { CoachScreen(vm, vm::back) }
+        Page.TIPS -> words { TipsScreen(vm::back) }
         Page.GUIDE -> words {
           GuideScreen(
             vm, vm::back,

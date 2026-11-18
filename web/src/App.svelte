@@ -11,6 +11,7 @@
   import { measure, ui } from './lib/ui.svelte';
   import Dialog from './components/Dialog.svelte';
   import Guide from './components/Guide.svelte';
+  import Tips from './components/Tips.svelte';
   import Tour from './components/Tour.svelte';
   import { tour, welcomeDone, welcomeDue } from './lib/tour.svelte';
   import Icon, { type IconName } from './components/Icon.svelte';
@@ -107,6 +108,8 @@
   <main>
     {#if nav.sub === 'guide'}
       <Guide onback={() => nav.back()} />
+    {:else if nav.sub === 'tips'}
+      <Tips onback={() => nav.back()} />
     {:else if (nav.screen === 'PLAY' || nav.screen === 'RECORDS' || nav.screen === 'BATTLE') && nav.sub === 'review'}
       <Replay id={shared.reviewId} onback={() => nav.back()} />
     {:else if nav.screen === 'RECORDS' && nav.sub === 'coach'}

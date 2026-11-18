@@ -402,6 +402,23 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   write such a file anyway (the user's, 2026-11-18). `Records.parse`, `Records.merge` (RecordsImportTest).
   The page the same (`parseRecords`, `records.import`), from a file input; when the browser's storage has no room
   for them all, the oldest are dropped, and the window says so.
+- **Next: 解說 and the river's marks** (2026-11-19, a branch to try; app and page alike; to be tried by the
+  user, who then says what to drop):
+  - **The river's marks** (what the network sees and the table did not show; the user's): a discard straight from
+    the draw (摸切) has a greyer face (`--tile-drawn`, TableColors.tileDrawn); the first discard after a player's own
+    chow, pung or exposed kong has a bar at its left (`--mark`, TableColors.callMark; the engine's `after_call` of a
+    discard, Discard::afterCall). The tiles let go this turn (過水) are left to the review's explanation, not marked
+    at the table (the user's choice).
+  - **解說** (Explain.kt, lib/explain.ts; docs/explain.md section 6): at a decision of the player's that lost at
+    least a questionable decision's loss, or where the player found the best and tile efficiency would have lost as
+    much, a 解說 button in the step's line (where the result's button is at the end) and beside 到分析畫面 opens a
+    dialog: the lesson's title, the choice, the opponent's signs with the share ready of players who look like that
+    (and whether the network reads more from the tiles thrown), the reason in this hand, and a rule of thumb with a
+    figure from self-play. No language model and no network request: named 解說 / Explain, not AI (the user's).
+  - **打牌要訣 / Table tips** (ExplainViews.kt TipsScreen, Tips.svelte; from the settings, and over a review from an
+    explanation): the river's marks with a sample, the share ready by discards and melds, how often the network
+    falls back by its own distance and the tiles left, and a tile's chance of dealing in by what it is to a ready
+    player.
 
 ## Built and checked
 

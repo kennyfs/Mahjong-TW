@@ -119,3 +119,26 @@ discard at the same distance" is the rest, said plainly or left out).
 A language model then is not needed for the explanation itself; if kept for questions after it, it should be given
 the lesson, the signs and the tables' figures, and asked to explain in table terms, not the list of actions with
 their expected values (which is what a cheap model echoes back).
+
+## 6. In the app and on the page (解說)
+
+Explain.kt and web/src/lib/explain.ts (the same rules, and the two lookup tables embedded) explain a reviewed
+decision from what the review has: the analysis (every action's figures, the opponents' chance of being ready), the
+seat's view at the decision (its hand, the discards with 摸切 and `after_call`, the melds, the events from the start
+for the tiles each opponent let go since its last discard: 過水, safe against it now) and the rules (whether an honor
+pung scores, 門清's tai). What is compared: the action played and the best when the played one lost at least a
+questionable decision's loss; else, when tile efficiency's choice (`greedyOf`, as `greedy`) would have lost that much
+and the best was played, that choice and the best ("well played"; only for a lesson with a rule).
+
+The lessons, in the order they are tried: a win let go for a self-draw / a win to take; a kong that breaks a set;
+calls (late in the hand, closed and far, not worth it, an honor pung, a call that is a step closer, a pung that
+improves the shape); for discards against the opponent the network thinks most likely ready: a step back to defend,
+a safer tile at the same distance, no need to fall back; a pair to keep, which pair to break, honors later; the
+choice of a wait (more tiles, more tai, other); tile efficiency (a step further, far fewer improving tiles); a step
+back for a better hand; a fine difference. Each gives a title, one or two sentences of this hand, and when there is
+one a rule of thumb with its figure from sections 3 and 4; the signs line (discards, melds, 摸切 at the end, a fresh
+call, declared) when the lesson is about defense.
+
+The table tips (打牌要訣) show the tables behind them: the share ready by discards and melds (without 摸切 at the
+end), how often the network turns to safety against an opponent who looks 60–80% ready by its own distance and the
+tiles left, and a tile's chance of dealing in by what it is to a ready opponent.

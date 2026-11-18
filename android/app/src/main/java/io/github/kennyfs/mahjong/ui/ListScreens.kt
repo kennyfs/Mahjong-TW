@@ -742,6 +742,7 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
 
         SectionHeader(stringResource(R.string.settings_help))
         SettingRow(stringResource(R.string.guide_title), stringResource(R.string.guide_row), Modifier.testTag("settings_guide")) { vm.open(Page.GUIDE) }
+        SettingRow(stringResource(R.string.tips_title), stringResource(R.string.tips_row), Modifier.testTag("settings_tips")) { vm.open(Page.TIPS) }
         SettingRow(stringResource(R.string.tour_title), stringResource(R.string.tour_row), Modifier.testTag("settings_tour")) { vm.tour.start() }
 
         // About: the source, the web version (the app's way to it; the web page has Google Play's), the privacy policy.
