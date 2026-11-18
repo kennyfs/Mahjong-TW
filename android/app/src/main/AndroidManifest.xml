@@ -15,6 +15,11 @@
   <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" android:usesPermissionFlags="neverForLocation" />
   <!-- Android 17: Nearby Connections over the Wi-Fi LAN, for an app that targets it. -->
   <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+  <!-- The Wi-Fi, Bluetooth and location permissions above would make Google Play require the hardware; only nearby
+       rooms use it, and a device without it still plays everything else. -->
+  <uses-feature android:name="android.hardware.wifi" android:required="false" />
+  <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+  <uses-feature android:name="android.hardware.location" android:required="false" />
   <application
     android:allowBackup="true"
     android:dataExtractionRules="@xml/data_extraction_rules"
