@@ -831,7 +831,6 @@
   <string name="explain_sign_discards">%1$d discards</string>
   <string name="explain_sign_melds">%1$d melds</string>
   <string name="explain_sign_tsumogiri">the last %1$d straight from the draw</string>
-  <string name="explain_sign_called">just called</string>
   <string name="explain_sign_declared">declared ready</string>
   <string name="explain_signs_ready">%1$s: %2$s. Players who look like this are ready %3$s of the time.</string>
   <string name="explain_rank_19">1 or 9</string>
@@ -850,13 +849,14 @@
   <string name="explain_deal_short">%1$s is more dangerous; %2$s is safer.</string>
   <string name="explain_t_defend">Time to defend</string>
   <string name="explain_defend_step">You are %1$s with %2$d tiles left: falling back with %3$s is slower, but your own chance to win is small now and a deal-in costs more.</string>
-  <string name="explain_rule_defend">When an opponent looks ready (many melds, several discards straight from the draw) and you are two or more away, or fewer than 20 tiles are left: throw their own discards first, then honors already seen and suji; an unseen non-suji middle tile is the most dangerous.</string>
+  <string name="explain_rule_defend">When an opponent looks ready (many melds, several discards straight from the draw) and you are two or more away with fewer than 30 tiles left, or one away with fewer than 10: throw their own discards first, then honors already seen and suji; an unseen non-suji middle tile is the most dangerous.</string>
   <string name="explain_t_safer">The safer tile</string>
-  <string name="explain_safer_same">Both keep you just as fast: throw the safe one.</string>
+  <string name="explain_safer_same">Both leave you as far from ready: throw the safe one even if it keeps a few fewer improving tiles.</string>
+  <string name="explain_safer_faster">%1$s is both faster and safer.</string>
   <string name="explain_rule_safer">When the improving tiles are about even, throw the tile that is safe against whoever may be ready.</string>
   <string name="explain_t_push">No need to fold</string>
   <string name="explain_push">You are %1$s with %2$d tiles left; falling back with %3$s only slows you down.</string>
-  <string name="explain_rule_push" formatted="false">Close to ready, your chance to win outweighs the risk: even against an opponent who is 90% ready, the neural network falls back only about 20% of the time one away, under 10% when ready; it folds often only with fewer than 10 tiles left.</string>
+  <string name="explain_rule_push" formatted="false">Close to ready, don\'t hurry to fall back: even against an opponent who is 90% ready, the neural network falls back only about 20% of the time one away, under 10% when ready; it folds often only with fewer than 10 tiles left.</string>
   <string name="explain_t_pair">Keep the pair</string>
   <string name="explain_pair_keep">Keep the pair of %1$s and throw %2$s (%3$s).</string>
   <string name="explain_shape_kanchan">a closed wait</string>
@@ -865,7 +865,7 @@
   <string name="explain_shape_lone">a lone tile</string>
   <string name="explain_shape_extra">a spare tile</string>
   <string name="explain_pair_wait">%2$d more %1$s are unseen: you can pung one from any of three players, or keep the pair as the eye; %3$s waits on one kind, which you must draw or chow from the player before you.</string>
-  <string name="explain_pair_even">The improving tiles are about even, but a pair can be punged from any of three players and serves as the eye; without it a hand often lacks one.</string>
+  <string name="explain_pair_even">The improving tiles are about even, but a pair can be punged from any of three players and serves as the eye.</string>
   <string name="explain_pair_lone">%1$s does little for the hand; the pair of %2$s can still be punged (%3$d unseen) and serves as the eye.</string>
   <string name="explain_honor_tai">" An honor pung also scores a tai."</string>
   <string name="explain_rule_pair">Break closed and edge waits before a pair that can still be punged; the neural network almost never breaks a lone honor or terminal pair.</string>
@@ -877,26 +877,27 @@
   <string name="explain_t_honor">Honors later</string>
   <string name="explain_honor_later">Throw the lone number tile (%1$s) first and %2$s later: a second one can be punged%3$s, and later in the hand honors are often safe.</string>
   <string name="explain_honor_tai_short">, for a tai too</string>
-  <string name="explain_rule_honor">In the first two turns, throwing a useless honor is fine; after that, lone number tiles (middle ones above all) go before lone honors.</string>
+  <string name="explain_rule_honor">In the first two turns throw useless honors; after that honors can wait: a lone terminal often goes before a lone honor.</string>
   <string name="explain_t_kong">Don\'t break a run to kong</string>
   <string name="explain_kong_breaks">%1$s is part of a run or a partial run: the kong breaks it, a step further from ready (%2$s → %3$s).</string>
   <string name="explain_rule_kong">With the fourth tile, first check whether another group uses it; skip the kong when it slows you down.</string>
   <string name="explain_t_other">Another way</string>
   <string name="explain_other">%1$s is better than %2$s.</string>
   <string name="explain_t_call_late">Few calls late in the hand</string>
-  <string name="explain_call_late">Only %1$d tiles left: don\'t %2$s just to get a step closer: three fewer tiles in hand make it hard to defend, and your own chance to win is small now.</string>
-  <string name="explain_rule_call_late" formatted="false">A call that brings you closer: the neural network makes it almost always with 40 or more tiles left, about half the time with 11 to 25, about 20% with 10 or fewer.</string>
+  <string name="explain_call_late">Only %1$d tiles left: don\'t %2$s just to get a step closer: your own chance to win is small now, and a call raises your chance of dealing in.</string>
+  <string name="explain_call_late_same">Only %1$d tiles left: calling a %2$s gets you no closer and raises your chance of dealing in.</string>
+  <string name="explain_rule_call_late" formatted="false">A call that brings you closer: the neural network makes it most of the time with 40 or more tiles left, about 60% of the time with 11 to 25, about 20% with 10 or fewer.</string>
   <string name="explain_t_call_closed">Stay closed for now</string>
   <string name="explain_call_closed">Closed and %1$d steps away, don\'t %2$s yet: it saves one step but %3$s.</string>
   <string name="explain_call_closed_same">Closed and %1$d steps away, don\'t %2$s yet: it saves nothing and %3$s.</string>
   <string name="explain_lose_menqing">gives up the concealed hand (%1$d tai concealed, %2$d with a self-draw)</string>
   <string name="explain_lose_tiles">leaves three fewer tiles in your hand for no more wins</string>
-  <string name="explain_rule_call_closed">Concealed and far from ready, call little; one or two away, call when it makes you ready or much faster.</string>
+  <string name="explain_rule_call_closed">Concealed and three or more away, be choosy with chows; two or fewer away, a call that brings you closer is almost always right.</string>
   <string name="explain_t_call_no">Not worth calling</string>
   <string name="explain_call_no">This %1$s does not pay: %2$s after it, %3$s without, one step faster; but with three fewer tiles in hand you deal in more often, and win no more often.</string>
   <string name="explain_call_no_same">This %1$s does not pay: %2$s after it and %2$s without, no faster; with three fewer tiles in hand fewer draws help, and you win less often.</string>
   <string name="explain_t_pon_honor">Pung the honor</string>
-  <string name="explain_pon_honor">Pung %1$s%2$s, and it is one dangerous tile less in your hand: worth it even without getting closer.</string>
+  <string name="explain_pon_honor">Pung %1$s%2$s; even without getting closer, it makes a win likelier.</string>
   <string name="explain_pon_tai">: the pung scores a tai</string>
   <string name="explain_rule_pon_honor" formatted="false">One to three away, the neural network pungs an honor pair 30 to 50% of the time even when it gets no closer, and almost always when it does.</string>
   <string name="explain_t_call_yes">Call it</string>
@@ -906,7 +907,7 @@
   <string name="explain_pon_same2">The pung of %1$s gets no closer, but the neural network prefers it: one partial set fewer to complete.</string>
   <string name="explain_t_win_wait">No hurry to win</string>
   <string name="explain_win_wait">%1$d tiles left and %2$d tiles to win on if you pass; a self-draw is paid by all three, worth much more than one player\'s discard.</string>
-  <string name="explain_rule_win_wait">Early, with three or more tiles to win on, the neural network often passes on a discard to wait for a self-draw (about half the time with 40 or more tiles left); with fewer than 25 left it almost always wins.</string>
+  <string name="explain_rule_win_wait">Early, with three or more tiles to win on, the neural network often passes on a discard to wait for a self-draw (with 40 or more tiles left about half the time concealed, a quarter with melds); with fewer than 25 left it almost always wins.</string>
   <string name="explain_t_win_take">Take the win</string>
   <string name="explain_win_take">Waiting on is worth less than winning now.</string>
   <string name="explain_t_wait">Which wait</string>
@@ -918,9 +919,9 @@
   <string name="tips_title">Table tips</string>
   <string name="tips_row">Is an opponent ready, when to fall back, which tile is safer: from 200,000 hands of self-play.</string>
   <string name="tips_river_title">The river\'s marks</string>
-  <string name="tips_river_text">An orange face is a draw-discard; a darker tile was claimed by another player, a deeper orange one was a claimed draw-discard; an inset blue bar on the left marks the first discard after a chow or pung. Players throwing draw-discards in a row or who just called are often ready.</string>
+  <string name="tips_river_text">An orange face is a draw-discard; a darker tile was claimed by another player, a deeper orange one was a claimed draw-discard; an inset blue bar on the left marks the first discard after a chow or pung. Players throwing draw-discards in a row are often close to ready or ready; so are players with more melds.</string>
   <string name="tips_ready_title">Is an opponent ready?</string>
-  <string name="tips_ready_text">Count their discards and melds. The table shows how often players who look like this are really ready; with the last two or more straight from the draw, about half as much again.</string>
+  <string name="tips_ready_text">Count their discards and melds. The table shows how often players who look like this are really ready; with the last two or more straight from the draw, more often still.</string>
   <string name="tips_discards">Discards</string>
   <string name="tips_melds">Melds %1$d</string>
   <string name="tips_melds_head">Melds</string>
@@ -942,16 +943,16 @@
   <string name="explain_t_eff">Tile efficiency</string>
   <string name="explain_eff_steps">Throwing %1$s puts you a step further from ready (%2$s → %3$s); %4$s does not.</string>
   <string name="explain_eff_more">After throwing %1$s, %2$d improving tiles move you forward; after %3$s only %4$d.</string>
-  <string name="explain_rule_eff">Keep your distance from ready first, then keep the most improving tiles; on a tie throw honors and terminals first.</string>
+  <string name="explain_rule_eff">Keep your distance from ready first, then keep the most improving tiles.</string>
   <string name="explain_t_slow">A step back for a better hand</string>
-  <string name="explain_slow">%1$s is faster (%2$s), but the neural network would rather throw %3$s and be a step slower (%4$s): what stays wins bigger or comes together more easily.</string>
+  <string name="explain_slow">%1$s is faster (%2$s), but the neural network would rather throw %3$s and be a step slower (%4$s): you are far from ready, and feeding the others less matters more now.</string>
   <string name="tips_wall_head">Tiles left</string>
   <string name="tips_away_more">3+ away</string>
   <string name="explain_about">about %1$s%%</string>
   <string name="explain_signs_more">" From what they have thrown, the neural network thinks they are more likely ready than that."</string>
   <string name="explain_signs_less">" From what they have thrown, the neural network thinks they are less likely ready than that."</string>
   <string name="explain_wait_safer">Both leave you ready; %1$s is the safer throw.</string>
-  <string name="explain_wait_easier">The wait after throwing %1$s wins more often: more of its tiles are still in the wall, or others throw them more readily.</string>
+  <string name="explain_wait_easier">The wait after throwing %1$s wins more often: the neural network expects others to throw its tiles more readily, or them to be easier to draw.</string>
   <string name="explain_shape_big">%1$s and %2$s keep about as many improving tiles (%3$d against %4$d), but the neural network clearly prefers %1$s: the difference is in how the hand develops (which partial sets fill more easily, how safe the tiles kept are).</string>
   <string name="explain_sign_discards_one">1 discard</string>
   <string name="explain_sign_melds_one">1 meld</string>

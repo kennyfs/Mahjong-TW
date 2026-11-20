@@ -165,7 +165,7 @@ const SHAPE: Record<string, string> = {
 const waitsLeft = (f: Figures) => f.waits.reduce((s, w) => s + w.left, 0);
 const waitTai = (f: Figures) => f.waits.reduce((s, w) => Math.max(s, w.ron_tai, w.tsumo_tai), 0);
 
-interface Opp { rel: number; ready: number; p: PlayerPos; disc: Set<number>; passed: Set<number>; tail: number; justCalled: boolean }
+interface Opp { rel: number; ready: number; p: PlayerPos; disc: Set<number>; passed: Set<number>; tail: number }
 
 /**
  * The explanation of a reviewed decision of `view`'s seat, or null when there is nothing to say: the played action
@@ -235,8 +235,10 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
     const sh = pass?.shanten ?? ab.shanten;
     const word = t(T === 'chi' ? 'act_chi' : T === 'pon' ? 'act_pon' : 'act_kan').toLowerCase();
     if (isCall(ap.action) && B === 'pass') {
-      if (w <= 25) return out('call-late', 'explain_t_call_late', [t('explain_call_late', w, word)], 'explain_rule_call_late');
-      if (closed && sh >= 2) {
+      // Late: a call raises the chance of dealing in, for little chance of winning (docs/explain.md section 7, 10).
+      if (w <= 25) return out('call-late', 'explain_t_call_late', [t(ap.shanten < sh ? 'explain_call_late' : 'explain_call_late_same', w, word)], 'explain_rule_call_late');
+      // Closed and three or more away (two away the network takes nearly every call that brings it closer: section 7, 13).
+      if (closed && sh >= 3) {
         const lose = (values.menqing ?? 0) > 0 ? t('explain_lose_menqing', values.menqing, values.menqing + (values.zimo ?? 0) + (values.menqing_zimo ?? 0)) : t('explain_lose_tiles');
         // (A call that leaves the hand as far: no faster at all.)
         return out('call-closed', 'explain_t_call_closed', [t(ap.shanten >= sh ? 'explain_call_closed_same' : 'explain_call_closed', sh, word, lose)], 'explain_rule_call_closed');
@@ -276,8 +278,7 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
       if (e.seat === s) break;
       if (e.tile) passed.add(kindOf(e.tile));
     }
-    return { rel: r - 1, ready: o?.ready[0] ?? 0, p: pl, disc: new Set(pl.discards.map((d) => kindOf(d.tile))), passed, tail,
-      justCalled: pl.discards.length > 0 && !!pl.discards[pl.discards.length - 1].after_call };
+    return { rel: r - 1, ready: o?.ready[0] ?? 0, p: pl, disc: new Set(pl.discards.map((d) => kindOf(d.tile))), passed, tail };
   });
   const top = opps.reduce((x, y) => (y.ready > x.ready ? y : x));
   const signsOf = (o: Opp) => {
@@ -285,7 +286,7 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
     const ss = [nd === 1 ? t('explain_sign_discards_one') : t('explain_sign_discards', nd)];
     if (nm) ss.push(nm === 1 ? t('explain_sign_melds_one') : t('explain_sign_melds', nm));
     if (o.tail >= 2) ss.push(t('explain_sign_tsumogiri', o.tail));
-    if (o.justCalled) ss.push(t('explain_sign_called'));
+    // (Not a fresh call: at the same discards and melds it hardly changes the share ready, section 7, 2.)
     if (o.p.declared) ss.push(t('explain_sign_declared'));
     const list = ss.join(t('explain_list_sep'));
     const rate = threatOf(o.p.discards.length, o.p.melds.length, o.tail);
@@ -314,7 +315,8 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
       return out('defend-step', 'explain_t_defend', [deal, t('explain_defend_step', steps(ap.shanten), w, name(ab))], 'explain_rule_defend', signsOf(top));
     if (ab.shanten === 0 && ap.shanten === 0)
       return out('wait-safer', 'explain_t_wait', [deal, t('explain_wait_safer', name(ab))], 'explain_rule_safer', signsOf(top));
-    return out('defend-same', 'explain_t_safer', [deal, t('explain_safer_same')], 'explain_rule_safer', signsOf(top));
+    return out('defend-same', 'explain_t_safer', [deal, ab.shanten < ap.shanten ? t('explain_safer_faster', name(ab)) : t('explain_safer_same')],
+      'explain_rule_safer', signsOf(top));
   }
   if (dangerB - dangerP >= 0.01 && ap.shanten > ab.shanten)
     return out('push', 'explain_t_push', [t('explain_push', steps(ab.shanten), w, name(ap))], 'explain_rule_push', signsOf(top));

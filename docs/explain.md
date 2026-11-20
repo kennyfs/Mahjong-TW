@@ -55,7 +55,8 @@ the last call) boosted trees reach AUC 0.905 on held-out data; the network's hea
 | 9–11 | 22% | 33% | 47% | 66% | 90% |
 | 12–14 | 29% | 42% | 57% | 74% | 91% |
 
-Two or more 摸切 at the end raise it about 1.5 times (9–11 discards, 2 melds: 47% → 68%); a fresh call raises it;
+Two or more 摸切 at the end raise it about 1.5 times (9–11 discards, 2 melds: 47% → 68%; section 7, 1: more where the table is low); a fresh call
+hardly changes it once the melds are held fixed (section 7, 2: the meld count is the sign);
 late discards from the hand of middle tiles lower it.
 
 **When the network gives up speed**, by the most threatening opponent's chance from those signs and the tiles left
@@ -96,7 +97,7 @@ are such tiles (the fastest discard: 18%).
 - **Early honors.** Among the 3rd and 4th discards, the network throws a lone honor about 40% of the time,
   `greedy` about 70%: lone number tiles go first (less so under `simple1,none`).
 - **Calls late.** A chow or pung that lowers shanten: the network calls 85–93% with 40+ tiles left, about half with
-  11–25, about 20% with 10 or fewer (a shorter hand cannot defend). Closed and three away: chows about 60%.
+  11–25, about 20% with 10 or fewer (late, a call raises the chance of dealing in for little chance to win: section 7, 10). Closed and three away: chows about 60%.
 - **Calls the network passes on** (a chow or pung, more than 25 tiles left), calling against passing in its own
   figures: one that leaves the hand as far: P(win) 5 points lower, P(deal in) the same (0.2 points higher); one a step
   faster: P(deal in) 3 points higher, P(win) the same. Closed and two or more away: as far, P(win) 3.6 lower; a step
@@ -192,6 +193,13 @@ Pure rules and definitions are left out; so is 不值得吃碰 (section 4, check
 | 其他規則大致相同 (`tips_source`) | tips | simple1: the threat, safety, fold and call tables within a few points (threat-s1none, safety-s1none, fold-s1none, verify_calls) | holds for the tips' tables; not for honor order (below) |
 
 ### Overstated or wrong, with a suggested rewording
+
+Applied (2026-11-20, the user's choices): all fourteen as suggested (the first wording), except 1 (no figures in the
+words: the tips' table has them), 9 (「你離聽牌還遠，這時少餵給對手比較要緊」: deal-ins and feeding others' calls alike)
+and 11 (without the closed figures: closed and melded are close). 2: the sign 剛吃碰過 is gone from the signs line. 5: a
+best a step faster has its own sentence. 10: two sentences by whether the call is a step faster. 13: the lesson
+門清先別吃碰 now only from three away (two away the network takes nearly every call that brings it closer, so the rule
+and the lesson would disagree); a two-away pass falls to 不值得吃碰. The untestable 聽的牌還在牌牆裡 is reworded too.
 
 1. **`tips_ready_text`** 最近連續摸切兩張以上時，大約再高一半. verify_signs: the share ready with two or more 摸切
    against the table's cell: ×2.4 where the cell is under 30%, ×1.6 at 30–60%, ×1.2 at 60%+ (×1.8 weighted). Understated

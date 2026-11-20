@@ -226,7 +226,7 @@ object Explain {
     return if (e.key in WEAK) null else e
   }
 
-  private class Opp(val rel: Int, val ready: Double, val p: PlayerPos, val disc: Set<Int>, val passed: Set<Int>, val tail: Int, val justCalled: Boolean)
+  private class Opp(val rel: Int, val ready: Double, val p: PlayerPos, val disc: Set<Int>, val passed: Set<Int>, val tail: Int)
 
   private class Lesson(val res: Resources, val an: Analysis, val view: View, val found: Boolean, val big: Boolean) {
     val pos = view.position
@@ -294,8 +294,11 @@ object Explain {
         val sh = pass?.shanten ?: ab.shanten
         val word = s(if (t == "chi") R.string.act_chi else if (t == "pon") R.string.act_pon else R.string.act_kan).lowercase()
         if (isCall(ap.action) && bt == "pass") {
-          if (w <= 25) return out("call-late", R.string.explain_t_call_late, listOf(s(R.string.explain_call_late, w, word)), R.string.explain_rule_call_late)
-          if (closed && sh >= 2) {
+          // Late: a call raises the chance of dealing in, for little chance of winning (docs/explain.md section 7, 10).
+          if (w <= 25) return out("call-late", R.string.explain_t_call_late,
+            listOf(s(if (ap.shanten < sh) R.string.explain_call_late else R.string.explain_call_late_same, w, word)), R.string.explain_rule_call_late)
+          // Closed and three or more away (two away the network takes nearly every call that brings it closer: section 7, 13).
+          if (closed && sh >= 3) {
             val mq = values["menqing"] ?: 0
             val lose = if (mq > 0) s(R.string.explain_lose_menqing, mq, mq + (values["zimo"] ?: 0) + (values["menqing_zimo"] ?: 0)) else s(R.string.explain_lose_tiles)
             // (A call that leaves the hand as far: no faster at all.)
@@ -342,8 +345,7 @@ object Explain {
           if (e.seat == seat) break
           e.tile?.let { passed.add(kindOf(it)) }
         }
-        Opp(r - 1, o?.ready?.firstOrNull() ?: 0.0, pl, pl.discards.map { kindOf(it.tile) }.toSet(), passed, tail,
-          pl.discards.lastOrNull()?.afterCall == true)
+        Opp(r - 1, o?.ready?.firstOrNull() ?: 0.0, pl, pl.discards.map { kindOf(it.tile) }.toSet(), passed, tail)
       }
       val top = opps.maxBy { it.ready }
       fun signsOf(o: Opp): String {
@@ -352,7 +354,7 @@ object Explain {
         val ss = mutableListOf(if (nd == 1) s(R.string.explain_sign_discards_one) else s(R.string.explain_sign_discards, nd))
         if (nm > 0) ss.add(if (nm == 1) s(R.string.explain_sign_melds_one) else s(R.string.explain_sign_melds, nm))
         if (o.tail >= 2) ss.add(s(R.string.explain_sign_tsumogiri, o.tail))
-        if (o.justCalled) ss.add(s(R.string.explain_sign_called))
+        // (Not a fresh call: at the same discards and melds it hardly changes the share ready, section 7, 2.)
         if (o.p.declared != null) ss.add(s(R.string.explain_sign_declared))
         val list = ss.joinToString(s(R.string.explain_list_sep))
         val seatName = res.getStringArray(R.array.explain_seats)[o.rel]
@@ -390,7 +392,9 @@ object Explain {
           listOf(deal, s(R.string.explain_defend_step, steps(ap.shanten), w, name(ab))), R.string.explain_rule_defend, signsOf(top))
         if (ab.shanten == 0 && ap.shanten == 0) return out("wait-safer", R.string.explain_t_wait,
           listOf(deal, s(R.string.explain_wait_safer, name(ab))), R.string.explain_rule_safer, signsOf(top))
-        return out("defend-same", R.string.explain_t_safer, listOf(deal, s(R.string.explain_safer_same)), R.string.explain_rule_safer, signsOf(top))
+        return out("defend-same", R.string.explain_t_safer,
+          listOf(deal, if (ab.shanten < ap.shanten) s(R.string.explain_safer_faster, name(ab)) else s(R.string.explain_safer_same)),
+          R.string.explain_rule_safer, signsOf(top))
       }
       if (dangerB - dangerP >= 0.01 && ap.shanten > ab.shanten)
         return out("push", R.string.explain_t_push, listOf(s(R.string.explain_push, steps(ab.shanten), w, name(ap))), R.string.explain_rule_push, signsOf(top))
