@@ -129,15 +129,15 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 
 zh-TW:
 
-回顧新增「解說」：有損失的決定（或你比牌效率打得好的地方）按「解說」，用一兩句話說明這手該攻還是該守、為什麼留這個對子、哪張比較安全，再附一條打牌原則。設定新增「打牌要訣」：對手聽牌了沒、什麼時候該退、哪張牌比較不會放槍的統計表。牌河現在看得出摸切（牌面較灰）和吃碰後打的第一張（左邊藍線）。
+回顧新增「解說」：有損失的決定（或你比牌效率打得好的地方）按「解說」，用一兩句話說明該攻還是該守、該留哪個對子、哪張比較安全，再附一條打牌原則；解說裡有底線的詞，點了就能看定義。設定新增「打牌要訣」（對手聽牌了沒、什麼時候該退、哪張比較不會放槍的統計表）和「術語表」（從牌牆、搭子到向聽、筋牌，由淺到深說明）。牌河看得出摸切（牌面較灰）和吃碰後打的第一張（藍條）。
 
-電腦不會再在洗牌、發牌完成前就出牌。音效跟畫面更同步：下一個動畫會等上一個的音效播到該播的地方，不會一次疊在一起；Android 的音效也更快出聲。發牌和胡牌的全螢幕動畫更順。回顧時牌桌不再隨下方文字跳動；窄螢幕和大字體下幾處文字不再被擠掉。
+電腦不會再在發牌完成前就出牌；音效跟畫面更同步，Android 的音效也更快出聲；發牌和胡牌的動畫更順；回顧時牌桌不再隨下方文字跳動。
 
 en-US:
 
-Reviews can now explain a decision: tap Explain where you lost points (or beat tile efficiency) for the lesson in a sentence or two: attack or defend, which pair to keep, which tile is safer, with a rule of thumb. New Table tips in the settings: is an opponent ready, when to fall back, which tiles deal in least. The river now shows tiles thrown straight from the draw (greyer) and the first discard after a call (a blue bar).
+Reviews explain a decision: tap Explain where you lost points (or beat tile efficiency) for the lesson in a sentence or two, with a rule of thumb; underlined words open the new glossary. Table tips in the settings: is an opponent ready, when to fall back, which tiles are safer. The river marks draw-discards and the first discard after a call.
 
-Computer players no longer discard before the deal is done. Sounds keep in step with the animations: the next one waits for the last one's sound instead of piling up, and on Android sounds come sooner. Smoother deal and full-screen win animations. A review's table no longer jumps with the lines under it, and a few labels fit narrow screens and large text.
+Computer players wait for the deal; sounds keep in step and come sooner on Android; smoother animations; a review's table stays put.
 
 ### 1.3.0
 
