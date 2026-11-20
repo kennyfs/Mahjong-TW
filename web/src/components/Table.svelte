@@ -45,7 +45,7 @@
   import { callMs, flowerMs, calloutShown, calloutsSkipped, dealComplete } from '../lib/callouts';
   import { t } from '../lib/i18n.svelte';
   import {
-    DRAWN_GAP, WON_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, meldLines, myMeldsHeight, OPP_LINES, runLines, SHOWN_RIVER, SHOWN_RIVER_MIN, shownHeight, tableSizes, tallTopRoom, type TableSizes,
+    DRAWN_GAP, WON_GAP, ROW_GAP, riverRows, fitMelds, fitShown, fitShownRow, meldLines, myMeldsHeight, OPP_LINES, runLines, SHOWN_RIVER, SHOWN_RIVER_MIN, shownHeight, tableSizes, tallTopRoom, type TableSizes,
   } from '../lib/layout';
   import { concealedCount, meldTiles, seatAt, sideOf, flowersOf, type Side } from '../lib/seats';
   import { pts, type ChoiceMark, type SeatNote, type TileMark } from '../lib/review';
@@ -939,6 +939,10 @@
   const cornerH = $derived(cornerBase + (valueAt === 'over' ? valueH + 4 : 0));
   const winds = $derived(view.seat_winds);
   const turnSeat = $derived(view.phase === 'over' ? -1 : view.current);
+  // A tall table's two rivers across as high as the higher (one row at the least), so that the box between them stays
+  // put from the first discard on: the river below grows down, the one above up from the box.
+  const acrossH = $derived(Math.max(1, ...(['top', 'bottom'] as Side[]).map((x) =>
+    riverRows(pos.players[seatAt(x, me)].discards.length, s.acrossCols, s.acrossRows))) * s.river * TILE_RATIO);
   const rivers: { side: Side; area: string }[] = [
     { side: 'top', area: 'rt' }, { side: 'left', area: 'rl' }, { side: 'right', area: 'rr' }, { side: 'bottom', area: 'rb' },
   ];
@@ -1004,7 +1008,7 @@
 
     <!-- The rivers (a tall table's around the box). -->
     <div class="center">
-      <div class="rivers" class:wide={s.wide} style="--river: {s.river}px; --cols: {s.acrossCols}; --side-cols: {s.sideCols}; --mid: {s.mid}px">
+      <div class="rivers" class:wide={s.wide} style="--river: {s.river}px; --cols: {s.acrossCols}; --side-cols: {s.sideCols}; --mid: {s.mid}px; --across-h: {acrossH}px">
         {#each rivers as r (r.side)}
           {@const seat = seatAt(r.side, me)}
           {@const across = r.side === 'top' || r.side === 'bottom'}
@@ -1152,7 +1156,7 @@
   .center { grid-area: center; display: flex; align-items: center; justify-content: center; min-height: 0; min-width: 0; }
   .rivers { position: relative; display: grid; gap: 4px 6px;
     grid-template-columns: calc(var(--side-cols) * var(--river)) calc(var(--cols) * var(--river)) calc(var(--side-cols) * var(--river));
-    grid-template-rows: auto auto auto; grid-template-areas: "rl rt rr" "rl box rr" "rl rb rr"; align-items: center; }
+    grid-template-rows: var(--across-h) auto var(--across-h); grid-template-areas: "rl rt rr" "rl box rr" "rl rb rr"; align-items: center; }
   .rivers.wide { grid-template-rows: auto auto; grid-template-areas: "rl rt rr" "rl rb rr"; row-gap: var(--mid); }
   .river-cell { min-height: 0; display: flex; }
   /* A river across keeps a row's room while it is empty (the words over it are centered in it). */

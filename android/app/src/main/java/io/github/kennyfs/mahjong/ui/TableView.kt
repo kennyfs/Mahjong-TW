@@ -685,7 +685,12 @@ private fun TableViewIn(
             river(Side.TOP, s.acrossRows, s.acrossCols)
             river(Side.BOTTOM, s.acrossRows, s.acrossCols)
           } else Column(Modifier.overWhileFlying(motion), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            river(Side.TOP, s.acrossRows, s.acrossCols)
+            // The two rivers across as high as the higher (one row at the least), so that the box between them stays put
+            // from the first discard on: the river below grows down, the one above up from the box.
+            val across = maxOf(1, riverRows(pos.players[seatAt(Side.TOP, me)].discards.size, s.acrossCols, s.acrossRows),
+              riverRows(pos.players[seatAt(Side.BOTTOM, me)].discards.size, s.acrossCols, s.acrossRows))
+            val acrossH = (across * s.river * TILE_RATIO).d
+            Box(Modifier.height(acrossH), contentAlignment = Alignment.BottomCenter) { river(Side.TOP, s.acrossRows, s.acrossCols) }
             Box(
               Modifier.width(s.boxW.d).heightIn(min = s.mid.d).background(Color.Black.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
                 .padding(horizontal = 10.dp, vertical = 4.dp),
@@ -701,7 +706,7 @@ private fun TableViewIn(
                 corner?.invoke()
               }
             }
-            river(Side.BOTTOM, s.acrossRows, s.acrossCols)
+            Box(Modifier.height(acrossH), contentAlignment = Alignment.TopCenter) { river(Side.BOTTOM, s.acrossRows, s.acrossCols) }
           }
           Box(Modifier.width((s.sideCols * s.river).d), contentAlignment = Alignment.CenterStart) { river(Side.RIGHT, s.sideRows, s.sideCols) }
         }
@@ -1124,6 +1129,12 @@ fun CallBar(w: Float) {
   // Inside the tile's left edge (not in the gap between two tiles), with a light rim: it is this tile's.
   Box(Modifier.offset(x = 2.dp, y = (w * TILE_RATIO * 0.10f).d).size(maxOf(4f, w * 0.16f).d, (w * TILE_RATIO * 0.68f).d)
     .background(c.callMark, shape).border(0.8.dp, Color.White.copy(alpha = 0.85f), shape))
+}
+
+/** The rows `n` discards take in a river of `cols` a row and at most `rows` rows (River: past them, smaller tiles). */
+fun riverRows(n: Int, cols: Int, rows: Int): Int {
+  val fit = if (rows > 0 && n > cols * rows) ceil(n.toFloat() / rows).toInt() else cols
+  return if (n == 0) 0 else ceil(n.toFloat() / fit).toInt()
 }
 
 /**

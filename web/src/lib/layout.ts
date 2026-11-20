@@ -24,6 +24,12 @@ export const FLOWER_SCALE = 0.82;
 /** Lines of the others' melds and flowers on a tall table (their tiles get smaller when there are more). */
 export const OPP_LINES = 2;
 
+/** The rows `n` discards take in a river of `cols` a row and at most `rows` rows (River.svelte: past them, smaller tiles). */
+export function riverRows(n: number, cols: number, rows: number): number {
+  const fit = rows > 0 && n > cols * rows ? Math.ceil(n / rows) : cols;
+  return n === 0 ? 0 : Math.ceil(n / fit);
+}
+
 /** The gaps between melds (Melds.svelte): between lines, and between melds in a line. */
 export const meldGaps = (w: number) => ({ row: Math.max(3, w * 0.16), col: Math.max(3, w * 0.14) });
 
