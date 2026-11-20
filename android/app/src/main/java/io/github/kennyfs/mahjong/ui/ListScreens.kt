@@ -163,8 +163,8 @@ fun RecordsScreen(vm: AppModel) {
   // (A hand played with the analysis shown, 顯示分析, counts in neither.)
   val all = records.hands.filter { it.kind == tab && !it.hints }
   // The reviews of this tab's hands, added up; the hands not reviewed by this network can be, one after another.
-  val reviewed = all.filter { it.rev?.m == Engine.MODEL_ID }
-  val pending = all.filter { it.rev?.m != Engine.MODEL_ID }
+  val reviewed = all.filter { it.rev?.m == Engine.REVIEW_ID }
+  val pending = all.filter { it.rev?.m != Engine.REVIEW_ID }
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
   var confirmReset by remember { mutableStateOf(false) }

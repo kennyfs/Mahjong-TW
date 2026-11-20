@@ -93,7 +93,8 @@
 //   {"cmd": "model", "model": FILE?}   -> {"available": bool (this build runs networks), "features": version
 //       (when the file loads)}
 //   {"cmd": "review", "game": RECORD (a finished hand), "seat": s, "model": FILE?}
-//       Every decision of the seat that had a choice  -> {"seat", "decisions": [{"step": the record's action index,
+//       Every decision of the seat that had a choice (not an answer to a tile whose claims all lose to answers already
+//       in)  -> {"seat", "decisions": [{"step": the record's action index,
 //       "played": index into the analysis' actions, "analysis": ANALYSIS, "truth": [{"seat", "shanten", "missed":
 //       bool (it passed a win this turn), "waits": [{"tile", "tai"}]} x3 opponents], "loss": best q - played q}],
 //       "result": the seat's points, and with a model "first_value" (the value at the first decision), "loss" (the

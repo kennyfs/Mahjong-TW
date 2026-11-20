@@ -168,14 +168,14 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
    *  with the record too). Null when it cannot be: no network, or a record the engine cannot replay. */
   private suspend fun handDigest(res: Resources, w: DigestWords, h: HandRecord): HandDigest? {
     val lang = if (w.zh) "zh" else "en"
-    cache[h.id]?.let { if (it.m == Engine.MODEL_ID && it.lang == lang) return it }
+    cache[h.id]?.let { if (it.m == Engine.REVIEW_ID && it.lang == lang) return it }
     return try {
       val r = reviewOf(h)
       if (r.firstValue == null) return null
-      if (records.get(h.id)?.rev?.m != Engine.MODEL_ID) records.setReview(h.id, summarize(r))
+      if (records.get(h.id)?.rev?.m != Engine.REVIEW_ID) records.setReview(h.id, summarize(r))
       val positions = HashMap<Int, Position>()
       for (step in Digest.keySteps(r)) positions[step] = Engine.view(h.game.cut(step), h.me).position
-      Digest.hand(res, w, h, r, positions, Engine.MODEL_ID).also { cache[h.id] = it }
+      Digest.hand(res, w, h, r, positions, Engine.REVIEW_ID).also { cache[h.id] = it }
     } catch (e: EngineException) {
       null
     }

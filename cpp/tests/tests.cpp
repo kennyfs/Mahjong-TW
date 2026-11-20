@@ -7,6 +7,7 @@
 #include "../game/shape.h"
 
 #include <iostream>
+#include <set>
 
 using namespace std;
 
@@ -723,6 +724,59 @@ static void testGuiEngine() {
       }
     }
     testAssert(plain > 0 && claimable > 0);
+  }
+  // A review leaves out an answer to a tile whose claims would all lose to the answers already in (practice passes for
+  // the player then, without asking: 搶碰, 搶胡), and keeps one where a claim could have stood.
+  {
+    json others = json::array({nullptr, "greedy", "greedy", "greedy"});
+    int dropped = 0, kept = 0;
+    for(int k = 0; k < 60 && (dropped == 0 || kept == 0); k++) {
+      json g = engine.handle(json{{"cmd", "new"}, {"rules", "simple2,see"}, {"seed", "moot" + Global::intToString(k)}})["game"];
+      vector<size_t> forced, asked;
+      for(int step = 0; step < 1000; step++) {
+        g = engine.handle(json{{"cmd", "advance"}, {"game", g}, {"players", others}})["game"];
+        json p = engine.handle(json{{"cmd", "pending"}, {"game", g}});
+        if(p["phase"] == "over")
+          break;
+        if(p["phase"] == "self") {
+          json a = engine.handle(json{{"cmd", "bot"}, {"game", g}, {"seat", 0}, {"player", "greedy"}})["action"];
+          g = engine.handle(json{{"cmd", "act"}, {"game", g}, {"seat", 0}, {"action", a}})["game"];
+          continue;
+        }
+        // The others answer first, as practice has them.
+        for(const json& s : p["pending"])
+          if(s != 0) {
+            json a = engine.handle(json{{"cmd", "bot"}, {"game", g}, {"seat", s}, {"player", "greedy"}})["action"];
+            g = engine.handle(json{{"cmd", "act"}, {"game", g}, {"seat", s}, {"action", a}})["game"];
+          }
+        json v = engine.handle(json{{"cmd", "view"}, {"game", g}, {"seat", 0}});
+        bool any = false, stands = false;
+        for(const json& a : v["legal"]) {
+          if(a["type"] == "pass")
+            continue;
+          any = true;
+          json t = engine.handle(json{{"cmd", "act"}, {"game", g}, {"seat", 0}, {"action", a}})["game"];
+          if(engine.handle(json{{"cmd", "steps"}, {"game", t}})["taken"].back().get<bool>())
+            stands = true;
+        }
+        if(any)
+          (stands ? asked : forced).push_back(g["actions"].size());
+        g = engine.handle(json{{"cmd", "act"}, {"game", g}, {"seat", 0}, {"action", json{{"type", "pass"}}}})["game"];
+      }
+      json r = engine.handle(json{{"cmd", "review"}, {"game", g}, {"seat", 0}});
+      std::set<size_t> steps;
+      for(const json& d : r["decisions"])
+        steps.insert(d["step"].get<size_t>());
+      for(size_t f : forced) {
+        testAssert(!steps.count(f));
+        dropped++;
+      }
+      for(size_t a : asked) {
+        testAssert(steps.count(a));
+        kept++;
+      }
+    }
+    testAssert(dropped > 0 && kept > 0);
   }
   // Errors are answers, not crashes.
   testAssert(json::parse(engine.handleLine("{\"cmd\": \"nope\"}")).contains("error"));

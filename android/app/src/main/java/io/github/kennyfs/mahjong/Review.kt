@@ -204,7 +204,7 @@ fun summarize(r: Review): ReviewSummary {
   }
   fun r2(x: Double) = Math.round(x * 100) / 100.0
   return ReviewSummary(
-    Engine.MODEL_ID, r2(r.firstValue ?: 0.0), r2(r.loss ?: 0.0), r2(r.luck ?: 0.0), r2(r.unit ?: 4.0), r.decisions.size, grades.toList(),
+    Engine.REVIEW_ID, r2(r.firstValue ?: 0.0), r2(r.loss ?: 0.0), r2(r.luck ?: 0.0), r2(r.unit ?: 4.0), r.decisions.size, grades.toList(),
     kinds.map(::r2),
   )
 }
@@ -237,7 +237,7 @@ suspend fun reviewOf(rec: HandRecord): Review {
 
 /** Reviews a record and keeps the summary with it, unless this network's is there. Failures are left for a later try. */
 suspend fun keepSummary(records: Records, rec: HandRecord) {
-  if (rec.rev?.m == Engine.MODEL_ID) return
+  if (rec.rev?.m == Engine.REVIEW_ID) return
   try {
     val r = reviewOf(rec)
     if (r.firstValue != null) records.setReview(rec.id, summarize(r))

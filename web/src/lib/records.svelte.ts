@@ -8,7 +8,7 @@ export type RecordKind = 'practice' | 'table' | 'contest';
 
 /** A hand's review by the network, in short (lib/review.ts), kept with the record for the lists and the statistics. */
 export interface ReviewSummary {
-  /** The network that reviewed it (engine.MODEL_ID): another one reviews it again. */
+  /** What reviewed it (engine.REVIEW_ID: the network and the review): another one reviews it again. */
   m: string;
   /** The expected result at the first decision, the points lost by decisions, and the rest of the result: luck. */
   first: number;

@@ -42,6 +42,9 @@ object Engine {
   const val NET_SPEC = "net:model=$MODEL_MARK,mode=policy"
   /** Which network this build has (the start of its file's SHA-256): another one reviews a record again. */
   val MODEL_ID: String = BuildConfig.MODEL_ID
+  /** What made a kept review (its summary, the coach's digest): the network and the review's own version (2: an answer
+   *  to a tile none of whose claims could stand is no decision, 2026-11-20). Another one reviews a record again. */
+  val REVIEW_ID: String = "$MODEL_ID/2"
 
   private val handle = nativeCreate()
   private val dispatcher = Executors.newSingleThreadExecutor { r -> Thread(r, "engine") }.asCoroutineDispatcher()

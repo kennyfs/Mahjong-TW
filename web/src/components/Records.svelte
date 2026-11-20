@@ -81,8 +81,8 @@
   });
 
   // The reviews of this tab's hands, added up; the hands not reviewed by this network can be, one after another.
-  const reviewed = $derived(records.hands.filter((h) => h.kind === tab && !h.hints && h.rev?.m === engine.MODEL_ID));
-  const pending = $derived(records.hands.filter((h) => h.kind === tab && !h.hints && h.rev?.m !== engine.MODEL_ID));
+  const reviewed = $derived(records.hands.filter((h) => h.kind === tab && !h.hints && h.rev?.m === engine.REVIEW_ID));
+  const pending = $derived(records.hands.filter((h) => h.kind === tab && !h.hints && h.rev?.m !== engine.REVIEW_ID));
   const review = $derived.by(() => {
     const k = reviewed.length;
     if (!k) return null;

@@ -19,6 +19,9 @@ const ENGINE = { js: url(files.js), wasm: url(files.wasm), wasmSize: files.wasmS
 const MODEL_URL = url(files.model);
 /** Which network this build has: its file's name, which carries its hash. */
 export const MODEL_ID = files.model.slice(files.model.lastIndexOf('/') + 1).replace(/\.onnx$/, '');
+/** What made a kept review (its summary, the coach's digest): the network and the review's own version (2: an answer
+ *  to a tile none of whose claims could stand is no decision, 2026-11-20). Another one reviews a record again. */
+export const REVIEW_ID = `${MODEL_ID}/2`;
 
 let worker: Worker | null = null;
 let next = 0;

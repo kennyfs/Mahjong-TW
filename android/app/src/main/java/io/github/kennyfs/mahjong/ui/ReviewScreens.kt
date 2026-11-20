@@ -184,7 +184,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     try {
       val x = reviewOf(rec)
       rev = x
-      if (x.firstValue != null && vm.records.get(rec.id)?.rev?.m != Engine.MODEL_ID) vm.records.setReview(rec.id, summarize(x))
+      if (x.firstValue != null && vm.records.get(rec.id)?.rev?.m != Engine.REVIEW_ID) vm.records.setReview(rec.id, summarize(x))
     } catch (e: EngineException) {
       revError = e.message ?: ""
     }

@@ -672,6 +672,31 @@ static void startOf(const GuiJson::Record& rec, Game& game) {
   GuiJson::replay(start, game);
 }
 
+// Whether a seat's answer to a tile cannot matter: none of its claims would take effect against the answers already in
+// (another's win before its pung, a pung before its chow). Practice and a branch then pass for the player without
+// asking (搶碰, 搶胡: web/src/lib/claims.ts preclaim), so it is no decision of theirs. Not when others are still to
+// answer after it: those may pass.
+static bool moot(const Game& game, int seat, const vector<Action>& legal) {
+  if(game.phase() != Game::REACT && game.phase() != Game::ROB_KONG)
+    return false;
+  for(const Action& o : legal) {
+    if(o.type == Action::PASS)
+      continue;
+    Game g = game;
+    const size_t before = g.events().size();
+    g.act(seat, normalized(g, o));
+    const vector<Event>& events = g.events();
+    if(events.size() == before)
+      return false;
+    for(size_t e = before; e < events.size(); e++) {
+      const Event::Type type = events[e].type;
+      if(events[e].seat == seat && (type == Event::RON || type == Event::CHI || type == Event::PON || type == Event::MINKAN))
+        return false;
+    }
+  }
+  return true;
+}
+
 static json stepsOf(const GuiJson::Record& rec) {
   Game game(Rules::parse(rec.rules));
   startOf(rec, game);
@@ -827,7 +852,8 @@ json GuiEngine::handle(const json& req) {
     return stepsOf(GuiJson::parseRecord(req.at("game")));
 
   if(cmd == "review") {
-    // Every decision of a seat in a finished hand that had a choice, as the seat saw it, with what it could not see.
+    // Every decision of a seat in a finished hand that had a choice, as the seat saw it, with what it could not see;
+    // not an answer to a tile none of whose claims could have taken effect (moot).
     GuiJson::Record rec = GuiJson::parseRecord(req.at("game"));
     const int seat = seatOf(req);
     Game game(Rules::parse(rec.rules));
@@ -846,7 +872,7 @@ json GuiEngine::handle(const json& req) {
       const Action a = normalized(game, rec.actions[i].second);
       if(s == seat) {
         game.legalActions(s, legal);
-        if(legal.size() >= 2) {
+        if(legal.size() >= 2 && !moot(game, s, legal)) {
           const int item = batch.add(game, s);
           decisions.push_back({(int)i, item, batch.indexOf(item, a), GuiAnalysis::truth(game, s)});
         }

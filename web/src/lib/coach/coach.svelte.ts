@@ -143,14 +143,14 @@ class Coach {
   private async handDigest(w: DigestWords, h: HandRecord): Promise<HandDigest | null> {
     const lang = w.zh ? 'zh' : 'en';
     const kept = this.cache.get(h.id);
-    if (kept && kept.m === engine.MODEL_ID && kept.lang === lang) return kept;
+    if (kept && kept.m === engine.REVIEW_ID && kept.lang === lang) return kept;
     try {
       const r = await reviewOf(h);
       if (r.first_value === undefined) return null;
-      if (records.get(h.id)?.rev?.m !== engine.MODEL_ID) records.setReview(h.id, summarize(r));
+      if (records.get(h.id)?.rev?.m !== engine.REVIEW_ID) records.setReview(h.id, summarize(r));
       const positions = new Map<number, Position>();
       for (const step of keySteps(r)) positions.set(step, (await engine.view({ ...h.game, actions: h.game.actions.slice(0, step) }, h.me)).position);
-      const d = { ...handDigest(w, h, r, positions), m: engine.MODEL_ID, lang };
+      const d = { ...handDigest(w, h, r, positions), m: engine.REVIEW_ID, lang };
       this.cache.delete(h.id);
       this.cache.set(h.id, d);
       while (this.cache.size > CACHE) this.cache.delete(this.cache.keys().next().value!);

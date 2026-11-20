@@ -21,7 +21,7 @@ enum class RecordKind { practice, table, contest }
 /** A hand's review by the network, in short (Review.kt), kept with the record for the lists and the statistics. */
 @Serializable
 data class ReviewSummary(
-  /** The network that reviewed it (Engine.MODEL_ID): another one reviews it again. */
+  /** What reviewed it (Engine.REVIEW_ID: the network and the review): another one reviews it again. */
   val m: String,
   /** The expected result at the first decision, the points lost by decisions, and the rest of the result: luck. */
   val first: Double, val loss: Double, val luck: Double,

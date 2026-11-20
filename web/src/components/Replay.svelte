@@ -93,7 +93,7 @@
         (x) => {
           if (loaded !== r.id) return;
           rev = x;
-          if (x.first_value !== undefined && records.get(r.id)?.rev?.m !== engine.MODEL_ID) records.setReview(r.id, summarize(x));
+          if (x.first_value !== undefined && records.get(r.id)?.rev?.m !== engine.REVIEW_ID) records.setReview(r.id, summarize(x));
         },
         (e) => { if (loaded === r.id) revError = String(e?.message ?? e); },
       );

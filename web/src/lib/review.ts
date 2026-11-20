@@ -169,7 +169,7 @@ export function summarize(r: Review): ReviewSummary {
   }
   const r2 = (x: number) => Math.round(x * 100) / 100;
   return {
-    m: engine.MODEL_ID, first: r2(r.first_value ?? 0), loss: r2(r.loss ?? 0), luck: r2(r.luck ?? 0), unit: r2(r.unit ?? 4),
+    m: engine.REVIEW_ID, first: r2(r.first_value ?? 0), loss: r2(r.loss ?? 0), luck: r2(r.luck ?? 0), unit: r2(r.unit ?? 4),
     n: r.decisions.length, grades, kinds: KINDS_OF_LOSS.map((k) => r2(kinds[k])),
   };
 }
@@ -191,7 +191,7 @@ export function reviewOf(rec: HandRecord): Promise<Review> {
 
 /** Reviews a record and keeps the summary with it, unless this network's is there. Failures are left for a later try. */
 export async function keepSummary(rec: HandRecord): Promise<void> {
-  if (rec.rev?.m === engine.MODEL_ID) return;
+  if (rec.rev?.m === engine.REVIEW_ID) return;
   try {
     const r = await reviewOf(rec);
     if (r.first_value !== undefined) records.setReview(rec.id, summarize(r));
