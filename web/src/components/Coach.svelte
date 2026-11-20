@@ -362,7 +362,8 @@
   @keyframes slide { from { left: -40%; } to { left: 100%; } }
   .earlier-row { justify-content: flex-start; text-align: left; height: auto; padding: 8px 12px; }
   .note { margin-bottom: 8px; }
-  .keys { margin: 0 -24px; }
+  /* The rows lined up with the note: the dialog's content scrolls, so a negative margin would be cut off. */
+  .keys :global(.row) { padding-inline: 0; }
   .choose { display: flex; flex-direction: column; gap: 8px; }
   .models { display: flex; flex-direction: column; gap: 4px; }
   .model { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: none; border-radius: 16px; background: none; color: inherit;
