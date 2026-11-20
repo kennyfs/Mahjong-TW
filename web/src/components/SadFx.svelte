@@ -28,7 +28,7 @@
   .sad { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; display: flex; align-items: center; justify-content: center;
     --cut: 0.24em; }
   /* The table without its color, darker; dark from the top down. */
-  .dim { position: absolute; inset: 0; backdrop-filter: grayscale(0.9) brightness(0.72); -webkit-backdrop-filter: grayscale(0.9) brightness(0.72);
+  .dim { position: absolute; inset: 0; backdrop-filter: grayscale(0.9) brightness(0.72);
     background: rgba(8, 11, 16, 0.25); animation: dim var(--ms) ease-out both; }
   @keyframes dim { 0% { opacity: 0; } 16% { opacity: 1; } 86% { opacity: 1; } 100% { opacity: 0; } }
   .shade { position: absolute; inset: 0 0 auto; height: 100%;
