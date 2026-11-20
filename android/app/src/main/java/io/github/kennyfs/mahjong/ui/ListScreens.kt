@@ -557,7 +557,7 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
       onDismissRequest = { helped = null },
       confirmButton = { TextButton(onClick = { helped = null }) { Text(stringResource(R.string.close)) } },
       title = { Text(label) },
-      text = { Text(stringResource(openHelp), style = MaterialTheme.typography.bodyLarge) },
+      text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(stringResource(openHelp), style = MaterialTheme.typography.bodyLarge) } },
     )
   }
 }
@@ -766,7 +766,7 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
       onDismissRequest = { helped = null },
       confirmButton = { TextButton(onClick = { helped = null }) { Text(stringResource(R.string.close)) } },
       title = { Text(title) },
-      text = { Text(text, style = MaterialTheme.typography.bodyLarge) },
+      text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(text, style = MaterialTheme.typography.bodyLarge) } },
       modifier = Modifier.testTag("settings_help_dialog"),
     )
   }

@@ -546,6 +546,8 @@
   .note { color: var(--on-surface-variant); margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .column .note { margin-left: 0; flex-basis: 100%; }
   /* The room of the longest words: two lines (in the narrow column the buttons stand at its foot whatever the words). */
+  /* Fixed height in portrait mode so the table above never jumps when status text wraps. */
+  .page:not(.side) .info { height: 4.5em; overflow-y: auto; }
   .status { min-height: 2lh; }
   .buttons { display: flex; gap: 6px; justify-content: center; align-items: center; flex-wrap: wrap; }
   .buttons .btn.icon { width: 42px; min-height: 42px; border-radius: 21px; }

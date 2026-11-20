@@ -580,7 +580,7 @@ function fail(message: string) { shared.error = message; }
 
 function errorText(code: string): string {
   switch (code) {
-    case 'VERSION': return t('battle_err_version');
+    case 'VERSION': return t('battle_err_version_web');
     case 'NO_ROOM': return t('battle_err_no_room');
     case 'ROOM_FULL': return t('battle_err_full');
     case 'STARTED': return t('battle_err_started');

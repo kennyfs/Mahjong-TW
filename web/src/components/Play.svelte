@@ -51,7 +51,11 @@
   const final = $derived(practice.final);
   const stage = $derived(practice.stage);
   const handLabel = $derived(meta ? t('hand_n', meta.hands + (stage === 'playing' ? 1 : 0)) : '');
-  const rulesChip = $derived(t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerLabel(settings.rules.flowers))));
+  const hasOverrides = $derived(Object.keys(settings.rules.overrides).length > 0);
+  const rulesChip = $derived(
+    t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerLabel(settings.rules.flowers))) +
+      (hasOverrides ? `${t('sep')}${t('rules_custom')}` : ''),
+  );
   const rulesShort = $derived(t('rules_chip', t(taiLabel(settings.rules.tai)), t(flowerShort(settings.rules.flowers))));
   const handNo = $derived(meta ? String(meta.hands + (stage === 'playing' ? 1 : 0)) : '');
   const lastFav = $derived(practice.lastRecord ? !!records.get(practice.lastRecord)?.fav : false);
@@ -238,7 +242,7 @@
                 <div class="tot-grid">
                   {#each [0, 1, 2, 3] as seat}
                     <div class="tot" class:me={seat === ME}>
-                      <span>{names[seat]}</span>
+                      <span class="ellipsis">{names[seat]}</span>
                       <span class="pts" class:good={totals[seat] > 0} class:bad={totals[seat] < 0}>{signed(totals[seat])}</span>
                     </div>
                   {/each}

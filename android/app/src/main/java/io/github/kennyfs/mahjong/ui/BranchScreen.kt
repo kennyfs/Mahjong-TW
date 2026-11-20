@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -558,9 +559,11 @@ fun BranchScreen(
           else -> R.string.branch_back_note
         },
       )
-      Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), itemVerticalAlignment = Alignment.CenterVertically,
-          maxLines = if (side) Int.MAX_VALUE else 1) {
+      val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+      val infoMod = if (side) Modifier.fillMaxWidth()
+      else Modifier.fillMaxWidth().height((68f * fontScale).dp.coerceIn(66.dp, 100.dp)).verticalScroll(rememberScrollState())
+      Column(infoMod, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), itemVerticalAlignment = Alignment.CenterVertically) {
           Text(stringResource(R.string.branch_step, b.steps), style = MaterialTheme.typography.labelLarge, modifier = Modifier.testTag("branch_where"))
           mine?.value?.let { v ->
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

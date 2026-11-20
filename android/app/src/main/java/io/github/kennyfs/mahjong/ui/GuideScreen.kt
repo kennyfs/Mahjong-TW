@@ -70,7 +70,7 @@ private const val PAGES = 8
 private val GOAL = listOf("234m" to R.string.guide_chow, "678p" to R.string.guide_chow, "345s" to R.string.guide_chow,
   "111z" to R.string.guide_pung, "777z" to R.string.guide_pung, "99p" to R.string.guide_pair)
 private val SUITS = listOf("123456789m" to R.string.guide_row_m, "123456789p" to R.string.guide_row_p, "123456789s" to R.string.guide_row_s,
-  "1234567z" to R.string.guide_row_z)
+  "1234765z" to R.string.guide_row_z)
 private const val FLOWER_TILES = "12345678f"
 /** A call: what it is, the tiles in hand, and the one taken. */
 private val CALLS = listOf(Triple(R.string.guide_chi, "35m", "4m"), Triple(R.string.guide_pon, "77z", "7z"), Triple(R.string.guide_kan, "111p", "1p"))

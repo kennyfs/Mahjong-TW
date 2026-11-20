@@ -111,11 +111,11 @@
       <div class="hints" data-tour="hints">
       <div class="section-header">{t('settings_practice_aids')}</div>
       <div class="block">
-        {@render head(t('settings_ready_hint'), t('ready_hint_text'))}
+        {@render head(t('settings_ready_hint'), t('ready_hint_text_web'))}
         <Toggle options={onOff} selected={settings.readyHint ? 'on' : 'off'} onselect={setReady} />
       </div>
       <div class="block">
-        {@render head(t('settings_practice_hints'), t('practice_hints_text'))}
+        {@render head(t('settings_practice_hints'), t('practice_hints_text_web'))}
         <Toggle options={onOff} selected={settings.practiceHints ? 'on' : 'off'} onselect={setHints} />
       </div>
       </div>

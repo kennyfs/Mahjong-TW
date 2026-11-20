@@ -142,7 +142,7 @@ fun HandResultCard(
               val base = abs(pts - tai)
               Text(
                 stringResource(R.string.result_parts, if (base % 1.0 == 0.0) base.toInt().toString() else "%.1f".format(base), abs(tai).toString()),
-                style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, maxLines = 1,
+                style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
               )
             }
           }

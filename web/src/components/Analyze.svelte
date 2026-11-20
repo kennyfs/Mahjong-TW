@@ -68,14 +68,15 @@
   // The rules: the settings', or those of the hand the position came from.
   const spec = $derived(ed.rules ?? settings.spec);
   const rulesLabel = $derived.by(() => {
-    const [tai, flowers] = spec.split(',');
+    const [tai, flowers, ...rest] = spec.split(',');
     const c = parseChoice({ tai, flowers });
-    return t('rules_chip', t(taiLabel(c.tai)), t(flowerLabel(c.flowers)));
+    const base = t('rules_chip', t(taiLabel(c.tai)), t(flowerLabel(c.flowers)));
+    return rest.length ? `${base}${t('sep')}${t('rules_custom')}` : base;
   });
   const rulesShort = $derived.by(() => {
     const [tai, flowers] = spec.split(',');
     const c = parseChoice({ tai, flowers });
-    return t('rules_chip', t(taiLabel(c.tai)), t(flowerShort(c.flowers)));
+    return c.flowers === 'none' ? t(taiLabel(c.tai)) : t('rules_chip', t(taiLabel(c.tai)), t(flowerShort(c.flowers)));
   });
   const tableCount = $derived([0, 1, 2, 3].reduce((a, s) => a + ed.melds[s].length + ed.flowers[s].length + ed.discards[s].length, 0));
   const tableShown = $derived(ui.wide || tableOpen || tableCount > 0);
@@ -210,7 +211,7 @@
   <TitleBar title={t('analyze_title')}>
     <button class="chip" class:on={!!ed.rules} title={ed.rules ? t('analysis_rules_of_hand') + t('colon') + t('analysis_rules_reset') : t('settings_rules')}
       onclick={() => { if (ed.rules) ed.rules = null; else nav.open('rules', 'SETTINGS'); }}><span data-full={rulesLabel} data-short={rulesShort}></span></button>
-    <button class="btn text" onclick={() => ed.random()}>{t('analysis_random')}</button>
+    <button class="btn text" aria-label={t('analysis_random')} onclick={() => ed.random()}><span data-full={t('analysis_random')} data-short={t('analysis_random_short')}></span></button>
     <button class="btn text" onclick={() => ed.clear()}>{t('analysis_clear')}</button>
   </TitleBar>
   <div class="body" class:wide={ui.wide}>

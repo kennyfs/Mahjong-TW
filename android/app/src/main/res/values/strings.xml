@@ -122,7 +122,7 @@
   <string name="result_flower_win">%1$s 花胡</string>
   <string name="result_tai_total">共 %1$d 台</string>
   <string name="result_dealer_tai">莊家 %1$d 台</string>
-  <string name="result_dealer_streak_tai">莊家・連 %2$d 拉 %2$d．%1$d 台</string>
+  <string name="result_dealer_streak_tai">莊家 · 連 %2$d 拉 %2$d · %1$d 台</string>
   <string name="result_dealer_pays">＋%1$s（莊家多付）</string>
   <string name="result_base">底 %1$s 台</string>
   <string name="result_parts">底 %1$s＋%2$s 台</string>
@@ -205,9 +205,11 @@
   <string name="settings_practice_hints">顯示分析</string>
   <string name="practice_hints">提示</string>
   <string name="practice_hints_toggle">顯示分析（開著時這一局不計分）</string>
-  <string name="practice_hints_text">輪到你時，先像回顧一樣顯示分析：\n• 每張牌打出去的損失與危險，吃、碰、胡的損失\n• 對手聽牌的機率（點一下看可能聽哪些牌）\n• 點一下牌，看那張的詳細數字（電腦：滑鼠停在牌上）\n• 電腦螢幕夠寬時，旁邊還有詳細分析\n一局裡只要開過，就會顯示到那局打完；那局不計分、不算進統計，紀錄標「提示」。</string>
+  <string name="practice_hints_text">輪到你時，先像回顧一樣顯示分析：\n• 每張牌打出去的損失與危險，吃、碰、胡的損失\n• 對手聽牌的機率（點一下看可能聽哪些牌）\n• 點一下牌，看那張的詳細數字\n一局裡只要開過，就會顯示到那局打完；那局不計分、不算進統計，紀錄標「提示」。</string>
+  <string name="practice_hints_text_web">輪到你時，先像回顧一樣顯示分析：\n• 每張牌打出去的損失與危險，吃、碰、胡的損失\n• 對手聽牌的機率（點一下看可能聽哪些牌）\n• 點一下牌，看那張的詳細數字（電腦：滑鼠停在牌上）\n• 電腦螢幕夠寬時，旁邊還有詳細分析\n一局裡只要開過，就會顯示到那局打完；那局不計分、不算進統計，紀錄標「提示」。</string>
   <string name="result_hints_note">開了提示：這一局不計分</string>
-  <string name="ready_hint_text">• 輪到你時，打出去就能聽牌的牌上方有小記號（電腦：滑鼠停在牌上看聽哪些牌）。\n• 聽牌時，手上跟聽牌有關的牌是藍底。\n• 只在練習和分支裡顯示，對戰不會。</string>
+  <string name="ready_hint_text">• 輪到你時，打出去就能聽牌的牌上方有小記號。\n• 聽牌時，手上跟聽牌有關的牌是藍底。\n• 只在練習和分支裡顯示，對戰不會。</string>
+  <string name="ready_hint_text_web">• 輪到你時，打出去就能聽牌的牌上方有小記號（電腦：滑鼠停在牌上看聽哪些牌）。\n• 聽牌時，手上跟聽牌有關的牌是藍底。\n• 只在練習和分支裡顯示，對戰不會。</string>
   <string name="speed_slow">慢</string>
   <string name="speed_normal">中</string>
   <string name="speed_fast">快</string>
@@ -270,7 +272,7 @@
   <string name="records_import_bad">這個檔案不是台灣麻將匯出的紀錄檔。</string>
   <string name="records_dev_count">共 %1$d 局</string>
   <string name="records_reset_scores">分數歸零</string>
-  <string name="records_reset_scores_confirm">把練習的分數歸零，從東風圈第 1 局重新開始？目前這一將會放棄，紀錄不會刪除。</string>
+  <string name="records_reset_scores_confirm">把練習的分數歸零，從東風圈第 1 局重新開始？目前這場練習會放棄，紀錄不會刪除。</string>
   <string name="records_reset_scores_ok">歸零</string>
   <string name="records_stats">%1$d 局・胡 %2$d・放槍 %3$d・累計 %4$s</string>
   <string name="record_draw">流局</string>
@@ -338,7 +340,8 @@
   <string name="analysis_round">圈風</string>
   <string name="analysis_wall_left">牌牆剩下</string>
   <string name="analysis_clear">清空</string>
-  <string name="analysis_random">隨機發一手</string>
+  <string name="analysis_random">隨機發牌</string>
+  <string name="analysis_random_short">隨機</string>
   <string name="analysis_play_from">從這裡打</string>
   <string name="analysis_play_hint">由你接著打，電腦打其他三家；看不到的牌（別家手牌、牌牆）隨機發。不計分、不記錄。</string>
   <string name="analysis_play_back">回到分析</string>
@@ -360,7 +363,7 @@
   <string name="record_hand_of">第 %1$d 局</string>
   <string name="replay_result">看結果</string>
   <string name="tap_to_continue">按一下以繼續</string>
-  <string name="replay_nothing">這一手沒有紀錄。</string>
+  <string name="replay_nothing">這一局沒有紀錄。</string>
   <string name="analysis_turn_of">%1$s 的回合</string>
   <string name="analysis_your_turn">你的回合</string>
   <string name="analysis_seat_you">你（自己）</string>
@@ -426,7 +429,8 @@
   <string name="battle_done">完成</string>
   <string name="battle_your_hands">你的每一局</string>
   <string name="battle_reconnecting">連線中斷，重新連線中…</string>
-  <string name="battle_err_version">網頁和伺服器的版本不同，請重新載入網頁。</string>
+  <string name="battle_err_version">App 和伺服器的版本不同，請更新 App 後再試。</string>
+  <string name="battle_err_version_web">網頁和伺服器的版本不同，請重新載入網頁。</string>
   <string name="battle_err_no_room">找不到這個房間。</string>
   <string name="battle_err_full">房間滿了。</string>
   <string name="battle_err_started">這場已經開始了。</string>
@@ -439,7 +443,7 @@
   <string name="battle_closed">房間已經關了。</string>
   <string name="battle_lost">和伺服器的連線斷了。</string>
   <!-- Battles: the app only (a server's address, phones nearby) -->
-  <string name="battle_server_app_hint">例如 example.com（模擬器測試用 10.0.2.2:8091）</string>
+  <string name="battle_server_app_hint">例如 example.com</string>
   <string name="battle_online_info">透過網路上的對戰伺服器，和任何地方的人對戰。</string>
   <string name="battle_nearby_info">不用網路：用藍牙和 Wi-Fi 和旁邊的手機連線。一支手機開房，其他手機找到房間、輸入房號加入。</string>
   <string name="battle_host_table">在這支手機開一桌</string>
@@ -534,7 +538,7 @@
   <string name="opp_truth">實際</string>
   <string name="whatif_show">算出摸牌表與鳴牌表</string>
   <string name="whatif_draws">摸牌表</string>
-  <string name="whatif_claims">鳴牌表</string>
+  <string name="whatif_claims">吃碰槓表</string>
   <string name="whatif_draws_hint">下一張摸到每種牌時的最佳打法。亮的是摸到會留下的牌（綠框是最好的幾種），暗的是摸到就打掉。</string>
   <string name="whatif_claims_hint">別人打出這些牌時，吃、碰、槓或胡比不理好。</string>
   <string name="whatif_keep">會留下 %1$d 種、%2$d 張</string>
@@ -710,7 +714,7 @@
   <string name="tour_hand_title">你的手牌</string>
   <string name="tour_hand">輪到你時，點一張牌會抬起來，再點一次（或往上拖）就打出。可以吃、碰、槓、胡的時候，按鈕會出現在手牌上方。</string>
   <string name="tour_top_title">這一將</string>
-  <string name="tour_top">上面是圈風、第幾局和目前的規則。「重新開始」會放棄這一將，重打一將。</string>
+  <string name="tour_top">上面是圈風、第幾局和目前的規則。「重新開始」會放棄這場練習，重新開始。</string>
   <string name="tour_analyze_title">分析</string>
   <string name="tour_analyze">擺出任何局面（手牌、副露、牌河），看每個選擇的期望、胡牌和放槍的機率。回顧裡的一步也能帶過來試。</string>
   <string name="tour_battle_title">對戰</string>

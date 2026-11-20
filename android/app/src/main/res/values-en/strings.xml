@@ -203,9 +203,11 @@
   <string name="settings_practice_hints">Show analysis</string>
   <string name="practice_hints">Hints</string>
   <string name="practice_hints_toggle">Show analysis (this hand won\'t count while it\'s on)</string>
-  <string name="practice_hints_text">On your turn, see the analysis as in a review:\n• What each discard, chow, pung or win costs, and how risky it is\n• How likely each opponent is ready (tap it for the tiles they may wait on)\n• Tap a tile for its figures (on a computer: hover)\n• On a wide computer screen, the full analysis beside the table\nOnce on in a hand, it stays on until the hand ends; that hand doesn\'t count in the scores or statistics, and its record is marked Hints.</string>
+  <string name="practice_hints_text">On your turn, see the analysis as in a review:\n• What each discard, chow, pung or win costs, and how risky it is\n• How likely each opponent is ready (tap it for the tiles they may wait on)\n• Tap a tile for its figures\nOnce on in a hand, it stays on until the hand ends; that hand doesn\'t count in the scores or statistics, and its record is marked Hints.</string>
+  <string name="practice_hints_text_web">On your turn, see the analysis as in a review:\n• What each discard, chow, pung or win costs, and how risky it is\n• How likely each opponent is ready (tap it for the tiles they may wait on)\n• Tap a tile for its figures (on a computer: hover)\n• On a wide computer screen, the full analysis beside the table\nOnce on in a hand, it stays on until the hand ends; that hand doesn\'t count in the scores or statistics, and its record is marked Hints.</string>
   <string name="result_hints_note">Hints were on: this hand doesn\'t count</string>
-  <string name="ready_hint_text">• On your turn, a tile that would make you ready has a small mark (on a computer: hover to see the waits).\n• When you are ready, the tiles in your wait are blue.\n• In practice and branches only, never in matches.</string>
+  <string name="ready_hint_text">• On your turn, a tile that would make you ready has a small mark.\n• When you are ready, the tiles in your wait are blue.\n• In practice and branches only, never in matches.</string>
+  <string name="ready_hint_text_web">• On your turn, a tile that would make you ready has a small mark (on a computer: hover to see the waits).\n• When you are ready, the tiles in your wait are blue.\n• In practice and branches only, never in matches.</string>
   <string name="speed_slow">Slow</string>
   <string name="speed_normal">Normal</string>
   <string name="speed_fast">Fast</string>
@@ -332,6 +334,7 @@
   <string name="analysis_wall_left">Left in the wall</string>
   <string name="analysis_clear">Clear</string>
   <string name="analysis_random">Random hand</string>
+  <string name="analysis_random_short">Random</string>
   <string name="analysis_play_from">Play from here</string>
   <string name="analysis_play_hint">You play on and the computer plays the other three; hidden tiles (their hands, the wall) are dealt at random. Not scored or recorded.</string>
   <string name="analysis_play_back">Back to the analysis</string>
@@ -419,7 +422,8 @@
   <string name="battle_done">Done</string>
   <string name="battle_your_hands">Your hands</string>
   <string name="battle_reconnecting">Connection lost; reconnecting…</string>
-  <string name="battle_err_version">The page and the server are different versions. Please reload the page.</string>
+  <string name="battle_err_version">The app and the server are different versions. Please update the app and try again.</string>
+  <string name="battle_err_version_web">The page and the server are different versions. Please reload the page.</string>
   <string name="battle_err_no_room">No such room.</string>
   <string name="battle_err_full">The room is full.</string>
   <string name="battle_err_started">This match has already started.</string>
@@ -432,7 +436,7 @@
   <string name="battle_closed">The room has closed.</string>
   <string name="battle_lost">Lost the connection to the server.</string>
   <!-- Battles: the app only -->
-  <string name="battle_server_app_hint">For example example.com (10.0.2.2:8091 on an emulator)</string>
+  <string name="battle_server_app_hint">For example example.com</string>
   <string name="battle_online_info">Play with anyone, anywhere, through a match server on the internet.</string>
   <string name="battle_nearby_info">No internet needed: phones nearby connect by Bluetooth and Wi-Fi. One phone opens a room; the others find it and join with its room number.</string>
   <string name="battle_host_table">Open a table on this phone</string>

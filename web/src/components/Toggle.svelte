@@ -13,8 +13,8 @@
 
 <style>
   .group { display: flex; gap: 2px; }
-  button { flex: 1 1 0; min-width: 0; border: none; padding: 6px 10px; cursor: pointer; border-radius: 6px; font-weight: 500; font-size: 0.875rem;
-    background: var(--surface-container-highest); color: var(--on-surface); white-space: nowrap; }
+  button { flex: 1 1 0; min-width: 0; border: none; padding: 6px 6px; cursor: pointer; border-radius: 6px; font-weight: 500; font-size: 0.875rem;
+    line-height: 1.2; text-align: center; background: var(--surface-container-highest); color: var(--on-surface); white-space: normal; }
   button.big { font-size: 1rem; }
   button.first { border-radius: 24px 6px 6px 24px; }
   button.last { border-radius: 6px 24px 24px 6px; }

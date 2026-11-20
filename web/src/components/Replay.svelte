@@ -589,8 +589,10 @@
   .with-panel .sum-text { display: flex; flex-wrap: wrap; gap: 2px 14px; }
   .count { font-weight: 700; color: var(--good); }
   .count.some { color: var(--bad); }
-  .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 62px; }
-  .side .info { min-height: 40px; }
+  /* One height, the room of four lines (scrolled in the rare step with more): the table above stays as it is from step
+     to step. */
+  .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; height: 6.6em; overflow-y: auto; }
+  .side .info { height: auto; min-height: 40px; overflow-y: visible; }
   .where { display: flex; flex-wrap: wrap; gap: 0 12px; align-items: baseline; }
   .decide { color: var(--on-surface-variant); }
   .to-result { margin-left: auto; align-self: center; min-height: 36px; padding: 0 16px; }

@@ -122,7 +122,7 @@
   .pay { display: flex; flex-direction: column; align-items: center; padding: 4px; border-radius: 10px; background: var(--surface-container); }
   .pay.me { outline: 2px solid var(--primary); }
   .pts { font-weight: 700; font-size: 1.125rem; }
-  .parts { font-size: 0.75rem; line-height: 1.2; color: var(--on-surface-variant); white-space: nowrap; }
+  .parts { font-size: 0.75rem; line-height: 1.2; color: var(--on-surface-variant); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
   .rev { display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 6px 10px; border-radius: 10px; background: var(--surface-container);
     font-variant-numeric: tabular-nums; }
   .count { font-weight: 700; color: var(--good); }

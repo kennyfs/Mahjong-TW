@@ -52,7 +52,7 @@
   const GOAL: [string, string][] = [['234m', 'guide_chow'], ['678p', 'guide_chow'], ['345s', 'guide_chow'], ['111z', 'guide_pung'],
     ['777z', 'guide_pung'], ['99p', 'guide_pair']];
   const SUITS: [string, string][] = [['123456789m', 'guide_row_m'], ['123456789p', 'guide_row_p'], ['123456789s', 'guide_row_s'],
-    ['1234567z', 'guide_row_z']];
+    ['1234765z', 'guide_row_z']];
   const FLOWER_TILES = '12345678f';
   // A call: the tiles in hand, and the one taken.
   const CALLS: [string, string, string][] = [['guide_chi', '35m', '4m'], ['guide_pon', '77z', '7z'], ['guide_kan', '111p', '1p']];
@@ -282,7 +282,7 @@
   .group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .suits { display: flex; flex-direction: column; gap: 6px; align-self: flex-start; max-width: 100%; overflow-x: auto; }
   .suit { display: flex; align-items: center; gap: 10px; }
-  .name { min-width: 3em; color: var(--on-felt); }
+  .name { flex: none; min-width: 3em; white-space: nowrap; color: var(--on-felt); }
   .switch { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; border-radius: 14px; background: var(--surface-container); }
   .calls { display: flex; flex-direction: column; gap: 8px; }
   .call { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -200,7 +201,7 @@ private fun App(vm: AppModel) {
           selected = selected,
           onClick = { vm.go(t.screen) },
           icon = { Icon(if (selected) t.selected else t.icon, null) },
-          label = { Text(stringResource(t.label), maxLines = 1) },
+          label = { Text(stringResource(t.label), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) },
           modifier = Modifier.testTag("nav_${t.screen.name}").tourAnchor("nav_${t.screen.name}"),
           alwaysShowLabel = true,
         )

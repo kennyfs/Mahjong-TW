@@ -439,10 +439,13 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     }
 
     // The step, the choice made there, and what the review says of it.
-    // Under the table the words keep the room of three lines, so that the table (and the step buttons under them)
-    // stays where it is from step to step.
+    // Under the table the words keep one height, the room of four lines (at the text's size; scrolled in the rare step
+    // with more), so that the table (and the step buttons under them) stays as it is from step to step.
+    val fontScale = LocalDensity.current.fontScale
     val info = @Composable {
-      Column(Modifier.fillMaxWidth().heightIn(min = if (side) 40.dp else 70.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+      Column(if (side) Modifier.fillMaxWidth().heightIn(min = 40.dp)
+        else Modifier.fillMaxWidth().height((104f * fontScale).dp.coerceIn(98.dp, 148.dp)).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), itemVerticalAlignment = Alignment.CenterVertically) {
             Text(if (step >= n) stringResource(R.string.replay_over) else stringResource(R.string.replay_step, stepNumber, stopList.size),
@@ -690,7 +693,8 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         Column(Modifier.weight(0.54f).fillMaxHeight().verticalScroll(listScroll).padding(top = 8.dp, bottom = 16.dp)) { panel() }
       } else table(Modifier.weight(1f).fillMaxHeight().background(LocalTable.current.felt).windowInsetsPadding(startInset))
       Column(
-        Modifier.fillMaxHeight().background(cs.surfaceContainer).windowInsetsPadding(endInset).width(if (inlinePanel) 420.dp else 208.dp)
+        Modifier.fillMaxHeight().background(cs.surfaceContainer).windowInsetsPadding(endInset)
+          .width(if (inlinePanel) 420.dp else (208f * fontScale).dp.coerceIn(208.dp, 280.dp))
           .padding(horizontal = if (inlinePanel) 12.dp else 8.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
       ) {

@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -176,7 +178,7 @@ fun ConfirmDialog(text: String, onConfirm: () -> Unit, onDismiss: () -> Unit, co
     onDismissRequest = onDismiss,
     confirmButton = { TextButton(onClick = { onDismiss(); onConfirm() }) { Text(confirm) } },
     dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    text = { Text(text, style = MaterialTheme.typography.bodyLarge) },
+    text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(text, style = MaterialTheme.typography.bodyLarge) } },
   )
 }
 

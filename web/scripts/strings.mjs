@@ -25,7 +25,7 @@ function unescape(s) {
       if (n === 'u' && /^[0-9a-fA-F]{4}$/.test(s.slice(i + 1, i + 5))) { out += String.fromCharCode(parseInt(s.slice(i + 1, i + 5), 16)); i += 4; }
       else out += n === 'n' ? '\n' : n === 't' ? '\t' : n;
     } else if (c === '"') quoted = !quoted;
-    else if (!quoted && /\s/.test(c)) { if (!out.endsWith(' ')) out += ' '; }
+    else if (!quoted && /[ \t\r\n]/.test(c)) { if (!out.endsWith(' ')) out += ' '; }
     else out += c;
   }
   return out;
