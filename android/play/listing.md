@@ -129,13 +129,13 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 
 zh-TW:
 
-回顧新增「解說」：有損失的決定（或你比牌效率打得好的地方）按「解說」，用一兩句話說明該攻還是該守、該留哪個對子、哪張比較安全，再附一條打牌原則；解說裡有底線的詞，點了就能看定義。設定新增「打牌要訣」（對手聽牌了沒、什麼時候該退、哪張比較不會放槍的統計表）和「術語表」（從牌牆、搭子到向聽、筋牌，由淺到深說明）。牌河看得出摸切（橘色底）和吃碰後打的第一張（藍條），規則說明多一頁介紹。
+回顧新增「解說」：有損失的決定（或你比牌效率打得好的地方）按「解說」，用一兩句話說明該攻還是該守、該留哪個對子、哪張比較安全，再附一條打牌原則；解說、打牌要訣和規則說明裡有底線的詞，點了就能看定義；比牌效率打得好的地方，折線圖上也有星星。設定新增「打牌要訣」（對手聽牌了沒、什麼時候該退、哪張比較不會放槍的統計表）和「術語表」（從牌牆、搭子到向聽、筋牌，由淺到深說明）。牌河看得出摸切（橘色底）和吃碰後打的第一張（藍條），規則說明多一頁介紹。
 
-電腦不會再在發牌完成前就出牌；音效跟畫面更同步，Android 的音效也更快出聲；發牌和胡牌的動畫更順；回顧時牌桌不再隨下方文字跳動。「胡」「自摸」按鈕加大；攤牌時胡的那張牌分開放；回顧不再把被別家搶先吃碰或胡走的機會算成你的失誤。
+電腦不會再在發牌完成前就出牌；音效跟畫面更同步，Android 的音效也更快出聲；發牌和胡牌的動畫更順；回顧時牌桌不再隨下方文字跳動，牌桌中間的框也不再移動。「胡」「自摸」按鈕加大；攤牌時胡的那張牌分開放；回顧不再把被別家搶先吃碰或胡走的機會算成你的失誤。
 
 en-US:
 
-Reviews explain a decision: tap Explain where you lost points (or beat tile efficiency) for the lesson in a sentence or two; underlined words open the new glossary. Table tips (is an opponent ready, which tiles are safer) in the settings. The river marks draw-discards and the first discard after a call.
+Reviews explain a decision: tap Explain where you lost points or beat tile efficiency (starred) for the lesson in a sentence or two. Underlined words open the new glossary. Table tips in the settings. The river marks draw-discards and the first discard after a call.
 
 Computer players wait for the deal; sounds keep in step; smoother animations; bigger win buttons; the winning tile stands apart; a call another player beat you to is no longer your mistake.
 

@@ -97,7 +97,11 @@ costs a quarter more than input. Tried first with the digest marked: the review 
 prompt, US$0.15 billed for what costs US$0.13 unmarked.
 
 The instructions (`systemPrompt` in Coach.kt) are one English text; the answer's language is the app's (zh-TW or
-en-US), the player's level (the settings' 失誤門檻) sets how much to say.
+en-US), the player's level (the settings' 失誤門檻) sets how much to say. Since 2026-11-20 they carry a few figures
+from the self-play check (docs/explain.md section 7: the signs of a ready opponent, when the network falls back, tile
+safety, calls, passing a win for a self-draw), so that the "why" is not common lore the data contradicts; strengths
+are judged by the decisions, not by hands won (a test answer praised hands for their self-draws), and a hand as a
+whole is named without brackets (only decision ids are links).
 
 Errors are shown with the provider's own words: a wrong key, credit or rate limits, a refusal, an answer cut off, the
 network. Nothing is retried by itself.
