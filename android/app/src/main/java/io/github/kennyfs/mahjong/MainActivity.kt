@@ -1,14 +1,11 @@
 package io.github.kennyfs.mahjong
 
 import android.app.Activity
-import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import android.view.MotionEvent
 import androidx.activity.ComponentActivity
-import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -133,14 +130,13 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     Words.load(resources)
     StoreMode.read(intent)
-    enableEdgeToEdge()
+    edgeToEdge(dark = false)
     setContent {
       val vm: AppModel = viewModel()
       val dark = isDark(vm.settings.dark, isSystemInDarkTheme())
       // System bar icons follow the app's own light or dark, which can differ from the system's.
       DisposableEffect(dark) {
-        val style = SystemBarStyle.auto(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT) { dark }
-        enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+        edgeToEdge(dark)
         onDispose {}
       }
       MahjongTheme(vm.settings.colors, vm.settings.dark, vm.settings.text) {
@@ -156,6 +152,20 @@ class MainActivity : ComponentActivity() {
           }
         }
       }
+    }
+  }
+
+  /**
+   * Draws under the system bars, their icons light on a dark app and dark on a light one. Android 15 does so for an app
+   * that targets it; before it, the theme makes the bars see-through (values/themes.xml). Not androidx's
+   * enableEdgeToEdge: it calls Window.setStatusBarColor and setNavigationBarColor and sets the cutout mode SHORT_EDGES,
+   * all deprecated in Android 15, which Google Play warns of.
+   */
+  private fun edgeToEdge(dark: Boolean) {
+    WindowCompat.setDecorFitsSystemWindows(window, false)
+    WindowCompat.getInsetsController(window, window.decorView).run {
+      isAppearanceLightStatusBars = !dark
+      isAppearanceLightNavigationBars = !dark
     }
   }
 }
