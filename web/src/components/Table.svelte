@@ -45,7 +45,7 @@
   import { callMs, flowerMs, calloutShown, calloutsSkipped, dealComplete } from '../lib/callouts';
   import { t } from '../lib/i18n.svelte';
   import {
-    DRAWN_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, meldLines, myMeldsHeight, OPP_LINES, runLines, SHOWN_RIVER, SHOWN_RIVER_MIN, shownHeight, tableSizes, tallTopRoom, type TableSizes,
+    DRAWN_GAP, WON_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, meldLines, myMeldsHeight, OPP_LINES, runLines, SHOWN_RIVER, SHOWN_RIVER_MIN, shownHeight, tableSizes, tallTopRoom, type TableSizes,
   } from '../lib/layout';
   import { concealedCount, meldTiles, seatAt, sideOf, flowersOf, type Side } from '../lib/seats';
   import { pts, type ChoiceMark, type SeatNote, type TileMark } from '../lib/review';
@@ -122,10 +122,19 @@
   /** The round and the hand (東風圈 第 3 局), and the same in a few characters (東-3) for a corner with no room. */
   const roundFull = $derived(t('round_wind', windName(setup.round)) + (handLabel ? ' ' + handLabel : ''));
   const roundShort = $derived(handShort ? t('round_short', windMark(setup.round), handShort) : roundFull);
-  /** What another seat shows: its melds' tile counts, its flowers, and its concealed tiles when they are shown. */
+  /** The tile each winner won on (another's discard, or the self-drawn one): shown apart at the end of its hand, as at a
+   *  real table, when the hands are shown. */
+  const wonTile = $derived.by(() => {
+    const m = new Map<number, T>();
+    if (revealed) for (const e of view.events) if ((e.type === 'ron' || e.type === 'tsumo') && e.tile) m.set(e.seat, e.tile as T);
+    return m;
+  });
+  /** What another seat shows: its melds' tile counts, its flowers, and its concealed tiles when they are shown (the tile
+   *  won on 0.2 of a tile apart). */
   function shownOf(seat: number) {
     const p = pos.players[seat];
-    return { counts: p.melds.map((m) => meldTiles(m).length), flowers: flowersOf(p).length, concealed: revealed ? parseTiles(revealed[seat]).length : 0 };
+    return { counts: p.melds.map((m) => meldTiles(m).length), flowers: flowersOf(p).length,
+      concealed: revealed ? parseTiles(revealed[seat]).length + (wonTile.has(seat) ? WON_GAP : 0) : 0 };
   }
   /** The others' name plates as they are laid out (a long note takes a second line). */
   let plate = $state<Record<Side, { w: number; h: number }>>({ bottom: { w: 0, h: 0 }, right: { w: 0, h: 0 }, top: { w: 0, h: 0 }, left: { w: 0, h: 0 } });
@@ -213,7 +222,7 @@
   // The player's tiles: the drawn one apart. None drawn (the dealer's first discard, after a call): none apart.
   const mine = $derived.by(() => {
     const all = revealed ? parseTiles(revealed[me]) : parseTiles(pos.hand);
-    const drawn = !revealed && pos.drawn && view.phase === 'self' && view.current === me ? pos.drawn : null;
+    const drawn = revealed ? (wonTile.get(me) ?? null) : pos.drawn && view.phase === 'self' && view.current === me ? pos.drawn : null;
     const tiles = sortTiles(drawn ? without(all, [drawn]) : all);
     return { tiles, drawn };
   });
@@ -981,7 +990,11 @@
         <div class="seat-tiles">
           <Melds melds={p.melds} flowers={dealing ? [] : flowersOf(p)} w={ow} wrap={!(s.wide && side === 'top')} {seat} hide={hideMeld(seat)} />
           {#if revealed}
-            <div class="concealed rack">{#each sortTiles(parseTiles(revealed[seat])) as x}<Tile tile={x} w={ow} />{/each}</div>
+            {@const won = wonTile.get(seat)}
+            <div class="concealed rack">
+              {#each sortTiles(won ? without(parseTiles(revealed[seat]), [won]) : parseTiles(revealed[seat])) as x}<Tile tile={x} w={ow} />{/each}
+              {#if won}<span class="won" style="margin-left: {ow * WON_GAP}px"><Tile tile={won} w={ow} /></span>{/if}
+            </div>
           {:else if s.back > 0}
             <div class="concealed backs">{#each { length: hidden } as _}<Tile w={s.back} />{/each}</div>
           {/if}
@@ -1126,6 +1139,7 @@
   .concealed.backs { flex-wrap: nowrap; }
   .seat:not(.top) .concealed.backs { flex-wrap: wrap; max-width: 100%; }
   /* A hand shown: on a rack, to tell it from the melds. */
+  .concealed .won { display: block; }
   .concealed.rack { padding: 3px; border-radius: 6px; background: rgba(0, 0, 0, 0.24); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
     max-width: 100%; }
   .table.wide .seat.top .concealed.rack { flex-wrap: nowrap; max-width: none; }

@@ -83,6 +83,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -276,6 +277,12 @@ private fun TableViewIn(
   // only), the result's jingle a moment after. (A table that starts with them shown, a replay showing all: none.)
   val wasShown = remember { arrayOfNulls<Boolean>(1) }
   val shownNow = shownAll != null
+  // The tile each winner won on (another's discard, or the self-drawn one): apart at the end of its shown hand, as at a
+  // real table.
+  val wonTile: Map<Int, String> = remember(shownAll, view) {
+    if (shownAll == null) emptyMap()
+    else view.events.filter { (it.type == "ron" || it.type == "tsumo") && it.tile != null }.associate { it.seat to it.tile!! }
+  }
   LaunchedEffect(shownNow) {
     if (shownNow && wasShown[0] == false) {
       val r = view.result
@@ -381,7 +388,9 @@ private fun TableViewIn(
     }
     fun shownOf(seat: Int): Shown {
       val p = pos.players[seat]
-      return Shown(p.melds.map { meldTiles(it).size }, flowersOf(p).size, if (shownAll != null) Tiles.parse(shownAll[seat]).size else 0)
+      // (The tile won on, apart: room for one more.)
+      return Shown(p.melds.map { meldTiles(it).size }, flowersOf(p).size,
+        if (shownAll != null) Tiles.parse(shownAll[seat]).size + (if (wonTile.containsKey(seat)) 1 else 0) else 0)
     }
     // Room over the hand's tiles for their tags, where they have any (the settings may show none).
     val tagH = if (tagRoom || (marks != null && marks.values.any { it.tag.isNotEmpty() })) TAG_H else 0f
@@ -511,7 +520,8 @@ private fun TableViewIn(
     }
     // The player's tiles: the drawn one apart. None drawn (the dealer's first discard, after a call): none apart.
     val all = if (shownAll != null) Tiles.parse(shownAll[me]) else Tiles.parse(pos.hand)
-    val reallyDrawn = if (shownAll == null && pos.drawn != null && view.phase == "self" && view.current == me) pos.drawn else null
+    val reallyDrawn = if (shownAll != null) wonTile[me]
+      else if (pos.drawn != null && view.phase == "self" && view.current == me) pos.drawn else null
     val sorted = Tiles.sort(if (reallyDrawn != null) Tiles.without(all, listOf(reallyDrawn)) else all)
     val mine = sorted
     val drawn = reallyDrawn
@@ -605,7 +615,8 @@ private fun TableViewIn(
       val hidden = if (dealHide) 0 else concealedCount(view, seat)
       val theirFlowers = if (dealOn) emptyList() else flowersOf(p)
       val ow = snap(oppW(side, seat))
-      val shown = shownAll?.get(seat)?.let { Tiles.sort(Tiles.parse(it)) }
+      val won = wonTile[seat]
+      val shown = shownAll?.get(seat)?.let { Tiles.sort(Tiles.parse(it).let { all -> if (won != null) Tiles.without(all, listOf(won)) else all }) }
       val count = if (s.back == 0f && shownAll == null) hidden else null
       if (s.wide && side == Side.TOP) {
         Row(mod.testTag("seat_$seat").fxArea { host.area("seat-$seat", it) }.padding(start = (6 + padL).d, end = (6 + padR).d, top = 4.dp, bottom = 4.dp),
@@ -613,7 +624,7 @@ private fun TableViewIn(
           Box(measured(side)) { badge(seat, count) }
           Row(horizontalArrangement = Arrangement.spacedBy(RACK_GAP_ROW.d), verticalAlignment = Alignment.Bottom) {
             Melds(p.melds, theirFlowers, ow, wrap = false, seat = seat, host = host, coming = coming[seat] ?: -1)
-            if (shown != null) Rack(shown, ow, wrap = false)
+            if (shown != null) Rack(shown, ow, wrap = false, won = won)
             else if (s.back > 0) Row { repeat(hidden) { TileView(null, s.back.d) } }
           }
         }
@@ -632,7 +643,7 @@ private fun TableViewIn(
         Melds(p.melds, theirFlowers, ow, wrap = true,
           arrangement = if (!s.wide) Arrangement.Center else if (end) Arrangement.End else Arrangement.Start, seat = seat, host = host,
           coming = coming[seat] ?: -1)
-        if (shown != null) Rack(shown, ow, wrap = true, end = end)
+        if (shown != null) Rack(shown, ow, wrap = true, end = end, won = won)
         else if (s.back > 0) FlowRow(horizontalArrangement = if (end) Arrangement.End else Arrangement.Start) { repeat(hidden) { TileView(null, s.back.d) } }
       }
     }
@@ -852,12 +863,14 @@ private fun TableViewIn(
 /** A hand shown: on a rack (a darker tray with a light edge), to tell it from the melds. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Rack(tiles: List<String>, w: Float, wrap: Boolean, end: Boolean = false) {
-  if (tiles.isEmpty()) return
+private fun Rack(tiles: List<String>, w: Float, wrap: Boolean, end: Boolean = false, won: String? = null) {
+  if (tiles.isEmpty() && won == null) return
   val mod = Modifier.background(Color.Black.copy(alpha = 0.24f), RoundedCornerShape(6.dp))
     .border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(6.dp)).padding(RACK_PAD.d)
-  if (wrap) FlowRow(mod, horizontalArrangement = if (end) Arrangement.End else Arrangement.Start) { for (t in tiles) TileView(t, w.d) }
-  else Row(mod) { for (t in tiles) TileView(t, w.d) }
+  // The tile won on WON_GAP apart after the rest (on the next line when the line has no room for it and the gap).
+  val wonTile = @Composable { if (won != null) TileView(won, w.d, modifier = Modifier.padding(start = (w * WON_GAP).d)) }
+  if (wrap) FlowRow(mod, horizontalArrangement = if (end) Arrangement.End else Arrangement.Start) { for (t in tiles) TileView(t, w.d); wonTile() }
+  else Row(mod) { for (t in tiles) TileView(t, w.d); wonTile() }
 }
 
 /**
@@ -1441,16 +1454,21 @@ fun ClaimBar(actions: List<Action>, w: Float, onAct: (Action) -> Unit, claimed: 
       val win = a.type == "ron" || a.type == "tsumo"
       val pass = a.type == "pass"
       val m = marks?.invoke(a)
+      // A win: larger than the rest and ringed in gold, not to be missed or tapped past.
+      val shape = RoundedCornerShape(if (win) 38.dp else 24.dp)
       Surface(
-        onClick = { onAct(a) }, shape = RoundedCornerShape(24.dp), shadowElevation = 4.dp,
+        onClick = { onAct(a) }, shape = shape, shadowElevation = 4.dp,
         // The one made there (a step gone back to): its edge lit.
-        modifier = Modifier.testTag("claim_${a.type}").let { if (m?.played == true) it.border(3.dp, c.highlight, RoundedCornerShape(24.dp)) else it },
+        modifier = Modifier.testTag("claim_${a.type}").let {
+          if (m?.played == true) it.border(3.dp, c.highlight, shape) else if (win) it.border(3.dp, Color(0xFFFFD36B), shape) else it
+        },
         color = when { win -> Color(0xFFD84315); pass -> MaterialTheme.colorScheme.surfaceContainerHighest; else -> c.action },
         contentColor = when { win -> Color.White; pass -> MaterialTheme.colorScheme.onSurface; else -> c.onAction },
       ) {
-        Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-          Text(stringResource(actionLabel(a.type)), fontWeight = if (pass) FontWeight.Medium else FontWeight.Bold, fontSize = if (win) 20.sp else 18.sp)
+        Row(Modifier.heightIn(min = if (win) 76.dp else 48.dp).padding(horizontal = if (win) 30.dp else 14.dp, vertical = 5.dp),
+          verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+          Text(stringResource(actionLabel(a.type)), fontWeight = if (pass) FontWeight.Medium else FontWeight.Bold, fontSize = if (win) 32.sp else 18.sp,
+            letterSpacing = if (win) 2.sp else TextUnit.Unspecified)
           val ts = if (a.type == "chi") a.tiles ?: emptyList() else if (a.tile != null && a.type != "ron") listOf(a.tile) else emptyList()
           val at = if (claimed != null) ts.indexOf(claimed) else -1
           if (ts.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {

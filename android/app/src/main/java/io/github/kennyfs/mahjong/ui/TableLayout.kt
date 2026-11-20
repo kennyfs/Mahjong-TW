@@ -16,6 +16,8 @@ import kotlin.math.min
 const val HAND_ROW = 8
 /** The gap before the drawn tile, in tile widths. */
 const val DRAWN_GAP = 0.3f
+/** The gap before the tile a winner won on, at the end of its shown hand, in tile widths. */
+const val WON_GAP = 0.2f
 /** The gap between the rows of a wrapped hand, in tile heights (room for a lifted tile, too). */
 const val ROW_GAP = 0.2f
 /** How far a chosen tile is lifted, in tile heights. */

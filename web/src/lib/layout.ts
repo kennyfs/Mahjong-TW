@@ -13,6 +13,8 @@ import { TILE_RATIO } from '../components/Tile.svelte';
 export const HAND_ROW = 8;
 /** The gap before the drawn tile, in tile widths. */
 export const DRAWN_GAP = 0.3;
+/** The gap before the tile a winner won on, at the end of its shown hand, in tile widths. */
+export const WON_GAP = 0.2;
 /** The gap between the rows of a wrapped hand, in tile heights (room for a lifted tile, too). */
 export const ROW_GAP = 0.2;
 /** How far a chosen tile is lifted, in tile heights. */

@@ -53,7 +53,9 @@
   .claim { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 5px 14px; border-radius: 24px; border: none;
     cursor: pointer; font-weight: 700; font-size: 1.125rem; background: var(--action); color: var(--on-action);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
-  .claim.ron, .claim.tsumo { background: #d84315; color: #fff; font-size: 1.25rem; }
+  /* A win, larger than the rest and ringed in gold: not to be missed or tapped past. */
+  .claim.ron, .claim.tsumo { min-height: 76px; padding: 6px 30px; border-radius: 38px; font-size: 2rem; letter-spacing: 0.08em; color: #fff;
+    background: linear-gradient(180deg, #ff7043, #d84315); box-shadow: 0 0 0 3px #ffd36b, 0 4px 14px rgba(0, 0, 0, 0.5); }
   .claim.pass { background: var(--surface-container-highest); color: var(--on-surface); font-weight: 500; }
   .tiles { display: inline-flex; gap: 1px; }
   .claim.played { outline: 3px solid var(--highlight); outline-offset: 1px; }
