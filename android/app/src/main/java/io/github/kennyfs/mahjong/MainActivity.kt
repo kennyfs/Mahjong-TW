@@ -63,6 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.kennyfs.mahjong.ui.AnalyzeScreen
 import io.github.kennyfs.mahjong.ui.BattleScreen
 import io.github.kennyfs.mahjong.ui.CoachScreen
+import io.github.kennyfs.mahjong.ui.GlossaryScreen
 import io.github.kennyfs.mahjong.ui.GuideScreen
 import io.github.kennyfs.mahjong.ui.TipsScreen
 import io.github.kennyfs.mahjong.ui.LocalTable
@@ -227,11 +228,13 @@ private fun App(vm: AppModel) {
         Page.REVIEW -> ReplayScreen(vm, vm::back)
         Page.COACH -> words { CoachScreen(vm, vm::back) }
         Page.TIPS -> words { TipsScreen(vm::back) }
+        Page.GLOSSARY -> words { GlossaryScreen(vm::back) }
         Page.GUIDE -> words {
           GuideScreen(
             vm, vm::back,
             onPlay = { vm.close(Page.GUIDE); vm.show(Screen.PLAY) },
             onTour = { vm.close(Page.GUIDE); tour.start() },
+            onGlossary = { vm.open(Page.GLOSSARY) },
           )
         }
         null -> when (vm.tab) {

@@ -65,6 +65,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
@@ -1119,8 +1120,22 @@ fun Melds(
 @Composable
 fun CallBar(w: Float) {
   val c = LocalTable.current
-  Box(Modifier.offset(x = (-1).dp, y = (w * TILE_RATIO * 0.12f).d).size(maxOf(2f, w * 0.08f).d, (w * TILE_RATIO * 0.62f).d)
-    .background(c.callMark, RoundedCornerShape(2.dp)))
+  val shape = RoundedCornerShape(2.dp)
+  // Inside the tile's left edge (not in the gap between two tiles), with a light rim: it is this tile's.
+  Box(Modifier.offset(x = 2.dp, y = (w * TILE_RATIO * 0.10f).d).size(maxOf(2.5f, w * 0.09f).d, (w * TILE_RATIO * 0.68f).d)
+    .background(c.callMark, shape).border(0.8.dp, Color.White.copy(alpha = 0.85f), shape))
+}
+
+/** A dashed line round a discard another player took (besides its fading): not to be taken for a 摸切's grey. */
+@Composable
+private fun CalledOutline(w: Float) {
+  val stroke = LocalTable.current.onFelt.copy(alpha = 0.65f)
+  Box(Modifier.size(w.d, (w * TILE_RATIO).d).drawBehind {
+    val inset = 1.dp.toPx()
+    val dash = 3.dp.toPx()
+    drawRoundRect(stroke, Offset(inset, inset), Size(size.width - inset * 2, size.height - inset * 2), CornerRadius(4.dp.toPx()),
+      style = Stroke(1.3.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash * 0.8f), 0f)))
+  })
 }
 
 /**
@@ -1150,6 +1165,7 @@ fun River(
             .then(if (fly != null && i == discards.size - 1) Modifier.zIndex(2f).then(if (mine) Modifier.discardFly(fly, i) else Modifier.discardIn(fly, seat, i))
               else Modifier)) {
             TileView(d.tile, tw.d, dim = d.called, glow = (last || out) && i == discards.size - 1 && !d.called, tsumogiri = d.drawn)
+            if (d.called) CalledOutline(tw)
             if (d.afterCall) CallBar(tw)
           }
         }

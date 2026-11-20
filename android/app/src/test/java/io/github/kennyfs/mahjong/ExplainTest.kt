@@ -59,4 +59,34 @@ class ExplainTest {
     assertEquals(1, Explain.greedyOf(Analysis(actions = listOf(pass, ActionFigures(Action("chi", "3m"), shanten = 1)))))
     assertEquals(2, Explain.greedyOf(Analysis(actions = listOf(pass, ActionFigures(Action("pon", "5z"), shanten = 1), ActionFigures(Action("ron", "5z"), shanten = -1)))))
   }
+
+  @Test fun tipsThreatMonotonic() {
+    val t = Explain.TIPS_THREAT
+    assertEquals(4, t.size)
+    // Across melds within each discard bucket.
+    for (row in t) {
+      for (m in 1 until row.size) {
+        val prev = row[m - 1]
+        val cur = row[m]
+        if (prev != null && cur != null) assert(cur >= prev) { "TIPS_THREAT meld drop: $prev -> $cur" }
+      }
+    }
+    // Across discard buckets for each meld count.
+    for (m in 0 until 5) {
+      for (d in 1 until t.size) {
+        val prev = t[d - 1][m]
+        val cur = t[d][m]
+        if (prev != null && cur != null) assert(cur >= prev) { "TIPS_THREAT discard drop: $prev -> $cur" }
+      }
+    }
+  }
+
+  @Test fun glossaryLinking() {
+    val parts = Glossary.link("先打現物，再打筋牌；別拆死對子。", english = false)
+    val linked = parts.filter { it.termId != null }.map { it.text to it.termId }
+    assertEquals(listOf("現物" to "genbutsu", "筋牌" to "suji", "死對子" to "dead_pair"), linked)
+    // beforeId restricts cross-links strictly to earlier entries in topological order.
+    val sub = Glossary.link("中張與筋牌與無筋", english = false, beforeId = "non_suji")
+    assertEquals(listOf("中張" to "middle", "筋牌" to "suji"), sub.filter { it.termId != null }.map { it.text to it.termId })
+  }
 }

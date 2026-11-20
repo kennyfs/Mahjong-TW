@@ -100,7 +100,7 @@ private val NOT_LISTED = listOf("dealer", "streak")
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun GuideScreen(vm: AppModel, onBack: () -> Unit, onPlay: () -> Unit, onTour: () -> Unit) {
+fun GuideScreen(vm: AppModel, onBack: () -> Unit, onPlay: () -> Unit, onTour: () -> Unit, onGlossary: () -> Unit = {}) {
   val settings = vm.settings
   var page by rememberSaveable { mutableIntStateOf(0) }
   var tai by rememberSaveable { mutableStateOf(settings.rules.tai) }
@@ -131,6 +131,7 @@ fun GuideScreen(vm: AppModel, onBack: () -> Unit, onPlay: () -> Unit, onTour: ()
 
   Column(Modifier.fillMaxSize()) {
     TitleBar(stringResource(R.string.guide_title), onBack) {
+      TextButton(onClick = onGlossary, modifier = Modifier.testTag("guide_glossary")) { Text(stringResource(R.string.glossary_title)) }
       Text(stringResource(R.string.guide_page, page + 1, PAGES), Modifier.padding(end = 8.dp), style = MaterialTheme.typography.bodyMedium,
         color = cs.onSurfaceVariant)
     }

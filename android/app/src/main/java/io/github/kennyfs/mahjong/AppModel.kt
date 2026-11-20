@@ -16,8 +16,8 @@ import kotlinx.coroutines.launch
 enum class Screen { PLAY, BATTLE, ANALYZE, RECORDS, SETTINGS }
 
 /** A page opened from a screen: Back returns to what was under it. GUIDE: the rules explained (ui/GuideScreen.kt);
- *  COACH: the AI coach (ui/CoachScreen.kt); TIPS: the table tips (ui/ExplainViews.kt). */
-enum class Page { RULES, REVIEW, GUIDE, COACH, TIPS }
+ *  COACH: the AI coach (ui/CoachScreen.kt); TIPS: the table tips (ui/ExplainViews.kt); GLOSSARY: beginner terms (ui/GlossaryViews.kt). */
+enum class Page { RULES, REVIEW, GUIDE, COACH, TIPS, GLOSSARY }
 
 /**
  * What the screens share, for as long as the app runs: the settings, the records, practice, battles, the pages opened

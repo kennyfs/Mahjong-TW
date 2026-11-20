@@ -11,9 +11,11 @@ import kotlin.math.roundToInt
 // tile efficiency would have lost, tile efficiency's choice against the best ("well played").
 
 /** A decision explained: `key` the lesson (e.g. "defend-step"); `found`: the best was played, and what is explained is
- *  tile efficiency's choice; `choice`: "You: … · Better: …"; `signs`: the opponent's, when it is about defense. */
+ *  tile efficiency's choice; `choice`: "You: … · Better: …"; `you`/`alt`: structured labels for chip display;
+ *  `signs`: the opponent's, when it is about defense. */
 data class Explanation(
   val key: String, val found: Boolean, val title: String, val choice: String, val signs: String?, val text: List<String>, val rule: String?,
+  val you: String = "", val alt: String = "",
 )
 
 object Explain {
@@ -45,20 +47,25 @@ object Explain {
     "s,456,3" to 0.0041, "x,456,3" to 0.0482, "s,456,2" to 0.0105, "s,19,2" to 0.0034, "s,28,3" to 0.0022,
   )
 
-  /** The tips' tables (TipsContent): the share ready by discards (3-5, 6-8, 9-11, 12+) and melds (0-4), without 摸切
-   *  at the end. */
-  val TIPS_THREAT: List<List<Double>> = (1..4).map { nd -> (0..4).map { m -> THREAT["$nd,$m,0"] ?: 0.0 } }
+  /** The tips' tables (TipsContent): unconditional share ready by discards (3-5, 6-8, 9-11, 12+) and melds (0-4),
+   *  matching docs/explain.md section 3 (monotonically increasing across discards and melds). */
+  val TIPS_THREAT: List<List<Double?>> = listOf(
+    listOf(0.01, 0.04, 0.11, 0.29, null),
+    listOf(0.09, 0.16, 0.29, 0.50, 0.82),
+    listOf(0.22, 0.33, 0.47, 0.66, 0.90),
+    listOf(0.29, 0.42, 0.57, 0.74, 0.91),
+  )
   /** How often the network turns to safety with an opponent who looks 60-80% ready: by its own hand (ready, 1, 2, 3+
    *  away) and the tiles left (30+, 20-29, 10-19, under 10). */
   val TIPS_FOLD = listOf(listOf(0.03, 0.04, 0.06, 0.19), listOf(0.13, 0.19, 0.30, 0.63), listOf(0.19, 0.34, 0.55, 0.54), listOf(0.31, 0.44, 0.40, 0.37))
-  /** A tile's chance of dealing in to a ready opponent: by rank (honor, 1/9, 2/8, 3/7, 4-6), its own discard, suji,
-   *  and others with none, one, two seen; null where there is none. */
+  /** A tile's chance of dealing in to a ready opponent, ordered monotonically from safest to riskiest:
+   *  by rank (honor, 1/9, 2/8, 3/7, 4-6) × [genbutsu, suji, non-suji 2 seen, non-suji 1 seen, non-suji unseen]. */
   val TIPS_SAFETY: List<List<Double?>> = listOf(
-    listOf(0.001, null, 0.034, 0.005, 0.0),
-    listOf(0.007, 0.025, 0.091, 0.053, 0.029),
-    listOf(0.007, 0.040, 0.114, 0.068, 0.034),
-    listOf(0.005, 0.056, 0.122, 0.074, 0.040),
-    listOf(0.008, 0.042, 0.133, 0.090, 0.053),
+    listOf(0.001, null, 0.0, 0.005, 0.034),
+    listOf(0.007, 0.025, 0.029, 0.053, 0.091),
+    listOf(0.007, 0.040, 0.034, 0.068, 0.114),
+    listOf(0.005, 0.056, 0.040, 0.074, 0.122),
+    listOf(0.008, 0.042, 0.053, 0.090, 0.133),
   )
   const val TIPS_HALF = 0.082
 
@@ -190,10 +197,15 @@ object Explain {
 
   /** "約 4 成", "about 40%"; "約 3%"; "不到 1%". */
   fun chance(res: Resources, p: Double): String = when {
-    p >= 0.095 -> res.getString(R.string.explain_tenths, (p * 10).roundToInt().toString())
+    p >= 0.195 -> res.getString(R.string.explain_tenths, (p * 10).roundToInt().toString())
     p >= 0.01 -> res.getString(R.string.explain_about, (p * 100).roundToInt().toString())
     else -> res.getString(R.string.explain_under_one)
   }
+
+  /** Exact percent for deal-in rates: "約 12%", "約 9%", "不到 1%" (avoids jumping to "約 1 成" at 9.5%). */
+  fun percent(res: Resources, p: Double): String =
+    if (p >= 0.01) res.getString(R.string.explain_about, (p * 100).roundToInt().toString())
+    else res.getString(R.string.explain_under_one)
 
   /**
    * The explanation of a reviewed decision of `view`'s seat, or null when there is nothing to say: the played action
@@ -239,7 +251,15 @@ object Explain {
 
     fun s(id: Int, vararg args: Any): String = res.getString(id, *args)
     fun unseen(k: Int) = max(0, 4 - vis[k])
-    fun honorTai(k: Int) = if (k >= 31) (values["dragon"] ?: 0) > 0 else (values["any_wind"] ?: 0) > 0
+    val roundWind = pos.setup.round
+    val seatWind = (me - pos.setup.dealer + 4) % 4
+    fun honorTai(k: Int) = when {
+      k >= 31 -> (values["dragon"] ?: 0) > 0
+      k in 27..30 -> (values["any_wind"] ?: 0) > 0 ||
+        (k - 27 == roundWind && (values["round_wind"] ?: 0) > 0) ||
+        (k - 27 == seatWind && (values["seat_wind"] ?: 0) > 0)
+      else -> false
+    }
     fun name(f: ActionFigures) = f.action.tile?.let(Tiles::name) ?: ""
     fun kOf(f: ActionFigures) = f.action.tile?.let(::kindOf) ?: -1
     fun steps(sh: Int) = Explain.steps(res, sh)
@@ -251,10 +271,12 @@ object Explain {
       val xs = an.actions
       val ap = xs[p]
       val ab = xs[b]
+      val youAct = act(if (found) ab.action else ap.action)
+      val altAct = act(if (found) ap.action else ab.action)
       fun out(key: String, title: Int, text: List<String>, rule: Int? = null, signs: String? = null) = Explanation(
         key, found, s(title),
-        if (found) s(R.string.explain_choice_found, act(ab.action), act(ap.action)) else s(R.string.explain_choice, act(ap.action), act(ab.action)),
-        signs, text, rule?.let { s(it) },
+        if (found) s(R.string.explain_choice_found, youAct, altAct) else s(R.string.explain_choice, youAct, altAct),
+        signs, text, rule?.let { s(it) }, you = youAct, alt = altAct,
       )
       val t = ap.action.type
       val bt = ab.action.type
@@ -270,7 +292,7 @@ object Explain {
         val closed = pos.players[me].melds.all { it.type == "ankan" }
         val pass = xs.firstOrNull { it.action.type == "pass" }
         val sh = pass?.shanten ?: ab.shanten
-        val word = s(if (t == "chi") R.string.act_chi else if (t == "pon") R.string.act_pon else R.string.act_kan)
+        val word = s(if (t == "chi") R.string.act_chi else if (t == "pon") R.string.act_pon else R.string.act_kan).lowercase()
         if (isCall(ap.action) && bt == "pass") {
           if (w <= 25) return out("call-late", R.string.explain_t_call_late, listOf(s(R.string.explain_call_late, w, word)), R.string.explain_rule_call_late)
           if (closed && sh >= 2) {
@@ -302,7 +324,11 @@ object Explain {
         val pl = pos.players[seat]
         val o = an.opponents?.firstOrNull { it.seat == seat } ?: an.opponents?.getOrNull(r - 1)
         var tail = 0
-        for (i in pl.discards.indices.reversed()) if (pl.discards[i].drawn) tail++ else break
+        for (i in pl.discards.indices.reversed()) {
+          // A call resets any prior draw-discard streak (kong replacement draws set both drawn and afterCall).
+          if (pl.discards[i].afterCall || !pl.discards[i].drawn) break
+          tail++
+        }
         // The kinds discarded since its last discard: it let them go (過水), so it cannot win on them now.
         val passed = HashSet<Int>()
         for (e in view.events.asReversed()) {
@@ -353,9 +379,11 @@ object Explain {
       if (dangerP - dangerB >= 0.01 && top.ready >= 0.3) {
         val (lp, rp) = safety(top, ap)
         val (lb, rb) = safety(top, ab)
-        val deal = if (rp != null && rb != null) s(R.string.explain_deal, lp, chance(res, rp), lb, chance(res, rb)) else s(R.string.explain_deal_short, lp, lb)
+        val deal = if (rp != null && rb != null) s(R.string.explain_deal, lp, percent(res, rp), lb, percent(res, rb)) else s(R.string.explain_deal_short, lp, lb)
         if (ab.shanten > ap.shanten) return out("defend-step", R.string.explain_t_defend,
           listOf(deal, s(R.string.explain_defend_step, steps(ap.shanten), w, name(ab))), R.string.explain_rule_defend, signsOf(top))
+        if (ab.shanten == 0 && ap.shanten == 0) return out("wait-safer", R.string.explain_t_wait,
+          listOf(deal, s(R.string.explain_wait_safer, name(ab))), R.string.explain_rule_safer, signsOf(top))
         return out("defend-same", R.string.explain_t_safer, listOf(deal, s(R.string.explain_safer_same)), R.string.explain_rule_safer, signsOf(top))
       }
       if (dangerB - dangerP >= 0.01 && ap.shanten > ab.shanten)
@@ -367,8 +395,9 @@ object Explain {
       val hb = roleOf(c, kb)
       fun isPair(h: String) = h == "zpair" || h == "pair"
       fun tai(k: Int) = if (k >= 27 && honorTai(k)) s(R.string.explain_honor_tai) else ""
+      fun joinedToRun(k: Int) = k < 27 && listOf(-2, -1, 1, 2).any { d -> val r = k % 9 + d; r in 0..8 && c[k + d] > 0 }
       // A pair that stands alone (no tile of a chow beside it) and can still be punged.
-      fun livePair(k: Int) = c[k] == 2 && unseen(k) >= 1 && (k >= 27 || listOf(-2, -1, 1, 2).none { d -> val r = k % 9 + d; r in 0..8 && c[k + d] > 0 })
+      fun livePair(k: Int) = c[k] == 2 && unseen(k) >= 1 && !joinedToRun(k)
       if (isPair(hp) && unseen(kp) >= 1 && !isPair(hb) && hb != "set" && hb != "zset") {
         val shape = s(shapeName(hb))
         val why = when (hb) {
@@ -379,8 +408,12 @@ object Explain {
         return out("pair-keep", R.string.explain_t_pair, listOf(s(R.string.explain_pair_keep, name(ap), name(ab), shape), why + tai(kp)), R.string.explain_rule_pair)
       }
       if (isPair(hp) && isPair(hb) && livePair(kp)) {
-        val why = if (unseen(kb) >= 1) s(R.string.explain_pair_joined, name(ab)) else s(R.string.explain_pair_dead, name(ab))
-        return out("pair-which", R.string.explain_t_pair_which, listOf(s(R.string.explain_pair_which, name(ab), name(ap), why)), R.string.explain_rule_pair_which)
+        val why = when {
+          unseen(kb) == 0 -> s(R.string.explain_pair_dead, name(ab))
+          joinedToRun(kb) -> s(R.string.explain_pair_joined, name(ab))
+          else -> null
+        }
+        if (why != null) return out("pair-which", R.string.explain_t_pair_which, listOf(s(R.string.explain_pair_which, name(ab), name(ap), why)), R.string.explain_rule_pair_which)
       }
       if (hp == "zlone" && hb == "lone" && pos.players[me].discards.size <= 6 && top.ready < 0.2)
         return out("honor-later", R.string.explain_t_honor,

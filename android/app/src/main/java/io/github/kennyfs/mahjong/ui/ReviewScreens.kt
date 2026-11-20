@@ -484,12 +484,14 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
             ) else if (step >= n && outcome.isNotEmpty()) Text(outcome, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
               modifier = Modifier.testTag("replay_choice"))
           }
-          if (step >= last && n > 0 && !(step >= n && showResult)) FilledTonalButton(
-            onClick = ::openResult, modifier = Modifier.testTag("replay_result").heightIn(min = 36.dp), contentPadding = PaddingValues(horizontal = 16.dp),
-          ) { Text(stringResource(R.string.replay_result)) }
-          else if (explanation != null) FilledTonalButton(
-            onClick = { explaining = true }, modifier = Modifier.testTag("replay_explain").heightIn(min = 36.dp), contentPadding = PaddingValues(horizontal = 16.dp),
-          ) { Text(stringResource(R.string.explain_button)) }
+          Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (explanation != null) FilledTonalButton(
+              onClick = { explaining = true }, modifier = Modifier.testTag("replay_explain").heightIn(min = 34.dp), contentPadding = PaddingValues(horizontal = 12.dp),
+            ) { Text(stringResource(R.string.explain_button)) }
+            if (step >= last && n > 0 && !(step >= n && showResult)) FilledTonalButton(
+              onClick = ::openResult, modifier = Modifier.testTag("replay_result").heightIn(min = 34.dp), contentPadding = PaddingValues(horizontal = 12.dp),
+            ) { Text(stringResource(R.string.replay_result)) }
+          }
         }
         val best = mine?.analysis?.best
         if (mine != null && key != null && best != null && mine.played >= 0) {

@@ -135,6 +135,9 @@ export interface Explanation {
   title: string;
   /** "You: … · Better: …". */
   choice: string;
+  /** Structured choice labels for chip display. */
+  you: string;
+  alt: string;
   /** The opponent's signs, when the lesson is about defense. */
   signs?: string;
   text: string[];
@@ -143,7 +146,13 @@ export interface Explanation {
 
 /** "約 4 成", "about 40%"; "約 3%"; "不到 1%". */
 export function chance(p: number): string {
-  if (p >= 0.095) return t('explain_tenths', Math.round(p * 10));
+  if (p >= 0.195) return t('explain_tenths', Math.round(p * 10));
+  if (p >= 0.01) return t('explain_about', Math.round(p * 100));
+  return t('explain_under_one');
+}
+
+/** Exact percent for deal-in rates: "約 12%", "約 9%", "不到 1%". */
+export function percent(p: number): string {
   if (p >= 0.01) return t('explain_about', Math.round(p * 100));
   return t('explain_under_one');
 }
@@ -189,13 +198,26 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
   }
   const unseen = (k: number) => Math.max(0, 4 - vis[k]);
   const values = specValues(view.rules);
-  const honorTai = (k: number) => k >= 31 ? (values.dragon ?? 0) > 0 : (values.any_wind ?? 0) > 0;
+  const roundWind = pos.setup.round;
+  const seatWind = (me - pos.setup.dealer + 4) % 4;
+  const honorTai = (k: number) => {
+    if (k >= 31) return (values.dragon ?? 0) > 0;
+    if (k >= 27) {
+      if ((values.any_wind ?? 0) > 0) return true;
+      const wd = k - 27;
+      return (wd === roundWind && (values.round_wind ?? 0) > 0) || (wd === seatWind && (values.seat_wind ?? 0) > 0);
+    }
+    return false;
+  };
   const w = pos.wall_left;
   const name = (f: Figures) => (f.action.tile ? tileName(f.action.tile) : '');
   const kOf = (f: Figures) => (f.action.tile ? kindOf(f.action.tile) : -1);
+  const youAct = actionText(found ? ab.action : ap.action);
+  const altAct = actionText(found ? ap.action : ab.action);
   const out = (key: string, title: string, text: string[], rule?: string, signs?: string): Explanation => ({
     key, found, title: t(title), text, rule: rule ? t(rule) : undefined, signs,
-    choice: t(found ? 'explain_choice_found' : 'explain_choice', actionText(found ? ab.action : ap.action), actionText(found ? ap.action : ab.action)),
+    choice: t(found ? 'explain_choice_found' : 'explain_choice', youAct, altAct),
+    you: youAct, alt: altAct,
   });
   const T = ap.action.type, B = ab.action.type;
 
@@ -211,7 +233,7 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
     const closed = own.melds.every((m) => m.type === 'ankan');
     const pass = xs.find((f) => f.action.type === 'pass');
     const sh = pass?.shanten ?? ab.shanten;
-    const word = t(T === 'chi' ? 'act_chi' : T === 'pon' ? 'act_pon' : 'act_kan');
+    const word = t(T === 'chi' ? 'act_chi' : T === 'pon' ? 'act_pon' : 'act_kan').toLowerCase();
     if (isCall(ap.action) && B === 'pass') {
       if (w <= 25) return out('call-late', 'explain_t_call_late', [t('explain_call_late', w, word)], 'explain_rule_call_late');
       if (closed && sh >= 2) {
@@ -238,7 +260,10 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
     const s = (me + r) % 4, pl = pos.players[s];
     const o = an.opponents?.find((x) => x.seat === s) ?? an.opponents?.[r - 1];
     let tail = 0;
-    for (let i = pl.discards.length - 1; i >= 0 && pl.discards[i].drawn; i--) tail++;
+    for (let i = pl.discards.length - 1; i >= 0; i--) {
+      if (pl.discards[i].after_call || !pl.discards[i].drawn) break;
+      tail++;
+    }
     // The kinds discarded since its last discard: it let them go (過水), so it cannot win on them now.
     const passed = new Set<number>();
     for (let i = view.events.length - 1; i >= 0; i--) {
@@ -280,9 +305,11 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
   const dangerP = ap.danger ?? 0, dangerB = ab.danger ?? 0;
   if (dangerP - dangerB >= 0.01 && top.ready >= 0.3) {
     const [lp, rp] = safety(top, ap), [lb, rb] = safety(top, ab);
-    const deal = rp !== undefined && rb !== undefined ? t('explain_deal', lp, chance(rp), lb, chance(rb)) : t('explain_deal_short', lp, lb);
+    const deal = rp !== undefined && rb !== undefined ? t('explain_deal', lp, percent(rp), lb, percent(rb)) : t('explain_deal_short', lp, lb);
     if (ab.shanten > ap.shanten)
       return out('defend-step', 'explain_t_defend', [deal, t('explain_defend_step', steps(ap.shanten), w, name(ab))], 'explain_rule_defend', signsOf(top));
+    if (ab.shanten === 0 && ap.shanten === 0)
+      return out('wait-safer', 'explain_t_wait', [deal, t('explain_wait_safer', name(ab))], 'explain_rule_safer', signsOf(top));
     return out('defend-same', 'explain_t_safer', [deal, t('explain_safer_same')], 'explain_rule_safer', signsOf(top));
   }
   if (dangerB - dangerP >= 0.01 && ap.shanten > ab.shanten)
@@ -291,11 +318,12 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
   const kp = kOf(ap), kb = kOf(ab), hp = roleOf(c, kp), hb = roleOf(c, kb);
   const isPair = (h: string) => h === 'zpair' || h === 'pair';
   const tai = (k: number) => (k >= 27 && honorTai(k) ? t('explain_honor_tai') : '');
-  // A pair that stands alone (no tile of a chow beside it) and can still be punged.
-  const livePair = (k: number) => c[k] === 2 && unseen(k) >= 1 && (k >= 27 || ![-2, -1, 1, 2].some((d) => {
+  const joinedToRun = (k: number) => k < 27 && [-2, -1, 1, 2].some((d) => {
     const r = (k % 9) + d;
     return r >= 0 && r <= 8 && c[k + d] > 0;
-  }));
+  });
+  // A pair that stands alone (no tile of a chow beside it) and can still be punged.
+  const livePair = (k: number) => c[k] === 2 && unseen(k) >= 1 && !joinedToRun(k);
   if (isPair(hp) && unseen(kp) >= 1 && !isPair(hb) && hb !== 'set' && hb !== 'zset') {
     const shape = t(SHAPE[hb] ?? 'explain_shape_extra');
     const why = hb === 'kanchan' || hb === 'penchan' ? t('explain_pair_wait', name(ap), unseen(kp), shape)
@@ -303,8 +331,8 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
     return out('pair-keep', 'explain_t_pair', [t('explain_pair_keep', name(ap), name(ab), shape), why + tai(kp)], 'explain_rule_pair');
   }
   if (isPair(hp) && isPair(hb) && livePair(kp)) {
-    const why = unseen(kb) >= 1 ? t('explain_pair_joined', name(ab)) : t('explain_pair_dead', name(ab));
-    return out('pair-which', 'explain_t_pair_which', [t('explain_pair_which', name(ab), name(ap), why)], 'explain_rule_pair_which');
+    const why = unseen(kb) === 0 ? t('explain_pair_dead', name(ab)) : joinedToRun(kb) ? t('explain_pair_joined', name(ab)) : null;
+    if (why) return out('pair-which', 'explain_t_pair_which', [t('explain_pair_which', name(ab), name(ap), why)], 'explain_rule_pair_which');
   }
   if (hp === 'zlone' && hb === 'lone' && pos.players[me].discards.length <= 6 && top.ready < 0.2)
     return out('honor-later', 'explain_t_honor', [t('explain_honor_later', name(ab), name(ap), honorTai(kp) ? t('explain_honor_tai_short') : '')], 'explain_rule_honor');
@@ -321,19 +349,24 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
   return out('shape', 'explain_t_shape', [t(big ? 'explain_shape_big' : 'explain_shape', name(ab), name(ap), ab.ukeire, ap.ukeire)]);
 }
 
-/** The tips' tables (Tips.svelte): the share ready by discards (3-5, 6-8, 9-11, 12+) and melds (0-4), without 摸切 at
- *  the end. */
-export const TIPS_THREAT = [1, 2, 3, 4].map((nd) => [0, 1, 2, 3, 4].map((m) => THREAT[`${nd},${m},0`] ?? 0));
+/** The tips' tables (Tips.svelte): unconditional share ready by discards (3-5, 6-8, 9-11, 12+) and melds (0-4),
+ *  matching docs/explain.md section 3 (monotonically increasing across discards and melds). */
+export const TIPS_THREAT: (number | null)[][] = [
+  [0.01, 0.04, 0.11, 0.29, null],
+  [0.09, 0.16, 0.29, 0.50, 0.82],
+  [0.22, 0.33, 0.47, 0.66, 0.90],
+  [0.29, 0.42, 0.57, 0.74, 0.91],
+];
 /** How often the network turns to safety with an opponent who looks 60-80% ready: by its own hand (ready, 1, 2, 3+
  *  away) and the tiles left (30+, 20-29, 10-19, under 10). */
 export const TIPS_FOLD = [[0.03, 0.04, 0.06, 0.19], [0.13, 0.19, 0.30, 0.63], [0.19, 0.34, 0.55, 0.54], [0.31, 0.44, 0.40, 0.37]];
-/** A tile's chance of dealing in to a ready opponent: by rank (honor, 1/9, 2/8, 3/7, 4-6), its own discard, suji, and
- *  others with none, one, two seen; null where there is none. */
+/** A tile's chance of dealing in to a ready opponent, ordered monotonically from safest to riskiest:
+ *  by rank (honor, 1/9, 2/8, 3/7, 4-6) × [genbutsu, suji, non-suji 2 seen, non-suji 1 seen, non-suji unseen]. */
 export const TIPS_SAFETY: (number | null)[][] = [
-  [0.001, null, 0.034, 0.005, 0.0],
-  [0.007, 0.025, 0.091, 0.053, 0.029],
-  [0.007, 0.040, 0.114, 0.068, 0.034],
-  [0.005, 0.056, 0.122, 0.074, 0.040],
-  [0.008, 0.042, 0.133, 0.090, 0.053],
+  [0.001, null, 0.0, 0.005, 0.034],
+  [0.007, 0.025, 0.029, 0.053, 0.091],
+  [0.007, 0.040, 0.034, 0.068, 0.114],
+  [0.005, 0.056, 0.040, 0.074, 0.122],
+  [0.008, 0.042, 0.053, 0.090, 0.133],
 ];
 export const TIPS_HALF = 0.082;

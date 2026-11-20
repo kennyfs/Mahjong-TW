@@ -20,7 +20,7 @@
   import TitleBar from './TitleBar.svelte';
   import Toggle from './Toggle.svelte';
 
-  let { onback }: { onback: () => void } = $props();
+  let { onback, onglossary = () => nav.open('glossary', nav.screen, true) }: { onback: () => void; onglossary?: () => void } = $props();
 
   const PAGES = 8;
   let page = $state(0);
@@ -124,6 +124,7 @@
 
 <div class="page">
   <TitleBar title={t('guide_title')} {onback}>
+    <button class="btn text" onclick={onglossary}>{t('glossary_title')}</button>
     <span class="body-medium dim">{t('guide_page', page + 1, PAGES)}</span>
   </TitleBar>
   <div class="scroll" bind:this={scroller}><div class="content">

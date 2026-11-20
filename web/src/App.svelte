@@ -10,6 +10,7 @@
   import { settings, TEXT_SCALE } from './lib/settings.svelte';
   import { measure, ui } from './lib/ui.svelte';
   import Dialog from './components/Dialog.svelte';
+  import Glossary from './components/Glossary.svelte';
   import Guide from './components/Guide.svelte';
   import Tips from './components/Tips.svelte';
   import Tour from './components/Tour.svelte';
@@ -107,7 +108,9 @@
   </nav>
   <main>
     {#if nav.sub === 'guide'}
-      <Guide onback={() => nav.back()} />
+      <Guide onback={() => nav.back()} onglossary={() => nav.open('glossary', nav.screen, true)} />
+    {:else if nav.sub === 'glossary'}
+      <Glossary onback={() => nav.back()} />
     {:else if nav.sub === 'tips'}
       <Tips onback={() => nav.back()} />
     {:else if (nav.screen === 'PLAY' || nav.screen === 'RECORDS' || nav.screen === 'BATTLE') && nav.sub === 'review'}

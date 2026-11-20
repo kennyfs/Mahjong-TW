@@ -342,7 +342,7 @@
     });
   }
   function onkey(e: KeyboardEvent) {
-    if (branchFrom !== null) return;
+    if (branchFrom !== null || explaining || tipsOpen) return;
     if (e.key === 'ArrowRight') next();
     else if (e.key === 'ArrowLeft') prev();
     else if (e.key === 'ArrowDown') nextMine();
@@ -407,10 +407,15 @@
       {:else if step >= n && outcome}
         <span class="decide">{outcome}</span>
       {/if}
-      {#if step >= last && n > 0 && !(step >= n && showResult)}
-        <button class="btn tonal to-result" onclick={openResult}>{t('replay_result')}</button>
-      {:else if explanation}
-        <button class="btn tonal to-result" onclick={() => (explaining = true)}>{t('explain_button')}</button>
+      {#if (step >= last && n > 0 && !(step >= n && showResult)) || explanation}
+        <span class="where-actions">
+          {#if explanation}
+            <button class="btn tonal to-result" onclick={() => (explaining = true)}>{t('explain_button')}</button>
+          {/if}
+          {#if step >= last && n > 0 && !(step >= n && showResult)}
+            <button class="btn tonal to-result" onclick={openResult}>{t('replay_result')}</button>
+          {/if}
+        </span>
       {/if}
     </div>
     {#if mine && key && mine.analysis.best !== undefined && mine.played >= 0}
@@ -614,8 +619,9 @@
   .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; height: 6.6em; overflow-y: auto; }
   .side .info { height: auto; min-height: 40px; overflow-y: visible; }
   .where { display: flex; flex-wrap: wrap; gap: 0 12px; align-items: baseline; }
+  .where-actions { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; }
   .decide { color: var(--on-surface-variant); }
-  .to-result { margin-left: auto; align-self: center; min-height: 36px; padding: 0 16px; }
+  .to-result { align-self: center; min-height: 32px; padding: 0 12px; }
   .verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
   .grade { padding: 0 8px; border-radius: 8px; font-weight: 700; font-size: 0.8125rem; background: var(--found); color: #fff; }
   .grade.g1:not(.fine) { background: var(--danger-1); color: var(--on-danger); }
