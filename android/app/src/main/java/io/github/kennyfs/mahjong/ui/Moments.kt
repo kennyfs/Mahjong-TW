@@ -184,12 +184,12 @@ class FxHost {
     when {
       c.kind == MomentKind.CALL -> {
         sounds += Sounds.play(if (c.type == "chi" || c.type == "pon") Sounds.Name.CALL else Sounds.Name.KONG,
-          if (p != null) p.come + (0.82 * p.drop).toLong() else 0L)
-        if (p != null && c.meld >= 0) sounds += Sounds.play(Sounds.Name.DISCARD, p.total)
-        Sounds.cueOf(c.type)?.let { sounds += Sounds.play(it) }
+          delay = if (p != null) p.come + (0.82 * p.drop).toLong() else 0L, end = c.ms)
+        if (p != null && c.meld >= 0) sounds += Sounds.play(Sounds.Name.DISCARD, delay = p.total, end = c.ms)
+        Sounds.cueOf(c.type)?.let { sounds += Sounds.play(it, end = c.ms) }
       }
-      c.kind == MomentKind.DECLARE -> sounds += Sounds.play(Sounds.Name.DECLARE)
-      c.id == jingleAt -> jingle?.let { sounds += Sounds.play(it) }
+      c.kind == MomentKind.DECLARE -> sounds += Sounds.play(Sounds.Name.DECLARE, end = c.ms)
+      c.id == jingleAt -> jingle?.let { sounds += Sounds.play(it, end = c.ms) }
     }
   }
 

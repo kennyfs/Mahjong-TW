@@ -6,6 +6,37 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
+ * A practice hand's deal (ui/DealFx.kt), as the computer players wait for it: from the hand's start (Practice.dealt)
+ * until the table has shuffled and dealt it and the player's hand has turned face up, or a touch let it go. No limit
+ * in time: a hand begun while the table is not on the screen (the settings changed) waits for the player to come back
+ * to it. The web page's lib/callouts.ts (dealArm, dealComplete, dealReady).
+ */
+object DealClock {
+  /** The deal waited for (its id), or null. */
+  private val pending = MutableStateFlow<String?>(null)
+
+  /** A hand begun, to be dealt on the table (Practice.dealt). */
+  fun arm(dealId: String) {
+    pending.value = dealId
+  }
+
+  /** The table has dealt `dealId` (or will not: shown already, no animations). */
+  fun complete(dealId: String) {
+    pending.compareAndSet(dealId, null)
+  }
+
+  /** Nothing waited for: a touch let the deal go, or another game began. */
+  fun reset() {
+    pending.value = null
+  }
+
+  /** Returns once no deal is waited for. */
+  suspend fun awaitReady() {
+    if (pending.value != null) pending.first { it == null }
+  }
+}
+
+/**
  * The words over the players (ui/TableView.kt: a call, a win, a flower) and the moments (ui/Moments.kt): how long they
  * stay, and waiting for them. The computer players of a practice game wait for a call's words or moment before they go
  * on, so that it can be followed; a touch anywhere (MainActivity) lets them go at once, and whoever waited goes on. The
@@ -49,12 +80,16 @@ object CalloutClock {
   /** The words were let go (a touch anywhere). */
   fun skip() {
     until.value = 0L
+    DealClock.reset()
+    Sounds.skipSync()
     skips.value += 1
   }
 
   /** Whoever waits goes on now (another game: the last one's loop sees it is gone), the words left as they are. */
   fun release() {
     until.value = 0L
+    DealClock.reset()
+    Sounds.skipSync()
   }
 
   /** Returns when no words that are waited for are up: at once (false) when there are none, else (true) at their end. */

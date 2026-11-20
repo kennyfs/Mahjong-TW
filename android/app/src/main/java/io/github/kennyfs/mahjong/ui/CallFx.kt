@@ -3,7 +3,6 @@ package io.github.kennyfs.mahjong.ui
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,7 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -149,83 +151,88 @@ fun CallFx(m: Moment, host: FxHost) {
       Side.RIGHT -> Offset(0.42f * wDp, 0f)
     } * density
 
-    Canvas(Modifier.fillMaxSize()) {
-      val p = time.p
+    // (What stays the same through the moment, made once for the screen's size: the gradients, the wedges, the rays
+    // as they start; each frame moves and turns them.)
+    Spacer(Modifier.fillMaxSize().drawWithCache {
       val w = size.width
       val h = size.height
-      // The veil, the band and the frame come, stay and go with the moment.
-      val veil = if (p < 0.08f) p / 0.08f else 1 - seg(p, 0.84f, 1f)
-      drawRect(Brush.radialGradient(listOf(look.veilIn, look.veilOut), Offset(w / 2, h / 2), hypot(w / 2, h / 2)), alpha = veil)
-      val bandA = seg(p, 0f, 0.08f) * (1 - seg(p, 0.84f, 1f, EASE_OUT))
+      val veilBrush = Brush.radialGradient(listOf(look.veilIn, look.veilOut), Offset(w / 2, h / 2), hypot(w / 2, h / 2))
       val bandH = (0.46f * h).coerceIn(180 * density, 420 * density)
       val top = (h - bandH) / 2
-      if (quiet) {
-        // Level and still.
-        drawRect(
-          Brush.verticalGradient(0f to Color.Transparent, 0.25f to Color(0x0DFFFFFF), 0.5f to Color(0x12FFFFFF), 0.75f to Color(0x0DFFFFFF),
-            1f to Color.Transparent, startY = top, endY = top + bandH),
-          Offset(0f, top), Size(w, bandH), alpha = bandA,
-        )
-      } else {
-        // Askew, across the whole screen (long enough to reach past its corners however it is turned); its speed lines
-        // running, each over the band's whole length.
-        val left = -0.5f * maxOf(w, h)
-        val bandW = w + maxOf(w, h)
-        rotate(-14f, Offset(w / 2, h / 2)) {
-          clipRect(left, top, left + bandW, top + bandH) {
-            drawRect(
-              Brush.verticalGradient(0f to Color.Transparent, 0.18f to Color(0x12FFFFFF), 0.5f to Color(0x1AFFFFFF), 0.82f to Color(0x12FFFFFF),
-                1f to Color.Transparent, startY = top, endY = top + bandH),
-              Offset(left, top), Size(bandW, bandH), alpha = bandA,
-            )
-            val span = 1.1f * w + 0.5f * bandH
-            for (s in STREAKS) {
-              val len = s.len * span
-              val phase = ((time.real + s.delay) / s.dur) % 1f
-              val x = w / 2 - span / 2 - len + phase * (span + len)
-              val y = top + s.y * bandH
-              drawRect(
-                Brush.horizontalGradient(0f to Color.Transparent, 0.35f to Color.White, 0.8f to Color.White, 1f to Color.Transparent, startX = x, endX = x + len),
-                Offset(x, y), Size(len, s.weight * density), alpha = s.op * bandA,
-              )
+      val quietBand = Brush.verticalGradient(0f to Color.Transparent, 0.25f to Color(0x0DFFFFFF), 0.5f to Color(0x12FFFFFF),
+        0.75f to Color(0x0DFFFFFF), 1f to Color.Transparent, startY = top, endY = top + bandH)
+      val band = Brush.verticalGradient(0f to Color.Transparent, 0.18f to Color(0x12FFFFFF), 0.5f to Color(0x1AFFFFFF),
+        0.82f to Color(0x12FFFFFF), 1f to Color.Transparent, startY = top, endY = top + bandH)
+      val left = -0.5f * maxOf(w, h)
+      val bandW = w + maxOf(w, h)
+      val span = 1.1f * w + 0.5f * bandH
+      // Each speed line's light, from its own start (moved along as it runs).
+      val streaks = STREAKS.map { s ->
+        val len = s.len * span
+        len to Brush.horizontalGradient(0f to Color.Transparent, 0.35f to Color.White, 0.8f to Color.White, 1f to Color.Transparent,
+          startX = 0f, endX = len)
+      }
+      val ww = 0.62f * w
+      val wh = 0.46f * h
+      // The wedges as they rest (each frame: moved out along their corner's diagonal).
+      val tl = Path().apply { moveTo(0f, 0f); lineTo(ww, 0f); lineTo(0f, wh); close() }
+      val br = Path().apply { moveTo(w, h - wh); lineTo(w, h); lineTo(w - ww, h); close() }
+      val c = Offset(w / 2, h / 2)
+      val r = 0.42f * 1.06f * 150 * vmin
+      // The rays unturned (each frame: turned about the middle, which leaves their light, round about it, as it is).
+      // One path for all of them, drawn once: drawn each on its own, their 24 tips, meeting in the middle, made a
+      // bright dot there (each tip's smoothed edge laid over the others').
+      val rays = Path().apply {
+        for (k in 0 until 24) {
+          val a0 = Math.toRadians((k * 15f - 90f).toDouble())
+          val a1 = Math.toRadians((k * 15f + 5f - 90f).toDouble())
+          moveTo(c.x, c.y)
+          lineTo(c.x + r * cos(a0).toFloat(), c.y + r * sin(a0).toFloat())
+          lineTo(c.x + r * cos(a1).toFloat(), c.y + r * sin(a1).toFloat())
+          close()
+        }
+      }
+      val rayBrush = Brush.radialGradient((0.08f / 0.42f) to Color(0x33FFD66E), 1f to Color(0x00FFD66E), center = c, radius = r)
+      onDrawBehind {
+        val p = time.p
+        // The veil, the band and the frame come, stay and go with the moment.
+        val veil = if (p < 0.08f) p / 0.08f else 1 - seg(p, 0.84f, 1f)
+        drawRect(veilBrush, alpha = veil)
+        val bandA = seg(p, 0f, 0.08f) * (1 - seg(p, 0.84f, 1f, EASE_OUT))
+        if (quiet) {
+          // Level and still.
+          drawRect(quietBand, Offset(0f, top), Size(w, bandH), alpha = bandA)
+        } else {
+          // Askew, across the whole screen (long enough to reach past its corners however it is turned); its speed
+          // lines running, each over the band's whole length.
+          rotate(-14f, Offset(w / 2, h / 2)) {
+            clipRect(left, top, left + bandW, top + bandH) {
+              drawRect(band, Offset(left, top), Size(bandW, bandH), alpha = bandA)
+              for ((i, s) in STREAKS.withIndex()) {
+                val (len, light) = streaks[i]
+                val phase = ((time.real + s.delay) / s.dur) % 1f
+                val x = w / 2 - span / 2 - len + phase * (span + len)
+                translate(x, 0f) { drawRect(light, Offset(0f, top + s.y * bandH), Size(len, s.weight * density), alpha = s.op * bandA) }
+              }
             }
           }
+          // Two black wedges from opposite corners, a fine line of the moment's color along their long edge.
+          val off = maxOf(1 - seg(p, 0f, 0.12f, WEDGE), seg(p, 0.84f, 1f, WEDGE))
+          val wa = 1 - seg(p, 0.84f, 1f)
+          val dx = 0.6f * ww * off
+          val dy = 0.6f * wh * off
+          translate(-dx, -dy) { drawPath(tl, Color(0xFF050706), alpha = wa) }
+          drawLine(look.edge, Offset(ww - dx, -dy), Offset(-dx, wh - dy), 2.5f * density, alpha = wa)
+          translate(dx, dy) { drawPath(br, Color(0xFF050706), alpha = wa) }
+          drawLine(look.edge, Offset(w + dx, h - wh + dy), Offset(w - ww + dx, h + dy), 2.5f * density, alpha = wa)
         }
-        // Two black wedges from opposite corners, a fine line of the moment's color along their long edge.
-        val off = maxOf(1 - seg(p, 0f, 0.12f, WEDGE), seg(p, 0.84f, 1f, WEDGE))
-        val wa = 1 - seg(p, 0.84f, 1f)
-        val ww = 0.62f * w
-        val wh = 0.46f * h
-        val dx = 0.6f * ww * off
-        val dy = 0.6f * wh * off
-        val tl = Path().apply { moveTo(-dx, -dy); lineTo(ww - dx, -dy); lineTo(-dx, wh - dy); close() }
-        drawPath(tl, Color(0xFF050706), alpha = wa)
-        drawLine(look.edge, Offset(ww - dx, -dy), Offset(-dx, wh - dy), 2.5f * density, alpha = wa)
-        val br = Path().apply { moveTo(w + dx, h - wh + dy); lineTo(w + dx, h + dy); lineTo(w - ww + dx, h + dy); close() }
-        drawPath(br, Color(0xFF050706), alpha = wa)
-        drawLine(look.edge, Offset(w + dx, h - wh + dy), Offset(w - ww + dx, h + dy), 2.5f * density, alpha = wa)
-      }
-      // The player's own win: rays of gold turning slowly behind the plaque (on their own: also while it waits).
-      if (lively) {
-        val ra = seg(p, 0f, 0.1f) * (1 - seg(p, 0.84f, 1f))
-        val c = Offset(w / 2, h / 2)
-        val r = 0.42f * 1.06f * 150 * vmin
-        val inner = 0.08f / 0.42f
-        val turn = (time.real / 36f) * 360f
-        // One path for all of them, drawn once: drawn each on its own, their 24 tips, meeting in the middle, made a bright
-        // dot there (each tip's smoothed edge laid over the others').
-        val rays = Path()
-        for (k in 0 until 24) {
-          val a0 = Math.toRadians((turn + k * 15f - 90f).toDouble())
-          val a1 = Math.toRadians((turn + k * 15f + 5f - 90f).toDouble())
-          rays.moveTo(c.x, c.y)
-          rays.lineTo(c.x + r * cos(a0).toFloat(), c.y + r * sin(a0).toFloat())
-          rays.lineTo(c.x + r * cos(a1).toFloat(), c.y + r * sin(a1).toFloat())
-          rays.close()
+        // The player's own win: rays of gold turning slowly behind the plaque (on their own: also while it waits).
+        if (lively) {
+          val ra = seg(p, 0f, 0.1f) * (1 - seg(p, 0.84f, 1f))
+          rotate((time.real / 36f) * 360f, c) { drawPath(rays, rayBrush, alpha = ra) }
         }
-        drawPath(rays, Brush.radialGradient(inner to Color(0x33FFD66E), 1f to Color(0x00FFD66E), center = c, radius = r), alpha = ra)
       }
-    }
+    })
 
     // The word and the tiles, upright on the band.
     // (Smaller for a long word, an English one: the plaque within the screen's width.)
@@ -272,32 +279,36 @@ fun CallFx(m: Moment, host: FxHost) {
             val f = seg(time.p, 0.84f, 1f, EASE_IN)
             val k = mix(1f, 1.04f, f)
             scaleX = k; scaleY = k; alpha = 1 - f
-          }.drawWithContent {
-            drawContent()
-            val p = time.p
-            // A light runs over the hand (a declaration's sooner).
-            if ((win || m.kind == MomentKind.DECLARE) && p in shineAt..shineAt + 0.28f) {
-              val a = if (p < shineAt + 0.02f) seg(p, shineAt, shineAt + 0.02f) else if (p > shineAt + 0.26f) 1 - seg(p, shineAt + 0.26f, shineAt + 0.28f) else 1f
-              val bw = size.width * 0.4f
-              val x = (size.width - bw) * mix(-0.6f, 1.6f, seg(p, shineAt + 0.02f, shineAt + 0.26f))
-              drawRect(
-                Brush.linearGradient(0.38f to Color.Transparent, 0.5f to look.glint, 0.62f to Color.Transparent,
-                  start = Offset(x, 0f), end = Offset(x + bw, size.height * 0.27f)),
-                Offset(x, -size.height * 0.06f), Size(bw, size.height * 1.12f), alpha = a, blendMode = BlendMode.Screen,
-              )
-            }
-            // Sparks from the player's own hand as the tile lands.
-            if (lively) for (k in SPARKS) {
-              val start = 0.5f + k.delay * 0.7f
-              val f = (p - start) / 0.22f
-              if (f <= 0f || f >= 1f) continue
-              val e = SPARK.transform(f)
-              val a = Math.toRadians(k.a.toDouble())
-              val d = k.d * vmin * e
-              val c = Offset(size.width / 2 + d * cos(a).toFloat(), size.height / 2 + d * sin(a).toFloat())
-              val r = maxOf(0.5f, k.s * density * mix(1.2f, 0.4f, e) / 2)
-              drawCircle(Brush.radialGradient(0f to Color(0xFFFFF7D6), 0.78f to Color(0xFFFFD36B), 1f to Color(0x00FFB43C), center = c, radius = r),
-                r, c, alpha = 1 - e)
+          }.drawWithCache {
+            // The light's gradient and a spark's, made once (each frame: moved, and a spark scaled, to their place).
+            val bw = size.width * 0.4f
+            val glint = Brush.linearGradient(0.38f to Color.Transparent, 0.5f to look.glint, 0.62f to Color.Transparent,
+              start = Offset.Zero, end = Offset(bw, size.height * 0.27f))
+            val spark = Brush.radialGradient(0f to Color(0xFFFFF7D6), 0.78f to Color(0xFFFFD36B), 1f to Color(0x00FFB43C),
+              center = Offset.Zero, radius = 1f)
+            onDrawWithContent {
+              drawContent()
+              val p = time.p
+              // A light runs over the hand (a declaration's sooner).
+              if ((win || m.kind == MomentKind.DECLARE) && p in shineAt..shineAt + 0.28f) {
+                val a = if (p < shineAt + 0.02f) seg(p, shineAt, shineAt + 0.02f) else if (p > shineAt + 0.26f) 1 - seg(p, shineAt + 0.26f, shineAt + 0.28f) else 1f
+                val x = (size.width - bw) * mix(-0.6f, 1.6f, seg(p, shineAt + 0.02f, shineAt + 0.26f))
+                translate(x, 0f) {
+                  drawRect(glint, Offset(0f, -size.height * 0.06f), Size(bw, size.height * 1.12f), alpha = a, blendMode = BlendMode.Screen)
+                }
+              }
+              // Sparks from the player's own hand as the tile lands.
+              if (lively) for (k in SPARKS) {
+                val start = 0.5f + k.delay * 0.7f
+                val f = (p - start) / 0.22f
+                if (f <= 0f || f >= 1f) continue
+                val e = SPARK.transform(f)
+                val a = Math.toRadians(k.a.toDouble())
+                val d = k.d * vmin * e
+                val c = Offset(size.width / 2 + d * cos(a).toFloat(), size.height / 2 + d * sin(a).toFloat())
+                val r = maxOf(0.5f, k.s * density * mix(1.2f, 0.4f, e) / 2)
+                withTransform({ translate(c.x, c.y); scale(r, r, Offset.Zero) }) { drawCircle(spark, 1f, Offset.Zero, alpha = 1 - e) }
+              }
             }
           },
           horizontalArrangement = Arrangement.Center,

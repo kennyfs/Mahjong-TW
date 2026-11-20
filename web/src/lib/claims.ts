@@ -10,6 +10,7 @@ import * as engine from './engine';
 import { calloutsDone } from './callouts';
 import { now, wait } from './clock';
 import { movesShown } from './fx.svelte';
+import { awaitSoundSynced } from './sound';
 import { ms } from './timing';
 import type { Action, GameRecord, View } from './types';
 
@@ -118,10 +119,13 @@ export class BotPace {
     this.landAt = 0;
   }
 
-  /** Returns once the words and moments the table shows are over. (The table has the view by then: the engine's
-   *  answers come after its effects have run.) */
+  /** Returns once the words and moments the table shows are over, and their sounds heard (awaitSoundSynced). (The
+   *  table has the view by then: the engine's answers come after its effects have run.) */
   async settle() {
-    if (await calloutsDone()) this.shownAt = now();
+    const words = await calloutsDone();
+    const t = now();
+    await awaitSoundSynced();
+    if (words || now() - t > 15) this.shownAt = now();
   }
 
   /** What `next` added came now: a discard (in flight for `fly`) or an added kong is a tile the others may answer. */
@@ -151,8 +155,9 @@ export class BotPace {
     return wait(Math.max(0, this.shownAt + robPause() - now(), this.landAt - now()));
   }
 
-  /** The tile just discarded lands: a computer player's turn is over then. */
-  land() {
-    return wait(Math.max(0, this.landAt - now()));
+  /** The tile just discarded lands, and is heard landing: a computer player's turn is over then. */
+  async land() {
+    await wait(Math.max(0, this.landAt - now()));
+    await awaitSoundSynced();
   }
 }

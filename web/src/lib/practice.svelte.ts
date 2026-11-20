@@ -13,10 +13,10 @@ import * as engine from './engine';
 import { t } from './i18n.svelte';
 import { handRecord, newId, records } from './records.svelte';
 import { keepSummary } from './review';
-import { calloutsSkipped } from './callouts';
+import { calloutsSkipped, dealArm, dealReady, dealReset } from './callouts';
 import { later, now } from './clock';
 import { BotPace, othersCall, preclaim, robbedEvent } from './claims';
-import { fxDone } from './fx.svelte';
+import { fxDone, movesShown } from './fx.svelte';
 import { settings, type Length } from './settings.svelte';
 import { ms } from './timing';
 import { KEYS, load, save } from './store';
@@ -163,7 +163,7 @@ class Practice {
       // (Another game came meanwhile: this one is no more.)
       if (epoch !== this.epoch) return;
       this.game = game;
-      this.deal = `${this.meta.id}/0`;
+      this.dealt(`${this.meta.id}/0`);
     } catch (e) {
       this.error = String((e as Error).message ?? e);
       return;
@@ -171,6 +171,15 @@ class Practice {
     this.persist();
     await this.refresh();
     void this.run();
+  }
+
+  /** A hand begun: the table deals it (DealFx), and the computer players wait until the player's hand has turned face
+   *  up there (dealArm): however long that is, also when the table is not on the screen yet (a new game from the
+   *  settings: dealt when the player comes back to it). */
+  private dealt(id: string) {
+    this.deal = id;
+    if (movesShown()) dealArm(id);
+    else dealReset();
   }
 
   private async refresh() {
@@ -269,6 +278,8 @@ class Practice {
         // call's moment or words (碰, 槓, 天聽) are over (a tap anywhere lets them go). (BotPace.)
         const claim = p.phase !== 'self';
         const game = this.game;
+        await dealReady();
+        if (epoch !== this.epoch || !this.game) break;
         await this.pace.settle();
         if (epoch !== this.epoch || !this.game) break;
         const before = this.view?.event_count ?? 0;
@@ -321,9 +332,12 @@ class Practice {
     if (!v.position.players[ME]?.declared) return;
     const a = v.legal[0];
     const n = g.actions.length;
-    later(() => {
-      if (epoch === this.epoch && this.game?.actions.length === n && this.view?.my_turn) void this.act(a);
-    }, ms('bot_turn'));
+    void dealReady().then(() => {
+      if (epoch !== this.epoch) return;
+      later(() => {
+        if (epoch === this.epoch && this.game?.actions.length === n && this.view?.my_turn) void this.act(a);
+      }, ms('bot_turn'));
+    });
   }
 
   /** The manual pace: the computer players' next step, now. */
@@ -434,7 +448,7 @@ class Practice {
     this.reset();
     this.game = n.game;
     this.meta = { ...this.meta, hinted: false };
-    this.deal = `${this.meta.id}/${this.meta.hands}`;
+    this.dealt(`${this.meta.id}/${this.meta.hands}`);
     this.final = null;
     this.stage = 'playing';
     this.persist();

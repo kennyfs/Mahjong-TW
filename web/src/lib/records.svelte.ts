@@ -182,7 +182,29 @@ class Records {
     return this.hands.filter((h) => h.group === group).sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
   }
 
+  /** Records changed and not yet written. */
+  private unsaved = false;
+
+  /** Writes the records soon, when the page is idle: thousands of hands take a while to write, and a hand ends as its
+   *  animation over the whole screen begins. At once when the page is hidden or closed. */
   private persist() {
+    if (this.unsaved) return;
+    this.unsaved = true;
+    if (typeof window === 'undefined') return this.flush();
+    if (!this.listening) {
+      this.listening = true;
+      window.addEventListener('pagehide', () => this.flush());
+      document.addEventListener('visibilitychange', () => { if (document.hidden) this.flush(); });
+    }
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(() => this.flush(), { timeout: 3000 });
+    else setTimeout(() => this.flush(), 1000);
+  }
+
+  private listening = false;
+
+  private flush() {
+    if (!this.unsaved) return;
+    this.unsaved = false;
     if (!save(KEYS.records, this.hands)) {
       // Out of room: drop the oldest half that are not favorites and try again.
       const plain = this.hands.filter((h) => !h.fav);

@@ -88,6 +88,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.kennyfs.mahjong.Action
 import io.github.kennyfs.mahjong.CalloutClock
+import io.github.kennyfs.mahjong.DealClock
 import io.github.kennyfs.mahjong.FxClock
 import io.github.kennyfs.mahjong.HandResult
 import io.github.kennyfs.mahjong.Discard
@@ -296,8 +297,9 @@ private fun TableViewIn(
     comingMelds(view, view.events.takeLast(view.eventCount - host.seen)) else emptyMap()
   // A hand just begun (practice: its id, `deal`): its tiles are shuffled and dealt first (DealFx), once (not again when
   // the table comes back to it). Meanwhile the player's hand is not there, the others' backs neither, nobody's flowers;
-  // then the hand turns face up (the flowers with it). The computer players wait for it (Practice: CalloutClock); a
-  // touch lets it go.
+  // then the hand turns face up (the flowers with it). The computer players wait for it (Practice: DealClock), its
+  // sounds heard too (Sounds.awaitSynced); a touch lets it go. Shown already, or not shown (no animations, no room):
+  // they go on at once.
   var dealing by remember { mutableStateOf<Dealing?>(null) }
   /** The hand's tile width as laid out (dp): where the player's tiles go. */
   val dealHand = remember { floatArrayOf(40f) }
@@ -306,9 +308,13 @@ private fun TableViewIn(
   val dealOn = dealHide || dealing != null
   LaunchedEffect(deal) {
     val d = deal ?: return@LaunchedEffect
-    if (DealShown.last == d) return@LaunchedEffect
+    if (DealShown.last == d) {
+      DealClock.complete(d)
+      return@LaunchedEffect
+    }
     if (!FxClock.enabled()) {
       DealShown.last = d
+      DealClock.complete(d)
       return@LaunchedEffect
     }
     // (The table laid out first: where the tiles go.)
@@ -318,7 +324,10 @@ private fun TableViewIn(
     val table = host.areas["table"]
     val mid = host.areas["center"]
     val hand = host.areas["seat-$me"]
-    if (table == null || mid == null || hand == null) return@LaunchedEffect
+    if (table == null || mid == null || hand == null) {
+      DealClock.complete(d)
+      return@LaunchedEffect
+    }
     val o = table.topLeft
     val px = density.density
     val handW = dealHand[0]
@@ -326,8 +335,7 @@ private fun TableViewIn(
       if (seat == me) Offset(hand.left - o.x + minOf(hand.width / 2, (16 + 8 * handW) * px), hand.bottom - o.y - handW * TILE_RATIO * 0.7f * px)
       else host.areas["seat-$seat"]?.let { it.center - o } ?: Offset.Zero
     }
-    dealing = Dealing(mid.translate(-o.x, -o.y), targets)
-    CalloutClock.shown(dealMs())
+    dealing = Dealing(d, mid.translate(-o.x, -o.y), targets)
   }
   val dl = dealing
   LaunchedEffect(dl, dl?.flipping) {
@@ -335,13 +343,20 @@ private fun TableViewIn(
     val d = Timing.ms("deal_flip")
     val start = withFrameMillis { it }
     while (dl.flipT < d) withFrameMillis { dl.flipT = it - start }
-    if (dealing === dl) dealing = null
+    Sounds.awaitSynced()
+    if (dealing === dl) {
+      dealing = null
+      DealClock.complete(dl.id)
+    }
   }
   // A touch lets the deal go.
   val dealSkips by CalloutClock.skips.collectAsState()
   val dealSkips0 = remember { intArrayOf(dealSkips) }
   LaunchedEffect(dealSkips) {
-    if (dealSkips != dealSkips0[0]) dealing = null
+    if (dealSkips != dealSkips0[0]) {
+      dealing?.let { DealClock.complete(it.id) }
+      dealing = null
+    }
     dealSkips0[0] = dealSkips
   }
   val motion = remember { HandMotion() }
@@ -1739,6 +1754,7 @@ private fun MomentsClock(host: FxHost) {
       host.hold(c.id)
     } else {
       delay(c.ms)
+      Sounds.awaitSynced()
       host.done(c.id)
     }
   }
@@ -1746,6 +1762,7 @@ private fun MomentsClock(host: FxHost) {
   LaunchedEffect(released) {
     val c = host.cur?.takeIf { it.id == released } ?: return@LaunchedEffect
     delay((c.ms * (1 - HOLD_AT)).toLong())
+    Sounds.awaitSynced()
     host.done(c.id)
   }
   val any = host.moments.isNotEmpty()

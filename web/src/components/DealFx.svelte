@@ -71,7 +71,8 @@
       anims.push(el.animate(ps.map((p, i) => ({ transform: tf(p.x, p.y, p.r), opacity: i === 0 ? 0 : 1 })),
         { duration: shuffleMs, easing: 'ease-in-out', fill: 'forwards' }));
     });
-    playSound('shuffle');
+    // The shuffle's sound heard as the tiles turn (to the pause); the knock as they land.
+    const offSounds = [playSound('shuffle', 0, shuffleMs + pause)];
     // 2. Dealt: every tile at once from where it lies to its player, a little apart, fading into their seat.
     timers.push(later(() => {
       els.forEach((el, k) => {
@@ -86,7 +87,7 @@
           { duration: fly, delay: rand(0, SPREAD), easing: 'cubic-bezier(0.45, 0, 0.3, 1)', fill: 'forwards' }));
       });
       // They come together: one knock, as they land, and the players' tiles there.
-      timers.push(later(() => playSound('deal'), fly * 0.8 + SPREAD / 2));
+      timers.push(later(() => offSounds.push(playSound('deal', 0, fly * 0.2 + SPREAD / 2)), fly * 0.8 + SPREAD / 2));
       timers.push(later(() => {
         gone = true;
         for (let seat = 0; seat < 4; seat++) onpacket(seat, owner.filter((o) => o === seat).length);
@@ -94,6 +95,7 @@
       }, fly + SPREAD));
     }, shuffleMs + pause));
     return () => {
+      for (const off of offSounds.splice(0)) off();
       for (const t of timers.splice(0)) t();
       for (const a of anims.splice(0)) a.cancel();
     };

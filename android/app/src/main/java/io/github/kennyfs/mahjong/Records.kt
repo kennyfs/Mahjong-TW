@@ -9,6 +9,8 @@ import kotlinx.serialization.encodeToString
 import java.io.File
 import java.security.SecureRandom
 import java.time.Instant
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 
 // Every finished hand, kept as its record (rules, setup, wall, decisions) with who played which seat, so that it can
 // be replayed and each decision analyzed; battles as groups of their hands. In a file of the app's, newest last. The
@@ -158,16 +160,28 @@ class Records(context: Context) {
 
   fun ofGroup(group: String) = hands.filter { it.group == group }.sortedBy { it.index ?: 0 }
 
+  /** The records to write next (the latest), or null: none waiting. */
+  private val toWrite = AtomicReference<StoredRecords?>(null)
+
+  /** Writes the records, on a thread of its own: thousands of hands take a while to write, and a hand ends as its
+   *  animation over the whole screen begins. Records changed again before the write: the latest written. */
   private fun persist() {
-    val text = EngineJson.encodeToString(StoredRecords(hands, battles))
+    if (toWrite.getAndSet(StoredRecords(hands, battles)) == null) writer.execute(::write)
+  }
+
+  private fun write() {
+    val r = toWrite.getAndSet(null) ?: return
     runCatching {
       val tmp = File(file.parentFile, "records.json.tmp")
-      tmp.writeText(text)
+      tmp.writeText(EngineJson.encodeToString(r))
       tmp.renameTo(file)
     }
   }
 
   companion object {
+    /** The thread the records are written on, one write after another. */
+    private val writer = Executors.newSingleThreadExecutor { Thread(it, "records").apply { isDaemon = true } }
+
     /** Records kept at most: the oldest that are not favorites go first. */
     const val MAX = 3000
 

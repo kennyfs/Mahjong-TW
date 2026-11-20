@@ -111,10 +111,14 @@ class BotPace {
     landAt = 0L
   }
 
-  /** The table's view of `count` events: returns once the table has it and the words and moments it brings are over. */
+  /** The table's view of `count` events: returns once the table has it and the words and moments it brings are over,
+   *  their sounds heard (Sounds.awaitSynced). */
   suspend fun settle(count: Int) {
     CalloutClock.settle(count)
-    if (CalloutClock.done()) shownAt = now()
+    val words = CalloutClock.done()
+    val t = now()
+    Sounds.awaitSynced()
+    if (words || now() - t > 15L) shownAt = now()
   }
 
   /** What `next` added came now: a discard (in flight for `fly`) or an added kong is a tile the others may answer. */
@@ -140,6 +144,9 @@ class BotPace {
   /** A claim taken from the player: after the tile's stay (rob_show; Claims.robPause). */
   suspend fun rob() = delay(maxOf(0L, shownAt + Claims.robPause() - now(), landAt - now()))
 
-  /** The tile just discarded lands: a computer player's turn is over then. */
-  suspend fun land() = delay(maxOf(0L, landAt - now()))
+  /** The tile just discarded lands, and is heard landing: a computer player's turn is over then. */
+  suspend fun land() {
+    delay(maxOf(0L, landAt - now()))
+    Sounds.awaitSynced()
+  }
 }

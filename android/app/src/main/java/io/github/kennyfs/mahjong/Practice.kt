@@ -11,7 +11,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlin.random.Random
-import io.github.kennyfs.mahjong.ui.dealMs
 
 /**
  * Practice: the player (seat 0) against three bots, for one hand, one round (一圈) or a full game (一將). The app is the
@@ -184,10 +183,12 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     run()
   }
 
-  /** A hand begun: the table deals it (its moment), and the computer players wait for it, as for words. */
+  /** A hand begun: the table deals it (DealFx), and the computer players wait until the player's hand has turned
+   *  face up there (DealClock): however long that is, also when the table is not on the screen yet (a new game from
+   *  the settings: dealt when the player comes back to it). */
   private fun dealt(id: String) {
     deal = id
-    if (FxClock.enabled()) CalloutClock.shown(dealMs())
+    if (FxClock.enabled()) DealClock.arm(id) else DealClock.reset()
   }
 
   private suspend fun refresh() {
@@ -206,6 +207,8 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     val a = v.legal[0]
     val n = g.actions.size
     scope.launch {
+      DealClock.awaitReady()
+      if (e != epoch) return@launch
       delay(Timing.ms("bot_turn"))
       if (e == epoch && game?.actions?.size == n && view?.myTurn == true) act(a)
     }
@@ -294,6 +297,8 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
           // a call shows after the tile's stay (bot_claim), no call at once (Claims.othersCall). Each counts once a
           // call's moment or words (碰, 槓, 天聽) are over (a touch anywhere lets them go). (BotPace.)
           val claim = p.phase != "self"
+          DealClock.awaitReady()
+          if (e != epoch || game == null) break
           pace.settle(before)
           if (e != epoch || game == null) break
           val from = android.os.SystemClock.uptimeMillis()

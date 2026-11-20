@@ -10,10 +10,11 @@ call's cue, as its moment starts: steel pan notes, made here.
 (A second set, made from scratch, was dropped on 2026-11-13 at the user's word. real() starts from the random state
 it had after that set's sounds, so its sounds stay as they were.)
 
-Each sound: 44.1 kHz mono WAV into OUT; then each to public/sounds as mp3:
+Each sound: 48 kHz mono WAV into OUT (made at 44.1 kHz, then resampled: a phone's output is 48 kHz, and the app's
+SoundPool plays a sound on the phone's quick path only at its rate); then each to public/sounds as mp3:
 
     uv run --no-project --with numpy,scipy python scripts/make_sounds.py OUT
-    for f in OUT/*.wav; do ffmpeg -i $f -ac 1 -b:a 64k public/sounds/$(basename $f .wav).mp3; done
+    for f in OUT/*.wav; do ffmpeg -i $f -ac 1 -b:a 80k public/sounds/$(basename $f .wav).mp3; done
 """
 import os
 import subprocess
@@ -25,6 +26,8 @@ import numpy as np
 from scipy.signal import butter, find_peaks, resample_poly, sosfilt
 
 SR = 44100
+# The files' rate.
+OUT_SR = 48000
 OUT = sys.argv[1]
 SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sounds-src')
 rng = np.random.default_rng(7)
@@ -67,14 +70,15 @@ PEAK = 0.9
 
 def save(name, x):
     os.makedirs(OUT, exist_ok=True)
+    x = resample_poly(x, OUT_SR // 300, SR // 300)
     x = x / (np.max(np.abs(x)) + 1e-9) * PEAK
     pcm = (np.clip(x, -1, 1) * 32767).astype(np.int16)
     with wave.open(os.path.join(OUT, name + '.wav'), 'wb') as w:
         w.setnchannels(1)
         w.setsampwidth(2)
-        w.setframerate(SR)
+        w.setframerate(OUT_SR)
         w.writeframes(pcm.tobytes())
-    print(name, f'{len(x) / SR:.2f}s')
+    print(name, f'{len(x) / OUT_SR:.2f}s')
 
 
 def burst_env(sec, waves, sparse=0.12):

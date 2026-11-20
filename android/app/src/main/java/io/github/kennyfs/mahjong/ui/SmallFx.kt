@@ -18,7 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -63,27 +63,32 @@ private fun mix(a: Float, b: Float, f: Float) = a + (b - a) * f
 /** The slant of the panel: tan 16°. */
 private const val SKEW = 0.2867f
 
-/** The panel: dark, leaning forward, a line of the moment's color along its leading edge, faint stripes. */
-private fun DrawScope.slantPanel(edge: Color, density: Float) {
+/** The panel: dark, leaning forward, a line of the moment's color along its leading edge, faint stripes. Cached per size. */
+private fun Modifier.slantPanel(edge: Color, density: Float): Modifier = drawWithCache {
   val w = size.width
   val h = size.height
   val dx = SKEW * h / 2
   val shape = Path().apply { moveTo(dx, 0f); lineTo(w + dx, 0f); lineTo(w - dx, h); lineTo(-dx, h); close() }
-  translate(0f, 5 * density) { drawPath(shape, Color.Black.copy(alpha = 0.28f)) }
-  drawPath(shape, Brush.horizontalGradient(0f to Color(0xF0060908), 0.55f to Color(0xE6161C19), 1f to Color(0xF0060908), startX = -dx, endX = w + dx))
-  clipPath(shape) {
-    val big = w + h
-    rotate(28f, Offset(w / 2, h / 2)) {
-      var x = -big
-      while (x < w + big) {
-        drawRect(Color.White.copy(alpha = 0.045f), Offset(x + 16 * density, -big), Size(8 * density, h + 2 * big))
-        x += 24 * density
+  val e = 4 * density
+  val edgePath = Path().apply { moveTo(dx, 0f); lineTo(dx + e, 0f); lineTo(-dx + e, h); lineTo(-dx, h); close() }
+  val panelBrush = Brush.horizontalGradient(0f to Color(0xF0060908), 0.55f to Color(0xE6161C19), 1f to Color(0xF0060908), startX = -dx, endX = w + dx)
+  val borderStroke = Stroke(density)
+  onDrawBehind {
+    translate(0f, 5 * density) { drawPath(shape, Color.Black.copy(alpha = 0.28f)) }
+    drawPath(shape, panelBrush)
+    clipPath(shape) {
+      val big = w + h
+      rotate(28f, Offset(w / 2, h / 2)) {
+        var x = -big
+        while (x < w + big) {
+          drawRect(Color.White.copy(alpha = 0.045f), Offset(x + 16 * density, -big), Size(8 * density, h + 2 * big))
+          x += 24 * density
+        }
       }
+      drawPath(edgePath, edge)
     }
-    val e = 4 * density
-    drawPath(Path().apply { moveTo(dx, 0f); lineTo(dx + e, 0f); lineTo(-dx + e, h); lineTo(-dx, h); close() }, edge)
+    drawPath(shape, Color.White.copy(alpha = 0.07f), style = borderStroke)
   }
-  drawPath(shape, Color.White.copy(alpha = 0.07f), style = Stroke(density))
 }
 
 /**
@@ -169,7 +174,7 @@ fun SmallFx(m: Moment, host: FxHost, origin: Offset) {
     }.padding(room),
   ) {
     // (The panel leans out of its box: room for that as it fades.)
-    Box(Modifier.matchParentSize().roomyLayer((tw * 0.6f).dp) { alpha = deco() }.drawBehind { slantPanel(look.edge, density) })
+    Box(Modifier.matchParentSize().roomyLayer((tw * 0.6f).dp) { alpha = deco() }.slantPanel(look.edge, density))
     Row(Modifier.padding(start = (fs * (chars * 1.04f + 0.68f) * 0.78f + tw * 0.25f).dp, top = (tw * 0.34f).dp, end = (tw * 0.75f).dp, bottom = (tw * 0.34f).dp)) {
       Row(
         Modifier.fxAnchor { if (row?.center != it.center || row?.width != it.width) row = it }.graphicsLayer {

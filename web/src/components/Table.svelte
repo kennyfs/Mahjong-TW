@@ -42,7 +42,7 @@
 <script lang="ts">
   import { tick, untrack, type Snippet } from 'svelte';
   import { fade } from 'svelte/transition';
-  import { callMs, flowerMs, calloutShown, calloutsSkipped } from '../lib/callouts';
+  import { callMs, flowerMs, calloutShown, calloutsSkipped, dealComplete } from '../lib/callouts';
   import { t } from '../lib/i18n.svelte';
   import {
     DRAWN_GAP, ROW_GAP, fitMelds, fitShown, fitShownRow, meldLines, myMeldsHeight, OPP_LINES, runLines, SHOWN_RIVER, SHOWN_RIVER_MIN, shownHeight, tableSizes, tallTopRoom, type TableSizes,
@@ -52,7 +52,7 @@
   import { groupIndices, parseTiles, sortTiles, taiName, windMark, windName, without, type Tile as T } from '../lib/tiles';
   import type { Action, GameEvent, View } from '../lib/types';
   import { dealsShown, movesShown, resultTap, setFx } from '../lib/fx.svelte';
-  import { cueOf, playSound } from '../lib/sound';
+  import { awaitSoundSynced, cueOf, playSound } from '../lib/sound';
   import { later } from '../lib/clock';
   import CallFx from './CallFx.svelte';
   import SadFx from './SadFx.svelte';
@@ -430,13 +430,13 @@
       if (c.kind === 'call') {
         const p = c.parts;
         const cue = cueOf(c.type);
-        const offs = [playSound(c.type === 'chi' || c.type === 'pon' ? 'call' : 'kong', p ? p.in + 0.82 * p.drop : 0)];
-        if (cue) offs.push(playSound(cue));
-        if (p && c.dst) offs.push(playSound('discard', p.in + p.drop + p.hold + p.out));
+        const offs = [playSound(c.type === 'chi' || c.type === 'pon' ? 'call' : 'kong', p ? p.in + 0.82 * p.drop : 0, c.ms)];
+        if (cue) offs.push(playSound(cue, 0, c.ms));
+        if (p && c.dst) offs.push(playSound('discard', p.in + p.drop + p.hold + p.out, c.ms));
         return () => offs.forEach((f) => f());
       }
-      if (c.kind === 'declare') return playSound('declare');
-      if (c.id === jingleAt) return playSound(jingle());
+      if (c.kind === 'declare') return playSound('declare', 0, c.ms);
+      if (c.id === jingleAt) return playSound(jingle(), 0, c.ms);
     });
   });
   // A hand's end: one sound as the hands are shown (`revealed`), by what it is to the player: their own win; another's
@@ -458,7 +458,10 @@
   });
   function momentDone(id: number) {
     if (moments[0]?.id !== id) return;
-    moments = moments.slice(1);
+    void awaitSoundSynced().then(() => {
+      if (moments[0]?.id !== id) return;
+      moments = moments.slice(1);
+    });
   }
   // A hand's result over the whole screen (a win, a draw; not in a review, which has its own steps) stops where the
   // light has run over the hand, its plaque and tiles still (what turns and runs behind them goes on), till a tap:
@@ -502,18 +505,30 @@
     const d = deal;
     if (!d || W === 0 || !tableEl) return;
     untrack(() => {
-      if (dealsShown.last === d) return;
+      if (dealsShown.last === d) {
+        dealComplete(d);
+        return;
+      }
       dealsShown.last = d;
-      if (!movesShown()) return;
+      if (!movesShown()) {
+        dealComplete(d);
+        return;
+      }
       void tick().then(() => startDeal(d));
     });
   });
   function startDeal(id: string) {
-    if (!tableEl) return;
+    if (!tableEl) {
+      dealComplete(id);
+      return;
+    }
     const t0 = tableEl.getBoundingClientRect();
     const rel = (r: DOMRect) => ({ x: r.left - t0.left + r.width / 2, y: r.top - t0.top + r.height / 2, w: r.width, h: r.height });
     const c = tableEl.querySelector('.center')?.getBoundingClientRect();
-    if (!c) return;
+    if (!c) {
+      dealComplete(id);
+      return;
+    }
     const targets = [0, 1, 2, 3].map((seat) => {
       if (seat === me) {
         const r = tableEl!.querySelector('.me')!.getBoundingClientRect();
@@ -524,8 +539,6 @@
     });
     dealGeo = { center: rel(c), targets };
     dealing = { id, n: [0, 0, 0, 0], flip: false };
-    const total = ms('deal_shuffle') + ms('deal_pause') + ms('deal_fly') + 90 + ms('deal_flip');
-    calloutShown(total);
   }
   function dealPacket(seat: number, n: number) {
     if (dealing) dealing.n[seat] += n;
@@ -533,20 +546,27 @@
   /** The tiles are dealt: the player's turn face up, one after another from the left. */
   function dealDone() {
     if (!dealing) return;
+    const id = dealing.id;
     dealing.flip = true;
     void tick().then(() => {
       const tiles = [...(tableEl?.querySelectorAll<HTMLElement>('.me [data-tile]') ?? [])];
       const d = ms('deal_flip');
       tiles.forEach((el, i) => el.animate([{ transform: 'perspective(400px) rotateY(90deg)' }, { transform: 'none' }],
         { duration: d * 0.5, delay: (i / Math.max(1, tiles.length)) * d * 0.5, easing: 'ease-out', fill: 'backwards' }));
-      dealTimer = later(endDeal, d);
+      dealTimer = later(() => {
+        void awaitSoundSynced().then(() => {
+          if (dealing?.id === id) endDeal();
+        });
+      }, d);
     });
   }
   function endDeal() {
+    const id = dealing?.id;
     dealTimer?.();
     dealTimer = undefined;
     dealing = null;
     dealGeo = null;
+    if (id) dealComplete(id);
   }
 
   // ---- The player's discard: from where it stood in the hand to its place in the river; and the hand closing the
