@@ -97,11 +97,6 @@ fun ExplainDialog(e: Explanation, onTips: () -> Unit, onDismiss: () -> Unit) {
             )
           }
         }
-        Text(
-          stringResource(R.string.explain_terms_hint),
-          style = MaterialTheme.typography.bodySmall,
-          color = cs.onSurfaceVariant.copy(alpha = 0.85f),
-        )
       }
     },
     confirmButton = { FilledTonalButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },

@@ -826,7 +826,6 @@
   <string name="explain_you">你</string>
   <string name="explain_better">建議</string>
   <string name="explain_eff_choice">牌效率</string>
-  <string name="explain_terms_hint">點選有底線的術語可查看定義。</string>
   <string-array name="explain_steps"><item>已經聽牌</item><item>一向聽</item><item>兩向聽</item><item>三向聽</item><item>四向聽</item><item>五向聽</item><item>六向聽</item><item>七向聽</item></string-array>
   <string-array name="explain_seats"><item>下家</item><item>對家</item><item>上家</item></string-array>
   <string name="explain_rule">打牌原則</string>
@@ -916,7 +915,7 @@
   <string name="explain_wait_tai">打%1$s胡了比較大（%2$d 台對 %3$d 台）。</string>
   <string name="explain_wait_other">神經網路比較喜歡打%1$s：之後比較好換成更好的聽，或聽的牌比較容易被打出來。</string>
   <string name="explain_t_shape">細微的差別</string>
-  <string name="explain_shape">打%1$s和%2$s進張差不多（%3$d 對 %4$d 張），神經網路比較喜歡%1$s；差在之後的變化，不容易用一句話說清楚，不必太在意。</string>
+  <string name="explain_shape">打%1$s和%2$s進張差不多（%3$d 對 %4$d 張），神經網路比較喜歡%1$s；差在之後的變化，不必太在意。</string>
   <string name="tips_title">打牌要訣</string>
   <string name="tips_row">對手聽了沒、什麼時候該退、哪張牌比較安全：從二十萬局自我對戰統計出來。</string>
   <string name="tips_river_title">牌河的記號</string>
@@ -938,13 +937,13 @@
   <string name="tips_row_honor">字牌</string>
   <string name="tips_half_note">四五六只有一邊是筋（半筋）時%1$s。</string>
   <string name="tips_source">數字來自內建的神經網路自我對戰二十萬局（簡單2、見花見台）；其他規則大致相同。</string>
-  <string name="tips_more">在回顧裡，有損失的決定（或你比牌效率打得好的地方）都可以按「解說」，看那一手的道理。</string>
+  <string name="tips_more">回顧裡有損失的決定（或比牌效率打得好的地方）可以按「解說」。</string>
   <string name="explain_signs">%1$s%2$s。</string>
   <string name="explain_list_sep">、</string>
   <string name="explain_t_eff">牌效率</string>
   <string name="explain_eff_steps">打%1$s會離聽牌多一步（%2$s → %3$s）；打%4$s不會。</string>
   <string name="explain_eff_more">打%1$s之後有 %2$d 張進張，打%3$s只有 %4$d 張。</string>
-  <string name="explain_rule_eff">先保持向聽數不變，再挑進張（還沒現身、摸到就能往前推進的牌）最多的打；進張一樣時先打字牌、么九。</string>
+  <string name="explain_rule_eff">先保持向聽數不變，再挑進張最多的打；進張一樣時先打字牌、么九。</string>
   <string name="explain_t_slow">慢一步換好牌</string>
   <string name="explain_slow">打%1$s比較快（%2$s），但神經網路寧可打%3$s慢一步（%4$s）：留下的牌胡了比較大，或之後比較好湊。</string>
   <string name="tips_wall_head">牌牆剩</string>
@@ -954,13 +953,12 @@
   <string name="explain_signs_less">從他打過的牌來看，神經網路覺得他還沒那麼快聽牌。</string>
   <string name="explain_wait_safer">兩張打完都聽牌，打%1$s比較安全。</string>
   <string name="explain_wait_easier">打%1$s之後的聽牌比較容易胡：聽的牌還在牌牆裡的比較多，或別人比較會打出來。</string>
-  <string name="explain_shape_big">打%1$s和%2$s進張差不多（%3$d 對 %4$d 張），但神經網路明顯比較喜歡%1$s：差在之後的變化，例如哪些搭子比較好進張、留下的牌安不安全，不容易用一句話說清楚。</string>
+  <string name="explain_shape_big">打%1$s和%2$s進張差不多（%3$d 對 %4$d 張），但神經網路明顯比較喜歡%1$s：差在之後的變化，例如哪些搭子比較好進張、留下的牌安不安全。</string>
   <string name="explain_sign_discards_one">打了 1 張</string>
   <string name="explain_sign_melds_one">副露 1 組</string>
   <!-- Beginner glossary (術語表), topologically ordered so earlier items never depend on later ones. -->
   <string name="glossary_title">術語表</string>
-  <string name="glossary_row">解說和打牌要訣用到的詞，從牌牆、搭子到向聽、筋牌。</string>
-  <string name="glossary_intro">由淺到深排列：每一條只用到上面已經說明過的詞；點有底線的詞可以跳過去看。</string>
+  <string name="glossary_row">從牌牆、搭子到向聽、筋牌</string>
   <string name="glossary_open">查看術語表</string>
   <string name="glossary_t_wall">牌牆</string>
   <string name="glossary_d_wall">洗好、疊在桌上還沒被摸走的牌。大家照順序從這裡摸牌；「牌牆剩 N 張」就是還能摸的張數。</string>

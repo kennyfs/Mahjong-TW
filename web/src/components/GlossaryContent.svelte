@@ -28,7 +28,6 @@
 </script>
 
 <div class="glossary">
-  <p class="intro body-medium">{t('glossary_intro')}</p>
   <ol class="list">
     {#each GLOSSARY as entry, idx (entry.id)}
       <li bind:this={refs[entry.id]} class="item" class:focus={activeId === entry.id}>
@@ -50,7 +49,6 @@
 
 <style>
   .glossary { display: flex; flex-direction: column; gap: 12px; }
-  .intro { margin: 0; color: var(--on-surface-variant); }
   .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   .item { padding: 10px 12px; border-radius: 12px; background: var(--surface-container-low); border: 1px solid transparent;
     display: flex; flex-direction: column; gap: 4px; transition: background-color 220ms ease, border-color 220ms ease; }

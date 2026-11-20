@@ -39,7 +39,6 @@
     {#if e.rule}
       <div class="rule"><span class="label-large">{t('explain_rule')}</span><p class="body-medium">{@render linked(e.rule)}</p></div>
     {/if}
-    <p class="hint body-small">{t('explain_terms_hint')}</p>
   </div>
   {#snippet actions()}
     <button class="btn text" onclick={ontips}>{t('tips_title')}</button>
@@ -66,7 +65,6 @@
   .signs { padding: 8px 12px; border-radius: 12px; background: var(--surface-container-highest); }
   .rule { padding: 10px 12px; border-radius: 12px; background: var(--secondary-container); color: var(--on-secondary-container);
     display: flex; flex-direction: column; gap: 4px; }
-  .hint { color: var(--on-surface-variant); opacity: 0.85; }
   .ref { border: none; background: none; padding: 0; font: inherit; color: var(--primary);
     text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .rule .ref { color: var(--on-secondary-container); }

@@ -816,7 +816,6 @@
   <string name="explain_you">You</string>
   <string name="explain_better">Better</string>
   <string name="explain_eff_choice">Tile efficiency</string>
-  <string name="explain_terms_hint">Tap an underlined term to see its definition.</string>
   <string-array name="explain_steps"><item>ready</item><item>1 away</item><item>2 away</item><item>3 away</item><item>4 away</item><item>5 away</item><item>6 away</item><item>7 away</item></string-array>
   <string-array name="explain_seats"><item>The player on your right</item><item>The player across</item><item>The player on your left</item></string-array>
   <string name="explain_rule">Rule of thumb</string>
@@ -906,7 +905,7 @@
   <string name="explain_wait_tai">Throwing %1$s wins bigger (%2$d tai against %3$d).</string>
   <string name="explain_wait_other">The neural network prefers throwing %1$s: a better wait comes more easily later, or others throw the winning tile more readily.</string>
   <string name="explain_t_shape">A fine difference</string>
-  <string name="explain_shape">%1$s and %2$s keep about as many improving tiles (%3$d against %4$d); the neural network prefers %1$s for how the hand can develop, which is hard to put in a sentence: no need to dwell on it.</string>
+  <string name="explain_shape">%1$s and %2$s keep about as many improving tiles (%3$d against %4$d); the neural network prefers %1$s for how the hand can develop: no need to dwell on it.</string>
   <string name="tips_title">Table tips</string>
   <string name="tips_row">Is an opponent ready, when to fall back, which tile is safer: from 200,000 hands of self-play.</string>
   <string name="tips_river_title">The river\'s marks</string>
@@ -928,13 +927,13 @@
   <string name="tips_row_honor">Honors</string>
   <string name="tips_half_note">A 4 to 6 with suji on one side only (half-suji): %1$s.</string>
   <string name="tips_source">From 200,000 hands of the built-in neural network playing itself (Simple 2, Every flower); other rules are much the same.</string>
-  <string name="tips_more">In a review, tap Explain at a decision that lost points (or beat tile efficiency) for the reason in that move.</string>
+  <string name="tips_more">In a review, a decision that lost points (or beat tile efficiency) has an Explain button.</string>
   <string name="explain_signs">%1$s: %2$s.</string>
   <string name="explain_list_sep">", "</string>
   <string name="explain_t_eff">Tile efficiency</string>
   <string name="explain_eff_steps">Throwing %1$s puts you a step further from ready (%2$s → %3$s); %4$s does not.</string>
   <string name="explain_eff_more">After throwing %1$s, %2$d improving tiles move you forward; after %3$s only %4$d.</string>
-  <string name="explain_rule_eff">Keep your distance from ready first, then keep the most improving tiles (unseen tiles that move you forward); on a tie throw honors and terminals first.</string>
+  <string name="explain_rule_eff">Keep your distance from ready first, then keep the most improving tiles; on a tie throw honors and terminals first.</string>
   <string name="explain_t_slow">A step back for a better hand</string>
   <string name="explain_slow">%1$s is faster (%2$s), but the neural network would rather throw %3$s and be a step slower (%4$s): what stays wins bigger or comes together more easily.</string>
   <string name="tips_wall_head">Tiles left</string>
@@ -944,13 +943,12 @@
   <string name="explain_signs_less">" From what they have thrown, the neural network thinks they are less likely ready than that."</string>
   <string name="explain_wait_safer">Both leave you ready; %1$s is the safer throw.</string>
   <string name="explain_wait_easier">The wait after throwing %1$s wins more often: more of its tiles are still in the wall, or others throw them more readily.</string>
-  <string name="explain_shape_big">%1$s and %2$s keep about as many improving tiles (%3$d against %4$d), but the neural network clearly prefers %1$s: the difference is in how the hand develops (which partial sets fill more easily, how safe the tiles kept are), hard to put in a sentence.</string>
+  <string name="explain_shape_big">%1$s and %2$s keep about as many improving tiles (%3$d against %4$d), but the neural network clearly prefers %1$s: the difference is in how the hand develops (which partial sets fill more easily, how safe the tiles kept are).</string>
   <string name="explain_sign_discards_one">1 discard</string>
   <string name="explain_sign_melds_one">1 meld</string>
   <!-- Beginner glossary (術語表), topologically ordered so earlier items never depend on later ones. -->
   <string name="glossary_title">Glossary</string>
-  <string name="glossary_row">The words the explanations and tips use, from the wall and partial sets to shanten and suji.</string>
-  <string name="glossary_intro">From the basics up: each entry uses only words explained above it; tap an underlined word to go to it.</string>
+  <string name="glossary_row">From the wall and partial sets to shanten and suji</string>
   <string name="glossary_open">Open glossary</string>
   <string name="glossary_t_wall">Wall</string>
   <string name="glossary_d_wall">The shuffled tiles on the table that nobody has drawn yet. The players draw from it in turn; \"N tiles left\" counts what can still be drawn.</string>

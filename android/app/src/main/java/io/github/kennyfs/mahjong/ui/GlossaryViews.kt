@@ -118,13 +118,13 @@ private fun GlossaryList(focusId: String?, modifier: Modifier = Modifier, conten
     activeId = id
     val idx = Glossary.INDEX_BY_ID[id] ?: return
     // +1 accounts for the intro header item at index 0.
-    scope.launch { listState.animateScrollToItem((idx + 1).coerceAtLeast(0)) }
+    scope.launch { listState.animateScrollToItem(idx.coerceAtLeast(0)) }
   }
 
   LaunchedEffect(focusId) {
     if (focusId != null) {
       val idx = Glossary.INDEX_BY_ID[focusId] ?: return@LaunchedEffect
-      listState.scrollToItem((idx + 1).coerceAtLeast(0))
+      listState.scrollToItem(idx.coerceAtLeast(0))
     }
   }
 
@@ -134,14 +134,6 @@ private fun GlossaryList(focusId: String?, modifier: Modifier = Modifier, conten
     contentPadding = contentPadding,
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    item(key = "intro") {
-      Text(
-        stringResource(R.string.glossary_intro),
-        style = MaterialTheme.typography.bodyMedium,
-        color = cs.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 4.dp),
-      )
-    }
     itemsIndexed(Glossary.ENTRIES, key = { _, e -> e.id }) { idx, entry ->
       val focused = activeId == entry.id
       val bg = if (focused) cs.primaryContainer else cs.surfaceContainerLow
