@@ -399,6 +399,17 @@
 <!-- The step, the choice made there, and what the review says of it. -->
 {#snippet info()}
   <div class="info body-medium">
+    <!-- The buttons at the top right, the lines beside them narrower: no line made taller by them (the room is fixed). -->
+    {#if (step >= last && n > 0 && !(step >= n && showResult)) || explanation}
+      <span class="where-actions">
+        {#if explanation}
+          <button class="btn tonal to-result" onclick={() => (explaining = true)}>{t('explain_button')}</button>
+        {/if}
+        {#if step >= last && n > 0 && !(step >= n && showResult)}
+          <button class="btn tonal to-result" onclick={openResult}>{t('replay_result')}</button>
+        {/if}
+      </span>
+    {/if}
     <div class="where">
       <span class="label-large">{step >= n ? t('replay_over') : t('replay_step', stepNumber, stopList.length)}</span>
       {#if now}<span class="now"><span class="dim">{now.label}</span> <b>{pts(now.value)}</b></span>{/if}
@@ -406,16 +417,6 @@
         <span class="decide">{deciding.seat === rec.me ? t('replay_you_chose', actionText(deciding.action)) : t('replay_seat_chose', names[deciding.seat], actionText(deciding.action))}{decidingNote ? t('paren', decidingNote) : ''}</span>
       {:else if step >= n && outcome}
         <span class="decide">{outcome}</span>
-      {/if}
-      {#if (step >= last && n > 0 && !(step >= n && showResult)) || explanation}
-        <span class="where-actions">
-          {#if explanation}
-            <button class="btn tonal to-result" onclick={() => (explaining = true)}>{t('explain_button')}</button>
-          {/if}
-          {#if step >= last && n > 0 && !(step >= n && showResult)}
-            <button class="btn tonal to-result" onclick={openResult}>{t('replay_result')}</button>
-          {/if}
-        </span>
       {/if}
     </div>
     {#if mine && key && mine.analysis.best !== undefined && mine.played >= 0}
@@ -616,10 +617,11 @@
   .count.some { color: var(--bad); }
   /* One height, the room of four lines (scrolled in the rare step with more): the table above stays as it is from step
      to step. */
-  .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; height: 6.6em; overflow-y: auto; }
+  .info { display: block; min-width: 0; height: 6.6em; overflow-y: auto; }
+  .info > :not(.where-actions) + * { margin-top: 2px; }
   .side .info { height: auto; min-height: 40px; overflow-y: visible; }
   .where { display: flex; flex-wrap: wrap; gap: 0 12px; align-items: baseline; }
-  .where-actions { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; }
+  .where-actions { float: right; margin-left: 8px; display: inline-flex; gap: 6px; align-items: center; }
   .decide { color: var(--on-surface-variant); }
   .to-result { align-self: center; min-height: 32px; padding: 0 12px; }
   .verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }

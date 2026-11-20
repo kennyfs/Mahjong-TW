@@ -62,6 +62,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,6 +71,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -451,69 +453,77 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     // Under the table the words keep one height, the room of four lines (at the text's size; scrolled in the rare step
     // with more), so that the table (and the step buttons under them) stays as it is from step to step.
     val fontScale = LocalDensity.current.fontScale
+    // The buttons (解說, 看結果) at the top right, over the room of the two lines beside them, which are narrower by
+    // their width: no line made taller by them.
+    var buttonsW by remember { mutableIntStateOf(0) }
+    val beside = Modifier.padding(end = with(LocalDensity.current) { if (buttonsW > 0) buttonsW.toDp() + 8.dp else 0.dp })
     val info = @Composable {
-      Column(if (side) Modifier.fillMaxWidth().heightIn(min = 40.dp)
-        else Modifier.fillMaxWidth().height((104f * fontScale).dp.coerceIn(98.dp, 148.dp)).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-            Text(if (step >= n) stringResource(R.string.replay_over) else stringResource(R.string.replay_step, stepNumber, stopList.size),
-              style = MaterialTheme.typography.labelLarge, modifier = Modifier.testTag("replay_where"))
-            // The player's expected result at this step, as the review knows it: at a decision its best action's,
-            // after it the action played's (until the next decision), before the first the first decision's; at the
-            // end the result.
-            if (r != null && hasNet) {
-              val before = r.decisions.lastOrNull { it.step < step }
-              val value = when {
-                step >= n -> r.result
-                mine != null -> mine.analysis.value ?: 0.0
-                before == null -> r.firstValue ?: 0.0
-                else -> before.analysis.actions.getOrNull(before.played)?.q ?: before.analysis.value ?: 0.0
+      Box(if (side) Modifier.fillMaxWidth().heightIn(min = 40.dp)
+        else Modifier.fillMaxWidth().height((104f * fontScale).dp.coerceIn(98.dp, 148.dp)).verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+          Row(beside, verticalAlignment = Alignment.CenterVertically) {
+            FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+              Text(if (step >= n) stringResource(R.string.replay_over) else stringResource(R.string.replay_step, stepNumber, stopList.size),
+                style = MaterialTheme.typography.labelLarge, modifier = Modifier.testTag("replay_where"))
+              // The player's expected result at this step, as the review knows it: at a decision its best action's,
+              // after it the action played's (until the next decision), before the first the first decision's; at the
+              // end the result.
+              if (r != null && hasNet) {
+                val before = r.decisions.lastOrNull { it.step < step }
+                val value = when {
+                  step >= n -> r.result
+                  mine != null -> mine.analysis.value ?: 0.0
+                  before == null -> r.firstValue ?: 0.0
+                  else -> before.analysis.actions.getOrNull(before.played)?.q ?: before.analysis.value ?: 0.0
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("replay_now")) {
+                  Text(stringResource(if (step >= n) R.string.review_result else R.string.review_now), style = MaterialTheme.typography.bodyMedium,
+                    color = cs.onSurfaceVariant)
+                  Text(pts(value), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                }
               }
-              Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("replay_now")) {
-                Text(stringResource(if (step >= n) R.string.review_result else R.string.review_now), style = MaterialTheme.typography.bodyMedium,
-                  color = cs.onSurfaceVariant)
-                Text(pts(value), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-              }
-            }
-            if (deciding != null) Text(
-              (if (deciding.first == rec.me) stringResource(R.string.replay_you_chose, actionText(res, deciding.second))
-              else stringResource(R.string.replay_seat_chose, names[deciding.first], actionText(res, deciding.second))) +
-                if (decidingNote.isNotEmpty()) Words.paren(decidingNote) else "",
-              style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.testTag("replay_choice"),
-            ) else if (step >= n && outcome.isNotEmpty()) Text(outcome, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
-              modifier = Modifier.testTag("replay_choice"))
-          }
-          Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (explanation != null) FilledTonalButton(
-              onClick = { explaining = true }, modifier = Modifier.testTag("replay_explain").heightIn(min = 34.dp), contentPadding = PaddingValues(horizontal = 12.dp),
-            ) { Text(stringResource(R.string.explain_button)) }
-            if (step >= last && n > 0 && !(step >= n && showResult)) FilledTonalButton(
-              onClick = ::openResult, modifier = Modifier.testTag("replay_result").heightIn(min = 34.dp), contentPadding = PaddingValues(horizontal = 12.dp),
-            ) { Text(stringResource(R.string.replay_result)) }
-          }
-        }
-        val best = mine?.analysis?.best
-        if (mine != null && key != null && best != null && mine.played >= 0) {
-          FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp),
-            itemVerticalAlignment = Alignment.CenterVertically) {
-            GradeBadge(if (mine.played == best || key.loss < EQUAL) 0 else key.grade, verdictWord(mine.played == best, key.loss, key.grade),
-              Modifier.testTag("replay_grade"))
-            if (key.loss >= EQUAL) {
-              Text(stringResource(R.string.review_loss, pts(key.loss, false)), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-              Text(stringResource(R.string.review_best_was, actionText(res, mine.analysis.actions[best].action)), style = MaterialTheme.typography.bodyMedium)
+              if (deciding != null) Text(
+                (if (deciding.first == rec.me) stringResource(R.string.replay_you_chose, actionText(res, deciding.second))
+                else stringResource(R.string.replay_seat_chose, names[deciding.first], actionText(res, deciding.second))) +
+                  if (decidingNote.isNotEmpty()) Words.paren(decidingNote) else "",
+                style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.testTag("replay_choice"),
+              ) else if (step >= n && outcome.isNotEmpty()) Text(outcome, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
+                modifier = Modifier.testTag("replay_choice"))
             }
           }
-          val reason = if (key.loss >= EQUAL) reasonOf(res, mine.analysis, mine.played) else ""
-          if (reason.isNotEmpty()) Text(reason, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-          key.notable?.let { notable ->
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("replay_notable")) {
-              Text("★", color = Marks.found, style = MaterialTheme.typography.bodySmall)
-              Text((if (key.found) stringResource(R.string.note_found) + Words.colon else "") + notableText(res, mine.analysis, notable),
-                style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+          val best = mine?.analysis?.best
+          if (mine != null && key != null && best != null && mine.played >= 0) {
+            FlowRow(beside, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp),
+              itemVerticalAlignment = Alignment.CenterVertically) {
+              GradeBadge(if (mine.played == best || key.loss < EQUAL) 0 else key.grade, verdictWord(mine.played == best, key.loss, key.grade),
+                Modifier.testTag("replay_grade"))
+              if (key.loss >= EQUAL) {
+                Text(stringResource(R.string.review_loss, pts(key.loss, false)), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.review_best_was, actionText(res, mine.analysis.actions[best].action)), style = MaterialTheme.typography.bodyMedium)
+              }
+            }
+            val reason = if (key.loss >= EQUAL) reasonOf(res, mine.analysis, mine.played) else ""
+            if (reason.isNotEmpty()) Text(reason, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+            key.notable?.let { notable ->
+              Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("replay_notable")) {
+                Text("★", color = Marks.found, style = MaterialTheme.typography.bodySmall)
+                Text((if (key.found) stringResource(R.string.note_found) + Words.colon else "") + notableText(res, mine.analysis, notable),
+                  style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+              }
             }
           }
         }
+        val toResult = step >= last && n > 0 && !(step >= n && showResult)
+        if (explanation != null || toResult) Row(Modifier.align(Alignment.TopEnd).onSizeChanged { buttonsW = it.width },
+          horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+          if (explanation != null) FilledTonalButton(
+            onClick = { explaining = true }, modifier = Modifier.testTag("replay_explain").heightIn(min = 34.dp), contentPadding = PaddingValues(horizontal = 12.dp),
+          ) { Text(stringResource(R.string.explain_button)) }
+          if (toResult) FilledTonalButton(
+            onClick = ::openResult, modifier = Modifier.testTag("replay_result").heightIn(min = 34.dp), contentPadding = PaddingValues(horizontal = 12.dp),
+          ) { Text(stringResource(R.string.replay_result)) }
+        }
+        else SideEffect { buttonsW = 0 }
       }
     }
 
