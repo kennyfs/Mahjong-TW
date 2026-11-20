@@ -144,9 +144,9 @@ export interface Explanation {
   rule?: string;
 }
 
-/** "約 4 成", "about 40%"; "約 3%"; "不到 1%". */
+/** "約四成", "about 40%"; "約 3%"; "不到 1%". */
 export function chance(p: number): string {
-  if (p >= 0.195) return t('explain_tenths', Math.round(p * 10));
+  if (p >= 0.195) return t('explain_tenths', ta('explain_tenth_words')[Math.round(p * 10)]);
   if (p >= 0.01) return t('explain_about', Math.round(p * 100));
   return t('explain_under_one');
 }

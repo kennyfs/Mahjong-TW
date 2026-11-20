@@ -195,14 +195,14 @@ object Explain {
   /** 已經聽牌, 一向聽, 兩向聽, …; ready, 1 away, …. */
   fun steps(res: Resources, sh: Int): String = res.getStringArray(R.array.explain_steps)[sh.coerceIn(0, 7)]
 
-  /** "約 4 成", "about 40%"; "約 3%"; "不到 1%". */
+  /** "約四成", "about 40%"; "約 3%"; "不到 1%". */
   fun chance(res: Resources, p: Double): String = when {
-    p >= 0.195 -> res.getString(R.string.explain_tenths, (p * 10).roundToInt().toString())
+    p >= 0.195 -> res.getString(R.string.explain_tenths, res.getStringArray(R.array.explain_tenth_words)[(p * 10).roundToInt().coerceIn(0, 10)])
     p >= 0.01 -> res.getString(R.string.explain_about, (p * 100).roundToInt().toString())
     else -> res.getString(R.string.explain_under_one)
   }
 
-  /** Exact percent for deal-in rates: "約 12%", "約 9%", "不到 1%" (avoids jumping to "約 1 成" at 9.5%). */
+  /** Exact percent for deal-in rates: "約 12%", "約 9%", "不到 1%" (avoids jumping to "約一成" at 9.5%). */
   fun percent(res: Resources, p: Double): String =
     if (p >= 0.01) res.getString(R.string.explain_about, (p * 100).roundToInt().toString())
     else res.getString(R.string.explain_under_one)

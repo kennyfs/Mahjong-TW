@@ -827,6 +827,7 @@
   <string-array name="explain_seats"><item>The player on your right</item><item>The player across</item><item>The player on your left</item></string-array>
   <string name="explain_rule">Rule of thumb</string>
   <string name="explain_tenths">about %1$s0%%</string>
+  <string-array name="explain_tenth_words"><item>0</item><item>1</item><item>2</item><item>3</item><item>4</item><item>5</item><item>6</item><item>7</item><item>8</item><item>9</item><item>10</item></string-array>
   <string name="explain_under_one" formatted="false">under 1%</string>
   <string name="explain_sign_discards">%1$d discards</string>
   <string name="explain_sign_melds">%1$d melds</string>

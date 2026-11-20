@@ -836,7 +836,8 @@
   <string-array name="explain_steps"><item>已經聽牌</item><item>一向聽</item><item>兩向聽</item><item>三向聽</item><item>四向聽</item><item>五向聽</item><item>六向聽</item><item>七向聽</item></string-array>
   <string-array name="explain_seats"><item>下家</item><item>對家</item><item>上家</item></string-array>
   <string name="explain_rule">打牌原則</string>
-  <string name="explain_tenths">約 %1$s 成</string>
+  <string name="explain_tenths">約%1$s成</string>
+  <string-array name="explain_tenth_words"><item>零</item><item>一</item><item>二</item><item>三</item><item>四</item><item>五</item><item>六</item><item>七</item><item>八</item><item>九</item><item>十</item></string-array>
   <string name="explain_under_one" formatted="false">不到 1%</string>
   <string name="explain_sign_discards">打了 %1$d 張</string>
   <string name="explain_sign_melds">副露 %1$d 組</string>
@@ -866,7 +867,7 @@
   <string name="explain_rule_safer">進張差不多時，先打對可能聽牌那家比較安全的牌。</string>
   <string name="explain_t_push">不必退</string>
   <string name="explain_push">你%1$s，牌牆還剩 %2$d 張；退一步打%3$s只是讓自己變慢。</string>
-  <string name="explain_rule_push">自己快聽牌時不必急著退：就算對手九成已聽牌，一向聽時神經網路也只有約 2 成會退，聽牌時不到 1 成；牌牆剩不到 10 張才常退。</string>
+  <string name="explain_rule_push">自己快聽牌時不必急著退：就算對手九成已聽牌，一向聽時神經網路也只有約二成會退，聽牌時不到一成；牌牆剩不到 10 張才常退。</string>
   <string name="explain_t_pair">留住對子</string>
   <string name="explain_pair_keep">留著%1$s對子，打%2$s（%3$s）。</string>
   <string name="explain_shape_kanchan">嵌張</string>
@@ -896,7 +897,7 @@
   <string name="explain_t_call_late">後半局少吃碰</string>
   <string name="explain_call_late">牌牆只剩 %1$d 張，別為了快一步%2$s：這時自己胡牌的機會不多，%2$s了放槍的機會卻變大。</string>
   <string name="explain_call_late_same">牌牆只剩 %1$d 張，%2$s了也沒有變快，放槍的機會卻變大。</string>
-  <string name="explain_rule_call_late">會減少向聽數的吃碰，神經網路在牌牆剩 40 張以上大多會吃碰，剩 11–25 張約六成，剩 10 張以內約 2 成。</string>
+  <string name="explain_rule_call_late">會減少向聽數的吃碰，神經網路在牌牆剩 40 張以上大多會吃碰，剩 11–25 張約六成，剩 10 張以內約二成。</string>
   <string name="explain_t_call_closed">門清先別吃碰</string>
   <string name="explain_call_closed">門清、還差 %1$d 步時先別%2$s：%2$s了只快一步，卻%3$s。</string>
   <string name="explain_call_closed_same">門清、還差 %1$d 步時先別%2$s：%2$s了也沒有變快，卻%3$s。</string>
@@ -909,7 +910,7 @@
   <string name="explain_t_pon_honor">字牌能碰就碰</string>
   <string name="explain_pon_honor">%1$s能碰就碰%2$s；就算向聽數不變，碰了胡牌的機會也比較大。</string>
   <string name="explain_pon_tai">：碰了就有一台</string>
-  <string name="explain_rule_pon_honor">一到三向聽時，神經網路碰字牌對子約 3–5 成即使向聽數不變也會碰；會快一步時幾乎一定碰。</string>
+  <string name="explain_rule_pon_honor">一到三向聽時，神經網路碰字牌對子約三到五成即使向聽數不變也會碰；會快一步時幾乎一定碰。</string>
   <string name="explain_t_call_yes">這張該吃碰</string>
   <string name="explain_call_yes">這裡建議%1$s：這樣就變%2$s，比不吃碰快了一步。</string>
   <string name="explain_t_pon_same">碰了牌形更好</string>
