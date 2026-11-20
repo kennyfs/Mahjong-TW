@@ -166,7 +166,7 @@
   <string name="rules_base">Base</string>
   <string name="rules_base_desc">On a win, each losing player pays base + tai; the base is counted in tai.</string>
   <string name="rules_advanced">All settings</string>
-  <string name="rules_advanced_desc">Changed ones are marked; 0 means not counted. Tap ⓘ for what each one means.</string>
+  <string name="rules_advanced_desc">0 means not counted.</string>
   <string name="rules_changed">Changed</string>
   <string name="rules_reset">Reset</string>
   <string name="rules_note">After a rule change, practice starts a new hand.</string>
@@ -203,11 +203,11 @@
   <string name="settings_practice_hints">Show analysis</string>
   <string name="practice_hints">Hints</string>
   <string name="practice_hints_toggle">Show analysis (this hand won\'t count while it\'s on)</string>
-  <string name="practice_hints_text">On your turn, see the analysis as in a review:\n• What each discard, chow, pung or win costs, and how risky it is\n• How likely each opponent is ready (tap it for the tiles they may wait on)\n• Tap a tile for its figures\nOnce on in a hand, it stays on until the hand ends; that hand doesn\'t count in the scores or statistics, and its record is marked Hints.</string>
-  <string name="practice_hints_text_web">On your turn, see the analysis as in a review:\n• What each discard, chow, pung or win costs, and how risky it is\n• How likely each opponent is ready (tap it for the tiles they may wait on)\n• Tap a tile for its figures (on a computer: hover)\n• On a wide computer screen, the full analysis beside the table\nOnce on in a hand, it stays on until the hand ends; that hand doesn\'t count in the scores or statistics, and its record is marked Hints.</string>
+  <string name="practice_hints_text">On your turn, see the analysis as in a review:\n• What each discard, chow, pung or win costs, and how risky it is\n• How likely each opponent is ready\nOnce on in a hand, it stays on until the hand ends; that hand doesn\'t count in the scores or statistics, and its record is marked Hints.</string>
+  <string name="practice_hints_text_web">On your turn, see the analysis as in a review:\n• What each discard, chow, pung or win costs, and how risky it is\n• How likely each opponent is ready\n• On a wide computer screen, the full analysis beside the table\nOnce on in a hand, it stays on until the hand ends; that hand doesn\'t count in the scores or statistics, and its record is marked Hints.</string>
   <string name="result_hints_note">Hints were on: this hand doesn\'t count</string>
   <string name="ready_hint_text">• On your turn, a tile that would make you ready has a small mark.\n• When you are ready, the tiles in your wait are blue.\n• In practice and branches only, never in matches.</string>
-  <string name="ready_hint_text_web">• On your turn, a tile that would make you ready has a small mark (on a computer: hover to see the waits).\n• When you are ready, the tiles in your wait are blue.\n• In practice and branches only, never in matches.</string>
+  <string name="ready_hint_text_web">• On your turn, a tile that would make you ready has a small mark.\n• When you are ready, the tiles in your wait are blue.\n• In practice and branches only, never in matches.</string>
   <string name="speed_slow">Slow</string>
   <string name="speed_normal">Normal</string>
   <string name="speed_fast">Fast</string>
@@ -248,7 +248,7 @@
   <string name="records_practice">Practice</string>
   <string name="records_table">Table</string>
   <string name="records_contest">Duplicate</string>
-  <string name="records_empty">No records yet. Every hand you finish is kept here.</string>
+  <string name="records_empty">No records yet.</string>
   <string name="records_favorites_only">Favorites only</string>
   <string name="records_clear">Clear records</string>
   <string name="records_clear_confirm">Clear every record that isn\'t a favorite?</string>
@@ -282,8 +282,8 @@
   <string name="branch_reshuffle">Reshuffle hidden tiles</string>
   <string name="branch_reshuffle_short">Reshuffle</string>
   <string name="branch_step">Branch move %1$d</string>
-  <string name="branch_your_turn">Your turn: tap a tile, then tap it again to discard, or swipe it up</string>
-  <string name="branch_your_call">Your call: Chow, Pung, Kong or Win to take this tile; Pass to leave it</string>
+  <string name="branch_your_turn">Your turn</string>
+  <string name="branch_your_call">Your call: take this tile?</string>
   <string name="branch_others">The computer is playing…</string>
   <string name="branch_back_note">Back here with Previous: play differently, or press Next to see what happened</string>
   <string name="branch_over">This hand is over</string>
@@ -307,7 +307,7 @@
 
   <!-- Analysis -->
   <string name="analyze_title">Analysis</string>
-  <string name="analysis_source_efficiency">Efficiency: shanten (how many tiles from ready) and useful tiles (unseen tiles that bring the shanten down).</string>
+  <string name="analysis_source_efficiency">Efficiency: shanten and useful tiles.</string>
   <string name="analysis_win">Win</string>
   <string name="analysis_ready">Ready</string>
   <string name="analysis_shanten">%1$d-shanten</string>
@@ -486,7 +486,7 @@
   <string name="review_failed">The network couldn\'t load; efficiency only: %1$s</string>
   <string name="review_panel">Full analysis</string>
   <string name="review_to_analysis">Open in Analysis</string>
-  <string name="review_graph">Expected value over the hand (tap to go to that decision)</string>
+  <string name="review_graph">Expected value over the hand</string>
   <string name="reason_win_less">win %1$s less</string>
   <string name="reason_win_more">win %1$s more</string>
   <string name="reason_deal_more">lose %1$s more to deal-ins</string>
@@ -672,7 +672,7 @@
   <string name="guide_tai_who">Self-draw: all three others pay. A win on a discard: only the discarder pays.</string>
   <string name="guide_tai_dealer">Dealer: when the dealer wins or pays, add %1$s dealer tai, and %2$s more for each hand of the dealer\'s streak (a streak of 1: %3$s tai).</string>
   <string name="guide_switch_tai">Try another:</string>
-  <string name="guide_tai_items">What counts with these rules (tap one for more):</string>
+  <string name="guide_tai_items">What counts with these rules:</string>
   <string name="guide_tai_example">For example, a non-dealer self-draws with only self-draw, %1$s tai: the other two non-dealers pay %2$s tai each, the dealer pays dealer tai too, %3$s tai, and the winner gets %4$s tai in all.</string>
   <string name="guide_tai_menqing">Concealed self-draw: concealed %1$s + self-draw %2$s + concealed self-draw %3$s = %4$s tai.</string>
   <string name="guide_tai_min_none">A hand with no tai can win.</string>

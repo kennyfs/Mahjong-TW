@@ -168,7 +168,7 @@
   <string name="rules_base">底</string>
   <string name="rules_base_desc">胡牌時，每個失分的人扣「底 + 台數」，底以台計。</string>
   <string name="rules_advanced">所有參數</string>
-  <string name="rules_advanced_desc">改了的會標出來；0 表示不算。點 ⓘ 看每一項的說明。</string>
+  <string name="rules_advanced_desc">0 表示不算。</string>
   <string name="rules_changed">已改</string>
   <string name="rules_reset">還原預設</string>
   <string name="rules_note">改了規則之後，練習會從新的一局開始。</string>
@@ -205,11 +205,11 @@
   <string name="settings_practice_hints">顯示分析</string>
   <string name="practice_hints">提示</string>
   <string name="practice_hints_toggle">顯示分析（開著時這一局不計分）</string>
-  <string name="practice_hints_text">輪到你時，先像回顧一樣顯示分析：\n• 每張牌打出去的損失與危險，吃、碰、胡的損失\n• 對手聽牌的機率（點一下看可能聽哪些牌）\n• 點一下牌，看那張的詳細數字\n一局裡只要開過，就會顯示到那局打完；那局不計分、不算進統計，紀錄標「提示」。</string>
-  <string name="practice_hints_text_web">輪到你時，先像回顧一樣顯示分析：\n• 每張牌打出去的損失與危險，吃、碰、胡的損失\n• 對手聽牌的機率（點一下看可能聽哪些牌）\n• 點一下牌，看那張的詳細數字（電腦：滑鼠停在牌上）\n• 電腦螢幕夠寬時，旁邊還有詳細分析\n一局裡只要開過，就會顯示到那局打完；那局不計分、不算進統計，紀錄標「提示」。</string>
+  <string name="practice_hints_text">輪到你時，先像回顧一樣顯示分析：\n• 每張牌打出去的損失與危險，吃、碰、胡的損失\n• 對手聽牌的機率\n一局裡只要開過，就會顯示到那局打完；那局不計分、不算進統計，紀錄標「提示」。</string>
+  <string name="practice_hints_text_web">輪到你時，先像回顧一樣顯示分析：\n• 每張牌打出去的損失與危險，吃、碰、胡的損失\n• 對手聽牌的機率\n• 電腦螢幕夠寬時，旁邊還有詳細分析\n一局裡只要開過，就會顯示到那局打完；那局不計分、不算進統計，紀錄標「提示」。</string>
   <string name="result_hints_note">開了提示：這一局不計分</string>
   <string name="ready_hint_text">• 輪到你時，打出去就能聽牌的牌上方有小記號。\n• 聽牌時，手上跟聽牌有關的牌是藍底。\n• 只在練習和分支裡顯示，對戰不會。</string>
-  <string name="ready_hint_text_web">• 輪到你時，打出去就能聽牌的牌上方有小記號（電腦：滑鼠停在牌上看聽哪些牌）。\n• 聽牌時，手上跟聽牌有關的牌是藍底。\n• 只在練習和分支裡顯示，對戰不會。</string>
+  <string name="ready_hint_text_web">• 輪到你時，打出去就能聽牌的牌上方有小記號。\n• 聽牌時，手上跟聽牌有關的牌是藍底。\n• 只在練習和分支裡顯示，對戰不會。</string>
   <string name="speed_slow">慢</string>
   <string name="speed_normal">中</string>
   <string name="speed_fast">快</string>
@@ -254,7 +254,7 @@
   <string name="records_practice">練習</string>
   <string name="records_table">牌桌</string>
   <string name="records_contest">同牌賽</string>
-  <string name="records_empty">還沒有紀錄。打完一局就會留在這裡。</string>
+  <string name="records_empty">還沒有紀錄。</string>
   <string name="records_favorites_only">只看收藏</string>
   <string name="records_clear">清除紀錄</string>
   <string name="records_clear_confirm">清除所有沒收藏的紀錄？</string>
@@ -289,8 +289,8 @@
   <!-- The same where the title bar has no room for it (the title would be cut). -->
   <string name="branch_reshuffle_short">重洗</string>
   <string name="branch_step">分支第 %1$d 步</string>
-  <string name="branch_your_turn">輪到你：點一下牌再點一次打出，或往上滑</string>
-  <string name="branch_your_call">輪到你：要這張牌就按吃、碰、槓或胡，不要就按過</string>
+  <string name="branch_your_turn">輪到你</string>
+  <string name="branch_your_call">輪到你：要不要這張牌？</string>
   <string name="branch_others">電腦在打…</string>
   <string name="branch_back_note">上一步回到這裡：可以改打，或按下一步照原樣往下看</string>
   <string name="branch_over">這一局打完了</string>
@@ -314,7 +314,7 @@
 
   <!-- Analysis -->
   <string name="analyze_title">分析</string>
-  <string name="analysis_source_efficiency">牌效率：向聽數（離聽牌還差幾張）與進張數（還沒看到、能讓向聽數變少的牌）。</string>
+  <string name="analysis_source_efficiency">牌效率：向聽數與進張數。</string>
   <string name="analysis_win">胡牌</string>
   <string name="analysis_ready">聽牌</string>
   <string name="analysis_shanten">%1$d 向聽</string>
@@ -495,7 +495,7 @@
   <string name="review_failed">神經網路載入失敗，只顯示牌效率：%1$s</string>
   <string name="review_panel">詳細分析</string>
   <string name="review_to_analysis">帶到分析頁</string>
-  <string name="review_graph">期望的變化（點一下跳到那個決定）</string>
+  <string name="review_graph">期望的變化</string>
   <string name="reason_win_less">胡牌期望少 %1$s</string>
   <string name="reason_win_more">胡牌期望多 %1$s</string>
   <string name="reason_deal_more">放槍多失分 %1$s</string>
@@ -682,7 +682,7 @@
   <string name="guide_tai_who">自摸：另外三家都失分。胡別人打的牌：只有放槍的人失分。</string>
   <string name="guide_tai_dealer">莊家：莊家胡牌、或莊家失分時，另外加莊家 %1$s 台；每連莊一次再加 %2$s 台（連一拉一共 %3$s 台）。</string>
   <string name="guide_switch_tai">換換看：</string>
-  <string name="guide_tai_items">這個規則算的台（點一項看說明）：</string>
+  <string name="guide_tai_items">這個規則算的台：</string>
   <string name="guide_tai_example">例：閒家自摸，只有自摸 %1$s 台：另外兩個閒家各扣 %2$s 台，莊家多算莊家台、共扣 %3$s 台，胡牌的人一共得 %4$s 台。</string>
   <string name="guide_tai_menqing">門清又自摸：門清 %1$s＋自摸 %2$s＋不求人 %3$s＝%4$s 台（門清一摸三）。</string>
   <string name="guide_tai_min_none">沒有台也能胡（屁胡）。</string>
