@@ -97,6 +97,13 @@ are such tiles (the fastest discard: 18%).
   `greedy` about 70%: lone number tiles go first (less so under `simple1,none`).
 - **Calls late.** A chow or pung that lowers shanten: the network calls 85–93% with 40+ tiles left, about half with
   11–25, about 20% with 10 or fewer (a shorter hand cannot defend). Closed and three away: chows about 60%.
+- **Calls the network passes on** (a chow or pung, more than 25 tiles left), calling against passing in its own
+  figures: one that leaves the hand as far: P(win) 5 points lower, P(deal in) the same (0.2 points higher); one a step
+  faster: P(deal in) 3 points higher, P(win) the same. Closed and two or more away: as far, P(win) 3.6 lower; a step
+  faster, P(deal in) 1 higher and the concealed hand's tai lost. Fewer tiles in hand cost defense only where the call
+  makes the hand faster (it is then played on); otherwise the cost is the win. With an opponent truly ready, a safe
+  discard was always there (0 of 400,000 decisions without one); the share of safe kinds falls 2 points from no melds
+  to three.
 - **Honor pungs** that do not lower shanten: 35–55% from one to three away (a tai under `see`, one danger tile less).
 - **Wins.** With 40+ tiles left and three or more waits, the network lets a winning discard go for a self-draw
   (all three pay): 40–70% of the time closed, 20–60% with melds; with 26–40 left only with five or more waits;

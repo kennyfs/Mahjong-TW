@@ -238,9 +238,13 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
       if (w <= 25) return out('call-late', 'explain_t_call_late', [t('explain_call_late', w, word)], 'explain_rule_call_late');
       if (closed && sh >= 2) {
         const lose = (values.menqing ?? 0) > 0 ? t('explain_lose_menqing', values.menqing, values.menqing + (values.zimo ?? 0) + (values.menqing_zimo ?? 0)) : t('explain_lose_tiles');
-        return out('call-closed', 'explain_t_call_closed', [t('explain_call_closed', sh, word, lose)], 'explain_rule_call_closed');
+        // (A call that leaves the hand as far: no faster at all.)
+        return out('call-closed', 'explain_t_call_closed', [t(ap.shanten >= sh ? 'explain_call_closed_same' : 'explain_call_closed', sh, word, lose)], 'explain_rule_call_closed');
       }
-      return out('call-no', 'explain_t_call_no', [t('explain_call_no', word, steps(ap.shanten), steps(ab.shanten))]);
+      // No faster: the network's chance of winning drops (about 5 points in its self-play); one step faster but not worth
+      // it: its chance of dealing in rises (about 3) for no more wins (docs/explain.md section 4).
+      return out('call-no', 'explain_t_call_no', [ap.shanten >= ab.shanten ? t('explain_call_no_same', word, steps(ap.shanten))
+        : t('explain_call_no', word, steps(ap.shanten), steps(ab.shanten))]);
     }
     const claimed = pos.claim?.tile ?? ab.action.tile ?? null;
     if (T === 'pass' && B === 'pon' && claimed) {

@@ -881,11 +881,13 @@
   <string name="explain_rule_call_late" formatted="false">A call that brings you closer: the neural network makes it almost always with 40 or more tiles left, about half the time with 11 to 25, about 20% with 10 or fewer.</string>
   <string name="explain_t_call_closed">Stay closed for now</string>
   <string name="explain_call_closed">Closed and %1$d steps away, don\'t %2$s yet: it saves one step but %3$s.</string>
-  <string name="explain_lose_menqing">gives up the concealed hand (%1$d tai concealed, %2$d with a self-draw) and leaves three fewer tiles to defend with</string>
-  <string name="explain_lose_tiles">leaves three fewer tiles in your hand to defend with</string>
+  <string name="explain_call_closed_same">Closed and %1$d steps away, don\'t %2$s yet: it saves nothing and %3$s.</string>
+  <string name="explain_lose_menqing">gives up the concealed hand (%1$d tai concealed, %2$d with a self-draw)</string>
+  <string name="explain_lose_tiles">leaves three fewer tiles in your hand for no more wins</string>
   <string name="explain_rule_call_closed">Concealed and far from ready, call little; one or two away, call when it makes you ready or much faster.</string>
   <string name="explain_t_call_no">Not worth calling</string>
-  <string name="explain_call_no">This %1$s does not pay: %2$s after it, %3$s without, little faster for three fewer tiles in hand.</string>
+  <string name="explain_call_no">This %1$s does not pay: %2$s after it, %3$s without, one step faster; but with three fewer tiles in hand you deal in more often, and win no more often.</string>
+  <string name="explain_call_no_same">This %1$s does not pay: %2$s after it and %2$s without, no faster; with three fewer tiles in hand fewer draws help, and you win less often.</string>
   <string name="explain_t_pon_honor">Pung the honor</string>
   <string name="explain_pon_honor">Pung %1$s%2$s, and it is one dangerous tile less in your hand: worth it even without getting closer.</string>
   <string name="explain_pon_tai">: the pung scores a tai</string>

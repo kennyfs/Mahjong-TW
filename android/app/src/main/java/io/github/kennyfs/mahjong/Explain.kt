@@ -298,9 +298,15 @@ object Explain {
           if (closed && sh >= 2) {
             val mq = values["menqing"] ?: 0
             val lose = if (mq > 0) s(R.string.explain_lose_menqing, mq, mq + (values["zimo"] ?: 0) + (values["menqing_zimo"] ?: 0)) else s(R.string.explain_lose_tiles)
-            return out("call-closed", R.string.explain_t_call_closed, listOf(s(R.string.explain_call_closed, sh, word, lose)), R.string.explain_rule_call_closed)
+            // (A call that leaves the hand as far: no faster at all.)
+            val closedText = if (ap.shanten >= sh) R.string.explain_call_closed_same else R.string.explain_call_closed
+            return out("call-closed", R.string.explain_t_call_closed, listOf(s(closedText, sh, word, lose)), R.string.explain_rule_call_closed)
           }
-          return out("call-no", R.string.explain_t_call_no, listOf(s(R.string.explain_call_no, word, steps(ap.shanten), steps(ab.shanten))))
+          // No faster: the network's chance of winning drops (about 5 points in its self-play); one step faster but not worth
+          // it: its chance of dealing in rises (about 3) for no more wins (docs/explain.md section 4).
+          return out("call-no", R.string.explain_t_call_no, listOf(
+            if (ap.shanten >= ab.shanten) s(R.string.explain_call_no_same, word, steps(ap.shanten))
+            else s(R.string.explain_call_no, word, steps(ap.shanten), steps(ab.shanten))))
         }
         val claimed = pos.claim?.tile ?: ab.action.tile
         if (t == "pass" && bt == "pon" && claimed != null) {
