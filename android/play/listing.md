@@ -125,6 +125,16 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 
 ## What's new (release notes, 500 characters each)
 
+### Next
+
+zh-TW:
+
+電腦不會再在洗牌、發牌完成前就出牌。音效跟畫面更同步：下一個動畫會等上一個的音效播到該播的地方，不會一次疊在一起；Android 的音效也更快出聲。發牌和胡牌的全螢幕動畫更順。回顧時牌桌不再隨下方文字跳動；窄螢幕和大字體下幾處文字不再被擠掉。
+
+en-US:
+
+Computer players no longer discard before the deal is done. Sounds keep in step with the animations: the next one waits for the last one's sound instead of piling up, and on Android sounds come sooner. Smoother deal and full-screen win animations. A review's table no longer jumps with the lines under it, and a few labels fit narrow screens and large text.
+
 ### 1.3.0
 
 zh-TW:
