@@ -13,10 +13,10 @@
   --felt: #1f6f54; --slot: #27795c; --target: #2e8665; --on-felt: #eef7f2; --on-felt-dim: #b9d9c8; --highlight: #f0c058; --mark: #1a73e8;
   --felt-good: #a8e6b0; --felt-bad: #ffb4ab; --action: #eef7f2; --on-action: #1f6f54;
   /* The tiles: an ivory face, a blue back (it shows on the felt), the selected one warm. */
+  --drawn-line: rgba(40, 48, 56, 0.72);
   --tile-face: #fdfbf3; --tile-edge: #cfc8b4; --tile-back: #28559b; --tile-back-light: #3b6db5; --tile-selected: #fff3c4;
   --tile-mark: #e3f2fd; --tile-wait: #b9d8fb; --tile-wait-edge: #7fa9d8;
   /* A discard that was the tile just drawn (摸切): a greyer face. */
-  --tile-drawn: #d6d0bf;
   /* An analysis' levels: danger and grades (1 mild, 3 severe), and a good find. */
   --danger-1: #f2c94c; --danger-2: #f2884a; --danger-3: #e5484d; --on-danger: #2b1700; --found: #2f9e6b;
   color-scheme: light;
@@ -34,7 +34,6 @@
   --action: #e3f0e9; --on-action: #164f3d;
   --tile-face: #f3efe3; --tile-edge: #b9b29c; --tile-back: #234b88; --tile-back-light: #315ea3; --tile-selected: #ffe9a8;
   --tile-mark: #d4e7fa; --tile-wait: #a9cbf2; --tile-wait-edge: #6f98c8;
-  --tile-drawn: #c6bfab;
   color-scheme: dark;
 }
 /* The minimal colors: the felt is the page; only in its dark theme are the cards dark. */

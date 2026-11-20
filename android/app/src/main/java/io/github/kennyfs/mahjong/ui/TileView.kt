@@ -9,6 +9,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -41,11 +42,12 @@ private object Faces {
  * under it. `w` wide, w * TILE_RATIO high. The web page's Tile.svelte, drawn the same way (a 60 x 87 box).
  * `danger` (1 to 3): a band along its foot, how likely a discard of it is to deal in (an analysis' figure).
  * `wait`: one of the tiles a ready hand waits with (聽的相關牌組, 聽牌提示): a blue face.
+ * `framed`: a dashed line round the face (a draw-discard, 摸切, in the river), at full strength on a faded tile.
  */
 @Composable
 fun TileView(
   tile: String?, w: Dp, modifier: Modifier = Modifier, selected: Boolean = false, dim: Boolean = false, glow: Boolean = false,
-  mark: Boolean = false, danger: Int = 0, wait: Boolean = false, tsumogiri: Boolean = false,
+  mark: Boolean = false, danger: Int = 0, wait: Boolean = false, framed: Boolean = false,
 ) {
   val c = LocalTable.current
   val label = tile?.let(Tiles::name)
@@ -62,7 +64,6 @@ fun TileView(
         selected -> c.tileSelected
         mark -> c.tileMark
         wait -> c.tileWait
-        tsumogiri -> c.tileDrawn
         else -> c.tileFace
       }
       drawRoundRect(face, Offset(0.6f, 0.6f), Size(58.8f, 79.4f), CornerRadius(6.6f), alpha = alpha)
@@ -77,6 +78,9 @@ fun TileView(
       }
       // The danger: a band along the foot (the edge of the back).
       if (danger > 0) clipRect(top = 76f) { drawRoundRect(Marks.danger(danger), Offset.Zero, Size(60f, 87f), CornerRadius(7f), alpha = alpha) }
+      // In the face's own box (inset from its edge): centred on it whatever the size. The web page's .frame.
+      if (framed) drawRoundRect(c.drawnLine, Offset(3.4f, 3.4f), Size(53.2f, 73.8f), CornerRadius(4.6f),
+        style = Stroke(2.6f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 3.6f), 0f)))
     }
   }
 }

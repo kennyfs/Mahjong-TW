@@ -921,7 +921,7 @@
   <string name="tips_title">打牌要訣</string>
   <string name="tips_row">對手聽了沒、什麼時候該退、哪張牌比較安全：從二十萬局自我對戰統計出來。</string>
   <string name="tips_river_title">牌河的記號</string>
-  <string name="tips_river_text">牌面較灰的是摸切（摸進來就直接打掉）；牌內左側的藍條標記這家吃、碰後打出的第一張；虛線框與較淡牌面代表已被別家吃走或碰走。連續摸切或剛吃碰完的人，往往已經接近或正在聽牌。</string>
+  <string name="tips_river_text">有虛線框的是摸切（摸進來就直接打掉）；牌內左側的藍條標記這家吃、碰後打出的第一張；牌面較淡的已被別家吃走或碰走。連續摸切或剛吃碰完的人，往往已經接近或正在聽牌。</string>
   <string name="tips_ready_title">對手聽牌了沒？</string>
   <string name="tips_ready_text">看他打了幾張、副露幾組。表上是這種情況下真的已經聽牌的比例；最近連續摸切兩張以上時，大約再高一半。</string>
   <string name="tips_discards">打了</string>
@@ -1043,7 +1043,7 @@
   <string name="glossary_t_efficiency">牌效率</string>
   <string name="glossary_d_efficiency">只看自己的牌、不管放槍和台數的打法：先讓向聽數最少，再讓進張最多。</string>
   <string name="glossary_t_tsumogiri">摸切</string>
-  <string name="glossary_d_tsumogiri">摸進來的牌直接打掉。牌河裡顏色比較灰的就是摸切。連續摸切的人，手上常常已經不需要換牌，可能已經聽牌。</string>
+  <string name="glossary_d_tsumogiri">摸進來的牌直接打掉。牌河裡有虛線框的就是摸切。連續摸切的人，手上常常已經不需要換牌，可能已經聽牌。</string>
   <string name="glossary_t_tedashi">手切</string>
   <string name="glossary_d_tedashi">打出本來就在手上的牌（摸進來的留下）。牌河裡一般顏色的牌就是手切。</string>
   <string name="glossary_t_genbutsu">現物</string>

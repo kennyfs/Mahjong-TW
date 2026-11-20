@@ -66,8 +66,8 @@ data class TableColors(
   val tileFace: Color, val tileEdge: Color, val tileBack: Color, val tileBackLight: Color, val tileSelected: Color, val tileMark: Color,
   /** The tiles a ready hand waits with (聽牌提示): a blue face, its edge. */
   val tileWait: Color, val tileWaitEdge: Color,
-  /** A discard straight from the draw (摸切): a greyer face; the bar beside a player's first discard after its call. */
-  val tileDrawn: Color = Color(0xFFD6D0BF), val callMark: Color = Color(0xFF1A73E8),
+  /** The dashed line round a discard straight from the draw (摸切); the bar beside a player's first discard after its call. */
+  val drawnLine: Color = Color(0xB3283038), val callMark: Color = Color(0xFF1A73E8),
 )
 
 @Immutable
@@ -100,7 +100,7 @@ private fun tableFor(style: ColorStyle, scheme: ColorScheme, dark: Boolean): Tab
         t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7])
     }
   }
-  return if (dark) table.copy(tileDrawn = Color(0xFFC6BFAB), callMark = Color(0xFF6AB0FF)) else table
+  return if (dark) table.copy(callMark = Color(0xFF6AB0FF)) else table
 }
 
 /** An analysis' levels: danger and grades (1 mild, 3 severe), and a good find. The web page's --danger-n and --found. */

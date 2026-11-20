@@ -911,7 +911,7 @@
   <string name="tips_title">Table tips</string>
   <string name="tips_row">Is an opponent ready, when to fall back, which tile is safer: from 200,000 hands of self-play.</string>
   <string name="tips_river_title">The river\'s marks</string>
-  <string name="tips_river_text">A greyer face is a draw-discard; an inset blue bar on the left marks the first discard after a chow or pung; a faded dashed tile was claimed by another player. Players throwing draw-discards in a row or who just called are often ready.</string>
+  <string name="tips_river_text">A dashed frame marks a draw-discard; an inset blue bar on the left marks the first discard after a chow or pung; a faded tile was claimed by another player. Players throwing draw-discards in a row or who just called are often ready.</string>
   <string name="tips_ready_title">Is an opponent ready?</string>
   <string name="tips_ready_text">Count their discards and melds. The table shows how often players who look like this are really ready; with the last two or more straight from the draw, about half as much again.</string>
   <string name="tips_discards">Discards</string>
@@ -1033,7 +1033,7 @@
   <string name="glossary_t_efficiency">Tile efficiency</string>
   <string name="glossary_d_efficiency">Playing for speed alone, ignoring danger and tai: the fewest away first, then the most improving tiles.</string>
   <string name="glossary_t_tsumogiri">Draw-discard</string>
-  <string name="glossary_d_tsumogiri">Discarding the tile just drawn: the greyer tiles in a river. A player who does it several times in a row often needs nothing more and may be ready.</string>
+  <string name="glossary_d_tsumogiri">Discarding the tile just drawn: the tiles with a dashed frame in a river. A player who does it several times in a row often needs nothing more and may be ready.</string>
   <string name="glossary_t_tedashi">Hand-discard</string>
   <string name="glossary_d_tedashi">Discarding a tile already in the hand and keeping the one drawn: the river\'s ordinary tiles.</string>
   <string name="glossary_t_genbutsu">Own discards (genbutsu)</string>

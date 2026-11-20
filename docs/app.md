@@ -405,7 +405,9 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
 - **Next: 解說 and the river's marks** (2026-11-19, a branch to try; app and page alike; to be tried by the
   user, who then says what to drop):
   - **The river's marks** (what the network sees and the table did not show; the user's): a discard straight from
-    the draw (摸切) has a greyer face (`--tile-drawn`, TableColors.tileDrawn); the first discard after a player's own
+    the draw (摸切) has a dashed line round its face (Tile.svelte and TileView's `framed`, `--drawn-line`,
+    TableColors.drawnLine; drawn in the tile's own box, so it sits on the face at any size), its face as any other's;
+    a tile taken by a meld is faded (both show on a draw-discard taken: a grey face was too near a faded one); the first discard after a player's own
     chow, pung or exposed kong has a bar at its left (`--mark`, TableColors.callMark; the engine's `after_call` of a
     discard, Discard::afterCall). The tiles let go this turn (過水) are left to the review's explanation, not marked
     at the table (the user's choice).

@@ -2,8 +2,8 @@
   A tile, standing: its face (or its back), with the edge of its back under it. `w` is its width in px; it is
   w * TILE_RATIO high. A null tile is a back (another player's tile, a concealed kong).
   `danger` (1 to 3): a band along its foot, how likely a discard of it is to deal in (an analysis' figure).
-  `wait`: one of the tiles a ready hand waits with (聽的相關牌組, with the hints): a blue face.
-  `tsumogiri`: a discard that was the tile just drawn (摸切): a greyer face, in the river.
+  `wait`: one of the tiles a ready hand waits with (聽的相關牌組, with the hints): a blue face. `framed`: a dashed line
+  round the face (a draw-discard, 摸切, in the river).
 -->
 <script lang="ts" module>
   /** Height over width: the face (3:4) and the edge under it. */
@@ -13,22 +13,26 @@
 <script lang="ts">
   import { tileName } from '../lib/tiles';
   let { tile = null, w, selected = false, dim = false, glow = false, mark = false, label = true, cls = '', danger = 0, wait = false,
-    tsumogiri = false }: {
+    framed = false }: {
     tile?: string | null; w: number; selected?: boolean; dim?: boolean; glow?: boolean; mark?: boolean; label?: boolean; cls?: string;
-    danger?: number; wait?: boolean; tsumogiri?: boolean;
+    danger?: number; wait?: boolean; framed?: boolean;
   } = $props();
 </script>
 
-<svg class="tile {cls}" class:selected class:dim class:glow class:mark class:wait class:tg={tsumogiri} width={w} height={w * TILE_RATIO} viewBox="0 0 60 87"
+<svg class="tile {cls}" class:selected class:dim class:glow class:mark class:wait width={w} height={w * TILE_RATIO} viewBox="0 0 60 87"
   role={label && tile ? 'img' : undefined} aria-label={label && tile ? tileName(tile) : undefined} aria-hidden={label && tile ? undefined : 'true'}>
-  <rect class="back" x="0" y="0" width="60" height="87" rx="7" />
-  {#if tile}
-    <rect class="face" x="0.6" y="0.6" width="58.8" height="79.4" rx="6.6" />
-    <use href="#tile-{tile}" x="3" y="3.2" width="54" height="72" />
-    {#if danger > 0}<path class="danger d{danger}" d="M0 76H60V80A7 7 0 0 1 53 87H7A7 7 0 0 1 0 80Z" />{/if}
-  {:else}
-    <rect class="back-panel" x="5" y="5" width="50" height="72" rx="4" />
-  {/if}
+  <g class="body">
+    <rect class="back" x="0" y="0" width="60" height="87" rx="7" />
+    {#if tile}
+      <rect class="face" x="0.6" y="0.6" width="58.8" height="79.4" rx="6.6" />
+      <use href="#tile-{tile}" x="3" y="3.2" width="54" height="72" />
+      {#if danger > 0}<path class="danger d{danger}" d="M0 76H60V80A7 7 0 0 1 53 87H7A7 7 0 0 1 0 80Z" />{/if}
+    {:else}
+      <rect class="back-panel" x="5" y="5" width="50" height="72" rx="4" />
+    {/if}
+  </g>
+  <!-- (Over the faded body, at full strength: a draw-discard another player took shows both.) -->
+  {#if framed && tile}<rect class="frame" x="3.4" y="3.4" width="53.2" height="73.8" rx="4.6" />{/if}
 </svg>
 
 <style>
@@ -40,8 +44,9 @@
   .selected .face { fill: var(--tile-selected); stroke: var(--highlight); stroke-width: 3; }
   .glow .face { stroke: var(--highlight); stroke-width: 4; }
   .mark .face { fill: var(--tile-mark); }
-  .tg .face { fill: var(--tile-drawn); }
-  .dim { opacity: 0.38; }
+  .dim .body { opacity: 0.38; }
+  /* In the face's own box (inset from its edge at x 0.6, y 0.6, 58.8 x 79.4): centred on it whatever the size. */
+  .frame { fill: none; stroke: var(--drawn-line); stroke-width: 2.6; stroke-dasharray: 5 3.6; }
   .danger.d1 { fill: var(--danger-1); }
   .danger.d2 { fill: var(--danger-2); }
   .danger.d3 { fill: var(--danger-3); }

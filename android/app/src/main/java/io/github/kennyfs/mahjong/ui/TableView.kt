@@ -1122,25 +1122,13 @@ fun CallBar(w: Float) {
   val c = LocalTable.current
   val shape = RoundedCornerShape(2.dp)
   // Inside the tile's left edge (not in the gap between two tiles), with a light rim: it is this tile's.
-  Box(Modifier.offset(x = 2.dp, y = (w * TILE_RATIO * 0.10f).d).size(maxOf(2.5f, w * 0.09f).d, (w * TILE_RATIO * 0.68f).d)
+  Box(Modifier.offset(x = 2.dp, y = (w * TILE_RATIO * 0.10f).d).size(maxOf(4f, w * 0.16f).d, (w * TILE_RATIO * 0.68f).d)
     .background(c.callMark, shape).border(0.8.dp, Color.White.copy(alpha = 0.85f), shape))
-}
-
-/** A dashed line round a discard another player took (besides its fading): not to be taken for a 摸切's grey. */
-@Composable
-private fun CalledOutline(w: Float) {
-  val stroke = LocalTable.current.onFelt.copy(alpha = 0.65f)
-  Box(Modifier.size(w.d, (w * TILE_RATIO).d).drawBehind {
-    val inset = 1.dp.toPx()
-    val dash = 3.dp.toPx()
-    drawRoundRect(stroke, Offset(inset, inset), Size(size.width - inset * 2, size.height - inset * 2), CornerRadius(4.dp.toPx()),
-      style = Stroke(1.3.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash * 0.8f), 0f)))
-  })
 }
 
 /**
  * One player's discards in order, `cols` a row; the tiles taken by a meld faded, the last discard lit, the tiles
- * straight from the draw (摸切) greyer, the first discard after the player's own call marked by a bar at its left.
+ * straight from the draw (摸切) framed by a dashed line (both on one taken), the first discard after the player's own call marked by a bar at its left.
  * `claim`: the player may claim the last discard: it stands out, larger and pulsing. `fly`: the table's moves; a new
  * discard comes from the hand (`mine`: discardFly) or in from the table's edge (`seat`'s: discardIn).
  */
@@ -1164,8 +1152,7 @@ fun River(
           Box(anchor.then(if (out) Modifier.zIndex(1f).scale(1.25f + 0.15f * pulse) else Modifier)
             .then(if (fly != null && i == discards.size - 1) Modifier.zIndex(2f).then(if (mine) Modifier.discardFly(fly, i) else Modifier.discardIn(fly, seat, i))
               else Modifier)) {
-            TileView(d.tile, tw.d, dim = d.called, glow = (last || out) && i == discards.size - 1 && !d.called, tsumogiri = d.drawn)
-            if (d.called) CalledOutline(tw)
+            TileView(d.tile, tw.d, dim = d.called, glow = (last || out) && i == discards.size - 1 && !d.called, framed = d.drawn)
             if (d.afterCall) CallBar(tw)
           }
         }
