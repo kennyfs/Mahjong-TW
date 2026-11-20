@@ -1,6 +1,5 @@
 package io.github.kennyfs.mahjong.ui
 
-import android.os.Build
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.LinearEasing
@@ -16,12 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -36,12 +32,9 @@ private val EASE_OUT = CubicBezierEasing(0f, 0f, 0.58f, 1f)
 private fun seg(x: Float, a: Float, b: Float, e: Easing = LinearEasing) = e.transform(((x - a) / (b - a)).coerceIn(0f, 1f))
 private fun mix(a: Float, b: Float, f: Float) = a + (b - a) * f
 
-/** The table without its color (where the system can blend so: Android 10 on), darker. */
-private val GREY = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-
 /**
  * The player's own deal-in, over the whole screen (ui/Moments.kt; TableView starts it, and the winners' moments come
- * after it): the table loses its color and darkens, dark and opaque at the top and clearer downwards, and 放槍 sinks in
+ * after it): the table darkens, dark and opaque at the top and clearer downwards, and 放槍 sinks in
  * with the tile dealt and whom it went to. It lasts `m.ms`; a touch anywhere lets it go. The web page's SadFx.svelte.
  */
 @Composable
@@ -53,8 +46,7 @@ fun SadFx(m: Moment, host: FxHost) {
     Canvas(Modifier.fillMaxSize()) {
       val p = time.p
       val dim = if (p < 0.16f) p / 0.16f else 1 - seg(p, 0.86f, 1f)
-      if (GREY) drawRect(Color(0xFF808080), alpha = 0.9f * dim, blendMode = BlendMode.Saturation)
-      drawRect(Color(0xFF080B10), alpha = 0.42f * dim)
+      drawRect(Color(0xFF080B10), alpha = 0.46f * dim)
       // Dark from the top down.
       val s = seg(p, 0f, 0.3f, SHADE)
       val a = minOf(1f, p / 0.3f) * (1 - seg(p, 0.86f, 1f))
@@ -102,11 +94,6 @@ fun SadFx(m: Moment, host: FxHost) {
           val p = time.p
           translationY = if (p < 0.18f) -14 * density else mix(-14 * density, 0f, seg(p, 0.18f, 0.36f, EASE_OUT))
           alpha = if (p < 0.18f) 0f else if (p < 0.86f) seg(p, 0.18f, 0.36f) else 1 - seg(p, 0.86f, 1f)
-          compositingStrategy = CompositingStrategy.Offscreen
-        }.drawWithContent {
-          // Greyer: towards a grey over the tile alone.
-          drawContent()
-          drawRect(Color(0xFF8A8F94), alpha = 0.35f, blendMode = BlendMode.SrcAtop)
         })
       }
     }
