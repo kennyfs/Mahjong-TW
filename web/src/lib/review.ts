@@ -146,17 +146,22 @@ export function kindOf(d: ReviewDecision): Kind {
   return 'tile';
 }
 
-export interface Key { step: number; loss: number; grade: Grade; notable: Notable | null; found: boolean }
-/** A review's decisions as the graph and the steps see them. `found`: a notable best action that was played. */
-export function keysOf(r: Review): Key[] {
+/** `praise`: the title of the explanation (解說) that calls the decision well played, where no notable best does. */
+export interface Key { step: number; loss: number; grade: Grade; notable: Notable | null; found: boolean; praise?: string }
+/** A review's decisions as the graph and the steps see them. `found`: a notable best action that was played, or a
+ *  decision its explanation calls well played (`praised`: those steps and the explanations' titles). */
+export function keysOf(r: Review, praised?: Map<number, string>): Key[] {
   return r.decisions.map((d) => {
     const loss = Math.max(0, d.loss ?? 0);
     const notable = notableOf(d.analysis, r.unit);
-    return { step: d.step, loss, grade: gradeOf(loss, r.unit), notable, found: !!notable && loss < EQUAL };
+    const found = !!notable && loss < EQUAL;
+    const praise = found ? undefined : praised?.get(d.step);
+    return { step: d.step, loss, grade: gradeOf(loss, r.unit), notable, found: found || !!praise, praise };
   });
 }
-/** Whether the review stops here at this level: a mistake of the level, or a best action that is not the obvious one. */
-export const isKey = (k: Key, level: Level) => k.grade >= LEVEL_GRADE[level] || !!k.notable;
+/** Whether the review stops here at this level: a mistake of the level, a best action that is not the obvious one, or
+ *  a decision well played. */
+export const isKey = (k: Key, level: Level) => k.grade >= LEVEL_GRADE[level] || !!k.notable || k.found;
 
 export function summarize(r: Review): ReviewSummary {
   const grades = [0, 0, 0];

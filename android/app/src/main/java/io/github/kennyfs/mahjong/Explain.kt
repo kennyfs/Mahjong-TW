@@ -212,6 +212,17 @@ object Explain {
    * lost less than a questionable decision and tile efficiency would not have lost more either. `view`: the seat's
    * view at the decision, its events from the start.
    */
+  /** Whether `explain` may call the decision well played (played over tile efficiency's choice by a questionable
+   *  decision's margin, and not a mistake itself): only then is the view worth asking for. */
+  fun mayPraise(a: Analysis, played: Int, unit: Double?): Boolean {
+    val best = a.best
+    if (a.source != "network" || best == null || played < 0 || played >= a.actions.size) return false
+    fun q(i: Int) = a.actions[i].q ?: 0.0
+    val least = gradeFrom(1, unit)
+    val g = greedyOf(a)
+    return q(best) - q(played) < least && g >= 0 && g != played && q(played) - q(g) >= least
+  }
+
   fun explain(res: Resources, a: Analysis, played: Int, view: View, unit: Double?): Explanation? {
     val best = a.best
     if (a.source != "network" || best == null || played < 0 || played >= a.actions.size) return null

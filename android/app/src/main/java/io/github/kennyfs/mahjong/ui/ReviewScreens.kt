@@ -244,7 +244,22 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
   val r = rev
   val unit = r?.unit
   val hasNet = r?.firstValue != null
-  val keys = remember(r) { if (r != null && r.firstValue != null) keysOf(r) else emptyList() }
+  // The steps whose explanation calls the player's decision well played (a 解說 with ★), with its title: from each such
+  // step's view, once a review is in. They are stars and steps worth a look, as a notable best played is.
+  var praised by remember(rec.id) { mutableStateOf<Map<Int, String>>(emptyMap()) }
+  LaunchedEffect(rec.id, r) {
+    praised = emptyMap()
+    if (r == null || r.firstValue == null) return@LaunchedEffect
+    val m = mutableMapOf<Int, String>()
+    for (d in r.decisions) {
+      if (!Explain.mayPraise(d.analysis, d.played, r.unit)) continue
+      val v = try { Engine.view(rec.game.cut(d.step), rec.me) } catch (e: EngineException) { continue }
+      val e = Explain.explain(res, d.analysis, d.played, v, r.unit)
+      if (e?.found == true) m[d.step] = e.title
+    }
+    praised = m
+  }
+  val keys = remember(r, praised) { if (r != null && r.firstValue != null) keysOf(r, praised) else emptyList() }
   val stops = keys.filter { isKey(it, level) }
   val points = remember(r) { if (r != null && r.firstValue != null) r.decisions.map { it.step to (it.analysis.value ?: 0.0) } else emptyList() }
   /** How many decisions were questionable, mistakes, blunders. */
@@ -504,12 +519,11 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
             }
             val reason = if (key.loss >= EQUAL) reasonOf(res, mine.analysis, mine.played) else ""
             if (reason.isNotEmpty()) Text(reason, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
-            key.notable?.let { notable ->
-              Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("replay_notable")) {
-                Text("★", color = Marks.found, style = MaterialTheme.typography.bodySmall)
-                Text((if (key.found) stringResource(R.string.note_found) + Words.colon else "") + notableText(res, mine.analysis, notable),
-                  style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-              }
+            val note = key.notable?.let { (if (key.found) stringResource(R.string.note_found) + Words.colon else "") + notableText(res, mine.analysis, it) }
+              ?: key.praise?.let { stringResource(R.string.note_found) + Words.colon + it }
+            if (note != null) Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.testTag("replay_notable")) {
+              Text("★", color = Marks.found, style = MaterialTheme.typography.bodySmall)
+              Text(note, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
             }
           }
         }
@@ -643,6 +657,8 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         else TableView(
           v, rec.me, names, revealed = if (showAll || step == n) v.hands else null, interactive = false, maxHand = 56f, review = true,
           marks = marks, notes = notes, strip = strip, onPick = { picked = it },
+          // (The tags' room kept at every step, not only at the player's decisions: the table stays put.)
+          tagRoom = hasNet,
           overlay = {
             val f = final
             // (After a win's moment, when it plays: CallFx.)

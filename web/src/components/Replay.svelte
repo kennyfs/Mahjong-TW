@@ -34,7 +34,7 @@
   import { records } from '../lib/records.svelte';
   import { costOf, EQUAL, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pts, reasonOf, reviewOf, summarize,
     tagCost, tileMarks, tilesShort, opponentNote, type TileMark } from '../lib/review';
-  import { explain } from '../lib/explain';
+  import { explain, mayPraise } from '../lib/explain';
   import { flowersOf, meldTiles } from '../lib/seats';
   import { settings } from '../lib/settings.svelte';
   import { parseTiles, sortTiles, windName, without, type Tile as T } from '../lib/tiles';
@@ -161,7 +161,27 @@
   // The review: its decisions by step, and the ones to stop at.
   const unit = $derived(rev?.unit);
   const hasNet = $derived(rev?.first_value !== undefined);
-  const keys = $derived(rev && hasNet ? keysOf(rev) : []);
+  /** The steps whose explanation calls the player's decision well played (a 解說 with ★), with its title: from each
+   *  such step's view, once a review is in. They are stars and steps worth a look, as a notable best played is. */
+  let praised = $state<Map<number, string>>(new Map());
+  $effect(() => {
+    const r = rec, x = rev;
+    praised = new Map();
+    if (!r || !x || !hasNet) return;
+    const id = r.id;
+    const ds = x.decisions.filter((d) => mayPraise(d.analysis, d.played, x.unit));
+    void Promise.all(ds.map((d) => engine.view(cut(d.step), r.me).then((v) => [d, v] as const, () => null))).then((vs) => {
+      if (loaded !== id) return;
+      const m = new Map<number, string>();
+      for (const p of vs) {
+        if (!p) continue;
+        const e = explain(p[0].analysis, p[0].played, p[1], x.unit);
+        if (e?.found) m.set(p[0].step, e.title);
+      }
+      praised = m;
+    });
+  });
+  const keys = $derived(rev && hasNet ? keysOf(rev, praised) : []);
   const stops = $derived(keys.filter((k) => isKey(k, settings.level)));
   const points = $derived(rev && hasNet ? rev.decisions.map((d) => ({ step: d.step, value: d.analysis.value ?? 0 })) : []);
   /** How many decisions were questionable, mistakes, blunders. */
@@ -430,6 +450,8 @@
       {#if key.loss >= EQUAL && reasonOf(mine.analysis, mine.played)}<div class="reason dim body-small">{reasonOf(mine.analysis, mine.played)}</div>{/if}
       {#if key.notable}
         <div class="notable body-small"><span class="star">★</span>{key.found ? t('note_found') + t('colon') : ''}{notableText(mine.analysis, key.notable)}</div>
+      {:else if key.praise}
+        <div class="notable body-small"><span class="star">★</span>{t('note_found') + t('colon') + key.praise}</div>
       {/if}
     {/if}
   </div>

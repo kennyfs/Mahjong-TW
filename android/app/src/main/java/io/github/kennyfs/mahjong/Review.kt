@@ -182,16 +182,22 @@ fun kindOf(d: ReviewDecision): LossKind {
 }
 
 /** A review's decision as the graph and the steps see it. `found`: a notable best action that was played. */
-data class ReviewKey(val step: Int, val loss: Double, val grade: Int, val notable: Notable?, val found: Boolean)
+/** `praise`: the title of the explanation (解說) that calls the decision well played, where no notable best does. */
+data class ReviewKey(val step: Int, val loss: Double, val grade: Int, val notable: Notable?, val found: Boolean, val praise: String? = null)
 
-fun keysOf(r: Review): List<ReviewKey> = r.decisions.map { d ->
+/** A review's decisions as the graph and the steps see them. `found`: a notable best action that was played, or a
+ *  decision its explanation calls well played (`praised`: those steps and the explanations' titles). */
+fun keysOf(r: Review, praised: Map<Int, String> = emptyMap()): List<ReviewKey> = r.decisions.map { d ->
   val loss = max(0.0, d.loss ?: 0.0)
   val notable = notableOf(d.analysis, r.unit)
-  ReviewKey(d.step, loss, gradeOf(loss, r.unit), notable, notable != null && loss < EQUAL)
+  val found = notable != null && loss < EQUAL
+  val praise = if (found) null else praised[d.step]
+  ReviewKey(d.step, loss, gradeOf(loss, r.unit), notable, found || praise != null, praise)
 }
 
-/** Whether the review stops here at this level: a mistake of the level, or a best action that is not the obvious one. */
-fun isKey(k: ReviewKey, level: Level) = k.grade >= level.grade || k.notable != null
+/** Whether the review stops here at this level: a mistake of the level, a best action that is not the obvious one, or
+ *  a decision well played. */
+fun isKey(k: ReviewKey, level: Level) = k.grade >= level.grade || k.notable != null || k.found
 
 fun summarize(r: Review): ReviewSummary {
   val grades = IntArray(3)
