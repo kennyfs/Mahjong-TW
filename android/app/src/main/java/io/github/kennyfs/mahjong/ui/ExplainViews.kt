@@ -165,8 +165,9 @@ fun TipsContent() {
   val res = LocalResources.current
   val cs = MaterialTheme.colorScheme
   val heading = @Composable { id: Int -> Text(stringResource(id), style = MaterialTheme.typography.titleMedium) }
-  val para = @Composable { s: String -> Text(s, style = MaterialTheme.typography.bodyMedium) }
-  val note = @Composable { s: String -> Text(s, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant) }
+  // (The glossary's terms linked: LinkedText.)
+  val para = @Composable { s: String -> LinkedText(s, style = MaterialTheme.typography.bodyMedium) }
+  val note = @Composable { s: String -> LinkedText(s, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant) }
   val cellBorder = BorderStroke(0.5.dp, cs.outlineVariant.copy(alpha = 0.55f))
   // A table: optional grouped super-header over numeric columns, header row, and heat-shaded rows.
   val grid = @Composable { head: List<String>, rows: List<Pair<String, List<Double?>>>, top: Double, superHead: String? ->

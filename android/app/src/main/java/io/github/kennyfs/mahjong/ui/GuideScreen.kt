@@ -177,9 +177,10 @@ fun GuideScreen(vm: AppModel, onBack: () -> Unit, onPlay: () -> Unit, onTour: ()
       @Composable
       fun title(id: Int) = Text(stringResource(id), Modifier.padding(top = 4.dp), style = MaterialTheme.typography.headlineSmall)
 
+      /** A paragraph, the glossary's terms in it linked (LinkedText). */
       @Composable
       fun para(text: String, large: Boolean = true, color: Color = Color.Unspecified, modifier: Modifier = Modifier) =
-        Text(text, modifier, style = if (large) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium, color = color)
+        LinkedText(text, modifier, style = if (large) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium, color = color)
 
       Column(
         Modifier.widthIn(max = 760.dp).fillMaxSize().verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),

@@ -17,6 +17,7 @@
   import { tour } from '../lib/tour.svelte';
   import type { Discard, RulesInfo } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
+  import Linked from './Linked.svelte';
   import River from './River.svelte';
   import Tile from './Tile.svelte';
   import TitleBar from './TitleBar.svelte';
@@ -137,28 +138,28 @@
   <div class="scroll" bind:this={scroller}><div class="content">
     {#if page === 0}
       <h2 class="headline-small">{t('guide_rules_title')}</h2>
-      <p class="body-large">{t('guide_rules_text')}</p>
+      <p class="body-large"><Linked text={t('guide_rules_text')} /></p>
       <div class="section-label title-small">{t('rules_tai')}</div>
       <Toggle options={taiOptions} selected={tai} onselect={(x) => (tai = x)} />
-      <p class="body-medium dim">{t(`tai_${tai}_desc`)}</p>
+      <p class="body-medium dim"><Linked text={t(`tai_${tai}_desc`)} /></p>
       <div class="section-label title-small">{t('rules_flowers')}</div>
       <Toggle options={flowerOptions} selected={flowers} onselect={(x) => (flowers = x)} />
-      <p class="body-medium dim">{t(`flowers_${flowers}_desc`)}</p>
-      <p class="body-medium note">{t('guide_rules_note')}</p>
+      <p class="body-medium dim"><Linked text={t(`flowers_${flowers}_desc`)} /></p>
+      <p class="body-medium note"><Linked text={t('guide_rules_note')} /></p>
     {:else if page === 1}
       <h2 class="headline-small">{t('guide_goal_title')}</h2>
-      <p class="body-large">{t('guide_goal_text')}</p>
-      <p class="body-large">{t('guide_goal_sets')}</p>
-      <p class="body-medium dim">{t('guide_goal_example')}</p>
+      <p class="body-large"><Linked text={t('guide_goal_text')} /></p>
+      <p class="body-large"><Linked text={t('guide_goal_sets')} /></p>
+      <p class="body-medium dim"><Linked text={t('guide_goal_example')} /></p>
       <div class="felt groups">
         {#each GOAL as [s, label] (s)}
           <div class="group"><div class="row">{@render tiles(s, small)}</div><span class="label-medium">{t(label)}</span></div>
         {/each}
       </div>
-      <p class="body-medium">{t('guide_goal_kong')}</p>
+      <p class="body-medium"><Linked text={t('guide_goal_kong')} /></p>
     {:else if page === 2}
       <h2 class="headline-small">{t('guide_tiles_title')}</h2>
-      <p class="body-large">{t('guide_tiles_text')}</p>
+      <p class="body-large"><Linked text={t('guide_tiles_text')} /></p>
       <div class="felt suits">
         {#each SUITS as [s, label] (s)}
           <div class="suit"><span class="label-large name">{t(label)}</span><div class="row">{@render tiles(s, small)}</div></div>
@@ -169,41 +170,41 @@
       </div>
       {@render flowerSwitch()}
       {#if flowers === 'none'}
-        <p class="body-large">{t('guide_flowers_none')}</p>
+        <p class="body-large"><Linked text={t('guide_flowers_none')} /></p>
       {:else}
-        <p class="body-large">{t('guide_flowers_has')}</p>
-        <p class="body-large">{flowers === 'see' ? t('guide_flowers_see', n('flower_tai')) : t('guide_flowers_seat', n('flower_tai'), n('flower_set'))}</p>
-        {#if (v.eight_flowers ?? 0) > 0}<p class="body-medium">{t('guide_flower_wins', n('eight_flowers'))}</p>{/if}
+        <p class="body-large"><Linked text={t('guide_flowers_has')} /></p>
+        <p class="body-large"><Linked text={flowers === 'see' ? t('guide_flowers_see', n('flower_tai')) : t('guide_flowers_seat', n('flower_tai'), n('flower_set'))} /></p>
+        {#if (v.eight_flowers ?? 0) > 0}<p class="body-medium"><Linked text={t('guide_flower_wins', n('eight_flowers'))} /></p>{/if}
       {/if}
     {:else if page === 3}
       <h2 class="headline-small">{t('guide_turn_title')}</h2>
-      <p class="body-large">{t('guide_turn_text')}</p>
-      <p class="body-large">{t('guide_turn_claims')}</p>
+      <p class="body-large"><Linked text={t('guide_turn_text')} /></p>
+      <p class="body-large"><Linked text={t('guide_turn_claims')} /></p>
       <div class="calls">
         {#each CALLS as [label, hand, taken] (label)}
           <div class="call">
             <div class="row example">{@render tiles(hand, small)}<span class="plus">+</span>{@render tiles(taken, small, true)}</div>
-            <p class="body-medium">{t(label)}</p>
+            <p class="body-medium"><Linked text={t(label)} /></p>
           </div>
         {/each}
-        <div class="call"><p class="body-medium">{t('guide_hu')}</p></div>
+        <div class="call"><p class="body-medium"><Linked text={t('guide_hu')} /></p></div>
       </div>
-      <p class="body-medium">{t('guide_turn_show')}</p>
-      <p class="body-medium">{t('guide_turn_priority')}</p>
-      <p class="body-medium">{(v.multi_ron ?? 0) > 0 ? t('guide_multi_ron_on', taiName) : t('guide_multi_ron_off', taiName)}</p>
-      <p class="body-medium">{t('guide_turn_end', v.keep ?? 16)}</p>
+      <p class="body-medium"><Linked text={t('guide_turn_show')} /></p>
+      <p class="body-medium"><Linked text={t('guide_turn_priority')} /></p>
+      <p class="body-medium"><Linked text={(v.multi_ron ?? 0) > 0 ? t('guide_multi_ron_on', taiName) : t('guide_multi_ron_off', taiName)} /></p>
+      <p class="body-medium"><Linked text={t('guide_turn_end', v.keep ?? 16)} /></p>
     {:else if page === 4}
       <h2 class="headline-small">{t('guide_river_title')}</h2>
-      <p class="body-large">{t('guide_river_text')}</p>
+      <p class="body-large"><Linked text={t('guide_river_text')} /></p>
       <div class="marks">
         {#each MARKS as [d, label] (label)}
-          <div class="mark-row"><div class="felt one"><River discards={[d]} w={small} cols={1} /></div><p class="body-medium">{t(label)}</p></div>
+          <div class="mark-row"><div class="felt one"><River discards={[d]} w={small} cols={1} /></div><p class="body-medium"><Linked text={t(label)} /></p></div>
         {/each}
       </div>
-      <p class="body-medium dim">{t('guide_river_tips')}</p>
+      <p class="body-medium dim"><Linked text={t('guide_river_tips')} /></p>
     {:else if page === 5}
       <h2 class="headline-small">{t('guide_ready_title')}</h2>
-      <p class="body-large">{t('guide_ready_text')}</p>
+      <p class="body-large"><Linked text={t('guide_ready_text')} /></p>
       <div class="waits">
         {#each WAITS as [label, hand, waits] (label)}
           <div class="wait">
@@ -214,33 +215,33 @@
           </div>
         {/each}
       </div>
-      <p class="body-medium">{(v.duting ?? 0) > 0 ? t('guide_duting_on', taiName, n('duting')) : t('guide_duting_off', taiName)}</p>
-      <p class="body-medium">{t('guide_missed')}</p>
+      <p class="body-medium"><Linked text={(v.duting ?? 0) > 0 ? t('guide_duting_on', taiName, n('duting')) : t('guide_duting_off', taiName)} /></p>
+      <p class="body-medium"><Linked text={t('guide_missed')} /></p>
     {:else if page === 6}
       <h2 class="headline-small">{t('guide_tai_title')}</h2>
       {@render taiSwitch()}
-      <p class="body-large">{t('guide_tai_text', n('base'))}</p>
-      <p class="body-large">{t('guide_tai_who')}</p>
-      <p class="body-large">{t('guide_tai_dealer', n('dealer'), n('streak'), fmt((v.dealer ?? 0) + (v.streak ?? 0)))}</p>
-      <p class="body-medium dim">{t('guide_tai_items')}</p>
+      <p class="body-large"><Linked text={t('guide_tai_text', n('base'))} /></p>
+      <p class="body-large"><Linked text={t('guide_tai_who')} /></p>
+      <p class="body-large"><Linked text={t('guide_tai_dealer', n('dealer'), n('streak'), fmt((v.dealer ?? 0) + (v.streak ?? 0)))} /></p>
+      <p class="body-medium dim"><Linked text={t('guide_tai_items')} /></p>
       <div class="items">
         {#each taiItems as it (it.param)}
           <button class="item" class:open={helped === it.param} onclick={() => (helped = helped === it.param ? null : it.param)}>
             <span class="body-large">{itemName(it.param, it.name)}</span><span class="title-small">{t('tai_unit', n(it.param))}</span>
           </button>
-          {#if helped === it.param}<p class="body-medium help">{t('help_' + it.param)}</p>{/if}
+          {#if helped === it.param}<p class="body-medium help"><Linked text={t('help_' + it.param)} /></p>{/if}
         {/each}
       </div>
-      <p class="body-medium">{example}</p>
+      <p class="body-medium"><Linked text={example} /></p>
       {#if (v.menqing_zimo ?? 0) > 0}
-        <p class="body-medium">{t('guide_tai_menqing', n('menqing'), n('zimo'), n('menqing_zimo'), fmt((v.menqing ?? 0) + (v.zimo ?? 0) + (v.menqing_zimo ?? 0)))}</p>
+        <p class="body-medium"><Linked text={t('guide_tai_menqing', n('menqing'), n('zimo'), n('menqing_zimo'), fmt((v.menqing ?? 0) + (v.zimo ?? 0) + (v.menqing_zimo ?? 0)))} /></p>
       {/if}
-      <p class="body-medium">{(v.min_tai ?? 0) > 0 ? t('guide_tai_min', n('min_tai')) : t('guide_tai_min_none')}</p>
-      <p class="body-medium">{(v.draw_streak ?? 0) > 0 ? t('guide_tai_draw_on') : t('guide_tai_draw_off')}</p>
-      <p class="body-medium">{t('guide_tai_next')}</p>
+      <p class="body-medium"><Linked text={(v.min_tai ?? 0) > 0 ? t('guide_tai_min', n('min_tai')) : t('guide_tai_min_none')} /></p>
+      <p class="body-medium"><Linked text={(v.draw_streak ?? 0) > 0 ? t('guide_tai_draw_on') : t('guide_tai_draw_off')} /></p>
+      <p class="body-medium"><Linked text={t('guide_tai_next')} /></p>
     {:else if page === 7}
       <h2 class="headline-small">{t('guide_try_title')}</h2>
-      <p class="body-large">{t('guide_try_text')}</p>
+      <p class="body-large"><Linked text={t('guide_try_text')} /></p>
       <span class="label-large dim">{t('guide_try_q', q + 1, QUIZ.length)}</span>
       <div class="felt quiz-hand"><div class="row wrap">{@render tiles(quiz.hand, small)}</div></div>
       <div class="picks" style:--cols={ui.w < 560 ? 5 : 9}>
@@ -253,7 +254,7 @@
       {#if checked}
         <p class="title-medium" class:good={right} class:bad={!right}>
           {right ? t('guide_try_right') : t('guide_try_wrong', quiz.waits.map(tileName).join(t('sep_list')))}</p>
-        <p class="body-large">{t(quiz.why)}</p>
+        <p class="body-large"><Linked text={t(quiz.why)} /></p>
         <p class="body-small dim">{t('guide_try_legend')}</p>
         <div class="buttons">
           <button class="btn tonal" onclick={nextQuestion}>{q < QUIZ.length - 1 ? t('guide_try_next') : t('guide_try_again')}</button>
@@ -263,7 +264,7 @@
       {/if}
     {:else}
       <h2 class="headline-small">{t('guide_end_title')}</h2>
-      <p class="body-large">{t('guide_end_text')}</p>
+      <p class="body-large"><Linked text={t('guide_end_text')} /></p>
       <div class="buttons column">
         {#if !same}<button class="btn filled big" onclick={() => play(true)}>{t('guide_end_play_rules', rulesName)}</button>{/if}
         <button class={same ? 'btn filled big' : 'btn tonal big'} onclick={() => play(false)}>{t('guide_end_play')}</button>

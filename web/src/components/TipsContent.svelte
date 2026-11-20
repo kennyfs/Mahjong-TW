@@ -8,6 +8,7 @@
   import { percent, steps, TIPS_FOLD, TIPS_HALF, TIPS_SAFETY, TIPS_THREAT } from '../lib/explain';
   import { t } from '../lib/i18n.svelte';
   import type { Discard } from '../lib/types';
+  import Linked from './Linked.svelte';
   import River from './River.svelte';
 
   const SAMPLE: Discard[] = [
@@ -27,12 +28,12 @@
   <section>
     <h3 class="title-medium">{t('tips_river_title')}</h3>
     <div class="sample"><River discards={SAMPLE} w={34} cols={6} /></div>
-    <p class="body-medium">{t('tips_river_text')}</p>
+    <p class="body-medium"><Linked text={t('tips_river_text')} /></p>
   </section>
 
   <section>
     <h3 class="title-medium">{t('tips_ready_title')}</h3>
-    <p class="body-medium">{t('tips_ready_text')}</p>
+    <p class="body-medium"><Linked text={t('tips_ready_text')} /></p>
     <table class="body-small">
       <thead>
         <tr><th rowspan="2">{t('tips_discards')}</th><th colspan="5" class="group-head">{t('tips_melds_head')}</th></tr>
@@ -48,7 +49,7 @@
 
   <section>
     <h3 class="title-medium">{t('tips_fold_title')}</h3>
-    <p class="body-medium">{t('tips_fold_text')}</p>
+    <p class="body-medium"><Linked text={t('tips_fold_text')} /></p>
     <table class="body-small">
       <thead><tr><th>{t('tips_wall_head')}</th>{#each ['30+', '20–29', '10–19', '<10'] as w (w)}<th>{w}</th>{/each}</tr></thead>
       <tbody>
@@ -61,7 +62,7 @@
 
   <section>
     <h3 class="title-medium">{t('tips_safe_title')}</h3>
-    <p class="body-medium">{t('tips_safe_text')}</p>
+    <p class="body-medium"><Linked text={t('tips_safe_text')} /></p>
     <table class="body-small">
       <thead><tr><th></th><th>{t('tips_col_genbutsu')}</th><th>{t('tips_col_suji')}</th><th>{t('tips_col_seen', 2)}</th>
         <th>{t('tips_col_seen', 1)}</th><th>{t('tips_col_unseen')}</th></tr></thead>
@@ -71,12 +72,12 @@
         {/each}
       </tbody>
     </table>
-    <p class="body-small dim">{t('tips_safe_note')}</p>
-    <p class="body-small dim">{t('tips_half_note', percent(TIPS_HALF))}</p>
+    <p class="body-small dim"><Linked text={t('tips_safe_note')} /></p>
+    <p class="body-small dim"><Linked text={t('tips_half_note', percent(TIPS_HALF))} /></p>
   </section>
 
   <p class="body-small dim">{t('tips_source')}</p>
-  <p class="body-small dim">{t('tips_more')}</p>
+  <p class="body-small dim"><Linked text={t('tips_more')} /></p>
 </div>
 
 <style>

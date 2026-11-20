@@ -20,6 +20,8 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,10 +56,18 @@ fun linkedGlossaryText(
   onTerm: (String) -> Unit,
   beforeId: String? = null,
   linkColor: Color = MaterialTheme.colorScheme.primary,
+  once: Boolean = false,
 ): AnnotatedString {
   val locales = LocalConfiguration.current.locales
   val english = locales.size() > 0 && locales[0].language.equals("en", ignoreCase = true)
-  val parts = remember(text, english, beforeId) { Glossary.link(text, english, beforeId) }
+  val parts = remember(text, english, beforeId, once) {
+    val all = Glossary.link(text, english, beforeId)
+    // `once`: a term linked at its first appearance only.
+    if (!once) all else {
+      val seen = HashSet<String>()
+      all.map { p -> if (p.termId == null || seen.add(p.termId)) p else p.copy(termId = null) }
+    }
+  }
   val linkStyle = TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))
   return remember(parts, linkColor) {
     buildAnnotatedString {
@@ -71,6 +81,19 @@ fun linkedGlossaryText(
       }
     }
   }
+}
+
+/**
+ * Words with the glossary's terms linked, each at its first appearance only, so that a paragraph is not all underlines
+ * (the tips', the guide's; an explanation links every one); a tap opens the glossary at the term. The web page's
+ * Linked.svelte.
+ */
+@Composable
+fun LinkedText(text: String, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current, color: Color = Color.Unspecified,
+  fontWeight: FontWeight? = null) {
+  var term by remember { mutableStateOf<String?>(null) }
+  Text(linkedGlossaryText(text, onTerm = { term = it }, once = true), modifier, color = color, style = style, fontWeight = fontWeight)
+  term?.let { GlossaryDialog(focusId = it, onDismiss = { term = null }) }
 }
 
 /** Beginner glossary (術語表) on a page of its own, from Settings or Guide. */

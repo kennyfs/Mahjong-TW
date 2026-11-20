@@ -11,6 +11,8 @@
   import { measure, ui } from './lib/ui.svelte';
   import Dialog from './components/Dialog.svelte';
   import Glossary from './components/Glossary.svelte';
+  import GlossaryDialog from './components/GlossaryDialog.svelte';
+  import { glossaryLink } from './lib/glossarylink.svelte';
   import Guide from './components/Guide.svelte';
   import Tips from './components/Tips.svelte';
   import Tour from './components/Tour.svelte';
@@ -142,6 +144,8 @@
 </div>
 
 {#if tour.on}<Tour onguide={() => nav.open('guide')} />{/if}
+
+{#if glossaryLink.term}<GlossaryDialog focusId={glossaryLink.term} onclose={() => (glossaryLink.term = null)} />{/if}
 
 {#if welcome}
   <Dialog title={t('welcome_title')} onclose={() => closeWelcome()}>
