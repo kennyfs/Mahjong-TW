@@ -1,5 +1,5 @@
 <!-- One player's discards, in order, `cols` a row: the tiles taken by a meld faded, the tiles that came straight from
-    the draw (摸切) with a dashed line round the face (both on a draw-discard taken), the last discard lit, and the first
+    the draw (摸切) on an orange face (faded too when taken), the last discard lit, and the first
     discard after the player's own call marked by an inset blue bar on its left face. More than `rows` rows' worth (a
     long hand) and the tiles get smaller to stay in the river's room. `claim`: the player may claim the last discard: it
     stands out, larger and pulsing. `seat`: whose (`data-river`, where a call's moment takes the tile from,
@@ -18,7 +18,7 @@
   {#each discards as d, i (i)}
     {@const end = i === discards.length - 1}
     <span class="slot" class:claim={claim && end && !d.called} class:after={d.after_call}>
-      <Tile tile={d.tile} w={tw} dim={d.called} glow={last && end && !d.called} framed={d.drawn} />
+      <Tile tile={d.tile} w={tw} dim={d.called} glow={last && end && !d.called} tsumogiri={d.drawn} />
     </span>
   {/each}
 </div>

@@ -13,7 +13,7 @@
   const SAMPLE: Discard[] = [
     { tile: '1z', drawn: false, called: false }, { tile: '9m', drawn: true, called: false },
     { tile: '2p', drawn: false, called: true }, { tile: '7s', drawn: false, called: false, after_call: true },
-    { tile: '4z', drawn: true, called: false }, { tile: '8p', drawn: true, called: false },
+    { tile: '4z', drawn: true, called: false }, { tile: '8p', drawn: true, called: true },
   ];
   const pc = (p: number) => (p < 0.0005 ? '0%' : p < 0.0095 ? `${(p * 100).toFixed(1)}%` : `${Math.round(p * 100)}%`);
   // A cell's shade by its chance (0 to 1): the higher, the redder.

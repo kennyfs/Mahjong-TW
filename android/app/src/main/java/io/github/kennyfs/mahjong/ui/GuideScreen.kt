@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.ui
 
+import io.github.kennyfs.mahjong.Discard
 import io.github.kennyfs.mahjong.Words
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,7 +65,7 @@ import io.github.kennyfs.mahjong.Rules
 import io.github.kennyfs.mahjong.RulesInfo
 import io.github.kennyfs.mahjong.Tiles
 
-private const val PAGES = 8
+private const val PAGES = 9
 
 /** A winning hand's groups: five sets and a pair (the tiles, the name of the kind). */
 private val GOAL = listOf("234m" to R.string.guide_chow, "678p" to R.string.guide_chow, "345s" to R.string.guide_chow,
@@ -73,6 +74,11 @@ private val SUITS = listOf("123456789m" to R.string.guide_row_m, "123456789p" to
   "1234765z" to R.string.guide_row_z)
 private const val FLOWER_TILES = "12345678f"
 /** A call: what it is, the tiles in hand, and the one taken. */
+/** The river's marks, one tile each (River draws them as at the table). */
+private val MARKS = listOf(
+  Discard("9m", drawn = true) to R.string.guide_river_drawn, Discard("2p", called = true) to R.string.guide_river_called,
+  Discard("4z", drawn = true, called = true) to R.string.guide_river_drawn_called, Discard("7s", afterCall = true) to R.string.guide_river_after,
+)
 private val CALLS = listOf(Triple(R.string.guide_chi, "35m", "4m"), Triple(R.string.guide_pon, "77z", "7z"), Triple(R.string.guide_kan, "111p", "1p"))
 /** A wait: its name, the tiles waiting, and the tiles waited for. */
 private val WAITS = listOf(Triple(R.string.guide_wait_ryanmen, "34m", "25m"), Triple(R.string.guide_wait_penchan, "12s", "3s"),
@@ -92,8 +98,8 @@ private val NOT_LISTED = listOf("dealer", "streak")
 
 /**
  * How to play (規則說明): pages for someone new to Taiwanese mahjong. First the rules to explain (a tai preset and a
- * flower preset, the settings' at the start); then the goal, the tiles and flowers, a turn and the calls, being
- * ready, tai and payments, a quiz on waits, and on to practice (under the rules explained, if they differ from the
+ * flower preset, the settings' at the start); then the goal, the tiles and flowers, a turn and the calls, the river's
+ * marks, being ready, tai and payments, a quiz on waits, and on to practice (under the rules explained, if they differ from the
  * settings') or the tour. Where the flowers and the tai come up, the same choice is there again, so a change shows at
  * once. The values (base, dealer, every tai) come from the engine ({"cmd":"rules"}). Opened from the settings, the
  * welcome card and the tour's end, over the screen it was opened from; Back leaves it. The web page's Guide.svelte.
@@ -246,6 +252,15 @@ fun GuideScreen(vm: AppModel, onBack: () -> Unit, onPlay: () -> Unit, onTour: ()
             para(stringResource(R.string.guide_turn_end, v["keep"] ?: 16), large = false)
           }
           4 -> {
+            title(R.string.guide_river_title)
+            para(stringResource(R.string.guide_river_text))
+            for ((d, label) in MARKS) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+              Box(Modifier.background(table.felt, RoundedCornerShape(10.dp)).padding(6.dp)) { River(listOf(d), w = small.value, cols = 1, rows = 0, last = false) }
+              para(stringResource(label), large = false, modifier = Modifier.weight(1f))
+            }
+            para(stringResource(R.string.guide_river_tips), large = false, color = cs.onSurfaceVariant)
+          }
+          5 -> {
             title(R.string.guide_ready_title)
             para(stringResource(R.string.guide_ready_text))
             for ((label, hand, waits) in WAITS) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -259,7 +274,7 @@ fun GuideScreen(vm: AppModel, onBack: () -> Unit, onPlay: () -> Unit, onTour: ()
               else stringResource(R.string.guide_duting_off, taiName), large = false)
             para(stringResource(R.string.guide_missed), large = false)
           }
-          5 -> {
+          6 -> {
             title(R.string.guide_tai_title)
             switch(onTai = true)
             para(stringResource(R.string.guide_tai_text, n("base")))
@@ -295,7 +310,7 @@ fun GuideScreen(vm: AppModel, onBack: () -> Unit, onPlay: () -> Unit, onTour: ()
             para(stringResource(if ((v["draw_streak"] ?: 0) > 0) R.string.guide_tai_draw_on else R.string.guide_tai_draw_off), large = false)
             para(stringResource(R.string.guide_tai_next), large = false)
           }
-          6 -> {
+          7 -> {
             val quiz = QUIZ[q]
             val right = checked && quiz.waits.size == picked.size && quiz.waits.all { it in picked }
             val good = LocalOutcome.current.good

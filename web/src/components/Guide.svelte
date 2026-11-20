@@ -1,7 +1,8 @@
 <!--
   How to play (規則說明): pages for someone new to Taiwanese mahjong. First the rules to explain (a tai preset and a
-  flower preset, the settings' at the start); then the goal, the tiles and flowers, a turn and the calls, being
-  ready, tai and payments, a quiz on waits, and on to practice or the tour. Where the flowers and the tai come up, the
+  flower preset, the settings' at the start); then the goal, the tiles and flowers, a turn and the calls, the river's
+  marks (摸切, taken tiles, the first discard after a call), being ready, tai and payments, a quiz on waits, and on to
+  practice or the tour. Where the flowers and the tai come up, the
   same choice is there again, so a change shows at once. The values (base, dealer, every tai) come from the engine
   ({"cmd":"rules"}). Opened from the settings, the welcome card and the tour's end, under the screen it was opened
   from (#/<screen>/guide); Back leaves it. The app's ui/GuideScreen.kt is the same.
@@ -14,15 +15,16 @@
   import { settings } from '../lib/settings.svelte';
   import { parseTiles, taiName as itemName, tileName } from '../lib/tiles';
   import { tour } from '../lib/tour.svelte';
-  import type { RulesInfo } from '../lib/types';
+  import type { Discard, RulesInfo } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
+  import River from './River.svelte';
   import Tile from './Tile.svelte';
   import TitleBar from './TitleBar.svelte';
   import Toggle from './Toggle.svelte';
 
   let { onback, onglossary = () => nav.open('glossary', nav.screen, true) }: { onback: () => void; onglossary?: () => void } = $props();
 
-  const PAGES = 8;
+  const PAGES = 9;
   let page = $state(0);
   let scroller: HTMLElement | undefined = $state();
   function go(p: number) {
@@ -55,6 +57,11 @@
     ['1234765z', 'guide_row_z']];
   const FLOWER_TILES = '12345678f';
   // A call: the tiles in hand, and the one taken.
+  /** The river's marks, one tile each (River.svelte draws them as at the table). */
+  const MARKS: [Discard, string][] = [
+    [{ tile: '9m', drawn: true, called: false }, 'guide_river_drawn'], [{ tile: '2p', drawn: false, called: true }, 'guide_river_called'],
+    [{ tile: '4z', drawn: true, called: true }, 'guide_river_drawn_called'], [{ tile: '7s', drawn: false, called: false, after_call: true }, 'guide_river_after'],
+  ];
   const CALLS: [string, string, string][] = [['guide_chi', '35m', '4m'], ['guide_pon', '77z', '7z'], ['guide_kan', '111p', '1p']];
   const WAITS: [string, string, string][] = [['guide_wait_ryanmen', '34m', '25m'], ['guide_wait_penchan', '12s', '3s'],
     ['guide_wait_kanchan', '46p', '5p'], ['guide_wait_tanki', '7z', '7z'], ['guide_wait_shanpon', '11z99p', '1z9p']];
@@ -186,6 +193,15 @@
       <p class="body-medium">{(v.multi_ron ?? 0) > 0 ? t('guide_multi_ron_on', taiName) : t('guide_multi_ron_off', taiName)}</p>
       <p class="body-medium">{t('guide_turn_end', v.keep ?? 16)}</p>
     {:else if page === 4}
+      <h2 class="headline-small">{t('guide_river_title')}</h2>
+      <p class="body-large">{t('guide_river_text')}</p>
+      <div class="marks">
+        {#each MARKS as [d, label] (label)}
+          <div class="mark-row"><div class="felt one"><River discards={[d]} w={small} cols={1} /></div><p class="body-medium">{t(label)}</p></div>
+        {/each}
+      </div>
+      <p class="body-medium dim">{t('guide_river_tips')}</p>
+    {:else if page === 5}
       <h2 class="headline-small">{t('guide_ready_title')}</h2>
       <p class="body-large">{t('guide_ready_text')}</p>
       <div class="waits">
@@ -200,7 +216,7 @@
       </div>
       <p class="body-medium">{(v.duting ?? 0) > 0 ? t('guide_duting_on', taiName, n('duting')) : t('guide_duting_off', taiName)}</p>
       <p class="body-medium">{t('guide_missed')}</p>
-    {:else if page === 5}
+    {:else if page === 6}
       <h2 class="headline-small">{t('guide_tai_title')}</h2>
       {@render taiSwitch()}
       <p class="body-large">{t('guide_tai_text', n('base'))}</p>
@@ -222,7 +238,7 @@
       <p class="body-medium">{(v.min_tai ?? 0) > 0 ? t('guide_tai_min', n('min_tai')) : t('guide_tai_min_none')}</p>
       <p class="body-medium">{(v.draw_streak ?? 0) > 0 ? t('guide_tai_draw_on') : t('guide_tai_draw_off')}</p>
       <p class="body-medium">{t('guide_tai_next')}</p>
-    {:else if page === 6}
+    {:else if page === 7}
       <h2 class="headline-small">{t('guide_try_title')}</h2>
       <p class="body-large">{t('guide_try_text')}</p>
       <span class="label-large dim">{t('guide_try_q', q + 1, QUIZ.length)}</span>
@@ -279,6 +295,10 @@
   .felt { background: var(--felt); color: var(--on-felt); border-radius: 14px; padding: 10px 12px; }
   .row { display: flex; align-items: flex-end; gap: 1px; }
   .row.wrap { flex-wrap: wrap; gap: 2px; }
+  .marks { display: flex; flex-direction: column; gap: 8px; }
+  .mark-row { display: flex; align-items: center; gap: 12px; }
+  .mark-row p { margin: 0; flex: 1; }
+  .felt.one { padding: 6px; flex: none; }
   .groups { display: flex; flex-wrap: wrap; gap: 10px 14px; align-self: flex-start; }
   .group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .suits { display: flex; flex-direction: column; gap: 6px; align-self: flex-start; max-width: 100%; overflow-x: auto; }

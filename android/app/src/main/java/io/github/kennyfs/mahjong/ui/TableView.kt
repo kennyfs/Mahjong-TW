@@ -1128,7 +1128,7 @@ fun CallBar(w: Float) {
 
 /**
  * One player's discards in order, `cols` a row; the tiles taken by a meld faded, the last discard lit, the tiles
- * straight from the draw (摸切) framed by a dashed line (both on one taken), the first discard after the player's own call marked by a bar at its left.
+ * straight from the draw (摸切) orange (deeper when taken), the first discard after the player's own call marked by a bar at its left.
  * `claim`: the player may claim the last discard: it stands out, larger and pulsing. `fly`: the table's moves; a new
  * discard comes from the hand (`mine`: discardFly) or in from the table's edge (`seat`'s: discardIn).
  */
@@ -1152,7 +1152,7 @@ fun River(
           Box(anchor.then(if (out) Modifier.zIndex(1f).scale(1.25f + 0.15f * pulse) else Modifier)
             .then(if (fly != null && i == discards.size - 1) Modifier.zIndex(2f).then(if (mine) Modifier.discardFly(fly, i) else Modifier.discardIn(fly, seat, i))
               else Modifier)) {
-            TileView(d.tile, tw.d, dim = d.called, glow = (last || out) && i == discards.size - 1 && !d.called, framed = d.drawn)
+            TileView(d.tile, tw.d, dim = d.called, glow = (last || out) && i == discards.size - 1 && !d.called, tsumogiri = d.drawn)
             if (d.afterCall) CallBar(tw)
           }
         }

@@ -657,6 +657,13 @@
   <string name="guide_multi_ron_off">When several can win on a discard (%1$s): only the first of them in turn after the discarder wins.</string>
   <string name="guide_multi_ron_on">When several can win on a discard (%1$s): they all win, and the discarder pays each of them.</string>
   <string name="guide_turn_end">The last %1$d tiles of the wall are never drawn. When only they are left and no one has won, the hand is a draw: no one gains or pays.</string>
+  <string name="guide_river_title">The river</string>
+  <string name="guide_river_text">Each player\'s discards lie in order in front of them: their river. Its marks:</string>
+  <string name="guide_river_drawn">Draw-discard: the tile just drawn, thrown at once. An orange face.</string>
+  <string name="guide_river_called">Claimed: taken by another player\'s chow, pung or kong. At a real table it leaves the river; here it stays, darker, to keep the order.</string>
+  <string name="guide_river_drawn_called">A claimed draw-discard: a deeper orange.</string>
+  <string name="guide_river_after">A blue bar on the left: the first discard after that player\'s chow, pung or kong.</string>
+  <string name="guide_river_tips">How they tell whether an opponent is close to ready: Table tips, in the settings.</string>
   <string name="guide_ready_title">Ready</string>
   <string name="guide_ready_text">A hand one tile from winning is ready; the tiles that would complete it are its waits. Common waits:</string>
   <string name="guide_wait_ryanmen">Two-sided: either end of a run.</string>
@@ -911,7 +918,7 @@
   <string name="tips_title">Table tips</string>
   <string name="tips_row">Is an opponent ready, when to fall back, which tile is safer: from 200,000 hands of self-play.</string>
   <string name="tips_river_title">The river\'s marks</string>
-  <string name="tips_river_text">A dashed frame marks a draw-discard; an inset blue bar on the left marks the first discard after a chow or pung; a faded tile was claimed by another player. Players throwing draw-discards in a row or who just called are often ready.</string>
+  <string name="tips_river_text">An orange face is a draw-discard; a darker tile was claimed by another player, a deeper orange one was a claimed draw-discard; an inset blue bar on the left marks the first discard after a chow or pung. Players throwing draw-discards in a row or who just called are often ready.</string>
   <string name="tips_ready_title">Is an opponent ready?</string>
   <string name="tips_ready_text">Count their discards and melds. The table shows how often players who look like this are really ready; with the last two or more straight from the draw, about half as much again.</string>
   <string name="tips_discards">Discards</string>
@@ -1033,7 +1040,7 @@
   <string name="glossary_t_efficiency">Tile efficiency</string>
   <string name="glossary_d_efficiency">Playing for speed alone, ignoring danger and tai: the fewest away first, then the most improving tiles.</string>
   <string name="glossary_t_tsumogiri">Draw-discard</string>
-  <string name="glossary_d_tsumogiri">Discarding the tile just drawn: the tiles with a dashed frame in a river. A player who does it several times in a row often needs nothing more and may be ready.</string>
+  <string name="glossary_d_tsumogiri">Discarding the tile just drawn: the orange tiles in a river. A player who does it several times in a row often needs nothing more and may be ready.</string>
   <string name="glossary_t_tedashi">Hand-discard</string>
   <string name="glossary_d_tedashi">Discarding a tile already in the hand and keeping the one drawn: the river\'s ordinary tiles.</string>
   <string name="glossary_t_genbutsu">Own discards (genbutsu)</string>

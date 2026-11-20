@@ -145,7 +145,7 @@ fun TipsScreen(onBack: () -> Unit) {
 }
 
 private val SAMPLE = listOf(
-  Discard("1z"), Discard("9m", drawn = true), Discard("2p", called = true), Discard("7s", afterCall = true), Discard("4z", drawn = true), Discard("8p", drawn = true),
+  Discard("1z"), Discard("9m", drawn = true), Discard("2p", called = true), Discard("7s", afterCall = true), Discard("4z", drawn = true), Discard("8p", drawn = true, called = true),
 )
 
 /** "9%", "0.7%", "0.1%", "0%". */
