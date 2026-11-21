@@ -758,7 +758,7 @@ private fun TableViewIn(
                 waitAt = waitAt, modifier = Modifier.onGloballyPositioned { handRect = it.boundsInRoot() })
             }
           }
-          Column(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 2).d).widthIn(max = (s.sideW - 12).d).then(measured(Side.BOTTOM)),
+          Column(Modifier.align(Alignment.BottomStart).padding(start = 8.dp, bottom = (meH + 2).d).widthIn(max = maxOf(s.sideW - 12, s.font * 10f).d).then(measured(Side.BOTTOM)),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             status?.invoke()
             Box(Modifier.onSizeChanged { val v = it.width / density.density to it.height / density.density; if (myPlate != v) myPlate = v }) { badge(me, null) }
@@ -940,7 +940,7 @@ fun SeatBadge(
         // The room's words, unseen, keep the width; the note over them.
         Text(room, Modifier.alpha(0f), fontWeight = FontWeight.Bold, fontSize = f, maxLines = 1)
         if (note != null) Text(note.text, color = if (note.level > 0) Marks.on(note.level) else c.onFelt, fontWeight = FontWeight.Bold, fontSize = f,
-          maxLines = 1)
+          maxLines = 1, overflow = TextOverflow.Ellipsis)
       } else if (note != null) Box(Modifier.weight(1f, fill = false)) {
         var shown by remember(note.opp) { mutableStateOf(false) }
         // (A level over 0 may come with a note that has no short words: Shorten.)

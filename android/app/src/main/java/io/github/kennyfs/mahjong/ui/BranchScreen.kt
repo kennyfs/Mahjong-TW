@@ -502,7 +502,8 @@ fun BranchScreen(
       if (!b.dealt) Row(Modifier.toggleable(b.reshuffle, role = Role.Checkbox) { if (b.played) confirmShuffle = true else b.toggleReshuffle() }
         .padding(end = 8.dp).testTag("branch_reshuffle"), verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = b.reshuffle, onCheckedChange = null, modifier = Modifier.minimumInteractiveComponentSize())  // (the room it had)
-        Text(stringResource(if (short) R.string.branch_reshuffle_short else R.string.branch_reshuffle), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+        Text(stringResource(if (short) R.string.branch_reshuffle_short else R.string.branch_reshuffle), style = MaterialTheme.typography.bodyMedium, maxLines = 1,
+          overflow = TextOverflow.Ellipsis)
       }
     }
     val toggleColors = IconButtonDefaults.iconToggleButtonColors(checkedContainerColor = cs.secondaryContainer, checkedContentColor = cs.onSecondaryContainer)
@@ -638,7 +639,7 @@ fun BranchScreen(
         } else {
           Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             top()
-            reshuffle(false)
+            Shorten(2) { reshuffle(it == 1) }
             info()
           }
           buttons()
