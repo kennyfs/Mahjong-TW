@@ -90,15 +90,16 @@
       </div>
     {/each}
   </div>
-  {#if next}
-    <div class="next body-medium dim">
-      {r.next_streak > 0 ? t('result_next_streak', names[r.next_dealer], r.next_streak) : t('result_next_dealer', names[r.next_dealer])}
-    </div>
-  {/if}
   {#if rev}
     <div class="rev body-medium">
       <span>{t('review_line', pts(rev.first), pts(-rev.loss), pts(rev.luck))}</span>
       <span class="count" class:some={mistakes > 0}>{mistakesText(rev.grades, settings.level)}</span>
+    </div>
+  {/if}
+  <!-- (After the review's line, as the app's: the next dealer leads to the next hand's button.) -->
+  {#if next}
+    <div class="next body-medium dim">
+      {r.next_streak > 0 ? t('result_next_streak', names[r.next_dealer], r.next_streak) : t('result_next_dealer', names[r.next_dealer])}
     </div>
   {/if}
   {#if actions}<div class="actions">{@render actions()}</div>{/if}
