@@ -223,7 +223,7 @@ fun DecisionPanel(
         }
       }
       // What the figure at each row's right is: said here, not on every row.
-      IconButton(onClick = { help = true }, Modifier.size(36.dp).testTag("list_help")) {
+      IconButton(onClick = { help = true }, Modifier.testTag("list_help")) {
         Icon(Icons.Outlined.Info, stringResource(R.string.list_help), Modifier.size(20.dp), tint = dim)
       }
     }

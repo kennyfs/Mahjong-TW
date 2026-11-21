@@ -842,9 +842,9 @@ private fun <T> SelectRow(
 private fun Block(title: String, help: String? = null, onHelp: ((String, String) -> Unit)? = null, content: @Composable () -> Unit) {
   Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     if (help != null && onHelp != null) Row(verticalAlignment = Alignment.CenterVertically) {
-      Text(title, style = MaterialTheme.typography.bodyLarge)
+      Text(title, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
       // ⓘ: the setting's longer words in a small window (the page stays short).
-      IconButton(onClick = { onHelp(title, help) }, Modifier.size(40.dp)) {
+      IconButton(onClick = { onHelp(title, help) }) {
         Icon(Icons.Outlined.Info, stringResource(R.string.rules_help) + Words.colon + title, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
       }
     } else Text(title, style = MaterialTheme.typography.bodyLarge)
