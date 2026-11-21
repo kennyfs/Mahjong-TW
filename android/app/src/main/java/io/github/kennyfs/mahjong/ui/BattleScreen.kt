@@ -48,6 +48,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -478,6 +480,13 @@ private fun Standings(battle: Battle, room: RoomView, withHand: Boolean) {
 
 @Composable
 private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
+  CompositionLocalProvider(LocalDensity provides LocalTableDensity.current) {
+    TablePageIn(vm, room, onLeave)
+  }
+}
+
+@Composable
+private fun TablePageIn(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
   val battle = vm.battle
   val table = battle.table
   val s = room.settings

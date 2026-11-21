@@ -262,7 +262,7 @@ private fun App(vm: AppModel) {
         }
         null -> when (vm.tab) {
           Screen.PLAY -> PlayScreen(vm)
-          Screen.BATTLE -> BattleScreen(vm)
+          Screen.BATTLE -> words { BattleScreen(vm) }
           Screen.ANALYZE -> AnalyzeScreen(vm)
           Screen.RECORDS -> words { keep.SaveableStateProvider("records") { RecordsScreen(vm) } }
           Screen.SETTINGS -> words { keep.SaveableStateProvider("settings") { SettingsScreen(vm) } }
