@@ -57,6 +57,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
@@ -172,8 +173,9 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
   var step by remember(rec.id) { mutableIntStateOf(vm.reviewStep.coerceIn(0, n)) }
   var want by remember(rec.id) { mutableIntStateOf(step) }
   LaunchedEffect(step) { vm.reviewStep = step }
-  var showAll by remember { mutableStateOf(false) }
-  var showResult by remember(rec.id) { mutableStateOf(false) }
+  // (Saveable: kept when the phone turns, as the step is in vm.reviewStep.)
+  var showAll by rememberSaveable { mutableStateOf(false) }
+  var showResult by rememberSaveable(rec.id) { mutableStateOf(false) }
   /** A phone: the list in place of the table. */
   var panelOpen by remember { mutableStateOf(false) }
   var view by remember(rec.id) { mutableStateOf<View?>(null) }
@@ -274,7 +276,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     val v = view
     if (mine != null && v != null && hasNet) Explain.explain(res, mine.analysis, mine.played, v, unit) else null
   }
-  var explaining by remember { mutableStateOf(false) }
+  var explaining by rememberSaveable { mutableStateOf(false) }
   var tipsOpen by remember { mutableStateOf(false) }
   val deciding = if (step < n) actions[step].let { (s, a) -> s to fullAction(a) } else null
   /** What the step's line adds to the action: who dealt in to a win; for a claim that was not made, whose came first. */
@@ -416,7 +418,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     val topButtons = @Composable {
       // (The narrow column beside the table has no room for it here: it has it under.)
       if (!side || inlinePanel) branchButton()
-      IconButton(onClick = { vm.records.setFav(rec.id, !rec.fav) }) {
+      IconToggleButton(rec.fav, { vm.records.setFav(rec.id, it) }) {
         Icon(if (rec.fav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite))
       }
       IconToggleButton(checked = showAll, onCheckedChange = { showAll = it }, modifier = Modifier.testTag("replay_all"), colors = toggleColors) {
@@ -504,6 +506,9 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.testTag("replay_choice"),
               ) else if (step >= n && outcome.isNotEmpty()) Text(outcome, style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant,
                 modifier = Modifier.testTag("replay_choice"))
+              // The hand's rules, at its start (the hand may be old, or played under other rules than now).
+              if (step == 0) Text(stringResource(R.string.rules_title) + stringResource(R.string.colon) + rulesOf(rec.game.rules),
+                style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.testTag("replay_rules"))
             }
           }
           val best = mine?.analysis?.best
@@ -663,7 +668,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
             val f = final
             // (After a win's moment, when it plays: CallFx.)
             if (step == n && f?.result != null && showResult && !fxOn) Sheet {
-              HandResultCard(f, names, rec.me, resultTileW(side, w), rev = rec.rev, level = level) {
+              HandResultCard(f, names, rec.me, resultTileW(side, w), rev = rec.rev, level = level, rules = rulesOf(rec.game.rules)) {
                 TextButton(onClick = { showResult = false }) { Text(stringResource(R.string.result_hands)) }
                 if (stops.isNotEmpty()) FilledTonalButton(onClick = { go(stops.first().step) }) { Text(stringResource(R.string.review_next_key)) }
                 // After the result: the next hand. Practice's, when this is the hand just played (the review

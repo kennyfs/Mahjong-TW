@@ -8,6 +8,7 @@
 <script lang="ts">
   import { fxDone, fxOn, resultTap } from '../lib/fx.svelte';
   import { onDestroy, onMount } from 'svelte';
+  import { keepScroll } from '../lib/keepscroll';
   import {
     battle, HAND_CHOICES, LENGTHS, NAME_LENGTH, nameOf, rankOf, standings, TIME_LIMITS, type HandOutcome, type Length,
     type PlayerView, type RoomSettings,
@@ -400,7 +401,7 @@
     <TitleBar title={t('battle_over')}>
       <button class="btn filled" onclick={() => battle.dismiss()}>{t('battle_done')}</button>
     </TitleBar>
-    <div class="scroll">
+    <div class="scroll" use:keepScroll={'battle:' + room.pin}>
       <div class="summary">
         {#if battle.mine}<p class="headline-small">{t('battle_place', rankOf(room, battle.mine))}</p>{/if}
         <div class="row-head body-small dim"><span class="grow">{t('battle_standings')}</span><span class="num">{t('battle_total')}</span></div>
@@ -489,7 +490,9 @@
     background: var(--secondary-container); color: var(--on-secondary-container); white-space: nowrap; }
   .clock.bad { background: var(--error-container); color: var(--on-error-container); }
   .mini { border: 1px solid var(--on-felt-dim); background: transparent; color: var(--on-felt); border-radius: 12px; padding: 1px 8px;
-    font-size: 0.75rem; cursor: pointer; }
+    font-size: 0.75rem; cursor: pointer; position: relative; }
+  /* A larger place to tap than the drawn pill (about 20 px tall). */
+  .mini::before { content: ''; position: absolute; inset: -10px -12px; }
   .mini-text { font-size: 0.75rem; color: var(--on-felt-dim); }
   .sheet { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 12px;
     background: rgba(0, 0, 0, 0.35); overflow: auto; }
@@ -535,4 +538,6 @@
     background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; width: 100%; }
   .hand-line .grow { display: flex; flex-direction: column; }
   .hand-line:hover { background: var(--surface-container); }
+  /* (Last: over the rules above.) */
+  @media (prefers-reduced-motion: reduce) { .bar, .spinner { animation: none; } }
 </style>

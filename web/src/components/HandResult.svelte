@@ -15,8 +15,10 @@
   import type { View } from '../lib/types';
   import { signed } from '../lib/ui.svelte';
   import Tile from './Tile.svelte';
-  let { final, names, me, w = 30, actions, compact = false, rev = null, next = true }: {
+  let { final, names, me, w = 30, actions, compact = false, rev = null, next = true, rules }: {
     final: View; names: string[]; me: number; w?: number; actions?: Snippet; compact?: boolean; rev?: ReviewSummary | null;
+    /** The rules in words (a review's: the hand may be old). */
+    rules?: string;
     /** The line on the next hand's dealer (not for a review's branch: there is no next hand). */
     next?: boolean;
   } = $props();
@@ -57,6 +59,7 @@
   <div class="head">
     <div class="title headline-small">{title}</div>
     {#if sub}<div class="sub title-medium">{sub}</div>{/if}
+    {#if rules}<div class="rules body-small">{rules}</div>{/if}
   </div>
 
   {#each r.winners as wn (wn.seat)}
@@ -107,6 +110,7 @@
   .result.compact { padding: 12px; gap: 8px; }
   .head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
   .title { color: var(--primary); }
+  .rules { margin-left: auto; color: var(--on-surface-variant); }
   .hand-line { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 0; }
   .group { display: inline-flex; margin-right: 8px; }
   /* The concealed tiles keep together: on a line of their own where they do not fit after the melds. */
@@ -122,7 +126,8 @@
   .pay { display: flex; flex-direction: column; align-items: center; padding: 4px; border-radius: 10px; background: var(--surface-container); }
   .pay.me { outline: 2px solid var(--primary); }
   .pts { font-weight: 700; font-size: 1.125rem; }
-  .parts { font-size: 0.75rem; line-height: 1.2; color: var(--on-surface-variant); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  /* (Two lines where a quarter of the card is too narrow: "Base 2 + 1 tai" on a phone, two-digit tai.) */
+  .parts { font-size: 0.75rem; line-height: 1.2; color: var(--on-surface-variant); text-align: center; max-width: 100%; }
   .rev { display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 6px 10px; border-radius: 10px; background: var(--surface-container);
     font-variant-numeric: tabular-nums; }
   .count { font-weight: 700; color: var(--good); }

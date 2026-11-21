@@ -10,7 +10,7 @@
   --good: #2e7d32; --bad: #c62828;
   /* The figures' green and red (FigureLine.svelte): darker, to read on the lists' tinted rows. */
   --fig-good: #1b6e23; --fig-bad: #a3191a;
-  --felt: #1f6f54; --slot: #27795c; --target: #2e8665; --on-felt: #eef7f2; --on-felt-dim: #b9d9c8; --highlight: #f0c058; --mark: #1a73e8;
+  --felt: #1f6f54; --slot: #27795c; --target: #2e8665; --on-felt: #eef7f2; --on-felt-dim: #b9d9c8; --highlight: #f0c058; --on-highlight: #3a2a00; --mark: #1a73e8;
   --felt-good: #a8e6b0; --felt-bad: #ffb4ab; --action: #eef7f2; --on-action: #1f6f54;
   /* The tiles: an ivory face, a blue back (it shows on the felt), the selected one warm. */
   --tile-face: #fdfbf3; --tile-edge: #cfc8b4; --tile-back: #28559b; --tile-back-light: #3b6db5; --tile-selected: #fff3c4;
@@ -29,7 +29,7 @@
   --surface-container-low: #171d1a; --surface-container: #1b211e; --surface-container-high: #252b28; --surface-container-highest: #303633;
   --good: #81c784; --bad: #ef9a9a;
   --fig-good: var(--good); --fig-bad: var(--bad);
-  --felt: #164f3d; --slot: #1d5c47; --target: #256a52; --on-felt: #e3f0e9; --on-felt-dim: #a3c4b3; --highlight: #e8b954; --mark: #6ab0ff;
+  --felt: #164f3d; --slot: #1d5c47; --target: #256a52; --on-felt: #e3f0e9; --on-felt-dim: #a3c4b3; --highlight: #e8b954; --on-highlight: #3a2a00; --mark: #6ab0ff;
   --action: #e3f0e9; --on-action: #164f3d;
   --tile-face: #f3efe3; --tile-edge: #b9b29c; --tile-back: #234b88; --tile-back-light: #315ea3; --tile-selected: #ffe9a8;
   --tile-mark: #d4e7fa; --tile-drawn: #ecb47f; --tile-drawn-edge: #c48a52; --tile-drawn-taken: #e8792a; --tile-drawn-taken-edge: #b85a18; --tile-wait: #a9cbf2; --tile-wait-edge: #6f98c8;
@@ -37,7 +37,7 @@
 }
 /* The minimal colors: the felt is the page; only in its dark theme are the cards dark. */
 :root.minimal { --felt: var(--surface); --slot: var(--surface-container); --target: var(--primary-container); --on-felt: var(--on-surface);
-  --on-felt-dim: var(--on-surface-variant); --highlight: var(--primary); --felt-good: var(--good); --felt-bad: var(--bad);
+  --on-felt-dim: var(--on-surface-variant); --highlight: var(--primary); --on-highlight: var(--on-primary); --felt-good: var(--good); --felt-bad: var(--bad);
   --action: var(--primary); --on-action: var(--on-primary); }
 * { box-sizing: border-box; }
 html { font-size: calc(100% * var(--text-scale, 1)); -webkit-text-size-adjust: 100%; }

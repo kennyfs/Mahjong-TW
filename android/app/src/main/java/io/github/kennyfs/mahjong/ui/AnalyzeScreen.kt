@@ -102,10 +102,10 @@ private fun WallPick(label: String, value: Int, onChange: (Int) -> Unit) {
       Chip("$value", onClick = { open = true }, menu = true, modifier = Modifier.testTag("analyze_wall"))
       DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
         Row(Modifier.width(300.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-          IconButton(onClick = { onChange((value - 1).coerceAtLeast(0)) }) { Icon(Icons.Filled.Remove, "−") }
+          IconButton(onClick = { onChange((value - 1).coerceAtLeast(0)) }) { Icon(Icons.Filled.Remove, stringResource(R.string.stepper_less, label)) }
           Text("$value", Modifier.widthIn(min = 32.dp), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
           Slider(value.toFloat().coerceIn(0f, 120f), { onChange(it.roundToInt()) }, Modifier.weight(1f), valueRange = 0f..120f)
-          IconButton(onClick = { onChange((value + 1).coerceAtMost(120)) }) { Icon(Icons.Filled.Add, "+") }
+          IconButton(onClick = { onChange((value + 1).coerceAtMost(120)) }) { Icon(Icons.Filled.Add, stringResource(R.string.stepper_more, label)) }
         }
       }
     }

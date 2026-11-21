@@ -1217,7 +1217,7 @@
      rivers of a long hand come down to this height (tried; it covered the right player's fifth row of discards).
      The right player's hand shown at the end can reach it on a low table, until the tap that it waits for. */
   .next { position: absolute; right: 8px; z-index: 3; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
-    min-height: 52px; padding: 0 20px 0 14px; border: none; border-radius: 26px; cursor: pointer; background: var(--highlight); color: #3a2a00;
+    min-height: 52px; padding: 0 20px 0 14px; border: none; border-radius: 26px; cursor: pointer; background: var(--highlight); color: var(--on-highlight);
     font-weight: 700; font-size: 1.125rem; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); white-space: nowrap; }
   .next svg { width: 1.5em; height: 1.5em; fill: currentColor; flex: none; }
   .next.tall { right: 5px; flex-direction: column; gap: 0; padding: 0; border-radius: 12px; font-size: 0.8125rem; line-height: 1.1; }

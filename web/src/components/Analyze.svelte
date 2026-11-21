@@ -349,7 +349,8 @@
   .fold { align-self: flex-start; margin: 2px 0; }
   .palette { padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; align-items: center; }
   .hint { align-self: stretch; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
-  .fold-palette { margin-left: auto; min-height: 32px; gap: 0; }
+  .fold-palette { margin-left: auto; min-height: 32px; gap: 0; position: relative; }
+  .fold-palette::before { content: ''; position: absolute; inset: -6px -3px; }
   .turn { display: inline-flex; transform: rotate(180deg); }
   .turn.down { transform: none; }
   .grid { display: grid; gap: 4px 0; }

@@ -360,6 +360,7 @@
   .fill { position: absolute; inset: 0 auto 0 0; background: var(--primary); transition: width 0.2s; }
   .bar { position: absolute; inset: 0 auto 0 0; width: 40%; background: var(--primary); animation: slide 1.1s ease-in-out infinite; }
   @keyframes slide { from { left: -40%; } to { left: 100%; } }
+  @media (prefers-reduced-motion: reduce) { .bar { animation: none; } }
   .earlier-row { justify-content: flex-start; text-align: left; height: auto; padding: 8px 12px; }
   .note { margin-bottom: 8px; }
   /* The rows lined up with the note: the dialog's content scrolls, so a negative margin would be cut off. */

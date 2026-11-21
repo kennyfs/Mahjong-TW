@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -60,7 +61,7 @@ import kotlin.math.abs
 @Composable
 fun HandResultCard(
   final: View, names: List<String>, me: Int, w: Float, modifier: Modifier = Modifier, rev: ReviewSummary? = null, level: Level = Level.mid,
-  next: Boolean = true, actions: @Composable RowScope.() -> Unit = {},
+  next: Boolean = true, rules: String? = null, actions: @Composable RowScope.() -> Unit = {},
 ) {
   val r = final.result ?: return
   val cs = MaterialTheme.colorScheme
@@ -92,6 +93,8 @@ fun HandResultCard(
       FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), itemVerticalAlignment = Alignment.Bottom) {
         Text(title, style = MaterialTheme.typography.headlineSmall, color = cs.primary)
         if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.titleMedium)
+        // A review's rules (the hand may be old).
+        if (rules != null) Text(rules, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
       }
       for (wn in r.winners) {
         val p = final.position.players[wn.seat]
@@ -142,7 +145,8 @@ fun HandResultCard(
               val base = abs(pts - tai)
               Text(
                 stringResource(R.string.result_parts, if (base % 1.0 == 0.0) base.toInt().toString() else "%.1f".format(base), abs(tai).toString()),
-                style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                // (Two lines where a quarter of the card is too narrow: "Base 2 + 1 tai" on a phone, two-digit tai.)
+                style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, maxLines = 2, textAlign = TextAlign.Center,
               )
             }
           }

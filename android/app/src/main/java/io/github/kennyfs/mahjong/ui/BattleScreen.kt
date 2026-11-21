@@ -202,6 +202,9 @@ private fun EntryPage(vm: AppModel) {
     if (editServer) OutlinedTextField(
       settings.server, { settings.server = it.trim() }, Modifier.fillMaxWidth().testTag("battle_server"), label = { Text(stringResource(R.string.battle_server)) },
       placeholder = { Text(stringResource(R.string.battle_server_app_hint)) }, singleLine = true,
+      // (The app has no server of its own: without one, the rooms' buttons are off; this says why. The line is always
+      // there, empty once a server is typed: nothing under it moves.)
+      supportingText = { Text(if (settings.server.isBlank()) stringResource(R.string.battle_server_needed) else "") },
       keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
     ) else Row(verticalAlignment = Alignment.CenterVertically) {
       Text(stringResource(R.string.battle_server_is, settings.server), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
@@ -479,7 +482,7 @@ private fun TablePage(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
   val table = battle.table
   val s = room.settings
   val handOver = table?.view?.result != null
-  var hideResult by remember { mutableStateOf(false) }
+  var hideResult by rememberSaveable { mutableStateOf(false) }
   LaunchedEffect(handOver) { if (!handOver) hideResult = false }
   // A hand's end: the result's moment waits for the player's tap (TableView), then the result; without one (the words
   // alone) the table as it ended waits for it (TapOn). The time to be ready runs from the hand's end all the same.

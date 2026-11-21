@@ -166,6 +166,8 @@
   <string name="tai_standard_desc">常見的完整台數表（MJ888、維基教科書）。</string>
   <string name="tai_masters_desc">2025 麻將大師賽的台數表。</string>
   <string name="rules_base">底</string>
+  <string name="stepper_less">%1$s 減一</string>
+  <string name="stepper_more">%1$s 加一</string>
   <string name="rules_base_desc">胡牌時，每個失分的人扣「底 + 台數」，底以台計。</string>
   <string name="rules_advanced">所有參數</string>
   <string name="rules_advanced_desc">0 表示不算。</string>
@@ -255,6 +257,7 @@
   <string name="records_table">牌桌</string>
   <string name="records_contest">同牌賽</string>
   <string name="records_empty">還沒有紀錄。</string>
+  <string name="records_empty_fav">沒有收藏的牌局。</string>
   <string name="records_favorites_only">只看收藏</string>
   <string name="records_clear">清除紀錄</string>
   <string name="records_clear_confirm">清除所有沒收藏的紀錄？</string>
@@ -269,6 +272,7 @@
   <string name="records_import_dropped">超過上限 %1$d 局，最舊的 %2$d 局沒有保留。</string>
   <string name="records_import_room">瀏覽器的儲存空間不夠，最舊的 %1$d 局沒有保留。</string>
   <string name="records_import_empty">檔案裡沒有紀錄。</string>
+  <string name="records_save_failed">紀錄檔沒有存成功，請換個位置再試。</string>
   <string name="records_import_bad">這個檔案不是台灣麻將匯出的紀錄檔。</string>
   <string name="records_dev_count">共 %1$d 局</string>
   <string name="records_reset_scores">分數歸零</string>
@@ -444,6 +448,7 @@
   <string name="battle_lost">和伺服器的連線斷了。</string>
   <!-- Battles: the app only (a server's address, phones nearby) -->
   <string name="battle_server_app_hint">例如 example.com</string>
+  <string name="battle_server_needed">填了伺服器才能開房間或加入。</string>
   <string name="battle_online_info">透過網路上的對戰伺服器，和任何地方的人對戰。</string>
   <string name="battle_nearby_info">不用網路：用藍牙和 Wi-Fi 和旁邊的手機連線。一支手機開房，其他手機找到房間、輸入房號加入。</string>
   <string name="battle_host_table">在這支手機開一桌</string>
@@ -562,7 +567,7 @@
   <string name="stats_kind_call">吃碰槓</string>
   <string name="stats_kind_win">胡不胡</string>
   <string name="stats_run">分析其餘 %1$d 局</string>
-  <string name="stats_running">分析中 %1$d／%2$d</string>
+  <string name="stats_running">停止分析 %1$d／%2$d</string>
   <string name="record_loss">損失 %1$s</string>
   <string name="replay_over">結束</string>
   <string name="replay_last">最後一手</string>

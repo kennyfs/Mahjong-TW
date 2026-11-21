@@ -8,13 +8,22 @@
   another browser, phone or version; a file's records imported (the app's or the page's); and practice's scores set
   to zero (a new game from the first hand; the records stay).
 -->
+<script module lang="ts">
+  import type { RecordKind as Kind } from '../lib/records.svelte';
+  // The tab, the filter and the battle opened, kept while a hand's review is open over the records (and its scroll:
+  // keepScroll), so that back from it the list is as it was.
+  const kept: { tab: Kind; favOnly: boolean; openBattle: string | null } = { tab: 'practice', favOnly: false, openBattle: null };
+</script>
+
 <script lang="ts">
   import { t } from '../lib/i18n.svelte';
+  import { shared } from '../lib/app.svelte';
+  import { keepScroll } from '../lib/keepscroll';
   import { nav } from '../lib/nav.svelte';
   import { MAX, parseRecords, records, type BattleGroup, type HandRecord, type Imported, type RecordKind } from '../lib/records.svelte';
   import * as engine from '../lib/engine';
   import { keepSummary, KINDS_OF_LOSS, levelOrWorse, mistakesOf, pts } from '../lib/review';
-  import { flowerLabel, parseChoice, taiLabel } from '../lib/rules';
+  import { rulesText } from '../lib/rules';
   import { settings } from '../lib/settings.svelte';
   import { localTime, signed } from '../lib/ui.svelte';
   import Dialog from './Dialog.svelte';
@@ -25,8 +34,8 @@
   import { practice } from '../lib/practice.svelte';
 
   let { onreview }: { onreview: (id: string) => void } = $props();
-  let tab = $state<RecordKind>('practice');
-  let favOnly = $state(false);
+  let tab = $state<RecordKind>(kept.tab);
+  let favOnly = $state(kept.favOnly);
   let confirmClear = $state(false);
   let confirmReset = $state(false);
 
@@ -67,7 +76,8 @@
     if (r.dropped > 0) lines.push(r.room ? t('records_import_room', r.dropped) : t('records_import_dropped', MAX, r.dropped));
     return lines.join('\n');
   }
-  let openBattle = $state<string | null>(null);
+  let openBattle = $state<string | null>(kept.openBattle);
+  $effect(() => { kept.tab = tab; kept.favOnly = favOnly; kept.openBattle = openBattle; });
 
   const hands = $derived(records.hands.filter((h) => h.kind === tab && (!favOnly || h.fav)).slice().reverse());
   const battles = $derived(records.battles.filter((b) => b.kind === tab && (!favOnly || b.fav || records.ofGroup(b.id).some((h) => h.fav))).slice().reverse());
@@ -111,21 +121,17 @@
     if (h.loser === h.me) return t('record_dealt_in');
     return t('record_win_other', h.names[h.winners[0]]);
   }
-  function rulesOf(spec: string): string {
-    const [tai, flowers] = spec.split(',');
-    const c = parseChoice({ tai, flowers });
-    return t('rules_chip', t(taiLabel(c.tai)), t(flowerLabel(c.flowers))) + (spec.split(',').length > 2 ? t('sep') + t('rules_custom') : '');
-  }
   const tabs: [RecordKind, string][] = $derived([['practice', t('records_practice')], ['table', t('records_table')], ['contest', t('records_contest')]]);
 </script>
 
 {#snippet line(h: HandRecord)}
   {@const me = h.points[h.me]}
-  <div class="line">
-    <button class="main" onclick={() => onreview(h.id)}>
+  <!-- (The hand last opened marked: back from its review, which one it was.) -->
+  <div class="line" class:last={h.id === shared.reviewId}>
+    <button class="main" data-opens onclick={() => onreview(h.id)}>
       <span class="what">
         <span class="body-large" class:good={h.winners.includes(h.me)} class:bad={h.loser === h.me}>{summary(h)}</span>
-        <span class="body-small dim">{#if h.hints}<span class="hints" title={t('practice_hints_toggle')}>{t('practice_hints')}</span>{/if}{localTime(h.time)}{t('sep')}{rulesOf(h.game.rules)}{h.index ? t('sep') + t('record_hand_of', h.index) : ''}{h.rev ? t('sep') + t('record_loss', pts(h.rev.loss, false)) : ''}</span>
+        <span class="body-small dim">{#if h.hints}<span class="hints" title={t('practice_hints_toggle')}>{t('practice_hints')}</span>{/if}{localTime(h.time)}{t('sep')}{rulesText(h.game.rules)}{h.index ? t('sep') + t('record_hand_of', h.index) : ''}{h.rev ? t('sep') + t('record_loss', pts(h.rev.loss, false)) : ''}</span>
       </span>
       <span class="pts" class:good={me > 0 && !h.hints} class:bad={me < 0 && !h.hints} class:void={h.hints}>{signed(me)}</span>
     </button>
@@ -140,6 +146,8 @@
   <div class="battle">
     <div class="line">
       <button class="main" aria-expanded={openBattle === b.id} onclick={() => (openBattle = openBattle === b.id ? null : b.id)}>
+        <!-- (That the line opens to its hands, as the app's.) -->
+        <span class="fold" class:open={openBattle === b.id} aria-hidden="true"><Icon name="chevron" /></span>
         <span class="what">
           <span class="body-large">{b.names.join(t('sep'))}</span>
           <span class="body-small dim">{localTime(b.time)}{t('sep')}{t(b.via === 'nearby' ? 'records_kind_nearby' : 'records_kind_online')}{t('sep')}{t('records_battle_hands', b.hands)}{b.left ? t('sep') + t('records_battle_left') : ''}</span>
@@ -158,7 +166,7 @@
 
 <div class="page">
   <TitleBar title={t('records_title')} max={760} />
-  <div class="scroll"><div class="readable">
+  <div class="scroll" use:keepScroll={{ key: 'records:' + tab, opens: '[data-opens]', mark: '.line.last [data-opens]' }}><div class="readable">
     <div class="head">
       <Toggle options={tabs} selected={tab} onselect={(v) => (tab = v)} />
       <div class="sub">
@@ -198,9 +206,9 @@
       <SettingRow title={t('coach_title')} value={t('coach_row')} onclick={() => nav.open('coach')} />
     {/if}
     {#if tab === 'practice'}
-      {#each hands as h (h.id)}{@render line(h)}{:else}<p class="empty body-large dim">{t('records_empty')}</p>{/each}
+      {#each hands as h (h.id)}{@render line(h)}{:else}<p class="empty body-large dim">{t(favOnly ? 'records_empty_fav' : 'records_empty')}</p>{/each}
     {:else}
-      {#each battles as b (b.id)}{@render battle(b)}{:else}<p class="empty body-large dim">{t('records_empty')}</p>{/each}
+      {#each battles as b (b.id)}{@render battle(b)}{:else}<p class="empty body-large dim">{t(favOnly ? 'records_empty_fav' : 'records_empty')}</p>{/each}
     {/if}
     <section class="dev">
       <h2 class="title-small">{t('records_dev_title')}</h2>
@@ -263,6 +271,9 @@
   .sub { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .chip.on { background: var(--secondary-container); color: var(--on-secondary-container); border-color: transparent; }
   .line { display: flex; align-items: center; gap: 4px; padding-right: 8px; border-bottom: 1px solid var(--outline-variant, var(--surface-container-highest)); }
+  .line.last { background: color-mix(in srgb, var(--primary) 8%, transparent); box-shadow: inset 3px 0 0 var(--primary); }
+  .fold { display: inline-flex; color: var(--on-surface-variant); transition: transform 0.15s; }
+  .fold.open { transform: rotate(90deg); }
   .main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 8px 10px 16px; border: none; background: none;
     color: inherit; text-align: left; cursor: pointer; font: inherit; }
   .main:hover { background: var(--surface-container); }

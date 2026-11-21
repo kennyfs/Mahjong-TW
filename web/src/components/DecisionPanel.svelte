@@ -190,7 +190,8 @@
   .notable { display: flex; gap: 6px; padding: 6px 12px; border-radius: 12px; background: var(--tertiary-container); color: var(--on-tertiary-container); font-weight: 500; }
   .star { color: var(--found); }
   .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 0 4px; color: var(--on-surface-variant); }
-  .info { margin-left: auto; width: 32px; min-height: 32px; border-radius: 16px; color: var(--on-surface-variant); }
+  .info { margin-left: auto; width: 32px; min-height: 32px; border-radius: 16px; color: var(--on-surface-variant); position: relative; }
+  .info::before { content: ''; position: absolute; inset: -6px; }
   .help { margin: 0; line-height: 1.6; white-space: pre-line; }
   .key { display: inline-flex; align-items: center; gap: 4px; }
   .key i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }

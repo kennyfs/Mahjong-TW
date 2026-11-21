@@ -27,6 +27,7 @@
 <script lang="ts">
   import Tile, { TILE_RATIO } from './Tile.svelte';
   import { fly } from 'svelte/transition';
+  import { movesShown } from '../lib/fx.svelte';
   import { t } from '../lib/i18n.svelte';
   import { DRAWN_GAP, LIFT, ROW_GAP } from '../lib/layout';
   /** A chosen tile's rise (of its height) where the tiles have tags. */
@@ -137,7 +138,7 @@
           onpointerdown={(e) => down(e, i)} onpointermove={move} onpointerup={up} onpointercancel={() => (drag = null)}
           onpointerenter={(e) => { if ((oneClick || marks) && e.pointerType === 'mouse') onhover?.(i); }}
           onpointerleave={(e) => { if ((oneClick || marks) && e.pointerType === 'mouse') onhover?.(null); }}
-          in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn ? 220 : 0, delay: isDrawn ? drawWait : 0 }}
+          in:fly={{ y: isDrawn ? -h : 0, duration: isDrawn && movesShown() ? 220 : 0, delay: isDrawn ? drawWait : 0 }}
           aria-pressed={selected === i} data-tile={all[i]} data-drawn={isDrawn ? '1' : '0'}>
           <span class="lifted" style="transform: translateY({drag?.i === i ? drag.dy : selected === i ? -lift : 0}px)">
             {#if marks?.get(all[i])?.tag}

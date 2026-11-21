@@ -50,6 +50,8 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
   var tab by mutableStateOf(Screen.PLAY)
   private var stacks by mutableStateOf(Screen.entries.associateWith { emptyList<Page>() })
   val pages: List<Page> get() = stacks.getValue(tab)
+  /** Whether a page is open under any screen's tab. */
+  fun isOpen(p: Page) = stacks.values.any { p in it }
 
   var reviewId by mutableStateOf<String?>(null)
   /** The review's step, kept while another screen is shown over it (a step taken to the analysis screen). */

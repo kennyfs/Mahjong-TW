@@ -7,6 +7,7 @@
 -->
 <script lang="ts">
   import { LANGS, t, type Lang } from '../lib/i18n.svelte';
+  import { keepScroll } from '../lib/keepscroll';
   import { nav } from '../lib/nav.svelte';
   import { practice } from '../lib/practice.svelte';
   import { flowerLabel, taiLabel } from '../lib/rules';
@@ -24,7 +25,8 @@
   import Toggle from './Toggle.svelte';
 
   const lengths: [Length, string][] = $derived([['hand', t('length_hand')], ['round', t('length_round')], ['game', t('length_game')]]);
-  const speeds: [Speed, string][] = $derived([['slow', t('speed_slow')], ['normal', t('speed_normal')], ['fast', t('speed_fast')], ['manual', t('speed_manual')]]);
+  // From the slowest: 手動 (a step a tap), then slow, normal, fast.
+  const speeds: [Speed, string][] = $derived([['manual', t('speed_manual')], ['slow', t('speed_slow')], ['normal', t('speed_normal')], ['fast', t('speed_fast')]]);
   const colors: [Colors, string][] = $derived([['TABLE', t('colors_table')], ['MINIMAL', t('colors_minimal')]]);
   const darks: [Dark, string][] = $derived([['SYSTEM', t('dark_system')], ['LIGHT', t('dark_light')], ['DARK', t('dark_dark')]]);
   const texts: [TextSize, string][] = $derived([['SMALL', t('text_small')], ['NORMAL', t('text_normal')], ['LARGE', t('text_large')]]);
@@ -70,7 +72,7 @@
 {#snippet list(desk: boolean)}
   <div class="page">
     <TitleBar title={t('settings_title')} max={720} />
-    <div class="scroll"><div class="readable">
+    <div class="scroll" use:keepScroll={'settings'}><div class="readable">
       <!-- (In Thirteen's order: the look, the game, help, about; the analysis after the game.) -->
       <div class="section-header">{t('settings_look')}</div>
       <div class="block">

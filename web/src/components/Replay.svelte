@@ -32,6 +32,7 @@
   import { editor } from '../lib/position-editor.svelte';
   import { practice } from '../lib/practice.svelte';
   import { records } from '../lib/records.svelte';
+  import { rulesText } from '../lib/rules';
   import { costOf, EQUAL, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pts, reasonOf, reviewOf, summarize,
     tagCost, tileMarks, tilesShort, opponentNote, type TileMark } from '../lib/review';
   import { explain, mayPraise } from '../lib/explain';
@@ -438,6 +439,7 @@
       {:else if step >= n && outcome}
         <span class="decide">{outcome}</span>
       {/if}
+      {#if step === 0 && rec}<span class="decide">{t('rules_title')}{t('colon')}{rulesText(rec.game.rules)}</span>{/if}
     </div>
     {#if mine && key && mine.analysis.best !== undefined && mine.played >= 0}
       <div class="verdict">
@@ -565,7 +567,7 @@
             {#snippet overlay()}
               {#if step === n && final?.result && showResult && !fxOn.on}
                 <div class="sheet">
-                  <HandResult {final} {names} me={rec.me} rev={rec.rev ?? null} w={ui.wide ? Math.min(36, Math.max(24, ui.w / 30)) : Math.min(34, Math.max(24, ui.w / 13))}>
+                  <HandResult {final} {names} me={rec.me} rev={rec.rev ?? null} rules={rulesText(rec.game.rules)} w={ui.wide ? Math.min(36, Math.max(24, ui.w / 30)) : Math.min(34, Math.max(24, ui.w / 13))}>
                     {#snippet actions()}
                       <button class="btn text" onclick={() => (showResult = false)}>{t('result_hands')}</button>
                       {#if stops.length}<button class="btn tonal" onclick={() => go(stops[0].step)}>{t('review_next_key')}</button>{/if}
@@ -645,7 +647,9 @@
   .where { display: flex; flex-wrap: wrap; gap: 0 12px; align-items: baseline; }
   .where-actions { float: right; margin-left: 8px; display: inline-flex; gap: 6px; align-items: center; }
   .decide { color: var(--on-surface-variant); }
-  .to-result { align-self: center; min-height: 32px; padding: 0 12px; }
+  .to-result { align-self: center; min-height: 32px; padding: 0 12px; position: relative; }
+  /* (Drawn small in the fixed room of the words; a place to tap of about 44 px.) */
+  .to-result::before { content: ''; position: absolute; inset: -6px -3px; }
   .verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
   .grade { padding: 0 8px; border-radius: 8px; font-weight: 700; font-size: 0.8125rem; background: var(--found); color: #fff; }
   .grade.g1:not(.fine) { background: var(--danger-1); color: var(--on-danger); }

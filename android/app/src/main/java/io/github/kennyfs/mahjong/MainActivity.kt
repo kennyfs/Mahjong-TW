@@ -34,6 +34,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -229,6 +230,16 @@ private fun App(vm: AppModel) {
     else WindowInsetsSides.Top + WindowInsetsSides.End + WindowInsetsSides.Bottom
     // Sideways, a table's felt reaches the edges, under the camera's cutout too; its tiles keep clear of it.
     val felt = landscape && vm.pages.isEmpty() && (vm.tab == Screen.PLAY || immersive && !battle.over)
+    // The records', the settings' and the help's own state (a list's scroll, a tab, a page of the guide) kept while a
+    // page is open over them (a hand's review, the glossary): back on them, they are as they were. The guide's and
+    // the tips' only while open: closed, they start afresh.
+    val keep = rememberSaveableStateHolder()
+    val guideOpen = vm.isOpen(Page.GUIDE)
+    val tipsOpen = vm.isOpen(Page.TIPS)
+    LaunchedEffect(guideOpen, tipsOpen) {
+      if (!guideOpen) keep.removeState("guide")
+      if (!tipsOpen) keep.removeState("tips")
+    }
     Box(
       Modifier.fillMaxSize().then(if (felt) Modifier.background(LocalTable.current.felt) else Modifier)
         .windowInsetsPadding(WindowInsets.safeDrawing.only(sides)),
@@ -237,22 +248,24 @@ private fun App(vm: AppModel) {
         Page.RULES -> words { RulesScreen(vm, vm::back) }
         Page.REVIEW -> ReplayScreen(vm, vm::back)
         Page.COACH -> words { CoachScreen(vm, vm::back) }
-        Page.TIPS -> words { TipsScreen(vm::back) }
+        Page.TIPS -> words { keep.SaveableStateProvider("tips") { TipsScreen(vm::back) } }
         Page.GLOSSARY -> words { GlossaryScreen(vm::back) }
         Page.GUIDE -> words {
-          GuideScreen(
-            vm, vm::back,
-            onPlay = { vm.close(Page.GUIDE); vm.show(Screen.PLAY) },
-            onTour = { vm.close(Page.GUIDE); tour.start() },
-            onGlossary = { vm.open(Page.GLOSSARY) },
-          )
+          keep.SaveableStateProvider("guide") {
+            GuideScreen(
+              vm, vm::back,
+              onPlay = { vm.close(Page.GUIDE); vm.show(Screen.PLAY) },
+              onTour = { vm.close(Page.GUIDE); tour.start() },
+              onGlossary = { vm.open(Page.GLOSSARY) },
+            )
+          }
         }
         null -> when (vm.tab) {
           Screen.PLAY -> PlayScreen(vm)
           Screen.BATTLE -> BattleScreen(vm)
           Screen.ANALYZE -> AnalyzeScreen(vm)
-          Screen.RECORDS -> words { RecordsScreen(vm) }
-          Screen.SETTINGS -> words { SettingsScreen(vm) }
+          Screen.RECORDS -> words { keep.SaveableStateProvider("records") { RecordsScreen(vm) } }
+          Screen.SETTINGS -> words { keep.SaveableStateProvider("settings") { SettingsScreen(vm) } }
         }
       }
     }

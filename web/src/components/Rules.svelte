@@ -103,9 +103,9 @@
     <div class="row">
       <span class="text"><span class="body-large">{t('result_base', String(base))}</span><span class="body-medium dim">{t('rules_base_desc')}</span></span>
       <span class="stepper">
-        <button class="btn icon tonal" aria-label="−" disabled={base <= 1} onclick={() => set('base', base - 1)}><Icon name="remove" /></button>
+        <button class="btn icon tonal" aria-label={t('stepper_less', t('rules_base'))} disabled={base <= 1} onclick={() => set('base', base - 1)}><Icon name="remove" /></button>
         <span class="value">{base}</span>
-        <button class="btn icon tonal" aria-label="+" disabled={base >= 20} onclick={() => set('base', base + 1)}><Icon name="add" /></button>
+        <button class="btn icon tonal" aria-label={t('stepper_more', t('rules_base'))} disabled={base >= 20} onclick={() => set('base', base + 1)}><Icon name="add" /></button>
       </span>
     </div>
     <p class="note body-medium dim">{t('rules_note')}</p>
@@ -138,9 +138,9 @@
               </button>
             {:else}
               <span class="stepper">
-                <button class="btn icon tonal" aria-label="−" disabled={v <= (MIN[p] ?? 0)} onclick={() => set(p, v - 1)}><Icon name="remove" /></button>
+                <button class="btn icon tonal" aria-label={t('stepper_less', label(p))} disabled={v <= (MIN[p] ?? 0)} onclick={() => set(p, v - 1)}><Icon name="remove" /></button>
                 <span class="value">{v}</span>
-                <button class="btn icon tonal" aria-label="+" disabled={v >= (MAX[p] ?? 99)} onclick={() => set(p, v + 1)}><Icon name="add" /></button>
+                <button class="btn icon tonal" aria-label={t('stepper_more', label(p))} disabled={v >= (MAX[p] ?? 99)} onclick={() => set(p, v + 1)}><Icon name="add" /></button>
               </span>
             {/if}
           </div>

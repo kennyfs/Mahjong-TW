@@ -163,6 +163,8 @@
   <string name="tai_simple2_desc">As often played at home: dealer, dealer streak, concealed hand, self-draw (3 tai for both), single wait, full flush (1 tai) and every wind or dragon pung (1 tai each); every winner on a discard wins.</string>
   <string name="tai_standard_desc">The usual full tai table (MJ888, Wikibooks).</string>
   <string name="tai_masters_desc">The 2025 Mahjong Masters\' tai table.</string>
+  <string name="stepper_less">%1$s, one less</string>
+  <string name="stepper_more">%1$s, one more</string>
   <string name="rules_base">Base</string>
   <string name="rules_base_desc">On a win, each losing player pays base + tai; the base is counted in tai.</string>
   <string name="rules_advanced">All settings</string>
@@ -249,6 +251,7 @@
   <string name="records_table">Table</string>
   <string name="records_contest">Duplicate</string>
   <string name="records_empty">No records yet.</string>
+  <string name="records_empty_fav">No starred hands.</string>
   <string name="records_favorites_only">Favorites only</string>
   <string name="records_clear">Clear records</string>
   <string name="records_clear_confirm">Clear every record that isn\'t a favorite?</string>
@@ -263,6 +266,7 @@
   <string name="records_import_dropped">Over the limit of %1$d hands, the oldest %2$d were not kept.</string>
   <string name="records_import_room">The browser had no room for them all: the oldest %1$d were not kept.</string>
   <string name="records_import_empty">The file holds no records.</string>
+  <string name="records_save_failed">The records file was not saved. Try another place.</string>
   <string name="records_import_bad">This isn\'t a records file exported by Taiwan Mahjong.</string>
   <string name="records_dev_count">Hands kept: %1$d</string>
   <string name="records_reset_scores">Reset scores</string>
@@ -436,6 +440,7 @@
   <string name="battle_closed">The room has closed.</string>
   <string name="battle_lost">Lost the connection to the server.</string>
   <!-- Battles: the app only -->
+  <string name="battle_server_needed">Enter a server to open or join a room.</string>
   <string name="battle_server_app_hint">For example example.com</string>
   <string name="battle_online_info">Play with anyone, anywhere, through a match server on the internet.</string>
   <string name="battle_nearby_info">No internet needed: phones nearby connect by Bluetooth and Wi-Fi. One phone opens a room; the others find it and join with its room number.</string>
@@ -552,7 +557,7 @@
   <string name="stats_kind_call">Calls</string>
   <string name="stats_kind_win">Winning or not</string>
   <string name="stats_run">Analyze the rest (%1$d)</string>
-  <string name="stats_running">Analyzing %1$d/%2$d</string>
+  <string name="stats_running">Stop analyzing %1$d/%2$d</string>
   <string name="record_loss">Loss %1$s</string>
   <string name="replay_over">End</string>
   <string name="replay_last">Last move</string>

@@ -914,7 +914,7 @@ fun SeatBadge(
         val base = p[FirstBaseline]
         val dy = if (base == AlignmentLine.Unspecified || ink.isEmpty) 0 else (p.height / 2f - (base + ink.exactCenterY())).roundToInt()
         layout(p.width, p.height) { p.place(0, dy) }
-      }, color = if (dealer) Color(0xFF3A2A00) else c.felt, fontWeight = FontWeight.Bold, fontSize = f)
+      }, color = if (dealer) c.onHighlight else c.felt, fontWeight = FontWeight.Bold, fontSize = f)
     }
     val scoreText: @Composable () -> Unit = {
       if (score != null) Text(signed(score), color = if (score > 0) c.good else if (score < 0) c.bad else c.onFelt, fontWeight = FontWeight.Bold,
@@ -1404,7 +1404,7 @@ private fun TagSkeleton(w: Float, tagH: Float, modifier: Modifier = Modifier) {
 /** A skeleton's grey on the felt or a page. */
 private val SKELETON = Color(0x738C9691)
 
-/** A tag's color by its tone: the best, the grades of a loss, or plain. */
+/** A tag's color by its tone, under its words: the best, the grades of a loss, or plain. */
 fun toneColor(tone: TileMark.Tone): Color = when (tone) {
   TileMark.Tone.BEST -> Marks.found
   TileMark.Tone.G1 -> Marks.danger1
@@ -1421,7 +1421,7 @@ fun toneColor(tone: TileMark.Tone): Color = when (tone) {
 @Composable
 private fun BoxScope.NextStep(onNext: () -> Unit, s: TableSizes, meH: Float, w: Float, rows: Int) {
   val c = LocalTable.current
-  val ink = Color(0xFF3A2A00)
+  val ink = c.onHighlight
   if (s.wide) Surface(
     onClick = onNext, shape = RoundedCornerShape(26.dp), color = c.highlight, contentColor = ink, shadowElevation = 4.dp,
     // In the corner, under the right player's column: further in, the rivers of a long hand come down to this height.

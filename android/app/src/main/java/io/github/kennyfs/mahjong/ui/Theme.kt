@@ -74,6 +74,8 @@ data class TableColors(
    *  beside a player's first discard after its call. */
   val tileDrawn: Color = Color(0xFFF9C08A), val tileDrawnEdge: Color = Color(0xFFD99A5C),
   val tileDrawnTaken: Color = Color(0xFFE8792A), val tileDrawnTakenEdge: Color = Color(0xFFB85A18), val callMark: Color = Color(0xFF1A73E8),
+  /** The ink on `highlight` (the dealer's wind, 下一步): dark brown on the brass, the scheme's own on the minimal green. */
+  val onHighlight: Color = Color(0xFF3A2A00),
 )
 
 @Immutable
@@ -96,7 +98,7 @@ private fun tableFor(style: ColorStyle, scheme: ColorScheme, dark: Boolean): Tab
     ColorStyle.MINIMAL -> TableColors(
       scheme.surface, scheme.onSurface, scheme.onSurfaceVariant, scheme.primary,
       if (dark) Color(0xFF81C784) else Color(0xFF2E7D32), if (dark) Color(0xFFE57373) else Color(0xFFC62828), scheme.primary, scheme.onPrimary,
-      t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7],
+      t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], onHighlight = scheme.onPrimary,
     )
     // Felt in the wallpaper's colors (Thirteen's): its primary, or in the dark its primary container.
     ColorStyle.WALLPAPER -> {

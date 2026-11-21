@@ -6,7 +6,8 @@ import { KEYS, load, save } from './store';
 export type Length = 'hand' | 'round' | 'game';
 /** The computer players' pace; `manual`: each of their steps waits for the player (lib/practice.svelte.ts). */
 export type Speed = 'slow' | 'normal' | 'fast' | 'manual';
-export const SPEEDS: Speed[] = ['slow', 'normal', 'fast', 'manual'];
+/** From the slowest: 手動 (a step a tap), then slow, normal, fast (the settings' order). */
+export const SPEEDS: Speed[] = ['manual', 'slow', 'normal', 'fast'];
 export type Colors = 'TABLE' | 'MINIMAL';
 export type Dark = 'SYSTEM' | 'LIGHT' | 'DARK';
 export type TextSize = 'SMALL' | 'NORMAL' | 'LARGE';

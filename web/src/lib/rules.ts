@@ -2,6 +2,7 @@
 // (docs/rules.md section 11). The names and values of the parameters come from the engine ({"cmd":"rules"}), never
 // from a table here. A port of the app's Rules.kt.
 import { rulesInfo } from './engine';
+import { t } from './i18n.svelte';
 import type { RulesInfo } from './types';
 
 export interface RuleChoice { tai: string; flowers: string; overrides: Record<string, number> }
@@ -65,4 +66,10 @@ export async function withValue(c: RuleChoice, name: string, value: number): Pro
 export const taiLabel = (p: string) => `tai_${p}`;
 export const flowerLabel = (p: string) => `flowers_${p}`;
 /** A flowers' preset in a rules chip that has no room for its name (見花見台 → 見花). */
+/** A record's rules in words ("簡單1・無花"), and "自訂" when it changes values. */
+export function rulesText(spec: string): string {
+  const [tai, flowers] = spec.split(',');
+  const c = parseChoice({ tai, flowers });
+  return t('rules_chip', t(taiLabel(c.tai)), t(flowerLabel(c.flowers))) + (spec.split(',').length > 2 ? t('sep') + t('rules_custom') : '');
+}
 export const flowerShort = (p: string) => (p === 'see' ? 'flowers_see_short' : flowerLabel(p));

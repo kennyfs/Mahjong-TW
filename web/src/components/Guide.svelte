@@ -7,7 +7,14 @@
   ({"cmd":"rules"}). Opened from the settings, the welcome card and the tour's end, under the screen it was opened
   from (#/<screen>/guide); Back leaves it. The app's ui/GuideScreen.kt is the same.
 -->
+<script module lang="ts">
+  // The page and the rules shown, kept while the glossary is open over the guide (from one of its links); any other
+  // way out starts it afresh.
+  const kept = { page: 0, tai: '', flowers: '', scroll: 0 };
+</script>
+
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { t } from '../lib/i18n.svelte';
   import { nav } from '../lib/nav.svelte';
   import { practice } from '../lib/practice.svelte';
@@ -26,16 +33,25 @@
   let { onback, onglossary = () => nav.open('glossary', nav.screen, true) }: { onback: () => void; onglossary?: () => void } = $props();
 
   const PAGES = 9;
-  let page = $state(0);
+  let page = $state(kept.page);
   let scroller: HTMLElement | undefined = $state();
+  let scrolled = 0;
+  $effect(() => { if (scroller && kept.scroll) { scroller.scrollTop = kept.scroll; kept.scroll = 0; } });
   function go(p: number) {
     page = Math.max(0, Math.min(PAGES - 1, p));
     scroller?.scrollTo({ top: 0 });
   }
 
   // ---- The rules explained: the settings' presets at first ----
-  let tai = $state(settings.rules.tai);
-  let flowers = $state(settings.rules.flowers);
+  let tai = $state(kept.tai || settings.rules.tai);
+  let flowers = $state(kept.flowers || settings.rules.flowers);
+  onDestroy(() => {
+    const toGlossary = nav.sub === 'glossary';
+    kept.page = toGlossary ? page : 0;
+    kept.tai = toGlossary ? tai : '';
+    kept.flowers = toGlossary ? flowers : '';
+    kept.scroll = toGlossary ? scrolled : 0;
+  });
   let rules = $state<RulesInfo | null>(null);
   $effect(() => {
     const spec = `${tai},${flowers}`;
@@ -135,7 +151,7 @@
     <button class="btn text" onclick={onglossary}>{t('glossary_title')}</button>
     <span class="body-medium dim">{t('guide_page', page + 1, PAGES)}</span>
   </TitleBar>
-  <div class="scroll" bind:this={scroller}><div class="content">
+  <div class="scroll" bind:this={scroller} onscroll={(e) => (scrolled = e.currentTarget.scrollTop)}><div class="content">
     {#if page === 0}
       <h2 class="headline-small">{t('guide_rules_title')}</h2>
       <p class="body-large"><Linked text={t('guide_rules_text')} /></p>

@@ -546,7 +546,7 @@ private fun <T> PickDialog(title: String, options: List<Pair<T, String>>, select
 /** The providers' keys: each one's row (set or not), a tap to set or remove it. In the settings and on the coach's page. */
 @Composable
 fun CoachKeyRows(keys: CoachKeys) {
-  var editing by remember { mutableStateOf<Provider?>(null) }
+  var editing by rememberSaveable { mutableStateOf<Provider?>(null) }
   for (p in Provider.entries) {
     val label = if (p == Provider.CUSTOM) stringResource(R.string.coach_custom) else p.label
     SettingRow(label, stringResource(if (keys.has(p)) R.string.coach_key_set else R.string.coach_key_none), Modifier.testTag("coach_key_${p.id}")) {
@@ -570,10 +570,11 @@ private fun KeysDialog(keys: CoachKeys, onDismiss: () -> Unit) {
 @Composable
 private fun KeyDialog(keys: CoachKeys, p: Provider, onDismiss: () -> Unit) {
   val cs = MaterialTheme.colorScheme
+  // (The key typed is not saveable: the saved state can be written to storage. The phone turned, it is typed again.)
   var key by remember { mutableStateOf("") }
   val custom = keys.custom
-  var url by remember { mutableStateOf(custom.url) }
-  var model by remember { mutableStateOf(custom.model) }
+  var url by rememberSaveable { mutableStateOf(custom.url) }
+  var model by rememberSaveable { mutableStateOf(custom.model) }
   val had = keys.has(p)
   val name = if (p == Provider.CUSTOM) stringResource(R.string.coach_custom) else p.label
   AlertDialog(

@@ -223,7 +223,7 @@
               <HandResult {final} {names} me={ME} rev={practice.lastRecord ? records.get(practice.lastRecord)?.rev ?? null : null} w={ui.wide ? Math.min(40, Math.max(26, ui.w / 27)) : Math.min(36, Math.max(26, ui.w / 13))}>
                 {#snippet actions()}
                   {#if lastHinted}<span class="body-small hint-note">{t('result_hints_note')}</span>{/if}
-                  <button class="btn icon" aria-label={t('favorite')} onclick={() => practice.lastRecord && records.setFav(practice.lastRecord, !lastFav)}>
+                  <button class="btn icon" aria-label={t('favorite')} aria-pressed={lastFav} onclick={() => practice.lastRecord && records.setFav(practice.lastRecord, !lastFav)}>
                     <Icon name={lastFav ? 'star' : 'starBorder'} />
                   </button>
                   <button class="btn text" onclick={() => (hideResult = true)}>{t('result_hands')}</button>
@@ -267,7 +267,7 @@
     <p class="body-large" style="margin:0">{t('practice_new_confirm')}</p>
     {#snippet actions()}
       <button class="btn text" onclick={() => (confirmNew = false)}>{t('cancel')}</button>
-      <button class="btn text" onclick={() => { confirmNew = false; void practice.newGame(); }}>{t('ok')}</button>
+      <button class="btn text" onclick={() => { confirmNew = false; void practice.newGame(); }}>{t('practice_new')}</button>
     {/snippet}
   </Dialog>
 {/if}
@@ -278,7 +278,9 @@
   .where { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .bar .chip { flex: none; white-space: nowrap; }
   .mini { border: 1px solid var(--on-felt-dim); background: transparent; color: var(--on-felt); border-radius: 12px; padding: 1px 8px;
-    font-size: 0.75rem; cursor: pointer; }
+    font-size: 0.75rem; cursor: pointer; position: relative; }
+  /* A larger place to tap than the drawn pill (about 20 px tall): sideways, up to the other button's half of the gap. */
+  .mini::before { content: ''; position: absolute; inset: -3px -12px; }
   .spacer { flex: 1; }
   .hint-note { color: var(--on-surface-variant); margin-right: auto; }
   /* On the felt: the list on a card of the page's own colors (its rows are made for them; on the felt its words were
@@ -308,7 +310,7 @@
   .p-score.me .p-name { font-weight: 700; }
   .p-wind { width: 1.7em; height: 1.7em; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
     background: var(--on-felt); color: var(--felt); font-weight: 700; flex: none; }
-  .p-wind.dealer { background: var(--highlight); color: #3a2a00; }
+  .p-wind.dealer { background: var(--highlight); color: var(--on-highlight); }
   .p-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .p-deal { color: var(--highlight); font-weight: 700; flex: none; }
   .p-pts { margin-left: auto; font-weight: 700; flex: none; }

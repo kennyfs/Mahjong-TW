@@ -1,6 +1,8 @@
 package io.github.kennyfs.mahjong.ui
 
 import io.github.kennyfs.mahjong.Words
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.style.TextDecoration
 import android.os.Build
 import androidx.compose.foundation.background
@@ -39,6 +41,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -154,10 +157,11 @@ fun rulesOf(spec: String): String {
 fun RecordsScreen(vm: AppModel) {
   val records = vm.records
   val level = vm.settings.level
-  var tab by remember { mutableStateOf(RecordKind.practice) }
-  var favOnly by remember { mutableStateOf(false) }
+  // Kept (with the list's scroll) while a hand's review is open over the records: MainActivity's SaveableStateHolder.
+  var tab by rememberSaveable { mutableStateOf(RecordKind.practice) }
+  var favOnly by rememberSaveable { mutableStateOf(false) }
   var confirmClear by remember { mutableStateOf(false) }
-  var openBattle by remember { mutableStateOf<String?>(null) }
+  var openBattle by rememberSaveable { mutableStateOf<String?>(null) }
   val hands = records.hands.filter { it.kind == tab && (!favOnly || it.fav) }.asReversed()
   val battles = records.battles.filter { b -> b.kind == tab && (!favOnly || b.fav || records.ofGroup(b.id).any { it.fav }) }.asReversed()
   // (A hand played with the analysis shown, 顯示分析, counts in neither.)
@@ -168,16 +172,17 @@ fun RecordsScreen(vm: AppModel) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
   var confirmReset by remember { mutableStateOf(false) }
+  val res = LocalResources.current
   val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
     if (uri != null) scope.launch {
       val text = records.exportText(BuildConfig.VERSION_NAME ?: "")
       runCatching { withContext(Dispatchers.IO) { context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) } } }
-        .onFailure { vm.error = it.message }
+        // (What failed and what to do, then the system's own words, which may be none.)
+        .onFailure { e -> vm.error = res.getString(R.string.records_save_failed) + (e.message?.let { "\n$it" } ?: "") }
     }
   }
   // A records file from another phone, version or the page (any type: a chat app may save it as anything), read and
   // checked off the main thread, then added; what it did, in a window.
-  val res = LocalResources.current
   var imported by remember { mutableStateOf<String?>(null) }
   val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
     if (uri != null) scope.launch {
@@ -220,8 +225,8 @@ fun RecordsScreen(vm: AppModel) {
           SettingRow(stringResource(R.string.coach_title), stringResource(R.string.coach_row), Modifier.testTag("records_coach")) { vm.open(Page.COACH) }
         }
         if (tab == RecordKind.practice) {
-          items(hands, key = { it.id }) { h -> HandLine(h, onOpen = { vm.review(h.id) }) { records.setFav(h.id, !h.fav) } }
-          if (hands.isEmpty()) item { Empty() }
+          items(hands, key = { it.id }) { h -> HandLine(h, h.id == vm.reviewId, onOpen = { vm.review(h.id) }) { records.setFav(h.id, !h.fav) } }
+          if (hands.isEmpty()) item { Empty(favOnly) }
         } else {
           for (b in battles) {
             item(key = b.id) {
@@ -230,10 +235,10 @@ fun RecordsScreen(vm: AppModel) {
               }
             }
             if (openBattle == b.id) items(records.ofGroup(b.id), key = { "${b.id}/${it.id}" }) { h ->
-              Box(Modifier.padding(start = 16.dp)) { HandLine(h, onOpen = { vm.review(h.id) }) { records.setFav(h.id, !h.fav) } }
+              Box(Modifier.padding(start = 16.dp)) { HandLine(h, h.id == vm.reviewId, onOpen = { vm.review(h.id) }) { records.setFav(h.id, !h.fav) } }
             }
           }
-          if (battles.isEmpty()) item { Empty() }
+          if (battles.isEmpty()) item { Empty(favOnly) }
         }
         item(key = "dev") {
           RecordsFile(records.hands.size, onShare = { scope.launch { shareRecords(context, records.exportText(BuildConfig.VERSION_NAME ?: "")) } },
@@ -380,13 +385,13 @@ private fun RecordsFile(
 }
 
 @Composable
-private fun Empty() {
-  Text(stringResource(R.string.records_empty), Modifier.fillMaxWidth().padding(32.dp), style = MaterialTheme.typography.bodyLarge,
+private fun Empty(favOnly: Boolean) {
+  Text(stringResource(if (favOnly) R.string.records_empty_fav else R.string.records_empty), Modifier.fillMaxWidth().padding(32.dp), style = MaterialTheme.typography.bodyLarge,
     color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
 }
 
 @Composable
-private fun HandLine(h: HandRecord, onOpen: () -> Unit, onFav: () -> Unit) {
+private fun HandLine(h: HandRecord, last: Boolean, onOpen: () -> Unit, onFav: () -> Unit) {
   val me = h.points[h.me]
   val summary = when {
     h.exhausted || h.winners.isEmpty() -> stringResource(R.string.record_draw)
@@ -395,7 +400,9 @@ private fun HandLine(h: HandRecord, onOpen: () -> Unit, onFav: () -> Unit) {
     else -> stringResource(R.string.record_win_other, h.names[h.winners[0]])
   }
   val outcome = LocalOutcome.current
-  Column {
+  // The hand last opened marked: back from its review, which one it was.
+  val cs = MaterialTheme.colorScheme
+  Column(if (last) Modifier.background(cs.primary.copy(alpha = 0.08f)).drawBehind { drawRect(cs.primary, size = size.copy(width = 3.dp.toPx())) } else Modifier) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).heightIn(min = 64.dp).padding(start = 16.dp, end = 4.dp),
       verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
       Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
@@ -415,7 +422,7 @@ private fun HandLine(h: HandRecord, onOpen: () -> Unit, onFav: () -> Unit) {
       }
       Text(signed(me), color = if (h.hints) MaterialTheme.colorScheme.onSurfaceVariant else pointsColor(me), fontWeight = FontWeight.Bold,
         style = MaterialTheme.typography.titleMedium, textDecoration = if (h.hints) TextDecoration.LineThrough else null)
-      IconButton(onClick = onFav) { Icon(if (h.fav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite)) }
+      IconToggleButton(h.fav, { onFav() }) { Icon(if (h.fav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite)) }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
   }
@@ -437,7 +444,7 @@ private fun BattleLine(b: BattleGroup, open: Boolean, onOpen: () -> Unit, onFav:
         )
       }
       Text(signed(total), color = pointsColor(total), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-      IconButton(onClick = onFav) { Icon(if (b.fav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite)) }
+      IconToggleButton(b.fav, { onFav() }) { Icon(if (b.fav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite)) }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
   }
@@ -501,7 +508,7 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
             Text(stringResource(R.string.result_base, base.toString()), style = MaterialTheme.typography.bodyLarge)
             Text(stringResource(R.string.rules_base_desc), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
           }
-          Stepper(base, { set("base", it) }, min = 1, max = 20)
+          Stepper(base, { set("base", it) }, min = 1, max = 20, name = stringResource(R.string.rules_base))
         }
         Text(stringResource(R.string.rules_note), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -541,7 +548,7 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
                     Modifier.alpha(if (changed) 1f else 0f).clearAndSetSemantics { })
                 }
                 if (p in Rules.FLAG_PARAMS) Switch(checked = v == 1, onCheckedChange = { set(p, if (it) 1 else 0) })
-                else Stepper(v, { set(p, it) }, min = if (p == "base") 1 else 0, max = when (p) { "flowers" -> 2; "keep" -> 64; else -> 99 })
+                else Stepper(v, { set(p, it) }, min = if (p == "base") 1 else 0, max = when (p) { "flowers" -> 2; "keep" -> 64; else -> 99 }, name = label)
               }
             }
           }
@@ -700,8 +707,9 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
         }
         Block(stringResource(R.string.settings_speed), stringResource(R.string.speed_manual_hint), help) {
           ToggleGroup(
-            listOf(Speed.SLOW to stringResource(R.string.speed_slow), Speed.NORMAL to stringResource(R.string.speed_normal),
-              Speed.FAST to stringResource(R.string.speed_fast), Speed.MANUAL to stringResource(R.string.speed_manual)),
+            // From the slowest: 手動 (a step a tap), then slow, normal, fast.
+            listOf(Speed.MANUAL to stringResource(R.string.speed_manual), Speed.SLOW to stringResource(R.string.speed_slow),
+              Speed.NORMAL to stringResource(R.string.speed_normal), Speed.FAST to stringResource(R.string.speed_fast)),
             s.speed, { s.speed = it; save(); vm.practice.paceChanged() }, Modifier.fillMaxWidth().testTag("settings_speed"),
           )
         }

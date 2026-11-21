@@ -86,7 +86,7 @@
   .tail { display: inline-flex; align-items: center; gap: 6px; flex: none; }
   .wind { flex: none; width: 1.7em; height: 1.7em; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
     background: var(--on-felt); color: var(--felt); font-weight: 700; }
-  .wind.dealer { background: var(--highlight); color: #3a2a00; }
+  .wind.dealer { background: var(--highlight); color: var(--on-highlight); }
   .deal { flex: none; color: var(--highlight); font-weight: 700; }
   .streak { margin-left: 2px; }
   .count { flex: none; color: var(--on-felt-dim); }

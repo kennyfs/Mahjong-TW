@@ -1,6 +1,8 @@
 package io.github.kennyfs.mahjong.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -46,6 +49,7 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -461,7 +465,7 @@ fun BranchScreen(
   val sheet = over && final?.result != null && b.showResult && !fxOn && !held
   val cs = MaterialTheme.colorScheme
   var confirmShuffle by remember { mutableStateOf(false) }
-  var panelOpen by remember { mutableStateOf(false) }
+  var panelOpen by rememberSaveable { mutableStateOf(false) }
 
   // What the analysis shows: on the table the player's own decision; in the list any seat's.
   val look = b.look
@@ -494,9 +498,10 @@ fun BranchScreen(
 
     // `short`: its words in a few characters (重洗), where the title bar has no room for them (the title was cut).
     val reshuffle: @Composable (Boolean) -> Unit = { short ->
-      if (!b.dealt) Row(Modifier.clickable { if (b.played) confirmShuffle = true else b.toggleReshuffle() }.padding(end = 8.dp).testTag("branch_reshuffle"),
-        verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(checked = b.reshuffle, onCheckedChange = { if (b.played) confirmShuffle = true else b.toggleReshuffle() })
+      // One control, the row (a screen reader hears one check box with its words, not two stops).
+      if (!b.dealt) Row(Modifier.toggleable(b.reshuffle, role = Role.Checkbox) { if (b.played) confirmShuffle = true else b.toggleReshuffle() }
+        .padding(end = 8.dp).testTag("branch_reshuffle"), verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = b.reshuffle, onCheckedChange = null, modifier = Modifier.minimumInteractiveComponentSize())  // (the room it had)
         Text(stringResource(if (short) R.string.branch_reshuffle_short else R.string.branch_reshuffle), style = MaterialTheme.typography.bodyMedium, maxLines = 1)
       }
     }

@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -27,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
@@ -84,7 +86,7 @@ fun PlayScreen(vm: AppModel) {
   val settings = vm.settings
   val names = listOf(stringResource(R.string.you)) + (1..3).map { stringResource(R.string.cpu_n, it) }
   var confirmNew by remember { mutableStateOf(false) }
-  var hideResult by remember { mutableStateOf(false) }
+  var hideResult by rememberSaveable { mutableStateOf(false) }
   LaunchedEffect(Unit) { if (practice.game == null) practice.resume() }
   val meta = practice.meta
   val view = practice.view
@@ -191,7 +193,7 @@ fun PlayScreen(vm: AppModel) {
                 HandResultCard(final, names, Practice.ME, resultTileW(wide, w), rev = last?.rev, level = settings.level) {
                   if (last?.hints == true) Text(stringResource(R.string.result_hints_note), Modifier.weight(1f, fill = false),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                  IconButton(onClick = { practice.lastRecord?.let { vm.records.setFav(it, !lastFav) } }) {
+                  IconToggleButton(lastFav, { on -> practice.lastRecord?.let { vm.records.setFav(it, on) } }) {
                     Icon(if (lastFav) Icons.Filled.Star else Icons.Filled.StarBorder, stringResource(R.string.favorite))
                   }
                   TextButton(onClick = { hideResult = true }) { Text(stringResource(R.string.result_hands)) }
@@ -213,7 +215,8 @@ fun PlayScreen(vm: AppModel) {
       }
     }
   }
-  if (confirmNew) ConfirmDialog(stringResource(R.string.practice_new_confirm), onConfirm = { practice.newGame() }, onDismiss = { confirmNew = false })
+  if (confirmNew) ConfirmDialog(stringResource(R.string.practice_new_confirm), onConfirm = { practice.newGame() }, onDismiss = { confirmNew = false },
+    confirm = stringResource(R.string.practice_new))
 }
 
 /** A small outlined button on the felt, for the table's box. */

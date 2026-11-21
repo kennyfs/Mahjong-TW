@@ -139,6 +139,7 @@
   .card p { margin: 0; }
   .top { display: flex; align-items: center; min-height: 32px; }
   .grow { flex: 1; }
-  .skip { padding: 0 10px; min-height: 32px; }
+  .skip { padding: 0 10px; min-height: 32px; position: relative; }
+  .skip::before { content: ''; position: absolute; inset: -6px -3px; }
   .actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 </style>

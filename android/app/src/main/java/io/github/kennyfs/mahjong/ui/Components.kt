@@ -152,13 +152,17 @@ fun Chip(
   }
 }
 
-/** A number with − and + buttons. */
+/** A number with − and + buttons; `name`: what it counts, for a screen reader ("底 減一"). */
 @Composable
-fun Stepper(value: Int, onChange: (Int) -> Unit, min: Int = 0, max: Int = 99) {
+fun Stepper(value: Int, onChange: (Int) -> Unit, min: Int = 0, max: Int = 99, name: String = "") {
   Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-    FilledTonalIconButton(onClick = { onChange(value - 1) }, enabled = value > min, modifier = Modifier.size(48.dp)) { Icon(Icons.Filled.Remove, "−") }
+    FilledTonalIconButton(onClick = { onChange(value - 1) }, enabled = value > min, modifier = Modifier.size(48.dp)) {
+      Icon(Icons.Filled.Remove, if (name.isEmpty()) "−" else stringResource(R.string.stepper_less, name))
+    }
     Text("$value", Modifier.widthIn(min = 40.dp), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-    FilledTonalIconButton(onClick = { onChange(value + 1) }, enabled = value < max, modifier = Modifier.size(48.dp)) { Icon(Icons.Filled.Add, "+") }
+    FilledTonalIconButton(onClick = { onChange(value + 1) }, enabled = value < max, modifier = Modifier.size(48.dp)) {
+      Icon(Icons.Filled.Add, if (name.isEmpty()) "+" else stringResource(R.string.stepper_more, name))
+    }
   }
 }
 
