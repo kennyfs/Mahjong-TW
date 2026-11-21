@@ -1,5 +1,11 @@
 package io.github.kennyfs.mahjong.ui
 
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -201,3 +207,13 @@ fun pointsColor(x: Double): Color = when {
   x < 0 -> LocalOutcome.current.bad
   else -> MaterialTheme.colorScheme.onSurface
 }
+
+/** A fade at the foot of a box that scrolls, while there is more of it below (a box of fixed height: the review's words). */
+fun Modifier.fadeFoot(state: ScrollState, height: Dp = 20.dp): Modifier =
+  graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {
+    drawContent()
+    if (state.canScrollForward) drawRect(
+      Brush.verticalGradient(listOf(Color.Black, Color.Transparent), startY = size.height - height.toPx(), endY = size.height),
+      blendMode = BlendMode.DstIn,
+    )
+  }

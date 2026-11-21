@@ -33,6 +33,7 @@
   import { practice } from '../lib/practice.svelte';
   import { records } from '../lib/records.svelte';
   import { rulesText } from '../lib/rules';
+  import { moreBelow } from '../lib/keepscroll';
   import { costOf, EQUAL, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pts, reasonOf, reviewOf, summarize,
     tagCost, tileMarks, tilesShort, opponentNote, type TileMark } from '../lib/review';
   import { explain, mayPraise } from '../lib/explain';
@@ -419,7 +420,7 @@
 
 <!-- The step, the choice made there, and what the review says of it. -->
 {#snippet info()}
-  <div class="info body-medium">
+  <div class="info body-medium" use:moreBelow>
     <!-- The buttons at the top right, the lines beside them narrower: no line made taller by them (the room is fixed). -->
     {#if (step >= last && n > 0 && !(step >= n && showResult)) || explanation}
       <span class="where-actions">
@@ -644,6 +645,9 @@
   .info { display: block; min-width: 0; height: 6.6em; overflow-y: auto; }
   .info > :not(.where-actions) + * { margin-top: 2px; }
   .side .info { height: auto; min-height: 40px; overflow-y: visible; }
+  /* More of the words below (the room is fixed): they fade at its foot. */
+  .info:global(.more) { mask-image: linear-gradient(to bottom, #000 calc(100% - 1.4em), transparent); }
+  .side .info:global(.more) { mask-image: none; }
   .where { display: flex; flex-wrap: wrap; gap: 0 12px; align-items: baseline; }
   .where-actions { float: right; margin-left: 8px; display: inline-flex; gap: 6px; align-items: center; }
   .decide { color: var(--on-surface-variant); }

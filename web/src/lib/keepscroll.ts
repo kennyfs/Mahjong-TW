@@ -43,3 +43,15 @@ export function keepScroll(node: HTMLElement, keep: Keep) {
   };
 }
 
+/** A Svelte action on a box of fixed height that scrolls: the class `more` while there is more of it below, for a fade
+ *  at its foot (its words change with the step, so it watches them too). */
+export function moreBelow(node: HTMLElement) {
+  const check = () => node.classList.toggle('more', node.scrollHeight - node.scrollTop - node.clientHeight > 2);
+  const mo = new MutationObserver(check);
+  mo.observe(node, { childList: true, subtree: true, characterData: true });
+  const ro = new ResizeObserver(check);
+  ro.observe(node);
+  node.addEventListener('scroll', check, { passive: true });
+  check();
+  return { destroy() { mo.disconnect(); ro.disconnect(); node.removeEventListener('scroll', check); } };
+}

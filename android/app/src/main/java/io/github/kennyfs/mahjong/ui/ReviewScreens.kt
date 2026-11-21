@@ -475,8 +475,10 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     var buttonsW by remember { mutableIntStateOf(0) }
     val beside = Modifier.padding(end = with(LocalDensity.current) { if (buttonsW > 0) buttonsW.toDp() + 8.dp else 0.dp })
     val info = @Composable {
+      val infoScroll = rememberScrollState()
+      // (Under the table the room is fixed: more words below fade at its foot.)
       Box(if (side) Modifier.fillMaxWidth().heightIn(min = 40.dp)
-        else Modifier.fillMaxWidth().height((104f * fontScale).dp.coerceIn(98.dp, 148.dp)).verticalScroll(rememberScrollState())) {
+        else Modifier.fillMaxWidth().height((104f * fontScale).dp.coerceIn(98.dp, 148.dp)).fadeFoot(infoScroll).verticalScroll(infoScroll)) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
           Row(beside, verticalAlignment = Alignment.CenterVertically) {
             FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), itemVerticalAlignment = Alignment.CenterVertically) {
