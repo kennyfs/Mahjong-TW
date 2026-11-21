@@ -29,6 +29,7 @@ namespace {
     int64_t numDrawn = 0;  // exhaustive draws
     int64_t winTai = 0;
     int64_t numCalls = 0;
+    int64_t numKongs = 0;
 
     void add(const PlayerStats& o) {
       numDeals += o.numDeals;
@@ -41,6 +42,7 @@ namespace {
       numDrawn += o.numDrawn;
       winTai += o.winTai;
       numCalls += o.numCalls;
+      numKongs += o.numKongs;
     }
   };
 }
@@ -105,12 +107,15 @@ int Commands::match(vector<string> args) {
   }
 
   vector<PlayerStats> totals(4);
+  // Each pair's difference by deal (the same tiles and seats): its sum and sum of squares, [i * 4 + j] for i < j.
+  vector<double> pairSum(16, 0.0), pairSumSq(16, 0.0);
   mutex totalsMutex;
   atomic<int> nextDeal(0);
   ClockTimer timer;
 
   auto worker = [&]() {
     vector<PlayerStats> local(4);
+    vector<double> localPair(16, 0.0), localPairSq(16, 0.0);
     unique_ptr<Player> players[4];
     for(int p = 0; p < 4; p++)
       players[p] = makePlayer(specs[p]);
@@ -141,10 +146,13 @@ int Commands::match(vector<string> args) {
           dealResult[playerAt[s]] += res.points(s, rules.base);
           if(res.exhausted)
             st.numDrawn++;
-          int calls = 0;
-          for(const Meld& m : game.seat(s).melds)
+          int calls = 0, kongs = 0;
+          for(const Meld& m : game.seat(s).melds) {
             calls += m.isOpen() ? 1 : 0;
+            kongs += m.isKong() ? 1 : 0;
+          }
           st.numCalls += calls;
+          st.numKongs += kongs;
         }
         for(size_t i = 0; i < res.winners.size(); i++) {
           PlayerStats& st = local[playerAt[res.winners[i]]];
@@ -161,10 +169,20 @@ int Commands::match(vector<string> args) {
         local[p].dealSum += mean;
         local[p].dealSumSq += mean * mean;
       }
+      for(int i = 0; i < 4; i++)
+        for(int j = i + 1; j < 4; j++) {
+          double diff = (dealResult[i] - dealResult[j]) / seatings.size();
+          localPair[i * 4 + j] += diff;
+          localPairSq[i * 4 + j] += diff * diff;
+        }
     }
     lock_guard<mutex> lock(totalsMutex);
     for(int p = 0; p < 4; p++)
       totals[p].add(local[p]);
+    for(int i = 0; i < 16; i++) {
+      pairSum[i] += localPair[i];
+      pairSumSq[i] += localPairSq[i];
+    }
   };
 
   vector<thread> threads;
@@ -178,8 +196,8 @@ int Commands::match(vector<string> args) {
        << ", " << secs << " s (" << (int)(numDeals * seatings.size() / max(secs, 1e-9)) << " hands/s)" << endl;
   cout << "Result: mean points per hand (in tai, base " << rules.base
        << "); +- is the standard error over deals. Rates are per hand." << endl;
-  cout << Global::strprintf("%-2s %-10s %16s %7s %7s %7s %7s %7s %7s", "#", "player", "result", "win", "tsumo",
-                            "dealin", "draw", "wintai", "calls")
+  cout << Global::strprintf("%-2s %-10s %16s %7s %7s %7s %7s %7s %7s %7s", "#", "player", "result", "win", "tsumo",
+                            "dealin", "draw", "wintai", "calls", "kongs")
        << endl;
   for(int p = 0; p < 4; p++) {
     const PlayerStats& st = totals[p];
@@ -188,10 +206,19 @@ int Commands::match(vector<string> args) {
     double var = st.dealSumSq / n - mean * mean;
     double se = st.numDeals > 1 ? sqrt(max(var, 0.0) / (n - 1)) : 0.0;
     double h = (double)max<int64_t>(st.numHands, 1);
-    cout << Global::strprintf("%-2d %-10s %8.3f +- %5.3f %7.4f %7.4f %7.4f %7.4f %7.2f %7.3f", p, specs[p].c_str(),
+    cout << Global::strprintf("%-2d %-10s %8.3f +- %5.3f %7.4f %7.4f %7.4f %7.4f %7.2f %7.3f %7.4f", p, specs[p].c_str(),
                               mean, se, st.numWins / h, st.numSelfDraws / h, st.numDealIns / h, st.numDrawn / h,
-                              st.numWins > 0 ? (double)st.winTai / st.numWins : 0.0, st.numCalls / h)
+                              st.numWins > 0 ? (double)st.winTai / st.numWins : 0.0, st.numCalls / h, st.numKongs / h)
          << endl;
   }
+  // Paired by deal, a difference has a far smaller error than the two results apart.
+  double n = (double)max(numDeals, 1);
+  cout << "Differences, paired by deal:";
+  for(int i = 0; i < 4; i++)
+    for(int j = i + 1; j < 4; j++) {
+      double mean = pairSum[i * 4 + j] / n, var = pairSumSq[i * 4 + j] / n - mean * mean;
+      cout << Global::strprintf("  %d-%d %.3f +- %.3f", i, j, mean, numDeals > 1 ? sqrt(max(var, 0.0) / (n - 1)) : 0.0);
+    }
+  cout << endl;
   return 0;
 }

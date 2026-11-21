@@ -108,6 +108,7 @@ struct Position {
   // Deciding on its own turn (SELF): the tile just drawn, -1 after a chow or pung (afterCall) or when unknown.
   int drawn = -1;
   bool afterCall = false;
+  bool replacement = false;  // the drawn tile is a replacement (after a flower, a concealed or an added kong): 槓上開花
   bool declaring = false;  // on its own turn, between its declaration and the discard
   // Deciding on another player's discard instead: that player, and the tile (-1: its last discard). With robKong,
   // on the tile of its added kong (its pung still shows three).

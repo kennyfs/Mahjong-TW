@@ -761,6 +761,7 @@ Position Game::positionOf(int s) const {
   if(phase_ == SELF && cur_ == s) {
     p.drawn = drawn_;
     p.afterCall = afterCall_;
+    p.replacement = replacementWin_;
     p.declaring = seats_[s].declaring;
   }
   else if((phase_ == REACT || phase_ == ROB_KONG) && s != claimSeat_) {
@@ -931,6 +932,7 @@ void Game::loadPosition(const Position& p, Rand& rand) {
   }
   if(!react) {
     enterSelf(p.me, p.drawn, p.afterCall);
+    replacementWin_ = p.replacement && p.drawn >= 0;
     seats_[p.me].declaring = p.declaring && seats_[p.me].declared != 0;
     return;
   }

@@ -49,7 +49,9 @@ is over):
 and discards, tiles left in the wall), the phase, whose turn it is, the seat's legal actions, and the events since
 an index (to animate only what is new). A discard is `{"tile": T, "drawn": the tile just drawn (摸切), "called": taken
 by a call}`, and `"after_call": true` on a seat's first discard after a chow, pung or exposed kong of its own (from
-2026-11-19; the river marks both, as the network sees them):
+2026-11-19; the river marks both, as the network sees them). On its own turn the POSITION has `"replacement": true`
+when the drawn tile is a replacement (after a flower or its own kong), so that a position given back scores a
+self-draw on it as 槓上開花 (from 2026-11-21; before, a position lost it):
 
 ```
 >> {"cmd":"view","game":GAME,"seat":1}

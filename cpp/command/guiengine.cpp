@@ -270,6 +270,8 @@ json GuiJson::position(const Position& p) {
   j["hand"] = Tiles::toString(p.hand);
   j["drawn"] = tileJson(p.drawn);
   j["after_call"] = p.afterCall;
+  if(p.replacement)
+    j["replacement"] = true;
   if(p.declaring)
     j["declaring"] = true;
   j["missed"] = p.missedWin;
@@ -304,6 +306,7 @@ Position GuiJson::parsePosition(const json& j) {
   if(p.drawn >= 0 && p.hand[p.drawn] == 0)
     throw StringError("The drawn tile must be in the hand");
   p.afterCall = getBool(j, "after_call");
+  p.replacement = getBool(j, "replacement");
   p.declaring = getBool(j, "declaring");
   p.missedWin = getBool(j, "missed");
   if(j.contains("claim") && !j["claim"].is_null()) {
