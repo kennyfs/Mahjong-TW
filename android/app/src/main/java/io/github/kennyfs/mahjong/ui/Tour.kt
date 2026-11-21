@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
@@ -181,7 +183,7 @@ fun WelcomeDialog(onLearn: () -> Unit, onTour: () -> Unit, onClose: () -> Unit) 
     title = { Text(stringResource(R.string.welcome_title)) },
     text = {
       // A dialog is a window of its own: its test tags are resource ids only if it says so (android/scripts/shots.py).
-      Column(Modifier.semantics { testTagsAsResourceId = true }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+      Column(Modifier.verticalScroll(rememberScrollState()).semantics { testTagsAsResourceId = true }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(stringResource(R.string.welcome_body), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(bottom = 6.dp))
         Button(onClick = onLearn, Modifier.fillMaxWidth().testTag("welcome_learn")) { Text(stringResource(R.string.welcome_learn)) }
         FilledTonalButton(onClick = onTour, Modifier.fillMaxWidth().testTag("welcome_tour")) { Text(stringResource(R.string.welcome_tour)) }
