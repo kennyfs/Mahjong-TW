@@ -16,7 +16,8 @@
     activeId = id;
     await tick();
     const el = refs[id];
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const reduced = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
   }
 
   $effect(() => {
@@ -61,4 +62,5 @@
   .ref { border: none; background: none; padding: 0; font: inherit; color: var(--primary);
     text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .item.focus .ref { color: var(--on-primary-container); }
+  @media (prefers-reduced-motion: reduce) { .item { transition: none; } }
 </style>

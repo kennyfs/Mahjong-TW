@@ -368,7 +368,7 @@
   .tag.best { background: var(--found-fill); }
   .tag.skel { height: 14px; background: rgba(128, 128, 128, 0.4); animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-  @media (prefers-reduced-motion: reduce) { .tag.skel { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .tag.skel { animation: none; } .results { transition: none; } }
   .section:has(.tag) .tiles { padding-top: 15px; row-gap: 17px; }
   .meld { display: inline-flex; padding: 0; margin-right: 8px; border: none; background: none; cursor: pointer; }
   .fold { align-self: flex-start; margin: 2px 0; }

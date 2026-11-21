@@ -189,7 +189,7 @@
   .tag.played { outline: 2px solid var(--highlight); outline-offset: 0; }
   .tag.skel { background: rgba(140, 150, 145, 0.45); animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-  @media (prefers-reduced-motion: reduce) { .tag.skel { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .tag.skel { animation: none; } .lifted { transition: none; } }
   .slot:focus-visible { outline: none; }
   .slot:focus-visible .lifted { outline: 2px solid var(--highlight); outline-offset: 1px; border-radius: 4px; }
   @media (hover: hover) {

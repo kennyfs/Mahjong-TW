@@ -301,4 +301,5 @@
   .dev-actions .btn { display: inline-flex; align-items: center; gap: 8px; }
   .imported { white-space: pre-line; }
   .dev .resets { display: flex; flex-wrap: wrap; gap: 8px; margin-left: -8px; }
+  @media (prefers-reduced-motion: reduce) { .fold { transition: none; } }
 </style>
