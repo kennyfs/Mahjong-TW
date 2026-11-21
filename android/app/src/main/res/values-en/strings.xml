@@ -251,7 +251,7 @@
   <string name="records_table">Table</string>
   <string name="records_contest">Duplicate</string>
   <string name="records_empty">No records yet.</string>
-  <string name="records_empty_fav">No starred hands.</string>
+  <string name="records_empty_fav">No favorite hands.</string>
   <string name="records_favorites_only">Favorites only</string>
   <string name="records_clear">Clear records</string>
   <string name="records_clear_confirm">Clear every record that isn\'t a favorite?</string>
@@ -445,7 +445,7 @@
   <string name="battle_lost">Lost the connection to the server.</string>
   <!-- Battles: the app only -->
   <string name="battle_server_needed">Enter a server to open or join a room.</string>
-  <string name="battle_server_app_hint">For example example.com</string>
+  <string name="battle_server_app_hint">e.g. example.com</string>
   <string name="battle_online_info">Play with anyone, anywhere, through a match server on the internet.</string>
   <string name="battle_nearby_info">No internet needed: phones nearby connect by Bluetooth and Wi-Fi. One phone opens a room; the others find it and join with its room number.</string>
   <string name="battle_host_table">Open a table on this phone</string>
@@ -792,7 +792,7 @@
   <string name="coach_gemini_free">Note: Gemini\'s free tier uses what is sent to improve Google\'s products; the paid tier does not.</string>
   <string name="coach_asking">Waiting for %1$s… (it can take a minute or two)</string>
   <string name="coach_error">Something went wrong.</string>
-  <string name="coach_error_key">The key is wrong or not allowed: check it in the settings.</string>
+  <string name="coach_error_key">The key is wrong or not allowed: check it in Settings.</string>
   <string name="coach_error_quota">Out of credit or too many requests: check your account\'s limits, or try again later.</string>
   <string name="coach_error_refused">The model declined to answer, or the answer was blocked.</string>
   <string name="coach_error_truncated">The answer was too long and cut off: try fewer hands.</string>

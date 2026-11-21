@@ -122,7 +122,7 @@
   <string name="result_flower_win">%1$s 花胡</string>
   <string name="result_tai_total">共 %1$d 台</string>
   <string name="result_dealer_tai">莊家 %1$d 台</string>
-  <string name="result_dealer_streak_tai">莊家 · 連 %2$d 拉 %2$d · %1$d 台</string>
+  <string name="result_dealer_streak_tai">莊家・連 %2$d 拉 %2$d・%1$d 台</string>
   <string name="result_dealer_pays">＋%1$s（莊家多付）</string>
   <string name="result_base">底 %1$s 台</string>
   <string name="result_parts">底 %1$s＋%2$s 台</string>
@@ -272,8 +272,8 @@
   <string name="records_import_dropped">超過上限 %1$d 局，最舊的 %2$d 局沒有保留。</string>
   <string name="records_import_room">瀏覽器的儲存空間不夠，最舊的 %1$d 局沒有保留。</string>
   <string name="records_import_empty">檔案裡沒有紀錄。</string>
-  <string name="records_save_failed">紀錄檔沒有存成功，請換個位置再試。</string>
-  <string name="records_import_failed">紀錄檔讀不進來，請確認檔案還在、沒有損壞再試一次。</string>
+  <string name="records_save_failed">紀錄檔儲存失敗，請換個位置再試。</string>
+  <string name="records_import_failed">無法讀取紀錄檔，請確認檔案還在且沒有損壞後再試一次。</string>
   <string name="records_import_bad">這個檔案不是台灣麻將匯出的紀錄檔。</string>
   <string name="records_dev_count">共 %1$d 局</string>
   <string name="records_reset_scores">分數歸零</string>
@@ -370,7 +370,7 @@
   <string name="records_kind_nearby">附近</string>
   <string name="record_hand_of">第 %1$d 局</string>
   <string name="replay_result">看結果</string>
-  <string name="tap_to_continue">按一下以繼續</string>
+  <string name="tap_to_continue">點一下繼續</string>
   <string name="replay_nothing">這一局沒有紀錄。</string>
   <string name="analysis_turn_of">%1$s 的回合</string>
   <string name="analysis_your_turn">你的回合</string>
@@ -800,7 +800,7 @@
   <string name="coach_tell">要送出的是 %1$d 局的摘要：規則、每局的結果、值得一提的決策（手牌、打了什麼、神經網路的數字），不含任何名字。內容用你的金鑰送到 %2$s，記在你的帳號，依該服務的條款處理。這個提醒只出現一次。</string>
   <string name="coach_tell_custom">會送到 %1$s。</string>
   <string name="coach_gemini_free">注意：Gemini 的免費方案會用送出的內容改進 Google 的產品；付費方案不會。</string>
-  <string name="coach_asking">等 %1$s 回覆中……（可能要一兩分鐘）</string>
+  <string name="coach_asking">等 %1$s 回覆中…（可能要一兩分鐘）</string>
   <string name="coach_error">出錯了。</string>
   <string name="coach_error_key">金鑰不對或沒有權限，請到設定檢查。</string>
   <string name="coach_error_quota">額度用完或太頻繁，請檢查帳號的額度，或稍後再試。</string>
