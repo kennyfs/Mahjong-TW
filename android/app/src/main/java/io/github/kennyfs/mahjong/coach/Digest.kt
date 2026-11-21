@@ -16,6 +16,7 @@ import io.github.kennyfs.mahjong.Review
 import io.github.kennyfs.mahjong.ReviewDecision
 import io.github.kennyfs.mahjong.Rules
 import io.github.kennyfs.mahjong.RulesInfo
+import io.github.kennyfs.mahjong.Setup
 import io.github.kennyfs.mahjong.Tiles
 import io.github.kennyfs.mahjong.Words
 import io.github.kennyfs.mahjong.actionText
@@ -217,7 +218,7 @@ object Digest {
     }
     val points = rec.points.getOrElse(me) { 0.0 }
     val setup = rec.game.setup
-    val wind = Tiles.wind(((me - setup.east) % 4 + 4) % 4)
+    val wind = Tiles.wind(seatWind(me, setup))
     val title = w.handTitle(wind, setup.dealer == me, result, String.format(Locale.ROOT, "%+.0f", points), r.firstValue ?: 0.0)
     // The discard that dealt in: the hand's last decision.
     val dealIn = if (outcome == 2) r.decisions.lastOrNull()?.let { d ->
@@ -230,6 +231,12 @@ object Digest {
       rec.id, model, if (w.zh) "zh" else "en", title, outcome, points, r.decisions.count { it.analysis.net }, r.decisions.sumOf { max(0.0, it.loss ?: 0.0) },
       grades.toList(), kinds.toList(), notable.toList(), dealIn, keys, people,
     )
+  }
+
+  /** A seat's wind (0 East..3 North): matches the engine, where setup.east < 0 means the dealer is East. */
+  internal fun seatWind(me: Int, setup: Setup): Int {
+    val east = if (setup.east >= 0) setup.east else setup.dealer
+    return ((me - east) % 4 + 4) % 4
   }
 
   /** The steps whose positions hand() needs: the key decisions'. */
@@ -296,7 +303,7 @@ object Digest {
     val zero = tai.filter { (v[it] ?: 0) == 0 }
     out += if (w.zh) "台（只有這些算台；值是台數）：" else "Tai (only these score; the value is the tai):"
     for (p in counted) out += "- ${label(p)} ${v[p]}" + (help(p)?.let { (if (w.zh) "：" else ": ") + it } ?: "")
-    for (p in v.keys.filter { it in setOf("quanqiu_duting", "dasixi_winds") }) out += "- ${label(p)} = ${v[p]}" + (help(p)?.let { ": $it" } ?: "")
+    for (p in v.keys.filter { it in setOf("quanqiu_duting", "dasixi_winds") }) out += "- ${label(p)} = ${v[p]}" + (help(p)?.let { (if (w.zh) "：" else ": ") + it } ?: "")
     if (zero.isNotEmpty()) out += (if (w.zh) "0 台（這套規則不算）：" else "0 tai (not scored in these rules): ") + zero.joinToString(w.list) { label(it) }
     return out.joinToString("\n")
   }

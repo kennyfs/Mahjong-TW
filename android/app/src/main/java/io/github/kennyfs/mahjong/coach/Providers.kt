@@ -6,18 +6,13 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
-import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -143,7 +138,7 @@ private const val MAX_OUTPUT = 16000
 object Providers {
   // A medium depth of thinking over a long digest can take a few minutes.
   private val client = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS).readTimeout(5, TimeUnit.MINUTES)
-    .writeTimeout(1, TimeUnit.MINUTES).callTimeout(8, TimeUnit.MINUTES).build()
+    .writeTimeout(1, TimeUnit.MINUTES).callTimeout(8, TimeUnit.MINUTES).followSslRedirects(false).build()
 
   /**
    * Asks `provider`'s `model` (its id; a custom server's own) with `key`, thinking at `effort`: `system`, then the
@@ -162,14 +157,15 @@ object Providers {
           "Authorization" to "Bearer $key"), model)
         Provider.CUSTOM -> {
           val server = custom?.takeIf { it.ready } ?: throw CoachException(CoachException.Kind.KEY, "")
+          val asked = model.trim().ifEmpty { server.model }
           val url = server.url.trim().trimEnd('/') + "/chat/completions"
           if (!url.startsWith("https://")) throw CoachException(CoachException.Kind.NETWORK, "https:// only")
           val auth = if (key.isNotBlank()) arrayOf("Authorization" to "Bearer $key") else emptyArray()
           try {
-            parseChat(post(url, chatBody(server.model, system, turns, schema), *auth), server.model)
+            parseChat(post(url, chatBody(asked, system, turns, schema), *auth), asked)
           } catch (e: HttpError) {
             // Not every such server knows a JSON schema: once more without it (the prompt asks for the JSON too).
-            if (schema != null && e.code in listOf(400, 422)) parseChat(post(url, chatBody(server.model, system, turns, null), *auth), server.model)
+            if (schema != null && e.code in listOf(400, 422)) parseChat(post(url, chatBody(asked, system, turns, null), *auth), asked)
             else throw e
           }
         }
@@ -182,11 +178,17 @@ object Providers {
 
   /** The request's answer as JSON (an HTTP error: HttpError, which ask turns into a CoachException). */
   private suspend fun post(url: String, body: JsonObject, vararg headers: Pair<String, String>): JsonObject {
-    val req = Request.Builder().url(url).post(body.toString().toRequestBody(MEDIA)).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
+    val req = try {
+      Request.Builder().url(url).post(body.toString().toRequestBody(MEDIA)).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
+    } catch (e: IllegalArgumentException) {
+      throw CoachException(CoachException.Kind.NETWORK, e.message ?: "invalid URL")
+    }
     val (code, text) = withContext(Dispatchers.IO) { execute(client.newCall(req)) }
     if (code !in 200..299) throw HttpError(code, text)
     return try {
-      JSON.parseToJsonElement(text).jsonObject
+      JSON.parseToJsonElement(text).asObj() ?: throw CoachException(CoachException.Kind.BAD_ANSWER, text.take(300))
+    } catch (e: CoachException) {
+      throw e
     } catch (e: Exception) {
       throw CoachException(CoachException.Kind.BAD_ANSWER, text.take(300))
     }
@@ -197,23 +199,32 @@ object Providers {
     cont.invokeOnCancellation { call.cancel() }
     call.enqueue(object : Callback {
       override fun onFailure(call: Call, e: IOException) {
-        cont.resumeWithException(CoachException(CoachException.Kind.NETWORK, e.message ?: e.javaClass.simpleName))
+        if (cont.isActive) cont.resumeWithException(CoachException(CoachException.Kind.NETWORK, e.message ?: e.javaClass.simpleName))
       }
 
       override fun onResponse(call: Call, response: Response) {
-        val r = response.use { it.code to (it.body.string()) }
-        cont.resume(r)
+        try {
+          val r = response.use { it.code to it.body.string() }
+          if (cont.isActive) cont.resume(r)
+        } catch (e: IOException) {
+          if (cont.isActive) cont.resumeWithException(CoachException(CoachException.Kind.NETWORK, e.message ?: e.javaClass.simpleName))
+        }
       }
     })
   }
 }
 
+private fun JsonElement?.asObj(): JsonObject? = this as? JsonObject
+private fun JsonElement?.asArr(): JsonArray? = this as? JsonArray
+private fun JsonElement?.asStr(): String? = (this as? JsonPrimitive)?.contentOrNull
+private fun JsonElement?.asInt(): Int? = (this as? JsonPrimitive)?.intOrNull
+
 /** An HTTP error's kind by its status, with the provider's own words for it (each puts them in "error"). */
 fun httpError(code: Int, body: String): CoachException {
   val words = runCatching {
-    val e = JSON.parseToJsonElement(body).jsonObject["error"]
+    val e = JSON.parseToJsonElement(body).asObj()?.get("error")
     when (e) {
-      is JsonObject -> e["message"]?.jsonPrimitive?.contentOrNull
+      is JsonObject -> e["message"].asStr()
       is JsonPrimitive -> e.contentOrNull
       else -> null
     }
@@ -253,18 +264,18 @@ fun claudeBody(model: String, effort: Effort, system: String, turns: List<Turn>,
 }
 
 fun parseClaude(o: JsonObject, model: String): Reply {
-  val stop = o["stop_reason"]?.jsonPrimitive?.contentOrNull
+  val stop = o["stop_reason"].asStr()
   if (stop == "refusal") throw CoachException(CoachException.Kind.REFUSED, o["stop_details"]?.toString() ?: "")
   if (stop == "max_tokens") throw CoachException(CoachException.Kind.TRUNCATED, "max_tokens")
-  val content = o["content"]?.jsonArray ?: throw CoachException(CoachException.Kind.BAD_ANSWER, o.toString().take(300))
-  val text = content.filter { it.jsonObject["type"]?.jsonPrimitive?.contentOrNull == "text" }
-    .joinToString("") { it.jsonObject["text"]?.jsonPrimitive?.contentOrNull ?: "" }
-  val u = o["usage"]?.jsonObject
-  fun n(k: String) = u?.get(k)?.jsonPrimitive?.intOrNull ?: 0
+  val content = o["content"].asArr() ?: throw CoachException(CoachException.Kind.BAD_ANSWER, o.toString().take(300))
+  val text = content.mapNotNull { it.asObj() }.filter { it["type"].asStr() == "text" }
+    .joinToString("") { it["text"].asStr() ?: "" }
+  val u = o["usage"].asObj()
+  fun n(k: String) = u?.get(k).asInt() ?: 0
   val cached = n("cache_read_input_tokens")
   val written = n("cache_creation_input_tokens")
   return Reply(text, content, n("input_tokens") + written + cached, cached, n("output_tokens"),
-    o["model"]?.jsonPrimitive?.contentOrNull ?: model, written)
+    o["model"].asStr() ?: model, written)
 }
 
 // ---- Gemini (generateContent) ----
@@ -292,23 +303,23 @@ fun geminiBody(effort: Effort, system: String, turns: List<Turn>, schema: JsonOb
 }
 
 fun parseGemini(o: JsonObject, model: String): Reply {
-  o["promptFeedback"]?.jsonObject?.get("blockReason")?.jsonPrimitive?.contentOrNull?.let {
+  o["promptFeedback"].asObj()?.get("blockReason").asStr()?.let {
     throw CoachException(CoachException.Kind.REFUSED, it)
   }
-  val cand = o["candidates"]?.jsonArray?.firstOrNull()?.jsonObject ?: throw CoachException(CoachException.Kind.BAD_ANSWER, o.toString().take(300))
-  when (val finish = cand["finishReason"]?.jsonPrimitive?.contentOrNull) {
+  val cand = o["candidates"].asArr()?.firstOrNull().asObj() ?: throw CoachException(CoachException.Kind.BAD_ANSWER, o.toString().take(300))
+  when (val finish = cand["finishReason"].asStr()) {
     null, "STOP" -> {}
     "MAX_TOKENS" -> throw CoachException(CoachException.Kind.TRUNCATED, finish)
     else -> throw CoachException(CoachException.Kind.REFUSED, finish)
   }
-  val content = cand["content"]?.jsonObject ?: throw CoachException(CoachException.Kind.BAD_ANSWER, cand.toString().take(300))
-  val text = (content["parts"]?.jsonArray ?: JsonArray(emptyList()))
-    .filter { p -> p.jsonObject["thought"]?.jsonPrimitive?.contentOrNull != "true" }
-    .joinToString("") { it.jsonObject["text"]?.jsonPrimitive?.contentOrNull ?: "" }
-  val u = o["usageMetadata"]?.jsonObject
-  fun n(k: String) = u?.get(k)?.jsonPrimitive?.intOrNull ?: 0
+  val content = cand["content"].asObj() ?: throw CoachException(CoachException.Kind.BAD_ANSWER, cand.toString().take(300))
+  val text = (content["parts"].asArr() ?: JsonArray(emptyList())).mapNotNull { it.asObj() }
+    .filter { p -> p["thought"].asStr() != "true" }
+    .joinToString("") { it["text"].asStr() ?: "" }
+  val u = o["usageMetadata"].asObj()
+  fun n(k: String) = u?.get(k).asInt() ?: 0
   return Reply(text, content, n("promptTokenCount"), n("cachedContentTokenCount"), n("candidatesTokenCount") + n("thoughtsTokenCount"),
-    o["modelVersion"]?.jsonPrimitive?.contentOrNull ?: model)
+    o["modelVersion"].asStr() ?: model)
 }
 
 // ---- OpenAI (the Responses API) ----
@@ -329,21 +340,21 @@ fun openaiBody(model: String, effort: Effort, system: String, turns: List<Turn>,
 }
 
 fun parseOpenai(o: JsonObject, model: String): Reply {
-  if (o["status"]?.jsonPrimitive?.contentOrNull == "incomplete") {
-    val why = o["incomplete_details"]?.jsonObject?.get("reason")?.jsonPrimitive?.contentOrNull ?: ""
+  if (o["status"].asStr() == "incomplete") {
+    val why = o["incomplete_details"].asObj()?.get("reason").asStr() ?: ""
     throw CoachException(if (why == "max_output_tokens") CoachException.Kind.TRUNCATED else CoachException.Kind.REFUSED, why)
   }
-  val parts = (o["output"]?.jsonArray ?: throw CoachException(CoachException.Kind.BAD_ANSWER, o.toString().take(300)))
-    .map { it.jsonObject }.filter { it["type"]?.jsonPrimitive?.contentOrNull == "message" }
-    .flatMap { it["content"]?.jsonArray ?: JsonArray(emptyList()) }.map { it.jsonObject }
-  parts.firstOrNull { it["type"]?.jsonPrimitive?.contentOrNull == "refusal" }?.let {
-    throw CoachException(CoachException.Kind.REFUSED, it["refusal"]?.jsonPrimitive?.contentOrNull ?: "")
+  val parts = (o["output"].asArr() ?: throw CoachException(CoachException.Kind.BAD_ANSWER, o.toString().take(300)))
+    .mapNotNull { it.asObj() }.filter { it["type"].asStr() == "message" }
+    .flatMap { it["content"].asArr() ?: JsonArray(emptyList()) }.mapNotNull { it.asObj() }
+  parts.firstOrNull { it["type"].asStr() == "refusal" }?.let {
+    throw CoachException(CoachException.Kind.REFUSED, it["refusal"].asStr() ?: "")
   }
-  val text = parts.filter { it["type"]?.jsonPrimitive?.contentOrNull == "output_text" }.joinToString("") { it["text"]?.jsonPrimitive?.contentOrNull ?: "" }
-  val u = o["usage"]?.jsonObject
-  fun n(k: String) = u?.get(k)?.jsonPrimitive?.intOrNull ?: 0
-  val cached = u?.get("input_tokens_details")?.jsonObject?.get("cached_tokens")?.jsonPrimitive?.intOrNull ?: 0
-  return Reply(text, null, n("input_tokens"), cached, n("output_tokens"), o["model"]?.jsonPrimitive?.contentOrNull ?: model)
+  val text = parts.filter { it["type"].asStr() == "output_text" }.joinToString("") { it["text"].asStr() ?: "" }
+  val u = o["usage"].asObj()
+  fun n(k: String) = u?.get(k).asInt() ?: 0
+  val cached = u?.get("input_tokens_details").asObj()?.get("cached_tokens").asInt() ?: 0
+  return Reply(text, null, n("input_tokens"), cached, n("output_tokens"), o["model"].asStr() ?: model)
 }
 
 // ---- Chat Completions (CUSTOM) ----
@@ -361,15 +372,15 @@ fun chatBody(model: String, system: String, turns: List<Turn>, schema: JsonObjec
 }
 
 fun parseChat(o: JsonObject, model: String): Reply {
-  val choice = o["choices"]?.jsonArray?.firstOrNull()?.jsonObject ?: throw CoachException(CoachException.Kind.BAD_ANSWER, o.toString().take(300))
-  val msg = choice["message"]?.jsonObject
-  msg?.get("refusal")?.takeIf { it !is JsonNull }?.jsonPrimitive?.contentOrNull?.let { throw CoachException(CoachException.Kind.REFUSED, it) }
-  if (choice["finish_reason"]?.jsonPrimitive?.contentOrNull == "length") throw CoachException(CoachException.Kind.TRUNCATED, "length")
-  val text = msg?.get("content")?.takeIf { it !is JsonNull }?.jsonPrimitive?.contentOrNull ?: ""
-  val u = o["usage"]?.jsonObject
-  fun n(k: String) = u?.get(k)?.jsonPrimitive?.intOrNull ?: 0
-  val cached = u?.get("prompt_tokens_details")?.takeIf { it is JsonObject }?.jsonObject?.get("cached_tokens")?.jsonPrimitive?.intOrNull ?: 0
-  return Reply(text, null, n("prompt_tokens"), cached, n("completion_tokens"), o["model"]?.jsonPrimitive?.contentOrNull ?: model)
+  val choice = o["choices"].asArr()?.firstOrNull().asObj() ?: throw CoachException(CoachException.Kind.BAD_ANSWER, o.toString().take(300))
+  val msg = choice["message"].asObj()
+  msg?.get("refusal").asStr()?.let { throw CoachException(CoachException.Kind.REFUSED, it) }
+  if (choice["finish_reason"].asStr() == "length") throw CoachException(CoachException.Kind.TRUNCATED, "length")
+  val text = msg?.get("content").asStr() ?: ""
+  val u = o["usage"].asObj()
+  fun n(k: String) = u?.get(k).asInt() ?: 0
+  val cached = u?.get("prompt_tokens_details").asObj()?.get("cached_tokens").asInt() ?: 0
+  return Reply(text, null, n("prompt_tokens"), cached, n("completion_tokens"), o["model"].asStr() ?: model)
 }
 
 /** US$ an answer cost by the model's prices (null without them: a custom server). A write to the prompt cache costs a
@@ -381,9 +392,9 @@ fun costOf(m: CoachModel?, r: Reply): Double? =
 /** The answer's JSON object, from its text: as it is, or the outermost {…} of it (a model that wrapped it in words or
  *  a code fence, when its server took no schema). */
 fun answerJson(text: String): JsonObject? {
-  runCatching { return JSON.parseToJsonElement(text.trim()).jsonObject }
+  runCatching { return JSON.parseToJsonElement(text.trim()).asObj() }
   val a = text.indexOf('{')
   val b = text.lastIndexOf('}')
   if (a < 0 || b <= a) return null
-  return runCatching { JSON.parseToJsonElement(text.substring(a, b + 1)).jsonObject }.getOrNull()
+  return runCatching { JSON.parseToJsonElement(text.substring(a, b + 1)).asObj() }.getOrNull()
 }

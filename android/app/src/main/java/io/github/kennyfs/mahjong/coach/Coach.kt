@@ -27,6 +27,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import java.io.File
 import java.time.Instant
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 
 // The AI coach (docs/coach.md): the player's recent hands of one set of rules, reviewed by the network, put in a digest
 // (Digest.kt) and read by a language model with the player's own key (Providers.kt), which finds the player's habits
@@ -123,9 +125,11 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
     return byKey.map { (key, hs) ->
       val values = infos.getValue(specOf.getValue(key)).values
       val (t, f, base) = presets.minBy { (_, _, v) -> diff(v, values) }
-      RulesGroup(key, specOf.getValue(key), t, f, diff(base, values), hs.sortedByDescending { it.time })
-    }.sortedByDescending { it.hands.first().time }
+      RulesGroup(key, specOf.getValue(key), t, f, diff(base, values), hs.sortedByDescending { instantOf(it.time) })
+    }.sortedByDescending { instantOf(it.hands.first().time) }
   }
+
+  private fun instantOf(time: String): Instant = runCatching { Instant.parse(time) }.getOrDefault(Instant.EPOCH)
 
   private fun keyOf(info: RulesInfo) = info.values.toSortedMap().entries.joinToString(",") { "${it.key}=${it.value}" }
 
@@ -190,7 +194,7 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
 
   fun cancel() {
     job?.cancel()
-    if (phase !is Phase.Ready) phase = Phase.Idle
+    if (phase is Phase.Gathering) phase = Phase.Idle
   }
 
   fun dismiss() {
@@ -229,6 +233,8 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
         throw e
       } catch (e: CoachException) {
         phase = Phase.Failed(e.kind, e.detail, prepared)
+      } catch (e: Exception) {
+        phase = Phase.Failed(null, e.message ?: e.javaClass.simpleName, prepared)
       }
     }
   }
@@ -248,6 +254,7 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
       phase = Phase.Asking(provider)
       try {
         val r = Providers.ask(provider, asked, Effort.of(session.effort), key, keys.custom, session.system, turns, null)
+        if (r.text.isBlank()) throw CoachException(CoachException.Kind.BAD_ANSWER, "")
         val cost = costOf(model, r)
         val s = session.copy(
           turns = turns + Turn(false, r.text, r.raw), input = session.input + r.input, output = session.output + r.output,
@@ -261,6 +268,8 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
         throw e
       } catch (e: CoachException) {
         phase = Phase.Failed(e.kind, e.detail)
+      } catch (e: Exception) {
+        phase = Phase.Failed(null, e.message ?: e.javaClass.simpleName)
       }
     }
   }
@@ -270,18 +279,24 @@ class Coach(private val app: Application, private val scope: CoroutineScope, pri
     persist()
   }
 
+  private val toWrite = AtomicReference<String?>(null)
+
   private fun persist() {
     val text = EngineJson.encodeToString(StoredSessions(sessions))
-    scope.launch(Dispatchers.IO) { runCatching { write(sessionsFile, text) } }
+    if (toWrite.getAndSet(text) == null) writer.execute {
+      val latest = toWrite.getAndSet(null) ?: return@execute
+      runCatching { write(sessionsFile, latest) }
+    }
   }
 
   private fun write(file: File, text: String) {
     val tmp = File(file.parentFile, file.name + ".tmp")
     tmp.writeText(text)
-    tmp.renameTo(file)
+    if (!tmp.renameTo(file)) tmp.delete()
   }
 
   companion object {
+    private val writer = Executors.newSingleThreadExecutor { Thread(it, "coach-sessions").apply { isDaemon = true } }
     /** Sessions kept: the latest. */
     const val KEEP = 5
 

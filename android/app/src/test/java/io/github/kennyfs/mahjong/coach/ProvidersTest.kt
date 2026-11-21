@@ -1,5 +1,6 @@
 package io.github.kennyfs.mahjong.coach
 
+import io.github.kennyfs.mahjong.Setup
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -156,5 +157,29 @@ class ProvidersTest {
     assertNull(costOf(Provider.CUSTOM.model(null), r))
     assertNotNull(COACH_SCHEMA["properties"])
     assertTrue(COACH_SCHEMA.o("properties").o("habits").o("items")["required"] is JsonArray)
+  }
+
+  @Test fun parsersHandleNullJsonFieldsWithoutCrashing() {
+    // Previously .jsonObject / .jsonArray threw raw IllegalArgumentException on JsonNull fields.
+    assertEquals("ok", parseClaude(obj("""{"stop_reason":null,"content":[null,{"type":"text","text":"ok"}],"usage":null,"model":null}"""), "m").text)
+    assertEquals(CoachException.Kind.BAD_ANSWER, kindOf { parseClaude(obj("""{"content":null}"""), "m") })
+
+    assertEquals("ok", parseGemini(obj("""{"promptFeedback":null,"candidates":[{"content":{"parts":[null,{"text":"ok"}]},"finishReason":null}],"usageMetadata":null,"modelVersion":null}"""), "m").text)
+    assertEquals(CoachException.Kind.BAD_ANSWER, kindOf { parseGemini(obj("""{"candidates":null}"""), "m") })
+
+    assertEquals("ok", parseOpenai(obj("""{"status":"completed","output":[null,{"type":"message","content":[null,{"type":"output_text","text":"ok"}]}],"usage":null}"""), "m").text)
+    assertEquals(CoachException.Kind.BAD_ANSWER, kindOf { parseOpenai(obj("""{"output":null}"""), "m") })
+
+    assertEquals("ok", parseChat(obj("""{"choices":[{"message":{"content":"ok","refusal":null},"finish_reason":null}],"usage":null}"""), "m").text)
+    assertEquals(CoachException.Kind.BAD_ANSWER, kindOf { parseChat(obj("""{"choices":[null]}"""), "m") })
+  }
+
+  @Test fun digestSeatWindFallsBackToDealerWhenEastIsUnset() {
+    // setup.east = -1 (default / omitted in saved records): dealer is East.
+    assertEquals(0, Digest.seatWind(1, Setup(dealer = 1, east = -1)))
+    assertEquals(3, Digest.seatWind(0, Setup(dealer = 1, east = -1)))
+    assertEquals(2, Digest.seatWind(3, Setup(dealer = 1, east = -1)))
+    // Explicit east overrides dealer.
+    assertEquals(1, Digest.seatWind(3, Setup(dealer = 0, east = 2)))
   }
 }

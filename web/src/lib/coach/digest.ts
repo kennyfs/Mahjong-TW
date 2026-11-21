@@ -202,6 +202,12 @@ function keyText(w: DigestWords, d: ReviewDecision, pos: Position, g: number, lo
   return lines.join('\n');
 }
 
+/** A seat's wind (0 East..3 North): matches the engine, where setup.east < 0 or omitted means the dealer is East. */
+export function seatWind(me: number, setup: { dealer: number; east?: number }): number {
+  const east = setup.east !== undefined && setup.east >= 0 ? setup.east : setup.dealer;
+  return (((me - east) % 4) + 4) % 4;
+}
+
 /** A hand's part: `positions` holds the player's position at each key decision's step. */
 export function handDigest(w: DigestWords, rec: HandRecord, r: Review, positions: Map<number, Position>): HandDigest {
   const me = rec.me;
@@ -233,7 +239,7 @@ export function handDigest(w: DigestWords, rec: HandRecord, r: Review, positions
     : w.outcomes[outcome];
   const points = rec.points[me] ?? 0;
   const setup = rec.game.setup;
-  const title = w.handTitle(windName((((me - setup.east) % 4) + 4) % 4), setup.dealer === me, result, signed0(points), r.first_value ?? 0);
+  const title = w.handTitle(windName(seatWind(me, setup)), setup.dealer === me, result, signed0(points), r.first_value ?? 0);
   // The discard that dealt in: the hand's last decision.
   let dealIn: string | null = null;
   if (outcome === 2) {
@@ -271,7 +277,7 @@ export function rulesText(w: DigestWords, info: RulesInfo, name: string): string
   }
   for (const p of Object.keys(v).filter((p) => p === 'quanqiu_duting' || p === 'dasixi_winds')) {
     const h = help(p);
-    out.push(`- ${label(p)} = ${v[p]}` + (h ? ': ' + h : ''));
+    out.push(`- ${label(p)} = ${v[p]}` + (h ? colon + h : ''));
   }
   if (zero.length) out.push((w.zh ? '0 台（這套規則不算）：' : '0 tai (not scored in these rules): ') + zero.map(label).join(w.list));
   return out.join('\n');

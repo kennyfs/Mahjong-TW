@@ -58,7 +58,9 @@ class CoachKeys(context: Context) {
   }
 
   fun clear(p: Provider) {
-    prefs.edit().remove(p.id).apply()
+    val edit = prefs.edit().remove(p.id)
+    if (p == Provider.CUSTOM) edit.remove("custom.url").remove("custom.model")
+    edit.apply()
     version++
   }
 

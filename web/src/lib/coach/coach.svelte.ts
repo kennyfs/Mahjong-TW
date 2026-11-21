@@ -128,7 +128,9 @@ class Coach {
         this.phase = { kind: 'failed', error: null, detail: t('coach_no_hands') };
         return;
       }
-      const digest = assemble(w, rulesText(w, await info(group.spec), rulesName), parts.map((x) => x[1]));
+      const rules = await info(group.spec);
+      if (abort.signal.aborted) return;
+      const digest = assemble(w, rulesText(w, rules, rulesName), parts.map((x) => x[1]));
       this.phase = { kind: 'ready', prepared: { group, rulesName, hands: parts.map((x) => x[0]), skipped, digest, question } };
     } catch (e) {
       if (!abort.signal.aborted) this.phase = { kind: 'failed', error: null, detail: String((e as Error).message ?? e) };
@@ -229,6 +231,7 @@ class Coach {
     this.phase = { kind: 'asking', provider: p.id };
     try {
       const r = await ask(p.id, asked, effortOf(session.effort), key, coachKeys.custom, session.system, turns, null, abort.signal);
+      if (!r.text.trim()) throw new CoachError('BAD_ANSWER', '');
       const cost = costOf(model, r);
       const s: CoachSession = {
         ...session, turns: [...turns, { user: false, text: r.text, raw: r.raw }], input: session.input + r.input, output: session.output + r.output,

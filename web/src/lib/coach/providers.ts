@@ -105,17 +105,20 @@ class HttpError extends Error {
 /** A request's answer as JSON (an HTTP error: HttpError, which ask turns into a CoachError). `signal` cancels it. */
 async function post(url: string, body: Json, headers: Record<string, string>, signal?: AbortSignal): Promise<Json> {
   let r: Response;
+  let text: string;
   try {
     r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body), signal });
+    text = await r.text();
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e;
     // (A browser hides why a request failed: no network, or a server that does not allow a page's requests.)
     throw new CoachError('NETWORK', String((e as Error).message ?? e));
   }
-  const text = await r.text();
   if (!r.ok) throw new HttpError(r.status, text);
   try {
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('not object');
+    return parsed;
   } catch {
     throw new CoachError('BAD_ANSWER', text.slice(0, 300));
   }
@@ -158,15 +161,16 @@ export async function ask(
           { Authorization: `Bearer ${key}` }, signal), model);
       case 'custom': {
         if (!customReady(custom)) throw new CoachError('KEY', '');
+        const asked = model.trim() || custom.model.trim();
         const url = custom.url.trim().replace(/\/+$/, '') + '/chat/completions';
         if (!url.startsWith('https://')) throw new CoachError('NETWORK', 'https:// only');
         const auth: Record<string, string> = key ? { Authorization: `Bearer ${key}` } : {};
         try {
-          return parseChat(await post(url, chatBody(custom.model.trim(), system, turns, schema), auth, signal), custom.model.trim());
+          return parseChat(await post(url, chatBody(asked, system, turns, schema), auth, signal), asked);
         } catch (e) {
           // Not every such server knows a JSON schema: once more without it (the prompt asks for the JSON too).
           if (schema && e instanceof HttpError && (e.code === 400 || e.code === 422)) {
-            return parseChat(await post(url, chatBody(custom.model.trim(), system, turns, null), auth, signal), custom.model.trim());
+            return parseChat(await post(url, chatBody(asked, system, turns, null), auth, signal), asked);
           }
           throw e;
         }
