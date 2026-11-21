@@ -194,7 +194,7 @@
   <string name="settings_length">練習長度</string>
   <string name="settings_bot">電腦玩家</string>
   <string name="bot_greedy">牌效率</string>
-  <string name="bot_help">• 神經網路：用自我對打訓練出來的神經網路出牌，和分析用的是同一個，打得比較好。\n• 牌效率：能胡就胡；打牌只求離聽牌近、進張多；吃碰只在能更接近聽牌時，槓則只要不會離聽牌更遠就槓；不管放槍和台數。</string>
+  <string name="bot_help">• 神經網路：用自我對打訓練出來的神經網路出牌，和分析用的是同一個，打得比較好。\n• 牌效率：能胡就胡；打牌只求離聽牌近、進張多；別人打的牌，吃碰後更接近聽牌、或進張超過兩倍才吃碰；自己摸牌後的槓，只要不會離聽牌更遠就槓；不管放槍和台數。</string>
   <string name="settings_speed">電腦出牌速度</string>
   <string name="settings_sound">音效</string>
   <string name="sound_off">關</string>
@@ -1060,7 +1060,7 @@
   <string name="glossary_t_ukeire">進張</string>
   <string name="glossary_d_ukeire">摸到就能讓向聽數變少（聽牌時就是能胡）的牌；算的是還沒在桌上出現、還可能摸到的張數。</string>
   <string name="glossary_t_efficiency">牌效率</string>
-  <string name="glossary_d_efficiency">只看自己的牌、不管放槍和台數的打法：打牌先讓向聽數最少，再讓進張最多（都一樣時先打字牌，再打一、九）；吃碰只在向聽數會變少時才吃碰，向聽數不變就不吃碰，進張再多也一樣；槓則只要向聽數不變多就槓。</string>
+  <string name="glossary_d_efficiency">只看自己的牌、不管放槍和台數的打法：打牌先讓向聽數最少，再讓進張最多（都一樣時先打字牌，再打一、九）。別人打出的牌，吃碰後向聽數變少，或向聽數不變但進張超過原本的兩倍，才吃或碰（不槓別人的牌）；自己摸牌後，只要向聽數不變多就暗槓或加槓。</string>
   <string name="glossary_t_tsumogiri">摸切</string>
   <string name="glossary_d_tsumogiri">摸進來的牌直接打掉。牌河裡橘色底的就是摸切。連續摸切的人，手上常常已經不需要換牌，可能已經聽牌。</string>
   <string name="glossary_t_tedashi">手切</string>

@@ -136,12 +136,12 @@ notes box. Inside a language, a paragraph is one line; a blank line between para
 <zh-TW>
 修正部分手機在螢幕縮放或顯示大小調大時，牌桌和選單太大、最下面的「設定」被切掉的問題。電腦吃碰你打的牌，不再比吃碰其他電腦的牌等得久。神經網路的分析稍微更準：胡牌、放槍、聽牌等機率和期望得分都更貼近實際。
 
-從回顧返回紀錄時停在原本的位置，並標出剛看過的那局；回顧顯示這局的規則。分析頁清空或隨機發牌後可以復原。出牌速度改成由慢到快排列。牌效率電腦只在不會離聽牌更遠時才槓，不再為了加槓拆掉順子；術語表寫清楚牌效率怎麼吃碰槓，解說不再把跟牌效率一樣好的選擇算成失誤或好手。
+從回顧返回紀錄時停在原本的位置，並標出剛看過的那局；回顧顯示這局的規則。分析頁清空或隨機發牌後可以復原。出牌速度改成由慢到快排列。牌效率電腦不再為了加槓拆掉順子，向聽數不變但進張能超過兩倍時也會吃碰；術語表寫清楚牌效率怎麼吃碰槓，解說不再把跟牌效率一樣好的選擇算成失誤或好手。
 </zh-TW>
 <en-US>
 Fixed an oversized table and menu, with Settings cut off, on some phones with a larger display size. Computer players call your discard as quickly as another's. The neural network's analysis is a little more accurate.
 
-Back from a review, the records stay where you were and mark the hand you opened; reviews show the hand's rules. Undo after clearing the analysis. Speeds run from slowest to fastest. The efficiency bot no longer breaks a run to kong; the glossary says how it calls and kongs.
+Back from a review, the records keep your place and mark the hand; reviews show its rules. Undo after clearing the analysis. Speeds go slowest first. The efficiency bot no longer breaks a run to kong and calls when that more than doubles its useful tiles; see the glossary.
 </en-US>
 ```
 

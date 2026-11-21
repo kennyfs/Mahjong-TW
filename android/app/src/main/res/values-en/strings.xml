@@ -192,7 +192,7 @@
   <string name="settings_length">Practice length</string>
   <string name="settings_bot">Computer players</string>
   <string name="bot_greedy">Efficiency</string>
-  <string name="bot_help">• Neural network: plays with the neural network trained by self-play, the same one as the analysis. The stronger player.\n• Efficiency: wins whenever it can; discards to get ready sooner with more useful tiles; calls only when that brings it closer to ready, and kongs whenever that leaves it no farther; ignores deal-ins and tai.</string>
+  <string name="bot_help">• Neural network: plays with the neural network trained by self-play, the same one as the analysis. The stronger player.\n• Efficiency: wins whenever it can; discards to get ready sooner with more useful tiles; calls a discard when that brings it closer to ready or more than doubles its useful tiles; kongs on its own turn whenever that leaves it no farther; ignores deal-ins and tai.</string>
   <string name="settings_speed">Computer speed</string>
   <string name="settings_sound">Sound</string>
   <string name="sound_off">Off</string>
@@ -1050,7 +1050,7 @@
   <string name="glossary_t_ukeire">Improving tiles</string>
   <string name="glossary_d_ukeire">The tiles that would bring a hand closer to ready (or, when ready, win), counted as the copies not yet seen on the table.</string>
   <string name="glossary_t_efficiency">Tile efficiency</string>
-  <string name="glossary_d_efficiency">Playing for speed alone, ignoring danger and tai: discard for the fewest away, then the most improving tiles (on a tie, honors first, then 1s and 9s); call only when that leaves the hand fewer away, not when it stays as far, however many more improving tiles; kong whenever that leaves it no farther away.</string>
+  <string name="glossary_d_efficiency">Playing for speed alone, ignoring danger and tai: discard for the fewest away, then the most improving tiles (on a tie, honors first, then 1s and 9s). On another\'s discard, chow or pung when that leaves the hand fewer away, or as far with more than twice the improving tiles (never kong it); on its own turn, kong whenever that leaves it no farther away.</string>
   <string name="glossary_t_tsumogiri">Draw-discard</string>
   <string name="glossary_d_tsumogiri">Discarding the tile just drawn: the orange tiles in a river. A player who does it several times in a row often needs nothing more and may be ready.</string>
   <string name="glossary_t_tedashi">Hand-discard</string>

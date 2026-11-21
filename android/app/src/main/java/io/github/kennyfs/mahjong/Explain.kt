@@ -167,9 +167,10 @@ object Explain {
    *  - a win;
    *  - on its own turn, a kong that leaves the hand no farther from ready than the best discard; else the discards
    *    with the fewest steps from ready, then the most improving tiles;
-   *  - on another's discard, a chow or pung only when it brings the hand closer to ready (the closest of them), else
-   *    passing: a call that keeps the distance is passed, whatever its improving tiles (the rules tried in matches,
-   *    docs/explain.md).
+   *  - on another's discard, a chow or pung that brings the hand closer to ready, or keeps the distance with more
+   *    than twice the improving tiles of passing; of them the closest, then the most improving tiles; else passing
+   *    (the rules tried in matches, docs/explain.md).
+   *  (Never a kong of another's discard.)
    *  More than one when they tie: tile efficiency cannot tell them apart (the player itself takes the first kong or
    *  call, and lets honors and terminals go first). The web page's explain.ts, the same. */
   fun greedyOf(a: Analysis): List<Int> {
@@ -179,9 +180,11 @@ object Explain {
     fun of(vararg types: String) = xs.indices.filter { xs[it].action.type in types }
     val pass = xs.indexOfFirst { it.action.type == "pass" }
     if (pass >= 0) {
-      val calls = of("chi", "pon").filter { xs[it].shanten < xs[pass].shanten }
+      val p = xs[pass]
+      val calls = of("chi", "pon").filter { xs[it].shanten < p.shanten || (xs[it].shanten == p.shanten && xs[it].ukeire > 2 * p.ukeire) }
       val s = calls.minOfOrNull { xs[it].shanten } ?: return listOf(pass)
-      return calls.filter { xs[it].shanten == s }
+      val u = calls.filter { xs[it].shanten == s }.maxOf { xs[it].ukeire }
+      return calls.filter { xs[it].shanten == s && xs[it].ukeire == u }
     }
     val discards = of("discard")
     val s = discards.minOfOrNull { xs[it].shanten } ?: Int.MAX_VALUE

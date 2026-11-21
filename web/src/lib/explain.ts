@@ -102,9 +102,10 @@ const isCall = (a: Action) => a.type === 'chi' || a.type === 'pon' || a.type ===
  *  - a win;
  *  - on its own turn, a kong that leaves the hand no farther from ready than the best discard; else the discards with
  *    the fewest steps from ready, then the most improving tiles;
- *  - on another's discard, a chow or pung only when it brings the hand closer to ready (the closest of them), else
- *    passing: a call that keeps the distance is passed, whatever its improving tiles (the rules tried in matches,
- *    docs/explain.md).
+ *  - on another's discard, a chow or pung that brings the hand closer to ready, or keeps the distance with more than
+ *    twice the improving tiles of passing; of them the closest, then the most improving tiles; else passing (the
+ *    rules tried in matches, docs/explain.md).
+ *  (Never a kong of another's discard.)
  *  More than one when they tie: tile efficiency cannot tell them apart (the player itself takes the first kong or
  *  call, and lets honors and terminals go first). */
 export function greedyOf(a: Analysis): number[] {
@@ -114,9 +115,12 @@ export function greedyOf(a: Analysis): number[] {
   const of = (types: string[]) => xs.flatMap((f, i) => (types.includes(f.action.type) ? [i] : []));
   const pass = xs.findIndex((f) => f.action.type === 'pass');
   if (pass >= 0) {
-    const calls = of(['chi', 'pon']).filter((i) => xs[i].shanten < xs[pass].shanten);
+    const p = xs[pass];
+    const calls = of(['chi', 'pon']).filter((i) => xs[i].shanten < p.shanten || (xs[i].shanten === p.shanten && xs[i].ukeire > 2 * p.ukeire));
+    if (!calls.length) return [pass];
     const s = Math.min(...calls.map((i) => xs[i].shanten));
-    return calls.length ? calls.filter((i) => xs[i].shanten === s) : [pass];
+    const u = Math.max(...calls.filter((i) => xs[i].shanten === s).map((i) => xs[i].ukeire));
+    return calls.filter((i) => xs[i].shanten === s && xs[i].ukeire === u);
   }
   const discards = of(['discard']);
   let s = Infinity, u = -1;

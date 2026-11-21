@@ -57,13 +57,17 @@ class ExplainTest {
     val kakan = ActionFigures(Action("kakan", "5m"), shanten = 1, ukeire = 4)
     assertEquals(listOf(1), Explain.greedyOf(Analysis(actions = listOf(kakan, d("3s", 0, 8)))))
     assertEquals(listOf(0), Explain.greedyOf(Analysis(actions = listOf(kakan, d("3s", 1, 12)))))
-    // A call only when it is a step closer (the closest; ties all), whatever the improving tiles; a win always.
+    // A call when it is a step closer, or as close with more than twice the improving tiles; the closest, then the most
+    // improving tiles (ties all); a win always.
     val pass = ActionFigures(Action("pass"), shanten = 2, ukeire = 20)
     assertEquals(listOf(0), Explain.greedyOf(Analysis(actions = listOf(pass, ActionFigures(Action("pon", "5z"), shanten = 2, ukeire = 18)))))
-    assertEquals(listOf(0), Explain.greedyOf(Analysis(actions = listOf(pass, ActionFigures(Action("pon", "7s"), shanten = 2, ukeire = 47)))))
+    assertEquals(listOf(0), Explain.greedyOf(Analysis(actions = listOf(pass, ActionFigures(Action("pon", "7s"), shanten = 2, ukeire = 40)))))
+    assertEquals(listOf(1), Explain.greedyOf(Analysis(actions = listOf(pass, ActionFigures(Action("pon", "7s"), shanten = 2, ukeire = 41)))))
     assertEquals(listOf(1), Explain.greedyOf(Analysis(actions = listOf(pass, ActionFigures(Action("chi", "3m"), shanten = 1, ukeire = 4)))))
-    assertEquals(listOf(1, 3), Explain.greedyOf(Analysis(actions = listOf(pass, ActionFigures(Action("chi", "3m"), shanten = 1, ukeire = 4),
-      ActionFigures(Action("chi", "4m"), shanten = 2, ukeire = 30), ActionFigures(Action("pon", "5m"), shanten = 1, ukeire = 9)))))
+    assertEquals(listOf(3), Explain.greedyOf(Analysis(actions = listOf(pass, ActionFigures(Action("chi", "3m"), shanten = 1, ukeire = 4),
+      ActionFigures(Action("chi", "4m"), shanten = 2, ukeire = 60), ActionFigures(Action("pon", "5m"), shanten = 1, ukeire = 9)))))
+    assertEquals(listOf(1, 2), Explain.greedyOf(Analysis(actions = listOf(pass, ActionFigures(Action("chi", "3m"), shanten = 1, ukeire = 9),
+      ActionFigures(Action("pon", "5m"), shanten = 1, ukeire = 9)))))
     assertEquals(listOf(2), Explain.greedyOf(Analysis(actions = listOf(pass, ActionFigures(Action("pon", "5z"), shanten = 1), ActionFigures(Action("ron", "5z"), shanten = -1)))))
     // Against the played action: none when it is one of the choices, else the one the network values most.
     val tie = Analysis(actions = listOf(d("3s", 0, 8).copy(q = 0.1), d("9m", 0, 4).copy(q = 0.5), d("6s", 0, 8).copy(q = 0.3)))

@@ -20,10 +20,11 @@ hands of `simple2,see` with `--shape`. 300 hands take 2 s on 30 threads; a pass 
 with 30 processes takes seconds. Most tables below are stable from about 20,000 hands.
 
 `greedy` is first-order tile efficiency: fewest steps from ready, then most unseen improving tiles, honors then
-terminals first on ties. It ignores value and danger; it calls only when that lowers shanten (a call that keeps it is
-passed, whatever its improving tiles), and kongs whenever the shanten is no worse than the best discard's. (Through
-2.0.0 it took every added kong, even one that broke a run; the measurements below are of that one. The rules for calls
-and kongs were chosen in matches, the simplest of those that played as well: cpp/players/players.cpp, GreedyPlayer.) It already picks the best discard by the two-step measures in 94–95% of decisions, and
+terminals first on ties. It ignores value and danger. It chows or pungs when that lowers shanten, or keeps it with more
+than twice the improving tiles of passing (never a kong of a discard), and on its own turn kongs whenever the shanten
+is no worse than the best discard's. (Through 2.0.0 it called only to lower shanten and took every added kong, even
+one that broke a run; the measurements below are of that one. The rules for calls and kongs were chosen in matches,
+the simplest of those that played best: cpp/players/players.cpp, GreedyPlayer.) It already picks the best discard by the two-step measures in 94–95% of decisions, and
 those measures do not explain the network's other choices at the same distance: the differences lie elsewhere.
 
 ## 2. Where the network differs from tile efficiency

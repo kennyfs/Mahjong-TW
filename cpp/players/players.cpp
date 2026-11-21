@@ -42,15 +42,18 @@ namespace {
     // Tile efficiency: a discard by the hand alone, the fewest steps from ready (shanten) and then the most unseen
     // tiles that bring it closer (ukeire), the same figures as the analysis (players/analysis.cpp).
     // eps: the chance of a random discard on its own turn.
-    // calls: -1 never chows or pungs; 0 only for a lower shanten; 1 also when the call keeps the distance; 2 for a
-    //   lower shanten, or the same with more improving tiles than passing (more than (1 + gain) times as many).
+    // calls: -1 never chows or pungs; 0 only for a lower shanten (2.0.0 and before); 1 also when the call keeps the
+    //   distance; 2 for a lower shanten, or the same with more improving tiles than passing (more than (1 + gain) times
+    //   as many; the default, gain 1: more than twice), the closest call and then the most improving tiles.
     // kongs: -1 none; 0 every added kong, a concealed one when the shanten is no worse than the best discard's (2.0.0
-    //   and before); 1 any kong with a shanten no worse (the default); 2 any kong with a shanten no worse and, at the same
-    //   shanten, no fewer improving tiles.
-    // The defaults (calls 0, kongs 1) are the simplest of the rules tried in matches against the old ones (simple1,none,
-    // with two copies of the network, 40,000 deals x 4 seatings, per hand): kongs 1 +0.013 +- 0.002, kongs 2 +0.012
-    // +- 0.003, no kongs -0.010 +- 0.004; calls 2 -0.032 +- 0.011 (gain 0.5: +0.013 +- 0.008), calls 1 -0.376 +- 0.014,
-    // no calls -1.175 +- 0.013.
+    //   and before); 1 any kong with a shanten no worse (the default); 2 any kong with a shanten no worse and, at the
+    //   same shanten, no fewer improving tiles. (Never a kong of another's discard.)
+    // The defaults (calls 2 with gain 1, kongs 1) are the simplest of the rules that played best in matches (the variant
+    // against the old one or the default, with two copies of the network, 40,000 deals x 4 seatings, per hand;
+    // simple1,none, seed v1 unless said): kongs 1 +0.013 +- 0.002, kongs 2 +0.012 +- 0.003, no kongs -0.010 +- 0.004;
+    // calls 2 with gain 0 -0.032 +- 0.011, gain 0.5 +0.013 +- 0.008, gain 1 +0.025 +- 0.007 (seed v2 +0.022 +- 0.007;
+    // simple2,see +0.043 +- 0.010), gain 2 +0.017 +- 0.004, gain 3 +0.016 +- 0.004; calls 1 -0.376 +- 0.014; no calls
+    // -1.175 +- 0.013. ($WORK/greedy-variants.)
     GreedyPlayer(double eps, int calls, double gain, int kongs, const string& spec)
       : eps_(eps), calls_(calls), gain_(gain), kongs_(kongs), spec_(spec) {}
     string name() const override { return spec_; }
@@ -245,8 +248,8 @@ unique_ptr<Player> makeBasicPlayer(const string& spec) {
   if(spec == "greedy" || spec.rfind("greedy:", 0) == 0) {
     // greedy:eps=0.1,calls=more (or none): variations for training data; calls=ukeire[,gain=R], kongs=none|old|shanten|
     // figures: the rules for calls and kongs (the constructor; kongs=old: 2.0.0 and before).
-    double eps = 0.0, gain = 0.0;
-    int calls = 0, kongs = 1;
+    double eps = 0.0, gain = 1.0;
+    int calls = 2, kongs = 1;
     if(spec.size() > 7) {
       for(const string& tok : Global::split(spec.substr(7), ',')) {
         size_t eq = tok.find('=');
