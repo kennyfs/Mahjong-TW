@@ -15,7 +15,7 @@ import { handRecord, newId, records } from './records.svelte';
 import { keepSummary } from './review';
 import { calloutsSkipped, dealArm, dealReady, dealReset } from './callouts';
 import { later, now } from './clock';
-import { BotPace, othersCall, preclaim, robbedEvent } from './claims';
+import { BotPace, forcedDiscardAction, othersCall, preclaim, robbedEvent } from './claims';
 import { fxDone, movesShown } from './fx.svelte';
 import { settings, type Length } from './settings.svelte';
 import { ms } from './timing';
@@ -84,6 +84,7 @@ class Practice {
   /** The call the player just made on another's tile, until what came of it is known. */
   private claimed: Action['type'] | null = null;
   private noticeTimer: (() => void) | undefined;
+  private forcedTimer: (() => void) | undefined;
   /** The computer players' pace (lib/claims.ts BotPace): their turns, their discards' flights, their answers to a tile. */
   private pace = new BotPace();
 
@@ -113,6 +114,8 @@ class Practice {
   /** Another game or hand: nothing held from the last. */
   private reset() {
     this.epoch++;
+    this.forcedTimer?.();
+    this.forcedTimer = undefined;
     // (What the last game's loop waits for goes at once: it sees the game is gone.)
     calloutsSkipped();
     this.pace.reset();
@@ -212,6 +215,10 @@ class Practice {
         const seed = `${this.meta?.id}/${this.meta?.hands}/${this.game.actions.length}`;
         if (p.pending.includes(ME)) {
           this.claimed = null;
+          if (p.phase === 'self') {
+            this.forcedDiscard(epoch);
+            break;
+          }
           // Another's tile the player could claim: the computer players decide on it first (lib/claims.ts), the
           // player's buttons held back meanwhile.
           this.busy = true;
@@ -221,7 +228,6 @@ class Practice {
             this.game = pc.game;
             this.persist();
             await this.refresh();
-            this.forcedDiscard(epoch);
             break;
           }
           // A claim came before all of the player's: made at once, as the computer players' step.
@@ -328,13 +334,16 @@ class Practice {
   private forcedDiscard(epoch: number) {
     const v = this.view;
     const g = this.game;
-    if (!v || !g || !v.my_turn || v.phase !== 'self' || v.legal.length !== 1 || v.legal[0].type !== 'discard') return;
-    if (!v.position.players[ME]?.declared) return;
-    const a = v.legal[0];
+    if (!v || !g) return;
+    const a = forcedDiscardAction(v, ME);
+    if (!a) return;
     const n = g.actions.length;
+    this.forcedTimer?.();
+    this.forcedTimer = undefined;
     void dealReady().then(() => {
       if (epoch !== this.epoch) return;
-      later(() => {
+      this.forcedTimer = later(() => {
+        this.forcedTimer = undefined;
         if (epoch === this.epoch && this.game?.actions.length === n && this.view?.my_turn) void this.act(a);
       }, ms('bot_turn'));
     });

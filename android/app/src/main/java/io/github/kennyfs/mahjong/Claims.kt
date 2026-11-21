@@ -85,6 +85,14 @@ object Claims {
    *  events. */
   fun robbedEvent(events: List<GameEvent>, from: Int, seat: Int): Int =
     (from until events.size).firstOrNull { events[it].seat == seat && events[it].type in setOf("chi", "pon", "kan", "ron") } ?: -1
+
+  /** A declared ready hand (天聽, 地聽, 報聽) whose only legal move is discarding the drawn tile: returns that discard,
+   *  else null (a win or a concealed kong waits for the player). */
+  fun forcedDiscardAction(view: View, me: Int): Action? {
+    if (!view.myTurn || view.phase != "self" || view.legal.size != 1 || view.legal[0].type != "discard") return null
+    if (view.position.players.getOrNull(me)?.declared == null) return null
+    return view.legal[0]
+  }
 }
 
 /**

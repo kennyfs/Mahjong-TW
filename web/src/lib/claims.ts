@@ -88,6 +88,14 @@ export function robbedEvent(events: { seat: number; type: string }[], from: numb
   return -1;
 }
 
+/** A declared ready hand (天聽, 地聽, 報聽) whose only legal move is discarding the drawn tile: returns that discard,
+ *  else null (a win or a concealed kong waits for the player). */
+export function forcedDiscardAction(view: View, me: number): Action | null {
+  if (!view.my_turn || view.phase !== 'self' || view.legal.length !== 1 || view.legal[0].type !== 'discard') return null;
+  if (!view.position.players[me]?.declared) return null;
+  return view.legal[0];
+}
+
 /** The type of the last action of `game` (a step of the computer players: what it did). */
 export function lastType(game: GameRecord): string | undefined {
   const a = game.actions[game.actions.length - 1];

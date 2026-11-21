@@ -94,10 +94,13 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   /** The computer players' pace (Claims.kt BotPace): their turns, their discards' flights, their answers to a tile. */
   private val pace = BotPace()
   private var noticeJob: Job? = null
+  private var forcedJob: Job? = null
 
   /** Another game or hand: nothing held from the last. */
   private fun reset() {
     epoch++
+    forcedJob?.cancel()
+    forcedJob = null
     // (What the last game's loop waits for goes at once: it sees the game is gone.)
     CalloutClock.release()
     pace.reset()
@@ -202,11 +205,10 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   private fun forcedDiscard(e: Int) {
     val v = view ?: return
     val g = game ?: return
-    if (!v.myTurn || v.phase != "self" || v.legal.size != 1 || v.legal[0].type != "discard") return
-    if (v.position.players.getOrNull(ME)?.declared == null) return
-    val a = v.legal[0]
+    val a = Claims.forcedDiscardAction(v, ME) ?: return
     val n = g.actions.size
-    scope.launch {
+    forcedJob?.cancel()
+    forcedJob = scope.launch {
       DealClock.awaitReady()
       if (e != epoch) return@launch
       delay(Timing.ms("bot_turn"))
@@ -236,6 +238,10 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
           val before = view?.eventCount ?: 0
           if (ME in p.pending) {
             claimed = null
+            if (p.phase == "self") {
+              forcedDiscard(e)
+              break
+            }
             // Another's tile the player could claim: the computer players decide on it first (Claims), the player's
             // buttons held back meanwhile.
             busy = true
@@ -246,7 +252,6 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
               game = pc.game
               persist()
               refresh()
-              forcedDiscard(e)
               break
             }
             // A claim came before all of the player's: made at once, as the computer players' step, after the discard
