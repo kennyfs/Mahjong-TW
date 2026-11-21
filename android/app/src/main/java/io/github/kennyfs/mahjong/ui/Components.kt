@@ -127,7 +127,7 @@ fun <T> ToggleGroup(
       )
       Box(
         Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp).clip(shape).background(if (on) colors.onContainer else colors.offContainer)
-          .selectable(on, role = Role.RadioButton) { onSelect(o.first) }.padding(horizontal = 10.dp, vertical = 6.dp),
+          .selectable(on, role = Role.RadioButton) { onSelect(o.first) }.padding(horizontal = 6.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center,
       ) {
         Text(o.second, color = if (on) colors.onContent else colors.offContent, style = style, textAlign = TextAlign.Center)

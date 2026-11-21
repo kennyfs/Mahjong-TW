@@ -285,9 +285,14 @@ private fun ReviewStats(reviewed: List<HandRecord>, pending: Int, level: Level, 
       .padding(horizontal = 12.dp, vertical = 8.dp).testTag("records_stats"),
     verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    FlowRow(
+      Modifier.fillMaxWidth().heightIn(min = 40.dp),
+      horizontalArrangement = Arrangement.spacedBy(10.dp),
+      verticalArrangement = Arrangement.spacedBy(2.dp),
+      itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
       Text(stringResource(R.string.stats_title), style = MaterialTheme.typography.labelLarge)
-      Text(stringResource(R.string.stats_reviewed, k), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = dim)
+      Text(stringResource(R.string.stats_reviewed, k), style = MaterialTheme.typography.bodySmall, color = dim)
       if (progress != null) TextButton(onClick = onStop, modifier = Modifier.testTag("stats_stop")) {
         Text(stringResource(R.string.stats_running, progress.first, progress.second))
       } else if (pending > 0) TextButton(onClick = onRun, modifier = Modifier.testTag("stats_run")) { Text(stringResource(R.string.stats_run, pending)) }
