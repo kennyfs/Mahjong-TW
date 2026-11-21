@@ -56,7 +56,7 @@
   .choice { color: var(--on-surface-variant); }
   .choices { display: flex; flex-wrap: wrap; gap: 6px; }
   .choice-chip { display: inline-flex; align-items: baseline; gap: 5px; padding: 4px 10px; border-radius: 10px;
-    background: var(--surface-container-high); color: var(--on-surface); white-space: nowrap; }
+    background: var(--surface-container-highest); color: var(--on-surface); white-space: nowrap; }
   .choice-chip.alt { background: var(--secondary-container); color: var(--on-secondary-container); }
   .choice-chip .tag { font-size: 0.85em; opacity: 0.8; }
   .choice-chip b { font-weight: 600; }
