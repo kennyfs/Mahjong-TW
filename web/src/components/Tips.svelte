@@ -8,7 +8,7 @@
 </script>
 
 <div class="page">
-  <TitleBar title={t('tips_title')} {onback} />
+  <TitleBar title={t('tips_title')} {onback} max={640} />
   <div class="scroll"><div class="inner"><TipsContent /></div></div>
 </div>
 

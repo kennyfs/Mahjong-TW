@@ -147,7 +147,7 @@
 {/snippet}
 
 <div class="page">
-  <TitleBar title={t('guide_title')} {onback}>
+  <TitleBar title={t('guide_title')} {onback} max={760}>
     <button class="btn text" onclick={onglossary}>{t('glossary_title')}</button>
     <span class="body-medium dim">{t('guide_page', page + 1, PAGES)}</span>
   </TitleBar>
@@ -290,13 +290,15 @@
     {#if page > 0 && page < PAGES - 1}<p class="body-small dim now">{t('guide_rules_now', rulesName)}</p>{/if}
   </div></div>
   <div class="bar">
-    <button class="btn text" disabled={page === 0} onclick={() => go(page - 1)}>{t('guide_prev')}</button>
-    <span class="dots" aria-hidden="true">{#each Array(PAGES) as _, i (i)}<span class="dot" class:on={i === page}></span>{/each}</span>
-    {#if page < PAGES - 1}
-      <button class="btn filled" onclick={() => go(page + 1)}>{t('guide_next')}</button>
-    {:else}
-      <button class="btn filled" onclick={onback}>{t('guide_done')}</button>
-    {/if}
+    <div class="bar-inner">
+      <button class="btn text" disabled={page === 0} onclick={() => go(page - 1)}>{t('guide_prev')}</button>
+      <span class="dots" aria-hidden="true">{#each Array(PAGES) as _, i (i)}<span class="dot" class:on={i === page}></span>{/each}</span>
+      {#if page < PAGES - 1}
+        <button class="btn filled" onclick={() => go(page + 1)}>{t('guide_next')}</button>
+      {:else}
+        <button class="btn filled" onclick={onback}>{t('guide_done')}</button>
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -346,8 +348,8 @@
   .bad { color: var(--bad); }
   .buttons { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .buttons.column { flex-direction: column; align-items: stretch; max-width: 420px; }
-  .bar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px;
-    border-top: 1px solid var(--surface-container-highest); }
+  .bar { flex: none; border-top: 1px solid var(--surface-container-highest); }
+  .bar-inner { max-width: 760px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; }
   .dots { display: flex; gap: 6px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--surface-container-highest); }
   .dot.on { background: var(--primary); }

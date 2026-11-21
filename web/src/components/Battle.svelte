@@ -191,9 +191,9 @@
 {#if page === 'entry'}
   <div class="page">
     {#if step === 'home'}
-      <TitleBar title={t('battle_title')} />
+      <TitleBar title={t('battle_title')} max={640} />
     {:else}
-      <TitleBar title={t(step === 'create' ? 'battle_create' : 'battle_join_room')} onback={() => (step = 'home')} />
+      <TitleBar title={t(step === 'create' ? 'battle_create' : 'battle_join_room')} onback={() => (step = 'home')} max={640} />
     {/if}
     <div class="progress">{#if battle.busy}<span class="bar"></span>{/if}</div>
     <div class="scroll">
@@ -231,7 +231,7 @@
   </div>
 {:else if page === 'lobby' && room && s}
   <div class="page">
-    <TitleBar title={s.mode === 'CONTEST' ? t('battle_new_contest') : t('battle_new_table')}>
+    <TitleBar title={s.mode === 'CONTEST' ? t('battle_new_contest') : t('battle_new_table')} max={ui.w >= 760 ? 1100 : 640}>
       <button class="btn outlined" onclick={() => battle.leave()}>{t('battle_leave')}</button>
       {#if short}
         {#if battle.isHost}<button class="btn filled" onclick={() => battle.startGame()}>{t('battle_start')}</button>
@@ -398,7 +398,7 @@
   </div>
 {:else if page === 'over' && room}
   <div class="page">
-    <TitleBar title={t('battle_over')}>
+    <TitleBar title={t('battle_over')} max={760}>
       <button class="btn filled" onclick={() => battle.dismiss()}>{t('battle_done')}</button>
     </TitleBar>
     <div class="scroll" use:keepScroll={'battle:' + room.pin}>
