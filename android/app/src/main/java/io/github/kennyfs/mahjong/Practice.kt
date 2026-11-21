@@ -78,6 +78,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
     private set
 
   private var running = false
+  private var acting = false
   private var epoch = 0
   /** The loop running (`run`): its number and its game's epoch. One of a game gone (another dealt while it waited out a
    *  pace or a moment) ends at its next look; it holds back neither another game's loop nor its state. (It held back
@@ -99,6 +100,7 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   /** Another game or hand: nothing held from the last. */
   private fun reset() {
     epoch++
+    acting = false
     forcedJob?.cancel()
     forcedJob = null
     // (What the last game's loop waits for goes at once: it sees the game is gone.)
@@ -149,10 +151,18 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   fun resume() = scope.launch {
     val s = runCatching { EngineJson.decodeFromString<Saved>(prefs.getString("game", null) ?: "") }.getOrNull()
     if (s != null && !s.meta.over && s.meta.rules == settings.spec) {
+      reset()
+      val e = epoch
       game = s.game
       meta = s.meta
       stage = Stage.PLAYING
-      refresh()
+      try {
+        refresh()
+      } catch (_: EngineException) {
+        if (e == epoch) newGameNow()
+        return@launch
+      }
+      if (e != epoch) return@launch
       if (view?.phase == "over") finish() else run()
     } else newGameNow()
   }
@@ -167,22 +177,29 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
 
   private suspend fun newGameNow() {
     reset()
+    val e = epoch
     // (The store's screenshots: a fixed game, the player dealing first. StoreMode.)
     val store = StoreMode.seed
     val startDealer = if (store != null) 0 else Random.nextInt(4)
-    meta = Meta(store ?: Records.newId(), settings.length, settings.spec, settings.bot, startDealer)
+    val m = Meta(store ?: Records.newId(), settings.length, settings.spec, settings.bot, startDealer)
+    meta = m
     final = null
     lastRecord = null
     stage = Stage.PLAYING
+    // (No table of the last game's view meanwhile: the new one's first view is its first, without words.)
+    view = null
     try {
-      game = Engine.newHand(settings.spec, Setup(dealer = startDealer), StoreMode.firstDeal())
-    } catch (e: EngineException) {
-      onError(e.message ?: "")
+      val g = Engine.newHand(settings.spec, Setup(dealer = startDealer), StoreMode.firstDeal())
+      if (e != epoch) return
+      game = g
+      persist()
+      refresh()
+      if (e != epoch) return
+    } catch (ex: EngineException) {
+      if (e == epoch) onError(ex.message ?: "")
       return
     }
-    persist()
-    refresh()
-    dealt("${meta?.id}/0")
+    dealt("${m.id}/0")
     run()
   }
 
@@ -196,7 +213,8 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
 
   private suspend fun refresh() {
     val g = game ?: return
-    view = Engine.view(g, ME)
+    val v = Engine.view(g, ME)
+    if (game === g) view = v
   }
 
   /** A declared ready hand (天聽, 地聽, 報聽) whose only choice is the tile it drew: discarded by itself at a computer
@@ -370,14 +388,18 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   fun act(action: Action) = scope.launch {
     val g = game ?: return@launch
     val v = view
-    if (v?.myTurn != true || looping) return@launch
+    if (v?.myTurn != true || looping || acting) return@launch
+    val e = epoch
+    acting = true
     say(null)
     // A call on another's tile may yet give way to a call that comes before it.
     claimed = if (v.phase != "self" && action.type != "pass") action.type else null
     try {
       val next = Engine.act(g, ME, action)
+      if (e != epoch || game !== g) return@launch
       // The others decided first (Claims): the claim is settled now. Another's that came first is the moment's 搶.
       val w = Engine.view(next, ME)
+      if (e != epoch || game !== g) return@launch
       if (claimed != null) {
         val fresh = shownSince(w, v.eventCount)
         if (fresh.none { it.seat == ME }) fresh.firstOrNull { it.seat != ME && it.type != "discard" }?.let { robbed = w.events.indexOf(it) }
@@ -388,9 +410,14 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
       // The player's discard flies to the river: the computer player after them discards once it has landed (BotPace).
       pace.came(next, pace.flight())
       view = w
-    } catch (e: EngineException) {
-      onError(e.message ?: "")
+    } catch (ex: EngineException) {
+      if (e == epoch) {
+        claimed = null
+        onError(ex.message ?: "")
+      }
       return@launch
+    } finally {
+      if (e == epoch) acting = false
     }
     persist()
     run()
@@ -399,10 +426,11 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   private suspend fun finish() {
     val g = game ?: return
     val m = meta ?: return
+    val e = epoch
     val f = Engine.view(g, ME, 0, reveal = true)
+    if (e != epoch || game !== g || stage != Stage.PLAYING) return
     final = f
     val result = f.result ?: return
-    if (stage != Stage.PLAYING) return
     val key = "${g.wall.take(24)}/${g.actions.size}"
     if (m.recorded == key) {
       // After a restart: the hand's record (this game's, by its number) for the review and favorite on the result, and
@@ -439,13 +467,24 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
   fun nextHand() = scope.launch {
     val g = game ?: return@launch
     val m = meta ?: return@launch
-    if (stage != Stage.RESULT) return@launch
+    if (stage != Stage.RESULT || acting) return@launch
     if (m.over) {
       stage = Stage.OVER
       persist()
       return@launch
     }
-    val (next, gameOver) = Engine.nextHand(g, m.startDealer, StoreMode.nextDeal(m.hands))
+    val e = epoch
+    acting = true
+    val nextPair = try {
+      Engine.nextHand(g, m.startDealer, StoreMode.nextDeal(m.hands))
+    } catch (ex: EngineException) {
+      if (e == epoch) onError(ex.message ?: "")
+      return@launch
+    } finally {
+      if (e == epoch) acting = false
+    }
+    if (e != epoch || game !== g || stage != Stage.RESULT) return@launch
+    val (next, gameOver) = nextPair
     val roundOver = next.setup.round != g.setup.round
     if (gameOver || (m.length == Length.ROUND && roundOver)) {
       meta = m.copy(over = true)
@@ -454,12 +493,19 @@ class Practice(private val context: Context, private val scope: CoroutineScope, 
       return@launch
     }
     reset()
+    val ne = epoch
     game = next
     meta = m.copy(hinted = false)
     final = null
     stage = Stage.PLAYING
     persist()
-    refresh()
+    try {
+      refresh()
+    } catch (ex: EngineException) {
+      if (ne == epoch) onError(ex.message ?: "")
+      return@launch
+    }
+    if (ne != epoch) return@launch
     dealt("${m.id}/${m.hands}")
     run()
   }

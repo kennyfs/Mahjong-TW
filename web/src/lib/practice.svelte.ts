@@ -72,6 +72,7 @@ class Practice {
    *  says 搶碰, 搶胡. */
   robbed = $state<number | null>(null);
   private running = false;
+  private acting = false;
   private epoch = 0;
   /** The loop running (`run`): its number and its game's epoch. One of a game gone (another dealt while it waited
    *  out a pace or a moment) ends at its next look; it holds back neither another game's loop nor its state. */
@@ -100,11 +101,17 @@ class Practice {
   async resume() {
     const s = load<Saved | null>(KEYS.practice, null);
     if (s?.game && s.meta && !s.meta.over && s.meta.rules === settings.spec) {
+      this.reset();
       this.game = s.game;
       this.meta = s.meta;
       this.stage = 'playing';
       const epoch = this.epoch;
-      await this.refresh();
+      try {
+        await this.refresh();
+      } catch {
+        if (epoch === this.epoch) await this.newGame();
+        return;
+      }
       if (epoch !== this.epoch) return;
       if (this.view?.phase === 'over') await this.finish();
       else void this.run();
@@ -114,6 +121,7 @@ class Practice {
   /** Another game or hand: nothing held from the last. */
   private reset() {
     this.epoch++;
+    this.acting = false;
     this.forcedTimer?.();
     this.forcedTimer = undefined;
     // (What the last game's loop waits for goes at once: it sees the game is gone.)
@@ -166,13 +174,14 @@ class Practice {
       // (Another game came meanwhile: this one is no more.)
       if (epoch !== this.epoch) return;
       this.game = game;
+      this.persist();
+      await this.refresh();
+      if (epoch !== this.epoch) return;
       this.dealt(`${this.meta.id}/0`);
     } catch (e) {
-      this.error = t('error_engine', String((e as Error).message ?? e));
+      if (epoch === this.epoch) this.error = t('error_engine', String((e as Error).message ?? e));
       return;
     }
-    this.persist();
-    await this.refresh();
     void this.run();
   }
 
@@ -374,44 +383,59 @@ class Practice {
 
   /** The player's decision (one of view.legal). */
   async act(action: Action) {
-    if (!this.game || !this.view?.my_turn || this.looping) return;
+    const g = this.game;
+    const v0 = this.view;
+    if (!g || !v0?.my_turn || this.looping || this.acting) return;
+    const epoch = this.epoch;
+    this.acting = true;
     this.say(null);
     // A call on another's tile may yet give way to a call that comes before it.
-    this.claimed = this.view.phase !== 'self' && action.type !== 'pass' ? action.type : null;
-    const before = this.view.event_count;
+    this.claimed = v0.phase !== 'self' && action.type !== 'pass' ? action.type : null;
+    const before = v0.event_count;
     try {
-      this.game = await engine.act(this.game, ME, action);
-      // The player's discard flies to the river: the computer player after them discards once it has landed (BotPace).
-      this.pace.came(this.game, this.pace.flight());
+      const next = await engine.act(g, ME, action);
+      if (epoch !== this.epoch || this.game !== g) return;
       // The others decided first (lib/claims.ts): the claim is settled now. Another's that came first is the moment's
       // 搶 (the player's buttons had a claim that would have stood, but not the one chosen).
-      const v = await engine.view(this.game, ME);
+      const v = await engine.view(next, ME);
+      if (epoch !== this.epoch || this.game !== g) return;
       if (this.claimed) {
-        const fresh = v.events.slice(before).filter((e) => SHOWN.has(e.type));
+        const fresh = v.events.slice(Math.max(0, v.events.length - (v.event_count - before))).filter((e) => SHOWN.has(e.type));
         const over = fresh.some((e) => e.seat === ME) ? undefined : fresh.find((e) => e.seat !== ME && e.type !== 'discard');
         if (over) {
           this.robbed = v.events.indexOf(over);
           this.sayAfterFx(t('claim_overridden', t('act_' + this.claimed), this.names()[over.seat], t('act_' + over.type)));
-          this.claimed = null;
         }
+        this.claimed = null;
       }
+      this.game = next;
+      // The player's discard flies to the river: the computer player after them discards once it has landed (BotPace).
+      this.pace.came(next, this.pace.flight());
       this.view = v;
     } catch (e) {
-      this.error = t('error_engine', String((e as Error).message ?? e));
+      if (epoch === this.epoch) {
+        this.claimed = null;
+        this.error = t('error_engine', String((e as Error).message ?? e));
+      }
       return;
+    } finally {
+      if (epoch === this.epoch) this.acting = false;
     }
     this.persist();
     void this.run();
   }
 
   private async finish() {
-    if (!this.game || !this.meta) return;
-    this.final = await engine.view(this.game, ME, 0, true);
-    const result = this.final.result;
-    if (!result) return;
-    if (this.stage !== 'playing') return;
+    const g = this.game;
     const meta = this.meta;
-    const key = `${(this.game.wall ?? '').slice(0, 24)}/${this.game.actions.length}`;
+    if (!g || !meta) return;
+    const epoch = this.epoch;
+    const finalView = await engine.view(g, ME, 0, true);
+    if (epoch !== this.epoch || this.game !== g || this.stage !== 'playing') return;
+    this.final = finalView;
+    const result = finalView.result;
+    if (!result) return;
+    const key = `${(g.wall ?? '').slice(0, 24)}/${g.actions.length}`;
     if (meta.recorded === key) {
       // After a reload: the hand's record (this game's, by its number) for the review and favorite on the result, and
       // the summary if the reload cut it short.
@@ -425,7 +449,7 @@ class Practice {
     meta.hands++;
     // A hand played with the analysis shown counts for nothing: not in the totals, nor the records' statistics.
     if (!meta.hinted) meta.totals = meta.totals.map((t, i) => t + result.points[i]);
-    const rec = handRecord('practice', this.game, result, ME, this.names(), this.bots, meta.id, meta.hands);
+    const rec = handRecord('practice', g, result, ME, this.names(), this.bots, meta.id, meta.hands);
     if (meta.hinted) rec.hints = true;
     records.add(rec);
     this.lastRecord = rec.id;
@@ -440,28 +464,48 @@ class Practice {
 
   /** The next hand of the game, or its end. */
   async nextHand() {
-    if (!this.game || !this.meta || this.stage !== 'result') return;
-    if (this.meta.over) {
+    const g = this.game;
+    const m = this.meta;
+    if (!g || !m || this.stage !== 'result' || this.acting) return;
+    if (m.over) {
       this.stage = 'over';
       this.persist();
       return;
     }
-    const n = await engine.nextHand(this.game, this.meta.startDealer, this.meta.seeded ? `${this.meta.id}/${this.meta.hands}` : undefined);
-    const roundOver = n.game.setup.round !== this.game.setup.round;
-    if (n.gameOver || (this.meta.length === 'round' && roundOver)) {
-      this.meta = { ...this.meta, over: true };
+    const epoch = this.epoch;
+    this.acting = true;
+    let n: { game: GameRecord; gameOver: boolean };
+    try {
+      n = await engine.nextHand(g, m.startDealer, m.seeded ? `${m.id}/${m.hands}` : undefined);
+    } catch (e) {
+      if (epoch === this.epoch) this.error = t('error_engine', String((e as Error).message ?? e));
+      return;
+    } finally {
+      if (epoch === this.epoch) this.acting = false;
+    }
+    if (epoch !== this.epoch || this.game !== g || this.stage !== 'result') return;
+    const roundOver = n.game.setup.round !== g.setup.round;
+    if (n.gameOver || (m.length === 'round' && roundOver)) {
+      this.meta = { ...m, over: true };
       this.stage = 'over';
       this.persist();
       return;
     }
     this.reset();
+    const nextEpoch = this.epoch;
     this.game = n.game;
-    this.meta = { ...this.meta, hinted: false };
-    this.dealt(`${this.meta.id}/${this.meta.hands}`);
+    this.meta = { ...m, hinted: false };
     this.final = null;
     this.stage = 'playing';
     this.persist();
-    await this.refresh();
+    try {
+      await this.refresh();
+    } catch (e) {
+      if (nextEpoch === this.epoch) this.error = t('error_engine', String((e as Error).message ?? e));
+      return;
+    }
+    if (nextEpoch !== this.epoch) return;
+    this.dealt(`${this.meta.id}/${this.meta.hands}`);
     void this.run();
   }
 
