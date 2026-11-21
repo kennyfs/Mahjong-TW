@@ -463,6 +463,12 @@ does (−0.79 ± 0.43) while the smaller says nothing (+0.23 ± 0.89); where the
 not resolved. The played action of a fork is drawn from the policy; a human's choices differ, which these shares
 do not cover.
 
+By the policy's first choice instead (the same forks, losses from 0.05 to 0.15; 221, then the candidate): where it
+is Q's best (64% of them), 0.34 ± 0.22 and 0.65 ± 0.24 of the loss is real; where it is the played action (28%),
+−0.59 ± 0.38 and −0.68 ± 0.40; where it is a third action (9%), too few forks to tell (0.0 ± 0.7 to +1.4 ± 1.5,
+nothing that says noise). From 0.15 to 0.5: 0.90 ± 0.20 and 0.98 ± 0.20 where it is Q's best, +0.25 ± 0.31 and
++0.35 ± 0.32 where it is the played action. So the noise is where the policy's first choice is the action played.
+
 ### What was tried
 
 The fine-tunes started from 221 (or a network grown from it) and were trained by `train_acc.py` on iterations 212
@@ -573,7 +579,11 @@ the playing network's choice, importance-weighted over the actions played): on i
 is the better by 0.007 ± 0.002 a decision for 221 and 0.005 ± 0.002 for the candidate; on the main rules' hands
 the two are level (Q ahead by 0.001 ± 0.002 for both). They choose the same action in 68% of decisions, and where
 they disagree about a small loss, Q's difference is not real on average (the table above). The fine-tune's 0.005
-against 221's 0.007 is within the noise.
+against 221's 0.007 is within the noise. In matches (one playing the policy's first choice among three of the
+same network playing best Q, 20,000 duplicate deals, float16 as shipped), the one playing the policy got, under
+`simple1,none` and `simple2,see`: 221 +0.032 ± 0.014 and +0.032 ± 0.019 a hand, the candidate −0.003 ± 0.013 and
++0.047 ± 0.019. The policy is the stronger player by about 0.03 a hand for both (the two networks' 0.01 apart is
+noise), less than network 201's 0.04 and 0.08 above; the computer players should keep playing it.
 
 The policy's strength (`is_improve.py`, iteration 223's 600,000 decisions, played by 221): the candidate's policy
 instead of 221's at one decision gains +0.00000 ± 0.00007 (run 4's `base` +0.00005 ± 0.00007; 221 itself exactly
@@ -586,12 +596,14 @@ The app counts a decision's loss, max Q − Q(played), as nothing below `EQUAL` 
 and 0.5 for a typical payment of 4 (`web/src/lib/review.ts`, `Review.kt`; the expert level marks from 0.1). By the
 second table of "Network 221" above:
 
-- Where the policy also prefers Q's best to the played action, `EQUAL` at 0.05 and the steps can stay: such a loss
-  below 0.15 is about half real (0.31 ± 0.21 for 221, 0.73 ± 0.22 for the candidate), and from 0.15 up all of it.
-- Where the policy prefers the played action (about 30% of the losses from 0.05 to 0.5 in the network's own play),
-  a loss is not real on average: −0.2 ± 0.25 from 0.05 to 0.5, −0.5 ± 0.4 below 0.15, +0.3 ± 0.3 from 0.15 to 0.5.
+- Where the policy's first choice is Q's best, or a third action, `EQUAL` at 0.05 and the steps can stay: a loss
+  below 0.15 is about half real where it is Q's best (0.34 ± 0.22 for 221, 0.65 ± 0.24 for the candidate), from
+  0.15 up all of it, and nothing says otherwise for a third action.
+- Where the policy's first choice is the played action (28% of the losses from 0.05 to 0.5 in the network's own
+  play, fewer for a human), a loss is not real on average: −0.6 ± 0.4 below 0.15, +0.3 ± 0.3 from 0.15 to 0.5.
   Showing such a loss as ≈ or as uncertain, below 0.15 at least and up to 0.5 at most, is a judgment for the app;
-  every action's figures already carry its `policy`.
+  every action's figures already carry its `policy`. (The pairwise rule, the policy preferring the played action
+  to Q's best, picks out nearly the same decisions.)
 - Raising `EQUAL` alone (without the policy) would drop losses the policy agrees with, which are partly real.
 - Scaling the shown losses by the shares above did not help: fitted on one of the two sets of held-out hands and
   tested on the other (an ad hoc check, not a script in the repository), it brought Q's differences closer to the

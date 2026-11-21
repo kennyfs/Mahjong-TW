@@ -25,6 +25,10 @@ With --critic, the same with the critic's difference (it sees every hand) in pla
 only a proxy if the critic is right on average. Compare the two on REF before trusting it.
 
 A NAME's checkpoints joined by + are averaged (their Q).
+
+--save writes, per fork, the realized difference (dr), the critic's (dc) and each network's dQ (dp_NAME), its
+policy's log ratio of the two actions (lp_NAME), whether one of the two is its Q's best (best_NAME) and which action
+its policy's first choice is (top_NAME: 0 the played one, 1 the fork's, 2 another).
 """
 import argparse
 import os
@@ -115,6 +119,7 @@ def main():
     dps = {n: [] for n, _ in specs}
     lps = {n: [] for n, _ in specs}
     bests = {n: [] for n, _ in specs}
+    tops = {n: [] for n, _ in specs}
     drs, dcs = [], []
     with torch.no_grad():
         for batch in batches(lib, list_files(args.data), 2048, part="all", symmetries=False, drop_last=False,
@@ -157,6 +162,10 @@ def main():
                     # The policy's log ratio of the two actions (the mean log-probability for several).
                     lpi = torch.stack([pols[p] for p in paths]).mean(0)
                     lps[name].append((lpi.gather(1, pl) - lpi.gather(1, alt)).squeeze(1)[has].cpu().numpy())
+                    # The policy's first choice: the played action (0), the fork's (1) or another (2).
+                    first = lpi.argmax(-1, keepdim=True)
+                    tops[name].append(torch.where(first == pl, 0, torch.where(first == alt, 1, 2)).squeeze(1)[has]
+                                      .to(torch.int8).cpu().numpy())
             if critic is not None:
                 with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=args.fp16):
                     o = critic(*critic.inputs(b))
@@ -179,7 +188,8 @@ def main():
     if args.save:
         np.savez_compressed(args.save, dr=dr, **({"dc": dc} if critic is not None else {}),
                             **{f"dp_{n}": v for n, v in dp.items()}, **{f"lp_{n}": v for n, v in lp.items()},
-                            **{f"best_{n}": v for n, v in best.items()})
+                            **{f"best_{n}": v for n, v in best.items()},
+                            **{f"top_{n}": np.concatenate(v) for n, v in tops.items() if v})
 
 
 def name_paths(nets, name):
