@@ -365,7 +365,7 @@
   .tag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); padding: 0 3px; border-radius: 5px; font-size: 10.5px;
     font-weight: 700; line-height: 14px; white-space: nowrap; pointer-events: none; background: rgba(0, 0, 0, 0.6); color: #fff;
     font-variant-numeric: tabular-nums; }
-  .tag.best { background: var(--found); }
+  .tag.best { background: var(--found-fill); }
   .tag.skel { height: 14px; background: rgba(128, 128, 128, 0.4); animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .tag.skel { animation: none; } }
