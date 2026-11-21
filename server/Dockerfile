@@ -9,13 +9,13 @@
 # MODEL_URL, MODEL_SHA256: the network (the model stage). Works with the legacy builder (no BuildKit features).
 
 # The network: server/model/actor.onnx when the build context has it (put there by hand, kept out of git), else
-# MODEL_URL (a release asset of this repository's); either way it must match MODEL_SHA256 (network 221 of the run s3,
-# its weights as float16, exported with the two outlook outputs the AI coach reads). A new network: both arguments,
-# here and in the release.
+# MODEL_URL (a release asset of this repository's); either way it must match MODEL_SHA256 (network 221 of the run s3
+# with its heads trained further for accuracy, the policy unchanged; float16, with the two outlook outputs the AI coach
+# reads). A new network: both arguments, here and in the release.
 FROM ubuntu:26.04 AS model
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
-ARG MODEL_URL=https://github.com/kennyfs/Mahjong-TW/releases/download/v1.3.0/actor_s3_221_me.fp16.onnx
-ARG MODEL_SHA256=b5573a5330bc28c44e671dc76eb9fb97094660041a89083c24cdfe3287d6e302
+ARG MODEL_URL=https://github.com/kennyfs/Mahjong-TW/releases/download/v2.1.0/actor_s3_221_acc.fp16.onnx
+ARG MODEL_SHA256=8f47b530d6eb16799199e935fc17a880afcd5760760623d147f3b43d58c472b8
 COPY server/model /model
 RUN if [ ! -f /model/actor.onnx ]; then curl -fsSL -o /model/actor.onnx "$MODEL_URL"; fi \
   && echo "$MODEL_SHA256  /model/actor.onnx" | sha256sum -c -

@@ -130,7 +130,7 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 Each version's notes are one block in Google Play's own multi-language form: copy the whole block into the release's
 notes box. Inside a language, a paragraph is one line; a blank line between paragraphs is kept as written.
 
-### Next (the version is the user's to choose)
+### 2.1.0
 
 ```text
 <zh-TW>
