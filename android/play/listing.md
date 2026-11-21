@@ -130,6 +130,17 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 Each version's notes are one block in Google Play's own multi-language form: copy the whole block into the release's
 notes box. Inside a language, a paragraph is one line; a blank line between paragraphs is kept as written.
 
+### Next (the version is the user's to choose)
+
+```text
+<zh-TW>
+修正部分手機在螢幕縮放或顯示大小調大時，牌桌和選單太大、最下面的「設定」被切掉的問題。電腦吃碰你打的牌，不再比吃碰其他電腦的牌等得久。神經網路的分析稍微更準：胡牌、放槍、聽牌等機率和期望得分都更貼近實際。
+</zh-TW>
+<en-US>
+Fixed the table and the menu growing too large on some phones with a larger screen zoom or display size, with Settings cut off at the bottom. A computer player calls your discard as quickly as another's. The neural network's analysis is a little more accurate: the chances of winning, dealing in and being ready, and the expected points, are closer to what happens.
+</en-US>
+```
+
 ### 2.0.0
 
 ```text
