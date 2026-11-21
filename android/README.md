@@ -53,6 +53,7 @@ the `protocol/` module shared with the server. Status and the decisions behind i
 | `ui/ReviewScreens.kt`, `ui/DecisionPanel.kt`, `ui/ValueGraph.kt`, `ui/WhatIfTables.kt`, `ui/AnalyzeScreen.kt` | The review, the list of a decision's actions, the graph of the value, the tables of draws and claims, the analysis screen. |
 | `ui/GuideScreen.kt`, `ui/Tour.kt` | The rules explained; the tour (the elements it lights mark themselves with `tourAnchor`) and the welcome card. The web page's `Guide.svelte`, `Tour.svelte`. |
 | `scripts/shots.py` | Drives the app over adb for the screenshots (`device-tests.sh`); `STORE=1` the store's. |
+| `scripts/sizes.py` | The table at the sizes phones are set to, checked (`device-tests.sh` with `SIZES=1`). |
 | `scripts/store_plan.py`, `store-plan.json` | The store screenshots' game: its seed and the player's moves. |
 | `build-ort.sh`, `ort-ops.config` | A reduced ONNX Runtime: only the network's operators (below). |
 
@@ -136,6 +137,11 @@ cd android
 source $HOME/env.sh; export TMPDIR=$WORK/tmp
 GRADLE_FLAGS=--offline BATTLE_SERVER=10.0.2.2:8091 OUT=$WORK/shots/android ./device-tests.sh
 ```
+
+`SIZES=1 ./device-tests.sh` checks instead that the practice table fits at the sizes phones are set to (fonts 1.3
+and 2, a larger display size, both, and a phone whose stable density follows its display size), sideways and upright,
+on its own AVD `mahjong-a53-37.0` (a Galaxy A53's screen: 1080 x 2400 at 450 dpi); about six minutes, exit 1 if a case
+does not fit (`scripts/sizes.py`, screenshots in `$WORK/shots/sizes`).
 
 `shots.py` shoots the first start's welcome card and puts it away, plays a hand of practice to its end through taps
 (passing on claims, winning when it can, discarding the tile drawn), shoots the table in the pause at its end

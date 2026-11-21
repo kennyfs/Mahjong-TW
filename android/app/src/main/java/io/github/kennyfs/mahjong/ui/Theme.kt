@@ -1,7 +1,9 @@
 package io.github.kennyfs.mahjong.ui
 
+import android.content.Context
 import android.os.Build
 import android.util.DisplayMetrics
+import android.view.WindowManager
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
@@ -15,9 +17,11 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -152,11 +156,28 @@ fun isDark(mode: DarkMode, system: Boolean) = when (mode) {
 /** The table's words at most this much larger than the system's standard size (the user's own phone's). */
 const val TABLE_FONT_MAX = 1.15f
 
+/** The screen's shorter side, at least this many dp at the table's density: a phone's narrowest (Android's 360 dp). */
+const val TABLE_MIN_DP = 360f
+
+/** The whole screen's shorter side, px (not a split screen's window: the table's density is the screen's). */
+private fun screenShortSide(context: Context): Int {
+  val wm = context.getSystemService(WindowManager::class.java)
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && wm != null) {
+    val b = wm.maximumWindowMetrics.bounds
+    return minOf(b.width(), b.height())
+  }
+  val m = context.resources.displayMetrics
+  return minOf(m.widthPixels, m.heightPixels)
+}
+
 /**
  * The table's density (TableView, and the moments over it: FxOverlay): the phone's own whatever the system's display
  * size (DENSITY_DEVICE_STABLE), the font size no larger than TABLE_FONT_MAX, times the app's text size. A larger
  * display size or font size took the table's room for the words alone: its tiles got smaller, the hand went under the
  * navigation bar, the name plates over the box in the middle (2026-11-15). The rest of the app follows the system.
+ * And no denser than TABLE_MIN_DP across the screen's shorter side: a Galaxy A53 drew its table at about 600 dpi
+ * (its stable density as large as the one in use, a display size made larger), 288 dp high sideways, where the rail of
+ * screens lost its last item and the plates their second line (2026-11-21).
  */
 val LocalTableDensity = staticCompositionLocalOf { Density(1f) }
 
@@ -169,11 +190,13 @@ fun MahjongTheme(style: ColorStyle, darkMode: DarkMode, textSize: TextSize, cont
   } else if (dark) BrandDark else BrandLight
   val outcome = if (dark) Outcome(Color(0xFF81C784), Color(0xFFEF9A9A)) else Outcome(Color(0xFF2E7D32), Color(0xFFC62828), Color(0xFF1B6E23), Color(0xFFA3191A))
   val density = LocalDensity.current
+  val config = LocalConfiguration.current
+  val tableDp = remember(config) { minOf(DisplayMetrics.DENSITY_DEVICE_STABLE / 160f, screenShortSide(context) / TABLE_MIN_DP) }
   CompositionLocalProvider(
     LocalTable provides tableFor(style, scheme, dark),
     LocalOutcome provides outcome,
     LocalDensity provides Density(density.density, density.fontScale * textSize.scale),
-    LocalTableDensity provides Density(DisplayMetrics.DENSITY_DEVICE_STABLE / 160f, minOf(density.fontScale, TABLE_FONT_MAX) * textSize.scale),
+    LocalTableDensity provides Density(tableDp, minOf(density.fontScale, TABLE_FONT_MAX) * textSize.scale),
   ) {
     MaterialTheme(colorScheme = scheme, typography = AppTypography, shapes = AppShapes, content = content)
   }

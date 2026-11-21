@@ -562,6 +562,10 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
   navigation bar; font 2.0 put the name plates over the box in the middle, and sideways the rail had no room for 設定;
   with the table alone in it, the bars' larger words still took the rivers' room. The page's table already draws in
   fixed px; browser zoom acts on it as display size does.
+  The table's density is also no more than the screen's shorter side over 360 dp (`TABLE_MIN_DP`, 2026-11-21): a
+  Galaxy A53 drew it at about 600 dpi (its stable density as large as the display size in use, which the phone's own
+  setting made larger), 288 dp high sideways: the rail lost 設定 and the plates their counts. `device-tests.sh SIZES=1`
+  checks the table at such sizes (below, android/README.md).
 - **Tall tables' rows that overflow take room from the rest** (a review of the sizes, 2026-11-15): the player's melds and
   flowers in two lines (too many for one at 22), or a name plate higher than its line, from the rivers; another's
   melds past OPP_LINES at 16, a higher strip (rivers down to SHOWN_RIVER); shown hands at a review's end that do not

@@ -17,6 +17,11 @@
 # 2: 1080 x 1920, no cutout), so the phone above keeps its settings: 1080 x 1920 at 400 dpi, sideways 1920 x 1080, font
 # scale 1, no animations, light mode, and the system's demo status bar (12:00, a full battery not charging, full Wi-Fi
 # and mobile signal, no notifications), turned off at the end.
+#
+# SIZES=1: the table at the sizes phones are set to instead (scripts/sizes.py: large fonts, a larger display size, a
+# phone that reports its display size as its stable density), screenshots into $OUT (default $WORK/shots/sizes); exits
+# 1 if the table does not fit. Its own AVD, "mahjong-a53-$API": a Galaxy A53's screen, 1080 x 2400 at 450 dpi (the
+# Pixel 9's settings stay as they are).
 set -euo pipefail
 cd "$(dirname "$0")"
 if [ -f local.env ]; then set -a; . ./local.env; set +a; fi
@@ -30,8 +35,12 @@ export ANDROID_SERIAL=emulator-$PORT
 API=${API:-37.0}
 IMAGE="system-images;android-$API;google_apis;x86_64"
 STORE=${STORE:-0}
+SIZES=${SIZES:-0}
 export STORE
-if [ "$STORE" = 1 ]; then
+if [ "$SIZES" = 1 ]; then
+  AVD=mahjong-a53-$API
+  DEVICE=pixel_9
+elif [ "$STORE" = 1 ]; then
   AVD=mahjong-store-$API
   DEVICE=pixel_2
   export MAHJONG_ID_SUFFIX=${MAHJONG_ID_SUFFIX:-.test}
@@ -48,6 +57,10 @@ fi
 if [ ! -d "$ANDROID_AVD_HOME/$AVD.avd" ]; then
   mkdir -p "$ANDROID_AVD_HOME"
   echo no | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd -n "$AVD" -k "$IMAGE" -d "$DEVICE"
+  if [ "$SIZES" = 1 ]; then
+    sed -i -e 's/^hw.lcd.width=.*/hw.lcd.width=1080/' -e 's/^hw.lcd.height=.*/hw.lcd.height=2400/' \
+      -e 's/^hw.lcd.density=.*/hw.lcd.density=450/' "$ANDROID_AVD_HOME/$AVD.avd/config.ini"
+  fi
 fi
 started=0
 if ! "$ADB" get-state > /dev/null 2>&1; then
@@ -67,7 +80,9 @@ trap stop EXIT
 "$ADB" wait-for-device
 until [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; do sleep 2; done
 for s in window_animation_scale transition_animation_scale animator_duration_scale; do "$ADB" shell settings put global $s 0; done
-if [ "$STORE" = 1 ]; then
+if [ "$SIZES" = 1 ]; then
+  "$ADB" shell cmd overlay enable com.android.internal.display.cutout.emulation.hole
+elif [ "$STORE" = 1 ]; then
   "$ADB" shell wm size 1080x1920
   "$ADB" shell wm density 400
   "$ADB" shell settings put system font_scale 1.0
@@ -90,4 +105,8 @@ fi
 # The app is full screen when sideways: the system's one-time "Viewing full screen" hint would cover it.
 "$ADB" shell settings put secure immersive_mode_confirmations confirmed
 "$ADB" install -r app/build/outputs/apk/debug/app-debug.apk
-python3 scripts/shots.py
+if [ "$SIZES" = 1 ]; then
+  OUT=${OUT:-${WORK:-build}/shots/sizes} python3 scripts/sizes.py
+else
+  python3 scripts/shots.py
+fi
