@@ -1,5 +1,5 @@
 // Callouts and sound tests: dealArm/dealComplete/dealReset, calloutsDone/calloutsSkipped, and heardFor.
-// Run via: ./agy.sh node repo/web/tests/sound-callouts.test.mjs
+// Run with Node from the repo root: node web/tests/sound-callouts.test.mjs
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 

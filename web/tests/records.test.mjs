@@ -1,5 +1,5 @@
 // Records persistence, import/export round-trip, validation, and storage-full eviction tests.
-// Run via: ./agy.sh node repo/web/tests/records.test.mjs
+// Run with Node from the repo root: node web/tests/records.test.mjs
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 

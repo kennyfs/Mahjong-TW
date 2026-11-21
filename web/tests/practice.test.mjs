@@ -1,5 +1,5 @@
 // Practice and Claims tests: forcedDiscard, double-tap protection, stale epoch guards, and error recovery.
-// Run via: ./agy.sh node repo/web/tests/practice.test.mjs
+// Run with Node from the repo root: node web/tests/practice.test.mjs
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 

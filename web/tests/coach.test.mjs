@@ -1,6 +1,6 @@
 // Coach tests: digest seatWind when setup.east is -1 or omitted, providers custom model override & network body errors,
 // and followUp rejecting blank replies.
-// Run via: ./agy.sh node repo/web/tests/coach.test.mjs
+// Run with Node from the repo root: node web/tests/coach.test.mjs
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 

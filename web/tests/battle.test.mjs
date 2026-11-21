@@ -1,6 +1,6 @@
 // Battle tests: IPv6 serverUrl, stale/duplicate incremental TableView filtering, reconnect cancellation, and
 // concurrent outcome recording deduplication + post-leave name snapshot.
-// Run via: ./agy.sh node repo/web/tests/battle.test.mjs
+// Run with Node from the repo root: node web/tests/battle.test.mjs
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 
