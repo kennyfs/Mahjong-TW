@@ -689,7 +689,7 @@
   <string name="guide_wait_penchan">邊張：一二等三、八九等七。</string>
   <string name="guide_wait_kanchan">中洞：等中間那一張。</string>
   <string name="guide_wait_tanki">單吊：等一張湊成對。</string>
-  <string name="guide_wait_shanpon">對碰：兩對等其中一種湊成刻子。</string>
+  <string name="guide_wait_shanpon">雙碰：兩對等其中一種湊成刻子。</string>
   <string name="guide_duting_on">只聽一種牌（邊張、中洞、單吊）叫「獨聽」：這個規則（%1$s）多算 %2$s 台。</string>
   <string name="guide_duting_off">只聽一種牌（邊張、中洞、單吊）叫「獨聽」：這個規則（%1$s）不另外算台。</string>
   <string name="guide_missed">過水：可以胡卻沒有胡，到你下次打出牌之前都不能胡。</string>
