@@ -182,10 +182,10 @@
   .tag { position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); margin-bottom: 1px; padding: 0 3px; border-radius: 5px;
     display: flex; align-items: center; font-weight: 700; line-height: 1; white-space: nowrap; pointer-events: none;
     background: rgba(20, 32, 26, 0.76); color: #fff; font-variant-numeric: tabular-nums; }
-  .tag.best { background: var(--found); color: #fff; }
+  .tag.best { background: var(--found-fill); color: #fff; }
   .tag.g1 { background: var(--danger-1); color: var(--on-danger); }
   .tag.g2 { background: var(--danger-2); color: var(--on-danger); }
-  .tag.g3 { background: var(--danger-3); color: #fff; }
+  .tag.g3 { background: var(--danger-3-fill); color: #fff; }
   .tag.played { outline: 2px solid var(--highlight); outline-offset: 0; }
   .tag.skel { background: rgba(140, 150, 145, 0.45); animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }

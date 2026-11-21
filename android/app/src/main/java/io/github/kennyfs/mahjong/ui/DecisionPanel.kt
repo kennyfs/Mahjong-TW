@@ -83,7 +83,7 @@ import androidx.compose.ui.layout.onSizeChanged
 @Composable
 fun GradeBadge(grade: Int, text: String, modifier: Modifier = Modifier) {
   Text(
-    text, modifier.background(if (grade > 0) Marks.danger(grade) else Marks.found, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 1.dp),
+    text, modifier.background(if (grade > 0) Marks.fill(grade) else Marks.foundFill, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 1.dp),
     color = if (grade > 0) Marks.on(grade) else Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1,
   )
 }
@@ -263,7 +263,7 @@ fun DecisionPanel(
             val ts = actionTiles(f.action)
             if (ts.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) { for (t in ts) TileView(t, (w * 0.82f).dp) }
             Text(if (ts.isNotEmpty()) stringResource(actionLabel(f.action.type)) else actionText(res, f.action), style = MaterialTheme.typography.labelLarge)
-            if (isBest) Badge(stringResource(R.string.grade_best), Marks.found, Color.White)
+            if (isBest) Badge(stringResource(R.string.grade_best), Marks.foundFill, Color.White)
             if (i == played) Badge(who.ifEmpty { stringResource(R.string.review_you) }, cs.primary, cs.onPrimary)
             Spacer(Modifier.weight(1f))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -319,7 +319,7 @@ fun DecisionPanel(
               val level = readyLevel(ready)
               Text(
                 stringResource(R.string.opp_ready, pct(ready)),
-                Modifier.background(if (level > 0) Marks.danger(level) else cs.surfaceContainerHighest, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp),
+                Modifier.background(if (level > 0) Marks.fill(level) else cs.surfaceContainerHighest, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp),
                 color = if (level > 0) Marks.on(level) else cs.onSurface, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
               )
               Text(stringResource(R.string.opp_one_away, pct(o.ready.getOrElse(1) { 0.0 })), style = small, color = dim)

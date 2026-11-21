@@ -100,7 +100,7 @@
   .room { visibility: hidden; }
   .note.l1 { background: var(--danger-1); color: var(--on-danger); }
   .note.l2 { background: var(--danger-2); color: var(--on-danger); }
-  .note.l3 { background: var(--danger-3); color: #fff; }
+  .note.l3 { background: var(--danger-3-fill); color: #fff; }
   button.note { border: none; font: inherit; font-weight: 700; line-height: inherit; cursor: pointer; white-space: nowrap; overflow: hidden;
     text-overflow: ellipsis; }
   button.note:focus-visible { outline: 2px solid var(--highlight); outline-offset: 1px; }

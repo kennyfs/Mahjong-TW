@@ -62,9 +62,9 @@
   /* What the choice costs: as the tags over the hand's tiles (MyHand.svelte), in the grade's color. */
   .cost { padding: 1px 8px; border-radius: 8px; font-size: 0.8125rem; font-weight: 700; background: rgba(0, 0, 0, 0.62); color: #fff;
     font-variant-numeric: tabular-nums; }
-  .cost.best { background: var(--found); color: #fff; }
+  .cost.best { background: var(--found-fill); color: #fff; }
   .cost.g1 { background: var(--danger-1); color: var(--on-danger); }
   .cost.g2 { background: var(--danger-2); color: var(--on-danger); }
-  .cost.g3 { background: var(--danger-3); color: #fff; }
+  .cost.g3 { background: var(--danger-3-fill); color: #fff; }
   kbd { font: inherit; font-size: 0.7rem; font-weight: 500; padding: 0 4px; border-radius: 4px; border: 1px solid currentColor; opacity: 0.7; }
 </style>

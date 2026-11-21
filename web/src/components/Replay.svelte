@@ -655,10 +655,10 @@
   /* (Drawn small in the fixed room of the words; a place to tap of about 44 px.) */
   .to-result::before { content: ''; position: absolute; inset: -6px -3px; }
   .verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
-  .grade { padding: 0 8px; border-radius: 8px; font-weight: 700; font-size: 0.8125rem; background: var(--found); color: #fff; }
+  .grade { padding: 0 8px; border-radius: 8px; font-weight: 700; font-size: 0.8125rem; background: var(--found-fill); color: #fff; }
   .grade.g1:not(.fine) { background: var(--danger-1); color: var(--on-danger); }
   .grade.g2 { background: var(--danger-2); color: var(--on-danger); }
-  .grade.g3 { background: var(--danger-3); color: #fff; }
+  .grade.g3 { background: var(--danger-3-fill); color: #fff; }
   .notable { color: var(--on-surface); font-weight: 500; }
   .star { color: var(--found); margin-right: 4px; }
   .nav-row { display: flex; align-items: center; gap: 8px; }

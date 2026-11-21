@@ -183,10 +183,10 @@
 <style>
   .panel { display: flex; flex-direction: column; gap: 6px; position: relative; }
   .verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 8px 12px; border-radius: 12px; background: var(--surface-container-high); }
-  .badge-g { padding: 1px 8px; border-radius: 8px; font-weight: 700; font-size: 0.8125rem; background: var(--found); color: #fff; }
+  .badge-g { padding: 1px 8px; border-radius: 8px; font-weight: 700; font-size: 0.8125rem; background: var(--found-fill); color: #fff; }
   .g1 .badge-g { background: var(--danger-1); color: var(--on-danger); }
   .g2 .badge-g { background: var(--danger-2); color: var(--on-danger); }
-  .g3 .badge-g { background: var(--danger-3); color: #fff; }
+  .g3 .badge-g { background: var(--danger-3-fill); color: #fff; }
   .notable { display: flex; gap: 6px; padding: 6px 12px; border-radius: 12px; background: var(--tertiary-container); color: var(--on-tertiary-container); font-weight: 500; }
   .star { color: var(--found); }
   .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 0 4px; color: var(--on-surface-variant); }
@@ -214,7 +214,7 @@
   .tiles { display: inline-flex; gap: 1px; }
   .marks { display: inline-flex; gap: 6px; }
   .mark { padding: 1px 8px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; }
-  .mark.best { background: var(--found); color: #fff; }
+  .mark.best { background: var(--found-fill); color: #fff; }
   .mark.you { background: var(--primary); color: var(--on-primary); }
   .cost { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
   .less { font-size: 0.8125rem; margin-right: 6px; }
@@ -238,7 +238,7 @@
   .ready { padding: 0 8px; border-radius: 8px; font-weight: 700; font-size: 0.8125rem; background: var(--surface-container-highest); }
   .ready.l1 { background: var(--danger-1); color: var(--on-danger); }
   .ready.l2 { background: var(--danger-2); color: var(--on-danger); }
-  .ready.l3 { background: var(--danger-3); color: #fff; }
+  .ready.l3 { background: var(--danger-3-fill); color: #fff; }
   .truth { margin-left: auto; font-weight: 700; }
   .source { margin: 6px 4px 0; line-height: 1.5; white-space: pre-line; }
   .panel :global(.section-header) { padding: 10px 4px 2px; }

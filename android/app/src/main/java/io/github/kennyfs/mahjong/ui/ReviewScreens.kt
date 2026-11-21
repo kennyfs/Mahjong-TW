@@ -628,7 +628,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
           val isBest = i == a.best
           val shape = RoundedCornerShape(14.dp)
           Row(
-            Modifier.background(if (isBest) Marks.found else Color.Black.copy(alpha = 0.55f), shape)
+            Modifier.background(if (isBest) Marks.foundFill else Color.Black.copy(alpha = 0.55f), shape)
               .border(2.dp, if (i == mine.played) highlight else Color.Transparent, shape).padding(horizontal = 12.dp, vertical = 3.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
           ) {

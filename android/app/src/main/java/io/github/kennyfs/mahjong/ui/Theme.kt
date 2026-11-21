@@ -117,7 +117,14 @@ object Marks {
   val danger2 = Color(0xFFF2884A)
   val danger3 = Color(0xFFE5484D)
   val found = Color(0xFF2F9E6B)
+  /** Under white words (a badge, a tag): the two a little darker, for their contrast (about 4.7:1 and 5.5:1; the web's
+   *  --found-fill and --danger-3-fill, 82% of each over black). The marks and the graph keep the brighter ones. */
+  val foundFill = Color(0xFF278258)
+  val danger3Fill = Color(0xFFBC3B3F)
   private val onMild = Color(0xFF2B1700)
+
+  /** A level's color under its words (`on`). */
+  fun fill(level: Int) = if (level >= 3) danger3Fill else danger(level)
 
   fun danger(level: Int) = when (level) { 1 -> danger1; 2 -> danger2; else -> danger3 }
   /** Words on a level's color. */

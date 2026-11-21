@@ -933,7 +933,7 @@ fun SeatBadge(
     })
     val figures: @Composable RowScope.() -> Unit = {
       if (room != null) Box(
-        Modifier.background(if (note == null) Color.Transparent else if (note.level > 0) Marks.danger(note.level) else Color.Black.copy(alpha = 0.3f),
+        Modifier.background(if (note == null) Color.Transparent else if (note.level > 0) Marks.fill(note.level) else Color.Black.copy(alpha = 0.3f),
           RoundedCornerShape(8.dp)).padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center,
       ) {
@@ -1406,10 +1406,10 @@ private val SKELETON = Color(0x738C9691)
 
 /** A tag's color by its tone, under its words: the best, the grades of a loss, or plain. */
 fun toneColor(tone: TileMark.Tone): Color = when (tone) {
-  TileMark.Tone.BEST -> Marks.found
+  TileMark.Tone.BEST -> Marks.foundFill
   TileMark.Tone.G1 -> Marks.danger1
   TileMark.Tone.G2 -> Marks.danger2
-  TileMark.Tone.G3 -> Marks.danger3
+  TileMark.Tone.G3 -> Marks.danger3Fill
   TileMark.Tone.PLAIN -> Color(0xC214201A)
 }
 
