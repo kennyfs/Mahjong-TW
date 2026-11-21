@@ -112,13 +112,14 @@ class BotPace {
   }
 
   /** The table's view of `count` events: returns once the table has it and the words and moments it brings are over,
-   *  their sounds heard (Sounds.awaitSynced). */
+   *  their sounds heard (Sounds.awaitSynced). A tile's stay counts again from then only after words or a moment: a
+   *  discard's own landing sound does not restart it (it did: the player's discard stayed its whole flight longer
+   *  before a computer player's call than a computer player's discard did). */
   suspend fun settle(count: Int) {
     CalloutClock.settle(count)
     val words = CalloutClock.done()
-    val t = now()
     Sounds.awaitSynced()
-    if (words || now() - t > 15L) shownAt = now()
+    if (words) shownAt = now()
   }
 
   /** What `next` added came now: a discard (in flight for `fly`) or an added kong is a tile the others may answer. */

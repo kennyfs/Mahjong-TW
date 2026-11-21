@@ -120,12 +120,13 @@ export class BotPace {
   }
 
   /** Returns once the words and moments the table shows are over, and their sounds heard (awaitSoundSynced). (The
-   *  table has the view by then: the engine's answers come after its effects have run.) */
+   *  table has the view by then: the engine's answers come after its effects have run.) A tile's stay counts again
+   *  from then only after words or a moment: a discard's own landing sound does not restart it (it did: the player's
+   *  discard stayed its whole flight longer before a computer player's call than a computer player's discard did). */
   async settle() {
     const words = await calloutsDone();
-    const t = now();
     await awaitSoundSynced();
-    if (words || now() - t > 15) this.shownAt = now();
+    if (words) this.shownAt = now();
   }
 
   /** What `next` added came now: a discard (in flight for `fly`) or an added kong is a tile the others may answer. */
