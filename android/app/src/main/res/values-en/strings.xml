@@ -190,7 +190,7 @@
   <string name="settings_length">Practice length</string>
   <string name="settings_bot">Computer players</string>
   <string name="bot_greedy">Efficiency</string>
-  <string name="bot_help">• Neural network: plays with the neural network trained by self-play, the same one as the analysis. The stronger player.\n• Efficiency: wins whenever it can; discards only to get ready sooner with more useful tiles, ignoring deal-ins and tai.</string>
+  <string name="bot_help">• Neural network: plays with the neural network trained by self-play, the same one as the analysis. The stronger player.\n• Efficiency: wins whenever it can; discards to get ready sooner with more useful tiles; calls only when that brings it closer to ready, and kongs whenever that leaves it no farther; ignores deal-ins and tai.</string>
   <string name="settings_speed">Computer speed</string>
   <string name="settings_sound">Sound</string>
   <string name="sound_off">Off</string>
@@ -891,12 +891,14 @@
   <string name="explain_t_call_closed">Stay closed for now</string>
   <string name="explain_call_closed">Closed and %1$d steps away, don\'t %2$s yet: it saves one step but %3$s.</string>
   <string name="explain_call_closed_same">Closed and %1$d steps away, don\'t %2$s yet: it saves nothing and %3$s.</string>
+  <string name="explain_call_closed_more">Closed and %1$d steps away, don\'t %2$s yet: it takes the improving tiles from %4$d to %5$d but saves no step, and %3$s.</string>
   <string name="explain_lose_menqing">gives up the concealed hand (%1$d tai concealed, %2$d with a self-draw)</string>
   <string name="explain_lose_tiles">leaves three fewer tiles in your hand for no more wins</string>
   <string name="explain_rule_call_closed">Concealed and three or more away, be choosy with chows; two or fewer away, a call that brings you closer is almost always right.</string>
   <string name="explain_t_call_no">Not worth calling</string>
   <string name="explain_call_no">This %1$s does not pay: %2$s after it, %3$s without, one step faster; but with three fewer tiles in hand you deal in more often, and win no more often.</string>
   <string name="explain_call_no_same">This %1$s does not pay: %2$s after it and %2$s without, no faster; with three fewer tiles in hand fewer draws help, and you win less often.</string>
+  <string name="explain_call_no_more">This %1$s does not pay: the improving tiles go from %3$d to %4$d, but you are still %2$s, no faster; with three fewer tiles in hand you win less often.</string>
   <string name="explain_t_pon_honor">Pung the honor</string>
   <string name="explain_pon_honor">Pung %1$s%2$s; even without getting closer, it makes a win likelier.</string>
   <string name="explain_pon_tai">: the pung scores a tai</string>
@@ -1040,7 +1042,7 @@
   <string name="glossary_t_ukeire">Improving tiles</string>
   <string name="glossary_d_ukeire">The tiles that would bring a hand closer to ready (or, when ready, win), counted as the copies not yet seen on the table.</string>
   <string name="glossary_t_efficiency">Tile efficiency</string>
-  <string name="glossary_d_efficiency">Playing for speed alone, ignoring danger and tai: the fewest away first, then the most improving tiles.</string>
+  <string name="glossary_d_efficiency">Playing for speed alone, ignoring danger and tai: discard for the fewest away, then the most improving tiles (on a tie, honors first, then 1s and 9s); call only when that leaves the hand fewer away, not when it stays as far, however many more improving tiles; kong whenever that leaves it no farther away.</string>
   <string name="glossary_t_tsumogiri">Draw-discard</string>
   <string name="glossary_d_tsumogiri">Discarding the tile just drawn: the orange tiles in a river. A player who does it several times in a row often needs nothing more and may be ready.</string>
   <string name="glossary_t_tedashi">Hand-discard</string>

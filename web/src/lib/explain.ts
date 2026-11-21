@@ -98,33 +98,39 @@ const WEAK = ['shape', 'wait-other', 'other', 'call-other'];
 const isWin = (a: Action) => a.type === 'ron' || a.type === 'tsumo';
 const isCall = (a: Action) => a.type === 'chi' || a.type === 'pon' || a.type === 'kan';
 
-/** Tile efficiency's choice (python greedy, study.cpp): a win; a kong whenever it may; a call only when it lowers the
- *  shanten; else the discard with the fewest steps from ready and the most improving tiles, honors then terminals first
- *  on a tie. */
-export function greedyOf(a: Analysis): number {
+/** Tile efficiency's choices (the engine's `greedy`, cpp/players/players.cpp), by the figures alone:
+ *  - a win;
+ *  - on its own turn, a kong that leaves the hand no farther from ready than the best discard; else the discards with
+ *    the fewest steps from ready, then the most improving tiles;
+ *  - on another's discard, a chow or pung only when it brings the hand closer to ready (the closest of them), else
+ *    passing: a call that keeps the distance is passed, whatever its improving tiles (the rules tried in matches,
+ *    docs/explain.md).
+ *  More than one when they tie: tile efficiency cannot tell them apart (the player itself takes the first kong or
+ *  call, and lets honors and terminals go first). */
+export function greedyOf(a: Analysis): number[] {
   const xs = a.actions;
   const win = xs.findIndex((f) => isWin(f.action));
-  if (win >= 0) return win;
+  if (win >= 0) return [win];
+  const of = (types: string[]) => xs.flatMap((f, i) => (types.includes(f.action.type) ? [i] : []));
   const pass = xs.findIndex((f) => f.action.type === 'pass');
   if (pass >= 0) {
-    let at = pass;
-    xs.forEach((f, i) => { if (isCall(f.action) && f.shanten < xs[at].shanten) at = i; });
-    return at;
+    const calls = of(['chi', 'pon']).filter((i) => xs[i].shanten < xs[pass].shanten);
+    const s = Math.min(...calls.map((i) => xs[i].shanten));
+    return calls.length ? calls.filter((i) => xs[i].shanten === s) : [pass];
   }
-  const kong = xs.findIndex((f) => f.action.type === 'ankan' || f.action.type === 'kakan');
-  if (kong >= 0) return kong;
-  const order = (f: Figures) => {
-    const k = f.action.tile ? kindOf(f.action.tile) : 0;
-    return k >= 27 ? 0 : k % 9 === 0 || k % 9 === 8 ? 1 : 2;
-  };
-  let at = -1;
-  xs.forEach((f, i) => {
-    if (f.action.type !== 'discard') return;
-    if (at < 0) { at = i; return; }
-    const b = xs[at];
-    if (f.shanten < b.shanten || (f.shanten === b.shanten && (f.ukeire > b.ukeire || (f.ukeire === b.ukeire && order(f) < order(b))))) at = i;
-  });
-  return at;
+  const discards = of(['discard']);
+  let s = Infinity, u = -1;
+  for (const i of discards) if (xs[i].shanten < s || (xs[i].shanten === s && xs[i].ukeire > u)) { s = xs[i].shanten; u = xs[i].ukeire; }
+  const kongs = of(['ankan', 'kakan']).filter((i) => xs[i].shanten <= s);
+  return kongs.length ? kongs : discards.filter((i) => xs[i].shanten === s && xs[i].ukeire === u);
+}
+
+/** Tile efficiency's choice to set against `played`, or -1 when `played` is one of its choices: of them, the one the
+ *  network values most (a tie is no lesson). */
+export function greedyAlt(a: Analysis, played: number): number {
+  const gs = greedyOf(a);
+  if (!gs.length || gs.includes(played)) return -1;
+  return gs.reduce((x, y) => ((a.actions[y].q ?? 0) > (a.actions[x].q ?? 0) ? y : x));
 }
 
 export interface Explanation {
@@ -177,8 +183,8 @@ interface Opp { rel: number; ready: number; p: PlayerPos; disc: Set<number>; pas
 export function mayPraise(a: Analysis, played: number, unit?: number): boolean {
   if (a.source !== 'network' || a.best === undefined || played < 0 || !a.actions[played]) return false;
   const q = (i: number) => a.actions[i].q ?? 0;
-  const least = gradeFrom(1, unit), g = greedyOf(a);
-  return q(a.best) - q(played) < least && g >= 0 && g !== played && q(played) - q(g) >= least;
+  const least = gradeFrom(1, unit), g = greedyAlt(a, played);
+  return q(a.best) - q(played) < least && g >= 0 && q(played) - q(g) >= least;
 }
 
 export function explain(a: Analysis, played: number, view: View, unit?: number): Explanation | null {
@@ -188,8 +194,8 @@ export function explain(a: Analysis, played: number, view: View, unit?: number):
   if (q(best) - q(played) >= least) return lesson(a, played, best, view, false, q(best) - q(played) >= big);
   // Well played: what was played against tile efficiency's choice, when that would have lost as much; said only where
   // there is a lesson in it.
-  const g = greedyOf(a);
-  if (g < 0 || g === played || q(played) - q(g) < least) return null;
+  const g = greedyAlt(a, played);
+  if (g < 0 || q(played) - q(g) < least) return null;
   const e = lesson(a, g, played, view, true, false);
   return WEAK.includes(e.key) ? null : e;
 }
@@ -249,13 +255,17 @@ function lesson(an: Analysis, p: number, b: number, view: View, found: boolean, 
       // Closed and three or more away (two away the network takes nearly every call that brings it closer: section 7, 13).
       if (closed && sh >= 3) {
         const lose = (values.menqing ?? 0) > 0 ? t('explain_lose_menqing', values.menqing, values.menqing + (values.zimo ?? 0) + (values.menqing_zimo ?? 0)) : t('explain_lose_tiles');
-        // (A call that leaves the hand as far: no faster at all.)
-        return out('call-closed', 'explain_t_call_closed', [t(ap.shanten >= sh ? 'explain_call_closed_same' : 'explain_call_closed', sh, word, lose)], 'explain_rule_call_closed');
+        // (A call that leaves the hand as far: no faster at all, though maybe with more improving tiles.)
+        const text = ap.shanten < sh ? t('explain_call_closed', sh, word, lose)
+          : pass && ap.ukeire > pass.ukeire ? t('explain_call_closed_more', sh, word, lose, pass.ukeire, ap.ukeire)
+          : t('explain_call_closed_same', sh, word, lose);
+        return out('call-closed', 'explain_t_call_closed', [text], 'explain_rule_call_closed');
       }
       // No faster: the network's chance of winning drops (about 5 points in its self-play); one step faster but not worth
       // it: its chance of dealing in rises (about 3) for no more wins (docs/explain.md section 4).
-      return out('call-no', 'explain_t_call_no', [ap.shanten >= ab.shanten ? t('explain_call_no_same', word, steps(ap.shanten))
-        : t('explain_call_no', word, steps(ap.shanten), steps(ab.shanten))]);
+      return out('call-no', 'explain_t_call_no', [ap.shanten < ab.shanten ? t('explain_call_no', word, steps(ap.shanten), steps(ab.shanten))
+        : ap.ukeire > ab.ukeire ? t('explain_call_no_more', word, steps(ap.shanten), ab.ukeire, ap.ukeire)
+        : t('explain_call_no_same', word, steps(ap.shanten))]);
     }
     const claimed = pos.claim?.tile ?? ab.action.tile ?? null;
     if (T === 'pass' && B === 'pon' && claimed) {

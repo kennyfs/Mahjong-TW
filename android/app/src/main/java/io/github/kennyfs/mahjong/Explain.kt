@@ -163,33 +163,40 @@ object Explain {
   private fun isCall(a: Action) = a.type == "chi" || a.type == "pon" || a.type == "kan"
   private val WEAK = setOf("shape", "wait-other", "other", "call-other")
 
-  /** Tile efficiency's choice (python greedy, study.cpp): a win; a kong whenever it may; a call only when it lowers the
-   *  shanten; else the discard with the fewest steps from ready and the most improving tiles, honors then terminals
-   *  first on a tie. */
-  fun greedyOf(a: Analysis): Int {
+  /** Tile efficiency's choices (the engine's `greedy`, cpp/players/players.cpp), by the figures alone:
+   *  - a win;
+   *  - on its own turn, a kong that leaves the hand no farther from ready than the best discard; else the discards
+   *    with the fewest steps from ready, then the most improving tiles;
+   *  - on another's discard, a chow or pung only when it brings the hand closer to ready (the closest of them), else
+   *    passing: a call that keeps the distance is passed, whatever its improving tiles (the rules tried in matches,
+   *    docs/explain.md).
+   *  More than one when they tie: tile efficiency cannot tell them apart (the player itself takes the first kong or
+   *  call, and lets honors and terminals go first). The web page's explain.ts, the same. */
+  fun greedyOf(a: Analysis): List<Int> {
     val xs = a.actions
     val win = xs.indexOfFirst { isWin(it.action) }
-    if (win >= 0) return win
+    if (win >= 0) return listOf(win)
+    fun of(vararg types: String) = xs.indices.filter { xs[it].action.type in types }
     val pass = xs.indexOfFirst { it.action.type == "pass" }
     if (pass >= 0) {
-      var at = pass
-      xs.forEachIndexed { i, f -> if (isCall(f.action) && f.shanten < xs[at].shanten) at = i }
-      return at
+      val calls = of("chi", "pon").filter { xs[it].shanten < xs[pass].shanten }
+      val s = calls.minOfOrNull { xs[it].shanten } ?: return listOf(pass)
+      return calls.filter { xs[it].shanten == s }
     }
-    val kong = xs.indexOfFirst { it.action.type == "ankan" || it.action.type == "kakan" }
-    if (kong >= 0) return kong
-    fun order(f: ActionFigures): Int {
-      val k = f.action.tile?.let(::kindOf) ?: 0
-      return if (k >= 27) 0 else if (k % 9 == 0 || k % 9 == 8) 1 else 2
-    }
-    var at = -1
-    xs.forEachIndexed { i, f ->
-      if (f.action.type != "discard") return@forEachIndexed
-      if (at < 0) { at = i; return@forEachIndexed }
-      val b = xs[at]
-      if (f.shanten < b.shanten || (f.shanten == b.shanten && (f.ukeire > b.ukeire || (f.ukeire == b.ukeire && order(f) < order(b))))) at = i
-    }
-    return at
+    val discards = of("discard")
+    val s = discards.minOfOrNull { xs[it].shanten } ?: Int.MAX_VALUE
+    val kongs = of("ankan", "kakan").filter { xs[it].shanten <= s }
+    if (kongs.isNotEmpty()) return kongs
+    val u = discards.filter { xs[it].shanten == s }.maxOfOrNull { xs[it].ukeire } ?: return emptyList()
+    return discards.filter { xs[it].shanten == s && xs[it].ukeire == u }
+  }
+
+  /** Tile efficiency's choice to set against `played`, or -1 when `played` is one of its choices: of them, the one
+   *  the network values most (a tie is no lesson). */
+  fun greedyAlt(a: Analysis, played: Int): Int {
+    val gs = greedyOf(a)
+    if (gs.isEmpty() || played in gs) return -1
+    return gs.maxBy { a.actions[it].q ?: 0.0 }
   }
 
   /** 已經聽牌, 一向聽, 兩向聽, …; ready, 1 away, …. */
@@ -219,8 +226,8 @@ object Explain {
     if (a.source != "network" || best == null || played < 0 || played >= a.actions.size) return false
     fun q(i: Int) = a.actions[i].q ?: 0.0
     val least = gradeFrom(1, unit)
-    val g = greedyOf(a)
-    return q(best) - q(played) < least && g >= 0 && g != played && q(played) - q(g) >= least
+    val g = greedyAlt(a, played)
+    return q(best) - q(played) < least && g >= 0 && q(played) - q(g) >= least
   }
 
   fun explain(res: Resources, a: Analysis, played: Int, view: View, unit: Double?): Explanation? {
@@ -231,8 +238,8 @@ object Explain {
     if (q(best) - q(played) >= least) return Lesson(res, a, view, false, q(best) - q(played) >= gradeFrom(2, unit)).of(played, best)
     // Well played: what was played against tile efficiency's choice, when that would have lost as much; said only
     // where there is a lesson in it.
-    val g = greedyOf(a)
-    if (g < 0 || g == played || q(played) - q(g) < least) return null
+    val g = greedyAlt(a, played)
+    if (g < 0 || q(played) - q(g) < least) return null
     val e = Lesson(res, a, view, true, false).of(g, played)
     return if (e.key in WEAK) null else e
   }
@@ -313,14 +320,18 @@ object Explain {
             val mq = values["menqing"] ?: 0
             val lose = if (mq > 0) s(R.string.explain_lose_menqing, mq, mq + (values["zimo"] ?: 0) + (values["menqing_zimo"] ?: 0)) else s(R.string.explain_lose_tiles)
             // (A call that leaves the hand as far: no faster at all.)
-            val closedText = if (ap.shanten >= sh) R.string.explain_call_closed_same else R.string.explain_call_closed
-            return out("call-closed", R.string.explain_t_call_closed, listOf(s(closedText, sh, word, lose)), R.string.explain_rule_call_closed)
+            // (A call that leaves the hand as far: no faster at all, though maybe with more improving tiles.)
+            val text = if (ap.shanten < sh) s(R.string.explain_call_closed, sh, word, lose)
+              else if (pass != null && ap.ukeire > pass.ukeire) s(R.string.explain_call_closed_more, sh, word, lose, pass.ukeire, ap.ukeire)
+              else s(R.string.explain_call_closed_same, sh, word, lose)
+            return out("call-closed", R.string.explain_t_call_closed, listOf(text), R.string.explain_rule_call_closed)
           }
           // No faster: the network's chance of winning drops (about 5 points in its self-play); one step faster but not worth
           // it: its chance of dealing in rises (about 3) for no more wins (docs/explain.md section 4).
           return out("call-no", R.string.explain_t_call_no, listOf(
-            if (ap.shanten >= ab.shanten) s(R.string.explain_call_no_same, word, steps(ap.shanten))
-            else s(R.string.explain_call_no, word, steps(ap.shanten), steps(ab.shanten))))
+            if (ap.shanten < ab.shanten) s(R.string.explain_call_no, word, steps(ap.shanten), steps(ab.shanten))
+            else if (ap.ukeire > ab.ukeire) s(R.string.explain_call_no_more, word, steps(ap.shanten), ab.ukeire, ap.ukeire)
+            else s(R.string.explain_call_no_same, word, steps(ap.shanten))))
         }
         val claimed = pos.claim?.tile ?: ab.action.tile
         if (t == "pass" && bt == "pon" && claimed != null) {

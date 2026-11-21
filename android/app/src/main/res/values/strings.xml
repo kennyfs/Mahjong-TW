@@ -192,7 +192,7 @@
   <string name="settings_length">練習長度</string>
   <string name="settings_bot">電腦玩家</string>
   <string name="bot_greedy">牌效率</string>
-  <string name="bot_help">• 神經網路：用自我對打訓練出來的神經網路出牌，和分析用的是同一個，打得比較好。\n• 牌效率：能胡就胡；出牌只求離聽牌近、進張多，不管放槍和台數。</string>
+  <string name="bot_help">• 神經網路：用自我對打訓練出來的神經網路出牌，和分析用的是同一個，打得比較好。\n• 牌效率：能胡就胡；打牌只求離聽牌近、進張多；吃碰只在能更接近聽牌時，槓則只要不會離聽牌更遠就槓；不管放槍和台數。</string>
   <string name="settings_speed">電腦出牌速度</string>
   <string name="settings_sound">音效</string>
   <string name="sound_off">關</string>
@@ -901,12 +901,14 @@
   <string name="explain_t_call_closed">門清先別吃碰</string>
   <string name="explain_call_closed">門清、還差 %1$d 步時先別%2$s：%2$s了只快一步，卻%3$s。</string>
   <string name="explain_call_closed_same">門清、還差 %1$d 步時先別%2$s：%2$s了也沒有變快，卻%3$s。</string>
+  <string name="explain_call_closed_more">門清、還差 %1$d 步時先別%2$s：%2$s了進張從 %4$d 張變成 %5$d 張，但沒有變快，卻%3$s。</string>
   <string name="explain_lose_menqing">丟掉門清（門清 %1$d 台、門清自摸共 %2$d 台）</string>
   <string name="explain_lose_tiles">讓手牌少了三張，胡牌機會也沒有變大</string>
   <string name="explain_rule_call_closed">門清三向聽以上時吃要挑；兩向聽以內，會快一步的吃碰幾乎都要。</string>
   <string name="explain_t_call_no">不值得吃碰</string>
   <string name="explain_call_no">這個%1$s不划算：%1$s了是%2$s，不%1$s是%3$s，只快一步；手牌卻少了三張，之後比較容易放槍，胡牌機會也沒有變大。</string>
   <string name="explain_call_no_same">這個%1$s不划算：%1$s了是%2$s，不%1$s也是%2$s，沒有變快；手牌少了三張，之後能換進的牌變少，胡牌機會反而變小。</string>
+  <string name="explain_call_no_more">這個%1$s不划算：%1$s了進張從 %3$d 張變成 %4$d 張，但還是%2$s，沒有變快；手牌少了三張，胡牌機會反而變小。</string>
   <string name="explain_t_pon_honor">字牌能碰就碰</string>
   <string name="explain_pon_honor">%1$s能碰就碰%2$s；就算向聽數不變，碰了胡牌的機會也比較大。</string>
   <string name="explain_pon_tai">：碰了就有一台</string>
@@ -1050,7 +1052,7 @@
   <string name="glossary_t_ukeire">進張</string>
   <string name="glossary_d_ukeire">摸到就能讓向聽數變少（聽牌時就是能胡）的牌；算的是還沒在桌上出現、還可能摸到的張數。</string>
   <string name="glossary_t_efficiency">牌效率</string>
-  <string name="glossary_d_efficiency">只看自己的牌、不管放槍和台數的打法：先讓向聽數最少，再讓進張最多。</string>
+  <string name="glossary_d_efficiency">只看自己的牌、不管放槍和台數的打法：打牌先讓向聽數最少，再讓進張最多（都一樣時先打字牌，再打一、九）；吃碰只在向聽數會變少時才吃碰，向聽數不變就不吃碰，進張再多也一樣；槓則只要向聽數不變多就槓。</string>
   <string name="glossary_t_tsumogiri">摸切</string>
   <string name="glossary_d_tsumogiri">摸進來的牌直接打掉。牌河裡橘色底的就是摸切。連續摸切的人，手上常常已經不需要換牌，可能已經聽牌。</string>
   <string name="glossary_t_tedashi">手切</string>
