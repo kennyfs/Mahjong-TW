@@ -2,13 +2,15 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   let { title = '', onclose, children, actions, wide = false }: { title?: string; onclose: () => void; children: Snippet; actions?: Snippet; wide?: boolean } = $props();
+  const uid = $props.id();
+  const titleId = `dialog-title-${uid}`;
   let dialog: HTMLDialogElement;
   $effect(() => { dialog.showModal(); return () => dialog.close(); });
 </script>
 
-<dialog bind:this={dialog} class:wide onclose={onclose} onclick={(e) => { if (e.target === dialog) onclose(); }}>
+<dialog bind:this={dialog} class:wide aria-labelledby={title ? titleId : undefined} onclose={onclose} onclick={(e) => { if (e.target === dialog) onclose(); }}>
   <div class="inner">
-    {#if title}<h2 class="headline-small">{title}</h2>{/if}
+    {#if title}<h2 id={titleId} class="headline-small">{title}</h2>{/if}
     <div class="content">{@render children()}</div>
     {#if actions}<div class="actions">{@render actions()}</div>{/if}
   </div>
@@ -22,6 +24,6 @@
   .inner { padding: 24px 24px 18px; display: flex; flex-direction: column; gap: 14px; max-height: calc(100dvh - 48px); }
   dialog.wide .inner { padding: 16px 12px 12px; }
   h2 { margin: 0; font-weight: 500; }
-  .content { overflow: auto; min-height: 0; }
+  .content { overflow: auto; min-height: 0; padding: 4px; margin: -4px; }
   .actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 </style>

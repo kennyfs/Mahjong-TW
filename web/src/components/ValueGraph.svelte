@@ -40,10 +40,25 @@
     }
     onpick(best);
   }
+  function onKey(e: KeyboardEvent) {
+    if (!points.length) return;
+    if (e.key === 'Home') { e.preventDefault(); onpick(points[0].step); return; }
+    if (e.key === 'End') { e.preventDefault(); onpick(points[points.length - 1].step); return; }
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const cur = points.findIndex((p) => p.step >= step);
+    if (e.key === 'ArrowRight') {
+      const next = points.find((p) => p.step > step);
+      if (next) onpick(next.step);
+    } else {
+      const idx = cur < 0 ? points.length - 1 : cur - 1;
+      if (idx >= 0) onpick(points[idx].step);
+    }
+  }
 </script>
 
-<div class="graph" bind:clientWidth={W} style="height: {height}px" role="button" tabindex="-1" aria-label={t('review_graph')} title={t('review_graph')}
-  onclick={tap} onkeydown={() => {}}>
+<div class="graph" bind:clientWidth={W} style="height: {height}px" role="button" tabindex="0" aria-label={t('review_graph')} title={t('review_graph')}
+  onclick={tap} onkeydown={onKey}>
   {#if W > 0 && points.length}
     <svg width={W} {height}>
       <line class="zero" x1={PAD} x2={W - PAD} y1={y(0)} y2={y(0)} />
