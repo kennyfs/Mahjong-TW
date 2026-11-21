@@ -497,33 +497,11 @@ private fun TablePageIn(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
   // alone) the table as it ended waits for it (TapOn). The time to be ready runs from the hand's end all the same.
   val (held, letGo) = endHold(handOver)
   val fxOn by FxClock.on.collectAsState()
-  var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-  LaunchedEffect(Unit) {
-    while (true) {
-      now = System.currentTimeMillis()
-      delay(250)
-    }
-  }
-  val left = table?.deadline?.let { maxOf(0L, it - now) }
-  val nextIn = if (room.phase == Phase.REVIEW) room.remainingMs?.let { maxOf(0L, it - (now - battle.roomAt)) } else null
   val people = room.players.filter { !it.bot }
   val handLabel = if (s.mode == Mode.CONTEST) stringResource(R.string.battle_hand_of, room.hand + 1, s.hands) else stringResource(R.string.hand_n, room.hand + 1)
   // The hand in a few characters (3, a contest's 3/8): the round's label as 東-3 where the full one has no room.
   val handNo = if (s.mode == Mode.CONTEST) "${room.hand + 1}/${s.hands}" else "${room.hand + 1}"
-  val clock = @Composable {
-    if (left != null) {
-      val bad = left < 5000
-      Row(
-        Modifier.background(if (bad) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
-          .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
-      ) {
-        val color = if (bad) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
-        Icon(Icons.Filled.Timer, null, Modifier.size(18.dp), tint = color)
-        Text(stringResource(R.string.battle_your_time, ((left + 999) / 1000).toInt()), color = color, fontWeight = FontWeight.Bold)
-      }
-    }
-  }
+  val clock: @Composable () -> Unit = { BattleClock(table?.deadline) }
   BoxWithConstraints(Modifier.fillMaxSize()) {
     val wide = maxWidth > maxHeight
     val short = maxHeight < 560.dp
@@ -582,7 +560,7 @@ private fun TablePageIn(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
                     if (room.phase == Phase.REVIEW && people.size > 1) Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                       Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Standings(battle, room, withHand = true)
-                        if (nextIn != null) Text(stringResource(R.string.battle_next_in, ((nextIn + 999) / 1000).toInt()), style = MaterialTheme.typography.bodySmall)
+                        if (room.phase == Phase.REVIEW) NextHandCountdown(room.remainingMs, battle.roomAt)
                       }
                     }
                   }
@@ -611,6 +589,46 @@ private fun TablePageIn(vm: AppModel, room: RoomView, onLeave: () -> Unit) {
       }
     }
   }
+}
+
+@Composable
+private fun BattleClock(deadline: Long?) {
+  if (deadline == null) return
+  var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+  LaunchedEffect(deadline) {
+    while (true) {
+      now = System.currentTimeMillis()
+      if (now >= deadline) break
+      delay(250)
+    }
+  }
+  val left = maxOf(0L, deadline - now)
+  val bad = left < 5000
+  Row(
+    Modifier.background(if (bad) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
+      .padding(horizontal = 10.dp, vertical = 4.dp),
+    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
+  ) {
+    val color = if (bad) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
+    Icon(Icons.Filled.Timer, null, Modifier.size(18.dp), tint = color)
+    Text(stringResource(R.string.battle_your_time, ((left + 999) / 1000).toInt()), color = color, fontWeight = FontWeight.Bold)
+  }
+}
+
+@Composable
+private fun NextHandCountdown(remainingMs: Long?, roomAt: Long) {
+  if (remainingMs == null) return
+  val end = roomAt + remainingMs
+  var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+  LaunchedEffect(end) {
+    while (true) {
+      now = System.currentTimeMillis()
+      if (now >= end) break
+      delay(250)
+    }
+  }
+  val left = maxOf(0L, end - now)
+  Text(stringResource(R.string.battle_next_in, ((left + 999) / 1000).toInt()), style = MaterialTheme.typography.bodySmall)
 }
 
 @Composable
