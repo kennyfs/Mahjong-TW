@@ -83,7 +83,7 @@ rating to match (no real-money and no simulated gambling).
 Taiwanese 16-tile mahjong: practice against three computer players, review and analyze every hand you play, and play friends online or face to face.
 
 Practice
-• Computer players: a neural network, or tile efficiency (shanten and tile acceptance)
+• Computer players: a neural network, or tile efficiency (shanten and useful tiles)
 • Play one hand, one round, or a full game (four rounds)
 • Slow, normal or fast pace, or manual: the computer moves only when you press Next
 • Chows, pungs, kongs and wins are animated with sounds; the sounds can be turned down or off
@@ -103,7 +103,7 @@ Review and analysis
 
 Rules
 • Scoring tables: Simple 1, Simple 2, Standard, Masters (the 2025 Mahjong Masters' table)
-• Flowers: none, flowers count when shown, or seat flowers
+• Flowers: none, every flower, or seat flowers
 • Every rule can be changed, each explained; declared ready hands (天聽, 地聽, 報聽) can be turned on
 • A short guide to Taiwanese mahjong, with a quiz: which tiles does this hand wait on?
 • A one-minute tour of every screen
@@ -115,7 +115,7 @@ Online play
 • No analysis or hints during online play; review the hands afterwards in Records
 
 More
-• Every hand is kept on your phone: star it, see statistics, share or export it
+• Every hand is kept on your phone: favorite it, see statistics, share or export it
 • Colors: table green, minimal, or from your wallpaper (Android 12 and up)
 • Languages: Traditional Chinese and English (switch in the system's App languages)
 • Practice and analysis run entirely on your phone, offline; only the AI coach connects, to the AI service you choose

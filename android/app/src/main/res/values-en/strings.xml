@@ -993,7 +993,7 @@
   <string name="glossary_t_pung">Pung</string>
   <string name="glossary_d_pung">Three of the same tile, such as three east winds or three 5 dots.</string>
   <string name="glossary_t_kong">Kong</string>
-  <string name="glossary_d_kong">Four of the same tile. After a kong you draw a replacement from the wall, to keep enough tiles. A kong with another player\'s discard is open (明槓); one of four tiles you drew yourself is concealed (暗槓).</string>
+  <string name="glossary_d_kong">Four of the same tile. After a kong you draw a replacement from the wall, to keep enough tiles. A kong with another player\'s discard is exposed (明槓); one of four tiles you drew yourself is concealed (暗槓).</string>
   <string name="glossary_t_set">Set</string>
   <string name="glossary_d_set">A chow or a pung (a kong counts as a pung): a finished group of tiles.</string>
   <string name="glossary_t_pair">Pair</string>
@@ -1023,11 +1023,11 @@
   <string name="glossary_t_flower">Flowers</string>
   <string name="glossary_d_flower">The eight flower tiles (seasons and plants). One drawn is shown at once and replaced from the wall; it is part of no set, and by the rules may add tai.</string>
   <string name="glossary_t_meld">Meld (chow, pung, kong)</string>
-  <string name="glossary_d_meld">Taking the tile another player just discarded to make a set, shown on the table: a chow (only from the player before you), a pung or an open kong (from anyone). A pung shown so takes the fourth tile when you draw it (an added kong). Sets shown so are melds.</string>
+  <string name="glossary_d_meld">Taking the tile another player just discarded to make a set, shown on the table: a chow (only from the player on your left), a pung or an exposed kong (from anyone). A pung shown so takes the fourth tile when you draw it (an added kong). Sets shown so are melds.</string>
   <string name="glossary_t_move">Move</string>
   <string name="glossary_d_move">One discard or one decision (which tile, whether to call, whether to win). The review counts moves; a hand is the whole deal.</string>
   <string name="glossary_t_menqing">Concealed hand</string>
-  <string name="glossary_d_menqing">A hand without a chow, pung, open or added kong (a concealed kong is fine). By the rules a concealed win may add tai, a concealed self-draw more.</string>
+  <string name="glossary_d_menqing">A hand without a chow, pung, exposed or added kong (a concealed kong is fine). By the rules a concealed win may add tai, a concealed self-draw more.</string>
   <string name="glossary_t_pass_lock">Missed win (過水)</string>
   <string name="glossary_d_pass_lock">Letting a win go (passing on a discard, or not declaring a self-draw). Until you next discard (or declare a concealed or added kong) you cannot win at all, on a discard or on your own draw.</string>
   <string name="glossary_t_shape">Partial set</string>
@@ -1040,7 +1040,7 @@
   <string name="glossary_d_kanchan">A partial chow missing its middle, such as 4-6 of characters: only a 5 completes it.</string>
   <string name="glossary_t_penchan">Edge wait</string>
   <string name="glossary_d_penchan">A partial chow at the end of a suit: 1-2 (only a 3 completes it) or 8-9 (only a 7).</string>
-  <string name="glossary_t_tanki">Single wait</string>
+  <string name="glossary_t_tanki">Pair wait</string>
   <string name="glossary_d_tanki">Ready with five sets done and one tile left, waiting for its match to make the eye.</string>
   <string name="glossary_t_shanpon">Dual-pair wait</string>
   <string name="glossary_d_shanpon">Ready with two pairs: a third tile of either wins, that pair becoming a pung and the other the eye.</string>
