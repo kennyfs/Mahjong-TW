@@ -69,6 +69,11 @@ object CalloutClock {
     seen.value = count
   }
 
+  /** Another hand began: its event count starts anew, so `settle` does not mistake the previous hand's count for it. */
+  fun resetSeen() {
+    seen.value = -1
+  }
+
   /** Returns once the table has looked at the view of `count` events, so that the words and moments that view brings
    *  are up and `done` waits for them: the table looks a composition after the view changed, and without this a
    *  computer player's discard after its chow or pung came with the call's moment, not after it. At most
@@ -77,10 +82,11 @@ object CalloutClock {
     withTimeoutOrNull(FxClock.START) { seen.first { it >= count } }
   }
 
-  /** The words were let go (a touch anywhere). */
+  /** The words were let go (a touch anywhere). A deal in progress on the table lets itself go via `skips`
+   *  (TableView.kt), so touches on other screens (e.g. changing settings or tapping the Practice tab) do not release
+   *  a hand's DealClock before the table is shown. */
   fun skip() {
     until.value = 0L
-    DealClock.reset()
     Sounds.skipSync()
     skips.value += 1
   }
@@ -88,6 +94,7 @@ object CalloutClock {
   /** Whoever waits goes on now (another game: the last one's loop sees it is gone), the words left as they are. */
   fun release() {
     until.value = 0L
+    seen.value = -1
     DealClock.reset()
     Sounds.skipSync()
   }

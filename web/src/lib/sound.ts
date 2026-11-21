@@ -55,15 +55,17 @@ function base(): string {
 function load(): Promise<void> {
   if (loading || !ctx) return loading ?? Promise.resolve();
   const c = ctx;
-  const names = [...new Set(Object.values(FILES).flatMap((f) => f.files))];
+  const names = [...new Set(Object.values(FILES).flatMap((f) => f.files))].filter((n) => !buffers.has(n));
+  if (!names.length) return Promise.resolve();
   const p = Promise.all(names.map(async (n) => {
     try {
       const r = await fetch(`${base()}sounds/${n}.mp3`);
+      if (!r.ok) return;
       buffers.set(n, await c.decodeAudioData(await r.arrayBuffer()));
     } catch {
       // (A sound that does not load is not played.)
     }
-  })).then(() => undefined);
+  })).then(() => { loading = null; });
   loading = p;
   return p;
 }
@@ -130,13 +132,18 @@ export function playSound(name: SoundName, delay = 0, end = delay): () => void {
   src.connect(g).connect(ctx.destination);
   const at = ctx.currentTime + Math.max(0, delay) / 1000;
   src.start(at);
+  // Drop already-elapsed entries so `waits` does not grow in screens (review, battle) that do not call awaitSoundSynced.
+  const t = now();
+  for (const x of waits) if (x.due <= t) waits.delete(x);
   // (Web Audio starts it when asked: heard when the output's latency is past.)
-  const w = { due: now() + Math.max(0, delay) + latency(ctx) + heardFor(buf.duration * 1000, delay, end) };
+  const w = { due: t + Math.max(0, delay) + latency(ctx) + heardFor(buf.duration * 1000, delay, end) };
   waits.add(w);
   const c = ctx;
   return () => {
     waits.delete(w);
-    if (c.currentTime < at) src.stop();
+    if (c.currentTime < at) {
+      try { src.stop(); } catch { /* already ended */ }
+    }
   };
 }
 

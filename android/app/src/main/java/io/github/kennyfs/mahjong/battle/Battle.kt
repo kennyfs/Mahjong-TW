@@ -412,6 +412,7 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
           val (msg, at) = views.removeFirst()
           val v = runCatching { EngineJson.decodeFromJsonElement<View>(msg.view) }.getOrNull() ?: continue
           val cur = table
+          if (cur == null || cur.hand != msg.hand) CalloutClock.resetSeen()
           val view = if (msg.full || cur == null || cur.hand != msg.hand) v else v.copy(events = cur.view.events + v.events)
           table = MyTable(msg.hand, msg.seat, msg.step, msg.seats, view, msg.remainingMs?.takeIf { view.myTurn }?.let { at + it })
           beforeAct = null
