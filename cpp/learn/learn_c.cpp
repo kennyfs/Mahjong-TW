@@ -71,6 +71,53 @@ struct MjBatch {
   int32_t* greedy;
 };
 
+// The full states of n samples (as mj_expand's, the same symmetries), k times each with the undrawn tiles reshuffled:
+// kindFull [n, k, 34 * KIND_FULL], seatFull [n, k, 4 * SEAT_FULL], globalFull [n, k, GLOBAL_FULL]. Sample i's
+// orders come from seed and i. Returns 0, or -1 with a message.
+int mj_full_reshuffled(const uint8_t* hands, const int64_t* offsets, const float* rules, int numRuleParams, int64_t n,
+                       const int32_t* handIdx, const int32_t* markIdx, const uint64_t* symSeeds, int k, uint64_t seed,
+                       float* kindFull, float* seatFull, float* globalFull, int numThreads, char* error,
+                       int errorLen) {
+  mutex errorMutex;
+  bool failed = false;
+  auto worker = [&](int threadIdx) {
+    for(int64_t i = threadIdx; i < n; i += numThreads) {
+      try {
+        const int64_t h = handIdx[i];
+        const uint8_t* data = hands + offsets[h];
+        const size_t len = (size_t)(offsets[h + 1] - offsets[h]);
+        const Rules r =
+          Learn::rulesFromVector(rules + (size_t)Learn::HandRecord::rulesIndexOf(data) * numRuleParams, numRuleParams);
+        const Learn::HandRecord rec = Learn::HandRecord::parse(data, len, r);
+        const Learn::Symmetry sym = symSeeds && symSeeds[i] ? Learn::Symmetry::random(symSeeds[i]) : Learn::Symmetry();
+        Learn::fullStatesReshuffled(rec, markIdx[i], sym, k, seed * 0x9E3779B97F4A7C15ULL + (uint64_t)i + 1,
+                                    kindFull + i * k * 34 * Features::KIND_FULL,
+                                    seatFull + i * k * 4 * Features::SEAT_FULL,
+                                    globalFull + i * k * Features::GLOBAL_FULL);
+      }
+      catch(const exception& e) {
+        lock_guard<mutex> lock(errorMutex);
+        if(!failed && error && errorLen > 0) {
+          strncpy(error, (string("Sample ") + Global::int64ToString(i) + ": " + e.what()).c_str(), (size_t)errorLen - 1);
+          error[errorLen - 1] = 0;
+        }
+        failed = true;
+        return;
+      }
+    }
+  };
+  if(numThreads <= 1)
+    worker(0);
+  else {
+    vector<thread> threads;
+    for(int t = 0; t < numThreads; t++)
+      threads.emplace_back(worker, t);
+    for(thread& t : threads)
+      t.join();
+  }
+  return failed ? -1 : 0;
+}
+
 // Expands n samples: sample i is mark markIdx[i] of hand handIdx[i] of a data file (its hands, offsets and rules
 // arrays), seen through the symmetry drawn from symSeeds[i] (0: as recorded). Returns 0, or -1 with a message.
 int mj_expand(const uint8_t* hands, const int64_t* offsets, const float* rules, int numRuleParams, int64_t n,

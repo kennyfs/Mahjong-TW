@@ -51,6 +51,10 @@ namespace Learn {
 
   // Fills the row for mark `markIndex` of the record, replayed through the symmetry.
   void expand(const HandRecord& rec, int markIndex, const Symmetry& sym, const Row& row);
+  // The critic's extra inputs at the same mark, k times with the undrawn tiles reshuffled
+  // (Features::fullStatesReshuffled): kind [k * 34 * KIND_FULL], seats [k * 4 * SEAT_FULL], global [k * GLOBAL_FULL].
+  void fullStatesReshuffled(const HandRecord& rec, int markIndex, const Symmetry& sym, int k, uint64_t seed,
+                            float* kind, float* seats, float* global);
 }
 
 #endif  // LEARN_EXPAND_H_

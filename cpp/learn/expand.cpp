@@ -9,6 +9,18 @@
 
 using namespace std;
 
+void Learn::fullStatesReshuffled(const HandRecord& rec, int markIndex, const Symmetry& sym, int k, uint64_t seed,
+                                 float* kind, float* seats, float* global) {
+  if(markIndex < 0 || markIndex >= (int)rec.marks.size())
+    throw StringError("No such mark in the record");
+  const Mark& mark = rec.marks[markIndex];
+  Replay replay(rec, sym);
+  while(replay.index() < mark.decision)
+    replay.step();
+  Rand rand(seed);
+  Features::fullStatesReshuffled(replay.game(), replay.seat(), rec.playerTypes, k, rand, kind, seats, global);
+}
+
 void Learn::expand(const HandRecord& rec, int markIndex, const Symmetry& sym, const Row& row) {
   if(markIndex < 0 || markIndex >= (int)rec.marks.size())
     throw StringError("No such mark in the record");

@@ -556,106 +556,163 @@ void Features::observation(const Game& game, int me, float* kind, float* seats, 
   }
 }
 
+namespace {
+  // What the full state says of the seats' hands, which no order of the undrawn tiles changes, for the features of
+  // that order (wallPart).
+  struct HandsPart {
+    bool described[4] = {false, false, false, false};  // the seat's ready and useful kinds are features
+    bool ready[4] = {false, false, false, false};
+    uint64_t waits[4] = {0, 0, 0, 0};
+    uint64_t usefulOrWaits[4] = {0, 0, 0, 0};
+  };
+
+  void handsPart(const Game& game, int me, const uint8_t playerTypes[4], float* kind, float* seats, HandsPart& h) {
+    using namespace Features;
+    auto K = [&](int k) { return kind + k * KIND_FULL; };
+    for(int p = 0; p < 4; p++) {
+      const SeatState& sp = game.seat(p);
+      const int r = relSeat(p, me);
+      const int numSets = 5 - (int)sp.melds.size();
+      const int tiles = Tiles::total(sp.hand);
+      const bool afterDraw = tiles == 3 * numSets + 2;
+      float* f = seats + r * SEAT_FULL;
+      const int shanten = Shape::shanten(sp.hand, numSets);
+      f[SF_SHANTEN + min(max(shanten, -1), 4) + 1] = 1.0f;
+      if(sp.missedWin)
+        f[SF_MISSED] = 1.0f;
+      f[SF_PLAYER + min<int>(playerTypes[p], 2)] = 1.0f;
+      if(r > 0) {
+        for(int k = 0; k < NUM_KINDS; k++)
+          for(int i = 0; i < sp.hand[k] && i < 4; i++)
+            K(k)[KF_HAND + 4 * (r - 1) + i] = 1.0f;
+        for(const Meld& m : sp.melds)
+          if(m.type == Meld::ANKAN)
+            K(m.kind)[KF_ANKAN + r - 1] = 1.0f;
+      }
+      if(afterDraw)
+        continue;  // only the deciding seat on its own turn, whose hand the observation describes
+      h.described[p] = true;
+      const Counts visible = game.visibleCounts(p);
+      uint64_t useful;
+      int u = improving(sp.hand, numSets, visible, shanten, &useful);
+      f[SF_UKEIRE] = capped(u / 40.0);
+      uint64_t waits = 0;
+      if(shanten == 0) {
+        h.ready[p] = true;
+        Ready ready;
+        readyInfo(game, p, sp.hand, sp.melds, visible, ready);
+        waits = ready.waits;
+        int inHands = 0;
+        for(int k = 0; k < NUM_KINDS; k++) {
+          if(!(waits & ((uint64_t)1 << k)))
+            continue;
+          for(int q = 0; q < 4; q++)
+            if(q != p)
+              inHands += game.seat(q).hand[k];
+          if(r > 0) {
+            float* g = K(k) + KF_WAIT + 3 * (r - 1);
+            g[0] = 1.0f;
+            g[1] = taiFeature(max(0, ready.ron[k]));
+            g[2] = taiFeature(max(0, ready.tsumo[k]));
+          }
+        }
+        f[SF_WAITS + 1] = capped(inHands / 8.0);
+      }
+      if(r > 0)
+        for(int k = 0; k < NUM_KINDS; k++)
+          if((useful | waits) & ((uint64_t)1 << k))
+            K(k)[KF_USEFUL + r - 1] = 1.0f;
+      h.waits[p] = waits;
+      h.usefulOrWaits[p] = useful | waits;
+    }
+  }
+
+  // The features of an order of the undrawn tiles (wall[wallFront() .. wallBack())), added to kind and seats.
+  void wallPart(const Game& game, int me, const vector<uint8_t>& wall, const HandsPart& h, float* kind,
+                float* seats) {
+    using namespace Features;
+    auto K = [&](int k) { return kind + k * KIND_FULL; };
+    const int front = game.wallFront(), back = game.wallBack(), wallLeft = game.wallLeft();
+    // If nobody calls, the seat after the current one draws next, and so on around the table.
+    const int nextDrawer = (game.current() + 1) % 4;
+    int firstDraw[4] = {-1, -1, -1, -1};
+    for(int i = 0; i < wallLeft; i++) {
+      int t = wall[front + i];
+      int p = (nextDrawer + i) % 4;
+      if(Tiles::isFlower(t))
+        continue;
+      if(firstDraw[p] < 0)
+        firstDraw[p] = t;
+      float* f = K(t);
+      f[KF_WALL] += 0.25f;
+      float& next = f[KF_NEXT + relSeat(p, me)];
+      if(next == 0.0f)
+        next = 1.0f / (float)(1 + i / 4);
+    }
+    for(int j = 0; j < wallLeft; j++) {
+      int t = wall[back - 1 - j];
+      if(Tiles::isFlower(t))
+        continue;
+      float& f = K(t)[KF_WALL + 1];
+      if(f == 0.0f)
+        f = 1.0f / (float)(1 + j);
+    }
+    for(int i = front + wallLeft; i < back; i++)
+      if(!Tiles::isFlower(wall[i]))
+        K(wall[i])[KF_WALL + 2] += 0.25f;
+    Counts liveWall{};
+    for(int i = 0; i < wallLeft; i++)
+      if(!Tiles::isFlower(wall[front + i]))
+        liveWall[wall[front + i]]++;
+    for(int p = 0; p < 4; p++) {
+      if(!h.described[p])
+        continue;
+      float* f = seats + relSeat(p, me) * SEAT_FULL;
+      if(h.ready[p]) {
+        int inWall = 0;
+        for(int k = 0; k < NUM_KINDS; k++)
+          if(h.waits[p] & ((uint64_t)1 << k))
+            inWall += liveWall[k];
+        f[SF_WAITS] = capped(inWall / 8.0);
+      }
+      if(firstDraw[p] >= 0) {
+        if(h.usefulOrWaits[p] & ((uint64_t)1 << firstDraw[p]))
+          f[SF_NEXT_DRAW] = 1.0f;
+        if(h.waits[p] & ((uint64_t)1 << firstDraw[p]))
+          f[SF_NEXT_DRAW + 1] = 1.0f;
+      }
+    }
+  }
+}
+
 void Features::fullState(const Game& game, int me, const uint8_t playerTypes[4], float* kind, float* seats,
                          float* global) {
   memset(kind, 0, sizeof(float) * NUM_KINDS * KIND_FULL);
   memset(seats, 0, sizeof(float) * NUM_SEATS * SEAT_FULL);
   memset(global, 0, sizeof(float) * GLOBAL_FULL);
-  auto K = [&](int k) { return kind + k * KIND_FULL; };
-  const vector<uint8_t>& wall = game.wall();
-  const int front = game.wallFront(), back = game.wallBack(), wallLeft = game.wallLeft();
-  // If nobody calls, the seat after the current one draws next, and so on around the table.
-  const int nextDrawer = (game.current() + 1) % 4;
+  HandsPart h;
+  handsPart(game, me, playerTypes, kind, seats, h);
+  wallPart(game, me, game.wall(), h, kind, seats);
+}
 
-  int firstDraw[4] = {-1, -1, -1, -1};
-  for(int i = 0; i < wallLeft; i++) {
-    int t = wall[front + i];
-    int p = (nextDrawer + i) % 4;
-    if(Tiles::isFlower(t))
-      continue;
-    if(firstDraw[p] < 0)
-      firstDraw[p] = t;
-    float* f = K(t);
-    f[KF_WALL] += 0.25f;
-    float& next = f[KF_NEXT + relSeat(p, me)];
-    if(next == 0.0f)
-      next = 1.0f / (float)(1 + i / 4);
+void Features::fullStatesReshuffled(const Game& game, int me, const uint8_t playerTypes[4], int k, Rand& rand,
+                                    float* kind, float* seats, float* global) {
+  const size_t kindSize = (size_t)NUM_KINDS * KIND_FULL, seatSize = (size_t)NUM_SEATS * SEAT_FULL;
+  memset(kind, 0, sizeof(float) * kindSize);
+  memset(seats, 0, sizeof(float) * seatSize);
+  HandsPart h;
+  handsPart(game, me, playerTypes, kind, seats, h);
+  for(int v = 1; v < k; v++) {
+    memcpy(kind + v * kindSize, kind, sizeof(float) * kindSize);
+    memcpy(seats + v * seatSize, seats, sizeof(float) * seatSize);
   }
-  for(int j = 0; j < wallLeft; j++) {
-    int t = wall[back - 1 - j];
-    if(Tiles::isFlower(t))
-      continue;
-    float& f = K(t)[KF_WALL + 1];
-    if(f == 0.0f)
-      f = 1.0f / (float)(1 + j);
-  }
-  for(int i = front + wallLeft; i < back; i++)
-    if(!Tiles::isFlower(wall[i]))
-      K(wall[i])[KF_WALL + 2] += 0.25f;
-
-  Counts liveWall{};
-  for(int i = 0; i < wallLeft; i++)
-    if(!Tiles::isFlower(wall[front + i]))
-      liveWall[wall[front + i]]++;
-
-  for(int p = 0; p < 4; p++) {
-    const SeatState& sp = game.seat(p);
-    const int r = relSeat(p, me);
-    const int numSets = 5 - (int)sp.melds.size();
-    const int tiles = Tiles::total(sp.hand);
-    const bool afterDraw = tiles == 3 * numSets + 2;
-    float* f = seats + r * SEAT_FULL;
-    const int shanten = Shape::shanten(sp.hand, numSets);
-    f[SF_SHANTEN + min(max(shanten, -1), 4) + 1] = 1.0f;
-    if(sp.missedWin)
-      f[SF_MISSED] = 1.0f;
-    f[SF_PLAYER + min<int>(playerTypes[p], 2)] = 1.0f;
-    if(r > 0) {
-      for(int k = 0; k < NUM_KINDS; k++)
-        for(int i = 0; i < sp.hand[k] && i < 4; i++)
-          K(k)[KF_HAND + 4 * (r - 1) + i] = 1.0f;
-      for(const Meld& m : sp.melds)
-        if(m.type == Meld::ANKAN)
-          K(m.kind)[KF_ANKAN + r - 1] = 1.0f;
-    }
-    if(afterDraw)
-      continue;  // only the deciding seat on its own turn, whose hand the observation describes
-    const Counts visible = game.visibleCounts(p);
-    uint64_t useful;
-    int u = improving(sp.hand, numSets, visible, shanten, &useful);
-    f[SF_UKEIRE] = capped(u / 40.0);
-    uint64_t waits = 0;
-    if(shanten == 0) {
-      Ready ready;
-      readyInfo(game, p, sp.hand, sp.melds, visible, ready);
-      waits = ready.waits;
-      int inWall = 0, inHands = 0;
-      for(int k = 0; k < NUM_KINDS; k++) {
-        if(!(waits & ((uint64_t)1 << k)))
-          continue;
-        inWall += liveWall[k];
-        for(int q = 0; q < 4; q++)
-          if(q != p)
-            inHands += game.seat(q).hand[k];
-        if(r > 0) {
-          float* g = K(k) + KF_WAIT + 3 * (r - 1);
-          g[0] = 1.0f;
-          g[1] = taiFeature(max(0, ready.ron[k]));
-          g[2] = taiFeature(max(0, ready.tsumo[k]));
-        }
-      }
-      f[SF_WAITS] = capped(inWall / 8.0);
-      f[SF_WAITS + 1] = capped(inHands / 8.0);
-    }
-    if(r > 0)
-      for(int k = 0; k < NUM_KINDS; k++)
-        if((useful | waits) & ((uint64_t)1 << k))
-          K(k)[KF_USEFUL + r - 1] = 1.0f;
-    if(firstDraw[p] >= 0) {
-      if((useful | waits) & ((uint64_t)1 << firstDraw[p]))
-        f[SF_NEXT_DRAW] = 1.0f;
-      if(waits & ((uint64_t)1 << firstDraw[p]))
-        f[SF_NEXT_DRAW + 1] = 1.0f;
-    }
+  memset(global, 0, sizeof(float) * GLOBAL_FULL * k);
+  vector<uint8_t> wall = game.wall();
+  const int front = game.wallFront(), back = game.wallBack();
+  for(int v = 0; v < k; v++) {
+    // Fisher-Yates from any order gives a uniformly random one, independent of the order before.
+    for(int i = back - 1; i > front; i--)
+      swap(wall[i], wall[front + (int)rand.nextUInt((uint32_t)(i - front + 1))]);
+    wallPart(game, me, wall, h, kind + v * kindSize, seats + v * seatSize);
   }
 }

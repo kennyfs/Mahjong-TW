@@ -119,6 +119,11 @@ namespace Features {
   void observation(const Game& game, int seat, float* kind, float* seats, float* global, uint8_t* legal);
   // The extra features of the full state. kind: [34 * KIND_FULL], seats: [4 * SEAT_FULL], global: [GLOBAL_FULL].
   void fullState(const Game& game, int seat, const uint8_t playerTypes[4], float* kind, float* seats, float* global);
+  // The full state k times, each with the undrawn tiles in a new random order (given every hand that order is
+  // uniform: the mean of the critic over them is the critic without what the order adds). kind: [k * 34 *
+  // KIND_FULL], seats: [k * 4 * SEAT_FULL], global: [k * GLOBAL_FULL]. Only the order's features differ.
+  void fullStatesReshuffled(const Game& game, int seat, const uint8_t playerTypes[4], int k, Rand& rand, float* kind,
+                            float* seats, float* global);
 
   // Unseen tiles (by `visible`) that lower the shanten of a hand of 3 numSets + 1 tiles, and their kinds as a mask.
   int improving(const Counts& hand, int numSets, const Counts& visible, int shanten, uint64_t* kinds);

@@ -54,6 +54,8 @@ TAI_SCALE = 8.0
 # Where the kind features say "the tile just drawn" and "the tile on offer" (Features::KO_DRAWN, KO_CLAIM).
 KO_DRAWN = 4
 KO_CLAIM = 5
+KO_DISCARD_READY = 83  # 4: unseen copies of the waits, kinds of waits, mean tai by discard / 8, by self-draw / 8
+GA_READY = 8           # in a special action's block: 3, the same by discard and self-draw (a win: its tai)
 # Training-only heads.
 PAIR_OUT = 9          # per (seat, kind): danger, its tai, copies held (5 classes), next discard, winning tile
 SEAT_OUT = 10         # per seat: from ready (4 classes), shanten at the end (5 classes), no winning tile
@@ -75,6 +77,10 @@ class ModelConfig:
     head: int = 128           # width of the heads' hidden layers
     pair: int = 64
     skip: bool = False        # the kinds' input features go to the action heads directly as well
+    # The tai of my win that the inputs already state (a discard or a call that leaves the hand ready: the mean tai by
+    # discard and by self-draw; a win: the hand's tai) are added to the tai head's output, each event's by a learned
+    # weight that starts at 0 (so a network taken over computes what it did).
+    tai_skip: bool = False
     # The sizes of the inputs, from the data library (Features::VERSION and its sizes).
     features: int = FEATURES_VERSION
     kind_obs: int = 93
@@ -263,6 +269,25 @@ class MahjongNet(nn.Module):
         self.seat_out = nn.Linear(d, SEAT_OUT)
         self.chow_out = nn.Linear(d, 1)
         self.me_out = nn.Linear(hd, ME_OUT)
+        if c.tai_skip:
+            self.tai_gate = nn.Parameter(torch.zeros(NUM_EVENTS))
+
+    def stated_tai(self, kind, glob):
+        """The tai of my win the inputs state, per action and event [B, 77, 10] (0 where they state none)."""
+        b = kind.shape[0]
+        c = self.config
+        disc = kind[:, :, KO_DISCARD_READY + 2:KO_DISCARD_READY + 4]           # [B, 34, 2]: by discard, self-draw
+        ga = glob[:, c.go_actions:c.go_actions + NUM_SPECIAL * c.ga_size].reshape(b, NUM_SPECIAL, c.ga_size)
+        spec = ga[:, :, GA_READY + 1:GA_READY + 3]                              # [B, 9, 2]
+        per = torch.cat([disc, torch.zeros_like(disc), spec], dim=1) * TAI_SCALE  # [B, 77, 2]
+        zeros = torch.zeros(b, NUM_ACTIONS, NUM_EVENTS - 4, device=kind.device, dtype=per.dtype)
+        return torch.cat([per[..., 1:2], per[..., 0:1].expand(b, NUM_ACTIONS, 3), zeros], dim=-1)
+
+    def tai_out(self, act, kind, glob):
+        tai = act[..., NUM_OUTCOMES:] * TAI_SCALE
+        if self.config.tai_skip:
+            tai = tai + self.tai_gate * self.stated_tai(kind, glob)
+        return tai
 
     def num_parameters(self):
         return sum(p.numel() for p in self.parameters())
@@ -312,7 +337,7 @@ class MahjongNet(nn.Module):
         return {
             "policy": policy[..., 0],
             "outcomes": act[..., :NUM_OUTCOMES],
-            "tai": act[..., NUM_OUTCOMES:] * TAI_SCALE,
+            "tai": self.tai_out(act, kind, glob),
             "pair": self.pair_heads(hk, hs),
             "seats": self.seat_out(hs),
             "chow": self.chow_out(hk).squeeze(-1),
@@ -340,7 +365,7 @@ class Shipped(nn.Module):
         act, ctx = m.outcome_head(h, kind, glob)
         policy = m.policy_head(h, kind, glob)[0][..., 0]
         events = torch.sigmoid(act[..., :NUM_EVENTS])
-        tai = act[..., NUM_OUTCOMES:] * TAI_SCALE
+        tai = m.tai_out(act, kind, glob)
         pair = m.pair_heads(hk, hs[:, 1:])
         ready = torch.softmax(m.seat_out(hs[:, 1:])[..., :4], dim=-1)
         # The deciding seat's own: ready within its next 1, 2, 4, 8 draws; each tai item in its win (and it wins).

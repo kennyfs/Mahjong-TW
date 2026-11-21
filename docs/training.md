@@ -371,3 +371,229 @@ over both (it has read twenty times as many hands, and the critic's outcomes of 
 what holds the predictions where they are: nearly all of these losses is what cannot be known from a seat (a hand's
 result varies by more than a typical payment, `q_mse` 1.21, whatever is discarded), and the part a network can
 still take off is within a percent.
+
+## Making the analysis' outputs more accurate (2026-11-21)
+
+An analysis shows what the actor's heads say: Q (the events and their tai, composed), the policy, `ready`, `danger`,
+`danger_tai`, `ready_within` and `tai_items`. This section is a day of trying to make them more accurate than
+network 221's (run `s3`, the one that ships) without making its policy weaker. In short: every output was already
+calibrated on average; a difference of Q between two actions below about 0.15 is about half noise, and a loss to
+Q's best is noise on average where the policy prefers the action played; nothing tried, a network seven times
+larger included, made small differences sharper; a fine-tune of 221 against a critic trained further improves
+every output a little, plays as 221 does, and is the candidate.
+
+### Held-out hands and the tools
+
+- Iteration 223 of `s3` (hands of network 221 by the training mix of rules, never trained on): 600,000 marked
+  decisions, 150,000 of them with a fork.
+- 450,000 new hands of network 221 by the two main rules (`simple1,none` and `simple2,see`): 150,000 with three
+  forks a hand (in a fifth of them one to three seats are greedy or an older network, as in the new training hands
+  below; 1.2 million marked decisions) and 300,000 with six; 2.25 million forks. A fork is a decision whose second
+  action was finished too, on the same wall, so its realized difference is the true difference plus luck that does
+  not depend on what any network says. Differences are in points for a typical payment of 4, the unit of the app's
+  grades.
+
+The tools, in `python/`:
+
+- `eval_accuracy.py`: each output's loss, Brier score and calibration (ECE), Q's errors by context (shanten, melds,
+  place, flowers, 報聽 by rule and by who declared, ...), the tai by the predicted and by the realized size, and
+  what Q's choice and the policy's would gain where they differ.
+- `fork_resolution.py`: by |dQ|, how much of a predicted difference between the two actions of a fork is real.
+- `fork_paired.py`: networks against a reference on the same forks, grouped by the reference's |dQ|, as the paired
+  difference of the squared errors to the realized difference (the luck largely cancels), and the realized gain of
+  choosing by the network instead of the reference; by each network's |dQ|, the share of the difference that is
+  real where its policy prefers the same action as its Q and where it does not.
+- `train_acc.py`: several actors ("arms") trained from one network at once on the same stream, each learning its
+  heads' labels, the critic's events and tai of every legal action (distillation) and a KL to 221's policy, beside
+  a critic that keeps learning or is held fixed (`--critic-lr 0`). `--compile` runs every network through
+  `torch.compile`: 2,450 samples a second where it was 900 (five arms, the teacher and the critic each step). On a
+  power-limited GPU, float16 autocast runs as fast as bfloat16 with an eighth of its rounding error.
+- `grow_actor.py`: a deeper or wider actor that computes exactly what the smaller one did (new blocks and new
+  units start with zero outgoing weights), to train on from there.
+- `wall_share.py`: how much of the critic's noise as a target is the order of the undrawn tiles.
+- `onnx_to_ckpt.py`: an actor's weights rebuilt from its exported `.onnx`, for networks whose checkpoints are gone.
+
+### Network 221
+
+On iteration 223, every probability is right on average to within 0.003 and calibrated across its range
+(`ece`, the mean gap between predicted and realized frequency over 40 bins of equal count):
+
+| Output | Log-loss | ECE | Mean predicted | Realized |
+|---|---:|---:|---:|---:|
+| win | 0.4253 | 0.0028 | 0.2102 | 0.2083 |
+| deal in | 0.4004 | 0.0032 | 0.1490 | 0.1458 |
+| another's self-draw | 0.5397 | 0.0027 | 0.2412 | 0.2430 |
+| `ready` | 0.1945 | 0.0008 | 0.1552 | 0.1555 |
+| `danger` | 0.0300 | 0.00004 | 0.0078 | 0.0078 |
+| `ready_within` | 0.3908 | 0.0015 | 0.3678 | 0.3677 |
+| `tai_items` | 0.0182 | 0.00009 | 0.0068 | 0.0067 |
+
+The tai of a win is calibrated by its prediction (where 4 to 5 tai are predicted, 4.64 on average, 4.67 are won;
+6 to 7: 6.59 and 6.71) and pulled toward the mean by its realization (wins of 6 to 7 tai were predicted at 4.8):
+that is what a seat cannot know, not a bias. `danger_tai` the same.
+
+What is not right is the difference of Q between two actions when it is small. On the 2.25 million forks, by
+the network's own |dQ|, the realized difference in Q's direction over the predicted one (`fork_paired.py`'s
+saved differences):
+
+| \|dQ\| | 0.02 to 0.05 | 0.05 to 0.1 | 0.1 to 0.15 | 0.15 to 0.25 | 0.25 to 0.5 | 0.5 to 1 | 1 and more |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 221 | 0.63 ± 0.19 | 0.35 ± 0.12 | 0.59 ± 0.11 | 0.85 ± 0.07 | 0.85 ± 0.04 | 0.98 ± 0.03 | 1.02 ± 0.01 |
+| The candidate | 0.67 ± 0.22 | 0.46 ± 0.13 | 0.62 ± 0.11 | 0.82 ± 0.07 | 0.89 ± 0.04 | 0.98 ± 0.03 | 1.01 ± 0.01 |
+
+Below 0.15 about half of a predicted difference is real, from 0.15 up 85% or more, from 0.5 up all of it.
+
+The app's grades count the played action's loss to Q's best, max Q − Q(played). On the forks where that is the
+case (the action not played is Q's best of all the legal ones: 510,000 forks, as the played one was drawn from the
+policy), the same share, also by whether the policy prefers Q's best to the played action (`fork_paired.py`; the
+share of forks in brackets):
+
+| Loss | 221 | 221, the policy agrees | 221, the policy prefers the played | Candidate | Candidate, agrees | Candidate, prefers the played |
+|---|---:|---:|---:|---:|---:|---:|
+| 0.05 to 0.15 | 0.08 ± 0.18 | 0.31 ± 0.21 | −0.48 ± 0.36 (29%) | 0.35 ± 0.19 | 0.73 ± 0.22 | −0.59 ± 0.39 (30%) |
+| 0.15 to 0.5 | 0.72 ± 0.17 | 0.96 ± 0.20 | +0.26 ± 0.30 (32%) | 0.83 ± 0.17 | 1.01 ± 0.19 | +0.42 ± 0.32 (30%) |
+| 0.05 to 0.5 | 0.31 ± 0.13 | 0.53 ± 0.15 | −0.19 ± 0.25 (30%) | 0.54 ± 0.13 | 0.84 ± 0.16 | −0.18 ± 0.26 (30%) |
+| 0.5 and more | 0.84 ± 0.24 | 1.20 ± 0.31 | +0.38 ± 0.38 (44%) | 1.06 ± 0.22 | 1.29 ± 0.28 | +0.75 ± 0.34 (43%) |
+
+Where the policy prefers the played action, a loss from 0.05 to 0.5 is not real on average (−0.2 ± 0.25 for both
+networks; below 0.15 −0.5 ± 0.4, from 0.15 to 0.5 +0.3 ± 0.3); where it agrees, half of a loss below 0.15 and all of
+one above are. The two networks' rows share the forks and their luck, so they are not two confirmations. Below 0.15
+the two held-out sets apart agree for 221 (−0.95 ± 0.83 and −0.36 ± 0.41), and for the candidate the larger one
+does (−0.79 ± 0.43) while the smaller says nothing (+0.23 ± 0.89); where the cutoff lies between 0.15 and 0.5 is
+not resolved. The played action of a fork is drawn from the policy; a human's choices differ, which these shares
+do not cover.
+
+### What was tried
+
+The fine-tunes started from 221 (or a network grown from it) and were trained by `train_acc.py` on iterations 212
+to 222 and new hands of network 221; each, and some of the loop's earlier networks, is compared with 221 on the
+2.25 million forks (`fork_paired.py`). The mean squared error of a difference to the realized one is 28 points
+squared, nearly all of it luck, so what a network can change is small; ± is the standard error of the paired
+difference.
+
+| Network | mse, 221's \|dQ\| in [0.02, 0.1) | mse, every fork | gain a fork, every fork |
+|---|---:|---:|---:|
+| Run 4 `base` (221's size) | −0.0009 ± 0.0004 | −0.0051 ± 0.0006 | +0.0023 ± 0.0011 |
+| Run 4 `deep10` (10 layers, 1.9M parameters) | −0.0009 ± 0.0004 | −0.0050 ± 0.0006 | +0.0020 ± 0.0011 |
+| Run 4 `wide10` (10 layers, wider, 3.7M) | −0.0009 ± 0.0004 | −0.0052 ± 0.0006 | +0.0014 ± 0.0012 |
+| Run 4 `big16` (16 layers, wider, 7.9M) | −0.0011 ± 0.0004 | −0.0054 ± 0.0007 | +0.0023 ± 0.0012 |
+| Run 3 `rank16` | −0.0011 ± 0.0005 | −0.0040 ± 0.0007 | +0.0003 ± 0.0012 |
+| `swa10` (the loop's 212 to 221, weights averaged) | −0.0011 ± 0.0004 | −0.0031 ± 0.0006 | +0.0021 ± 0.0012 |
+| Run 5 `mix` (the candidate) | −0.0007 ± 0.0005 | −0.0052 ± 0.0007 | +0.0015 ± 0.0013 |
+| The loop's network 192 | +0.0003 ± 0.0007 | +0.0081 ± 0.0013 | −0.0006 ± 0.0015 |
+| 202 | +0.0005 ± 0.0007 | +0.0048 ± 0.0012 | −0.0002 ± 0.0015 |
+| 211 | −0.0003 ± 0.0007 | −0.0009 ± 0.0010 | −0.0014 ± 0.0015 |
+| 216 | +0.0004 ± 0.0007 | −0.0010 ± 0.0009 | −0.0016 ± 0.0016 |
+
+- The loop's last thirty networks got better on the large differences (+0.008 at network 192 to 0 at 221) and not
+  on the small ones. A fine-tune of 221 with a critic trained further on the same hands (runs 1 to 3: the critic
+  kept learning, with the certain results of a win on offer as its targets) took Q's error over all forks down by
+  another 0.005, as much as the loop's last twenty iterations; nearly all of it on differences above 0.1.
+- Size: three networks grown from 221 (`grow_actor.py`) and trained beside run 4's `base` in the same way are the
+  same as it within one standard error in every group. So the capacity of the actor is not what holds the small
+  differences where they are. This was tested only on networks fine-tuned from 221, not on a larger network
+  trained from the start; `capacity.py` above (2026-11-12) found 0.07% of the events' loss in that case.
+- A rank loss on Q's differences among the actions worth considering (run 3, `rank4` to `rank64`) looked like the
+  answer by the critic's account: by its own |dQ| in [0.02, 0.1) the critic's difference is 0.62 to 0.76 of what
+  the network says, where 221's is 0.49. On the realized results it gained nothing (the table) and did less on
+  large differences. A network distilled from a critic is judged by that critic in its favour: only the realized
+  results rank networks.
+- Averages of networks: the weights of the loop's networks 212 to 221 (`swa10`) or the mean of three to six
+  networks' Q gained less than the fine-tune.
+- The wall: on forks, three quarters of the critic's spread around the actor's difference (0.77 of 1.02 points
+  squared) is the order of the undrawn tiles, which given every hand is uniformly random; the critic's mean over 16
+  reshuffled orders (`data.full_reshuffled`, the C function `mj_full_reshuffled`) leaves 0.21. As the
+  distillation's target, the mean over 8 reshuffled orders (run 5 `mixwall`, `--wall-k 8`) changed nothing next to
+  the same arm on the recorded order: −0.00001 ± 0.00005 in [0.02, 0.1), +0.0001 ± 0.0001 over all forks. The
+  actor averages that noise away by itself over many samples; what is left is the critic's own error.
+- The played action's own result (rms 5.3 points) and a fork's: run 5 `low` (no forks, the own results at a tenth)
+  and `distonly` (no forks, no own results for the events and tai) were worse than `mix` over all forks by 0.0007
+  ± 0.0002 and 0.0008 ± 0.0003, all of it on differences above 0.25. The realized results keep the large
+  differences honest (forks and own results were dropped together, so which of the two does it is not known).
+- `tai_skip` (the tai head adds the tai stated in the input, `model.py`), a frozen trunk, the certain results of
+  a win on offer as the distillation's target (run 1), and ten times the weight on hands of 4 tai or more (run 2):
+  the same as the plain arm or worse.
+
+The critic is not at its limit. The same comparison with critics in place of actors (each critic's difference
+against the realized one, against 221's critic, on the 2.25 million forks):
+
+| Critic | mse, [0.02, 0.1) | mse, every fork | gain a fork, every fork |
+|---|---:|---:|---:|
+| The loop's 219 | +0.001 ± 0.003 | −0.003 ± 0.006 | +0.0014 ± 0.0015 |
+| The loop's 220 | +0.007 ± 0.003 | +0.009 ± 0.006 | −0.0012 ± 0.0014 |
+| Run 1 (from 221's: one pass of iterations 212 to 222, the certain results of a win on offer as targets) | −0.017 ± 0.002 | −0.177 ± 0.005 | +0.0108 ± 0.0012 |
+| Run 2 (from run 1's: iterations 212 to 222 again and 250,000 new hands of 221, three forks a hand) | −0.020 ± 0.003 | −0.208 ± 0.005 | +0.0136 ± 0.0013 |
+| Run 3 (and 100,000 more; the critic of runs 4 and 5) | −0.022 ± 0.003 | −0.219 ± 0.006 | +0.0150 ± 0.0013 |
+
+(The groups are by the reference critic's |dQ|, so the [0.02, 0.1) group is a different set of forks from the
+actors'.) Each run's critic is better than the one before it, by less each time; the loop's last critics are not.
+But the actor distilled from run 3's critic gained 0.005 over all forks and 0.0009 in [0.02, 0.1), where the
+critic gained 0.22 and 0.022: about 2% to 4% of the critic's improvement reached the actor. Why is not known. One
+guess: the actor learns the critic's mean over what a seat cannot see, and the critic's errors that vary with the
+hidden hands and the wall, and their corrections, mostly average out in that mean. Another: much of the critics'
+gain is the certain results of a win on offer, which the actors were given directly (`exact_wins`) as well. Either
+way a better critic did little for the analysis; it may do more for self-play, where it is what the policy is
+improved by.
+
+### The candidate
+
+Run 5 `mix`: run 4's `base` (two passes of iterations 212 to 222 and 350,000 new hands of the main rules, run 3's
+critic held fixed) trained one more pass on iterations 212 to 222 and 300,000 new hands by the training mix of
+rules (three forks a hand), so that every rule set is covered as the shipped network's was. 221's architecture and
+inputs; its `.onnx` has the same inputs, outputs and metadata, and 2.2 MB in float16. The float32 export matches
+the PyTorch weights to 1.2e-5 (221's to 1.5e-5), the float16 file differs from it as much as 221's does (at most
+0.01 on any output, over 4,000 decisions), and one decision takes 2.8 ms on one CPU thread (221: 2.7 ms).
+
+On both held-out sets, the trainer's loss terms and calibration (`eval_accuracy.py`; "main rules" is the 150,000
+hands with three forks a hand), 221 → the candidate:
+
+| | Iteration 223 (training mix) | Main rules |
+|---|---|---|
+| `events` | 2.0876 → 2.0866 | 2.0924 → 2.0912 |
+| `tai` | 0.0054 → 0.0054 | 0.0033 → 0.0032 |
+| `ready` | 0.8118 → 0.8104 | 0.8426 → 0.8410 |
+| `danger` | 1.0193 → 1.0166 | 1.0309 → 1.0280 |
+| `danger_tai` | 0.0011 → 0.0010 | 0.0006 → 0.0006 |
+| `tai_items` | 0.7458 → 0.7441 | 0.6528 → 0.6509 |
+| `my_tai` (the tai of my win) | 0.2161 → 0.2150 | 0.1905 → 0.1896 |
+| `ready_within` | 1.5632 → 1.5622 | 1.5580 → 1.5569 |
+| Q's squared error | 1.2434 → 1.2429 | 1.3107 → 1.3100 |
+| Q's mean error | +0.0026 → −0.0012 | +0.0035 → +0.0002 |
+| ECE of win, deal in, another's self-draw | 0.0028, 0.0032, 0.0027 → 0.0021, 0.0018, 0.0020 | 0.0028, 0.0043, 0.0019 → 0.0018, 0.0019, 0.0020 |
+| ECE of `ready`, `ready_within` | 0.0008, 0.0015 → 0.0014, 0.0014 | 0.0017, 0.0029 → 0.0018, 0.0027 |
+
+Every loss is lower on both sets, by 0.05% (`events`, `ready_within`, Q) to 0.3% (`danger`, `tai_items`) and 0.5%
+(`my_tai`): about what thirty iterations of the loop gained after network 60 (above, 2026-11-12). The mean
+probabilities of a win and of dealing in, which 221 put 0.002 to 0.004 too high, are within 0.0015; `ready`'s
+calibration is 0.0006 worse on iteration 223 and the same on the main rules. Run 4's `base`, trained on the main
+rules only, is the same as the candidate to within 0.0003 on every term of both sets.
+
+Q against the policy (`eval_accuracy.py`: at each decision, what Q's first choice and the policy's would gain over
+the playing network's choice, importance-weighted over the actions played): on iteration 223 the policy's choice
+is the better by 0.007 ± 0.002 a decision for 221 and 0.005 ± 0.002 for the candidate; on the main rules' hands
+the two are level (Q ahead by 0.001 ± 0.002 for both). They choose the same action in 68% of decisions, and where
+they disagree about a small loss, Q's difference is not real on average (the table above). The fine-tune's 0.005
+against 221's 0.007 is within the noise.
+
+The policy's strength (`is_improve.py`, iteration 223's 600,000 decisions, played by 221): the candidate's policy
+instead of 221's at one decision gains +0.00000 ± 0.00007 (run 4's `base` +0.00005 ± 0.00007; 221 itself exactly
+0, the check of the stored probabilities). Its policy is 0.0014 nats from 221's, where the KL term held it: the
+fine-tune moved the predictions, not the play.
+
+### For the app's grades
+
+The app counts a decision's loss, max Q − Q(played), as nothing below `EQUAL` (0.05) and grades it from 0.1, 0.25
+and 0.5 for a typical payment of 4 (`web/src/lib/review.ts`, `Review.kt`; the expert level marks from 0.1). By the
+second table of "Network 221" above:
+
+- Where the policy also prefers Q's best to the played action, `EQUAL` at 0.05 and the steps can stay: such a loss
+  below 0.15 is about half real (0.31 ± 0.21 for 221, 0.73 ± 0.22 for the candidate), and from 0.15 up all of it.
+- Where the policy prefers the played action (about 30% of the losses from 0.05 to 0.5 in the network's own play),
+  a loss is not real on average: −0.2 ± 0.25 from 0.05 to 0.5, −0.5 ± 0.4 below 0.15, +0.3 ± 0.3 from 0.15 to 0.5.
+  Showing such a loss as ≈ or as uncertain, below 0.15 at least and up to 0.5 at most, is a judgment for the app;
+  every action's figures already carry its `policy`.
+- Raising `EQUAL` alone (without the policy) would drop losses the policy agrees with, which are partly real.
+- Scaling the shown losses by the shares above did not help: fitted on one of the two sets of held-out hands and
+  tested on the other (an ad hoc check, not a script in the repository), it brought Q's differences closer to the
+  realized ones below 0.15 by 0.0005 to 0.001 points squared and further from them above 0.15; each share is known
+  to ± 0.1 at best.

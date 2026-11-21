@@ -20,9 +20,10 @@ RUN = os.path.expandvars(os.environ.get("RUN", "$HOME/mahjong_remote/share/s2"))
 DATA = os.environ.get("DATA", os.path.join(RUN, "selfplay"))
 HERE = os.path.dirname(os.path.abspath(__file__))
 M = os.path.join(RUN, "models", "actor_%d.onnx")
-lib = Library(DEFAULT_LIB, threads=16)
+THREADS = int(os.environ.get("THREADS", "16"))  # the library's and onnxruntime's each
+lib = Library(os.environ.get("LIB", DEFAULT_LIB), threads=THREADS)
 files = sorted(glob.glob(os.path.join(DATA, f"iter_{J}", "*.npz")))
-opt = ort.SessionOptions(); opt.intra_op_num_threads = 16
+opt = ort.SessionOptions(); opt.intra_op_num_threads = THREADS
 sess = {k: ort.InferenceSession(M % k, opt, providers=["CPUExecutionProvider"]) for k in KS}
 acc = {k: [] for k in KS}; dif = {k: [] for k in KS}; kls = {k: [] for k in KS}; gs = []
 MAXN = int(os.environ.get("MAXN", "10000000")); n = 0

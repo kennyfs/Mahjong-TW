@@ -58,6 +58,12 @@ class Library:
         self.lib.mj_expand.argtypes = [
             ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int64, ctypes.c_void_p,
             ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(_MjBatch), ctypes.c_int, ctypes.c_char_p, ctypes.c_int]
+        if hasattr(self.lib, "mj_full_reshuffled"):
+            self.lib.mj_full_reshuffled.restype = ctypes.c_int
+            self.lib.mj_full_reshuffled.argtypes = [
+                ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int64, ctypes.c_void_p,
+                ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_void_p,
+                ctypes.c_void_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_int]
         self.threads = threads
         a = s["actions"]
         # Name, dtype and row shape of every array of a batch, in the order of MjBatch.
@@ -106,6 +112,29 @@ class Library:
         if code != 0:
             raise ValueError("mj_expand: " + error.value.decode(errors="replace"))
         return out
+
+
+def full_reshuffled(library, hands, offsets, rules, hand_idx, mark_idx, sym_seeds, k, seed):
+    """The critic's extra inputs of the same samples as Library.expand (same symmetries), k times with the undrawn
+    tiles reshuffled -> kind_full_k [n, k, 34, KIND_FULL], seat_full_k [n, k, 4, SEAT_FULL], global_full_k."""
+    s = library.sizes
+    n = len(hand_idx)
+    hand_idx = np.ascontiguousarray(hand_idx, np.int32)
+    mark_idx = np.ascontiguousarray(mark_idx, np.int32)
+    if sym_seeds is not None:
+        sym_seeds = np.ascontiguousarray(sym_seeds, np.uint64)
+    out = {"kind_full_k": np.empty((n, k, NUM_KINDS, s["kind_full"]), np.float32),
+           "seat_full_k": np.empty((n, k, NUM_SEATS, s["seat_full"]), np.float32),
+           "global_full_k": np.empty((n, k, s["global_full"]), np.float32)}
+    error = ctypes.create_string_buffer(256)
+    code = library.lib.mj_full_reshuffled(
+        hands.ctypes.data, offsets.ctypes.data, rules.ctypes.data, rules.shape[1], n, hand_idx.ctypes.data,
+        mark_idx.ctypes.data, sym_seeds.ctypes.data if sym_seeds is not None else None, k, seed,
+        out["kind_full_k"].ctypes.data, out["seat_full_k"].ctypes.data, out["global_full_k"].ctypes.data,
+        library.threads, error, len(error))
+    if code != 0:
+        raise ValueError("mj_full_reshuffled: " + error.value.decode(errors="replace"))
+    return out
 
 
 class Hands:
@@ -162,8 +191,11 @@ def to_torch(batch, device):
 
 
 def batches(library, files, batch_size, rng=None, part="train", group=16, symmetries=True, passes=1,
-            drop_last=True, shuffle=True):
+            drop_last=True, shuffle=True, wall_k=0):
     """Batches of the marked decisions of the given files, each read once per pass.
+
+    With wall_k, each batch also holds the critic's extra inputs wall_k times with the undrawn tiles reshuffled
+    (full_reshuffled).
 
     Files are loaded a group at a time (a few hundred MB of records at most) and their marks shuffled together.
     `part` picks "train" (99 hands in 100), "held" (the others) or "all".
@@ -184,7 +216,11 @@ def batches(library, files, batch_size, rng=None, part="train", group=16, symmet
                 if len(m) < batch_size and drop_last:
                     break
                 seeds = rng.integers(1, 2 ** 63, size=len(m), dtype=np.uint64) if symmetries else None
-                yield library.expand(hands.hands, hands.offsets, hands.rules, m[:, 0], m[:, 1], seeds)
+                batch = library.expand(hands.hands, hands.offsets, hands.rules, m[:, 0], m[:, 1], seeds)
+                if wall_k:
+                    batch.update(full_reshuffled(library, hands.hands, hands.offsets, hands.rules, m[:, 0], m[:, 1],
+                                                 seeds, wall_k, int(rng.integers(1, 2 ** 63))))
+                yield batch
 
 
 class Stream:
