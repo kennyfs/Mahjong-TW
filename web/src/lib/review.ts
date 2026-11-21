@@ -113,7 +113,7 @@ export function notableText(a: Analysis, n: Notable): string {
 
 /** Why `i` is worse than the best, from the parts of the two values: what it wins less, deals in more, is drawn on more. */
 export function reasonOf(a: Analysis, i: number): string {
-  if (a.best === undefined || i === a.best) return '';
+  if (a.best === undefined || i === a.best || i < 0 || i >= a.actions.length) return '';
   const b = a.actions[a.best].parts, p = a.actions[i].parts;
   if (!b || !p) return '';
   const total = cost(a, i);
@@ -237,7 +237,7 @@ const SAY_WAIT = 0.3;
  *  it most likely waits on (the discard most likely to deal in to it, from 3%): 「聽 40%・可能聽五筒」, 「聽 40%」 where
  *  that has no room. A tap on it shows the rest (SeatBadge: one away, the tiles likeliest to deal in to it). */
 export function opponentNote(o: Opponent): SeatNote | null {
-  const r = o.ready[0];
+  const r = o.ready[0] ?? 0;
   if (r < 0.1) return null;
   const level = readyLevel(r);
   const short = t('opp_ready', pct(r));
@@ -290,7 +290,7 @@ export function figureItems(f: Figures, c: number | null, names: string[] | null
   out.push([t('fig_others_tsumo'), pct(f.others_tsumo ?? 0)]);
   if (f.danger !== undefined) {
     let who = '';
-    if (names && f.danger >= 0.01 && f.danger_each) {
+    if (names && f.danger >= 0.01 && f.danger_each?.length) {
       const top = f.danger_each.indexOf(Math.max(...f.danger_each));
       who = t('paren', `${names[top]} ${pct(f.danger_each[top])}${t('sep')}${t('fig_tai', (f.danger_tai?.[top] ?? 0).toFixed(1))}`);
     }
@@ -340,7 +340,7 @@ export function figureCells(f: Figures, c: number | null, names: string[] | null
     out.push(cell('others', t('fig_others_tsumo'), pct(f.others_tsumo ?? 0), f.others_tsumo, best?.others_tsumo));
     out.push(cell('danger', f.danger !== undefined ? t('fig_danger') : '', f.danger !== undefined ? pct(f.danger) : '', f.danger, best?.danger));
     let who = '';
-    if (names && f.danger !== undefined && f.danger >= 0.01 && f.danger_each) {
+    if (names && f.danger !== undefined && f.danger >= 0.01 && f.danger_each?.length) {
       const top = f.danger_each.indexOf(Math.max(...f.danger_each));
       who = t('paren', `${names[top]} ${pct(f.danger_each[top])}${t('sep')}${t('fig_tai', (f.danger_tai?.[top] ?? 0).toFixed(1))}`);
     }

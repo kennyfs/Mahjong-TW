@@ -65,6 +65,7 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
 
   fun branchRun(source: GameRecord, me: Int): BranchRun {
     branch?.let { (key, run) -> if (key.first == source && key.second == me) return run }
+    branch?.second?.close()
     return BranchRun(viewModelScope, source, me) { settings.bot }.also { branch = (source to me) to it }
   }
 

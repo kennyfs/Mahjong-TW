@@ -3,6 +3,7 @@ package io.github.kennyfs.mahjong
 import android.content.res.Resources
 import io.github.kennyfs.mahjong.ui.SeatNote
 import io.github.kennyfs.mahjong.ui.actionLabel
+import kotlinx.coroutines.CompletableDeferred
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
@@ -230,15 +231,26 @@ fun mistakesText(res: Resources, level: Level, grades: List<Int>): String {
   return if (out.isNotEmpty()) out.joinToString(Words.sep) else res.getString(R.string.review_count_none, levelWord(res, level))
 }
 
-private val reviews = LinkedHashMap<String, Review>()
+private val reviews = LinkedHashMap<String, CompletableDeferred<Review>>()
 
-/** A record's review by the network, kept while the app runs (the last 40). From the main thread. */
-suspend fun reviewOf(rec: HandRecord): Review {
-  reviews[rec.id]?.let { return it }
-  val r = Engine.review(rec.game, rec.me)
-  reviews[rec.id] = r
+/** A record's review by the network, kept while the app runs (the last 40). Concurrent callers for the same record
+ *  share one engine call, matching web lib/review.ts. From the main thread. */
+suspend fun reviewOf(rec: HandRecord): Review = reviewCached(rec.id) { Engine.review(rec.game, rec.me) }
+
+internal suspend fun reviewCached(id: String, compute: suspend () -> Review): Review {
+  reviews[id]?.let { return it.await() }
+  val deferred = CompletableDeferred<Review>()
+  reviews[id] = deferred
   if (reviews.size > 40) reviews.remove(reviews.keys.first())
-  return r
+  return try {
+    val r = compute()
+    deferred.complete(r)
+    r
+  } catch (e: Throwable) {
+    reviews.remove(id, deferred)
+    deferred.completeExceptionally(e)
+    throw e
+  }
 }
 
 /** Reviews a record and keeps the summary with it, unless this network's is there. Failures are left for a later try. */

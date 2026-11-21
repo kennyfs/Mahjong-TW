@@ -179,7 +179,7 @@ class PositionEditor {
     flowers = (0..3).map { r -> Tiles.parse(p.players[seat(r)].flowers) }
     discards = (0..3).map { r ->
       val list = p.players[seat(r)].discards
-      val kept = if (claim != null && seat(r) == claim.seat) list.dropLast(1) else list
+      val kept = if (claim != null && !claim.robKong && seat(r) == claim.seat) list.dropLast(1) else list
       kept.filter { !it.called }.map { it.tile }
     }
     var tiles = Tiles.sort(Tiles.parse(p.hand))
@@ -190,7 +190,10 @@ class PositionEditor {
       // The tile drawn; after a call there is none, and the last tile stands for it.
       val d = p.drawn ?: tiles.lastOrNull()
       afterCall = p.afterCall
-      if (d != null) tiles = tiles.toMutableList().also { it.removeAt(it.lastIndexOf(d)) }
+      if (d != null) {
+        val idx = tiles.lastIndexOf(d)
+        if (idx >= 0) tiles = tiles.toMutableList().also { it.removeAt(idx) }
+      }
       drawn = d
     }
     hand = tiles

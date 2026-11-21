@@ -153,7 +153,7 @@ class Editor {
     this.flowers = [0, 1, 2, 3].map((r) => parseTiles(p.players[seat(r)].flowers));
     this.discards = [0, 1, 2, 3].map((r) => {
       const list = p.players[seat(r)].discards;
-      const kept = claim && seat(r) === claim.seat ? list.slice(0, -1) : list;
+      const kept = claim && !claim.rob_kong && seat(r) === claim.seat ? list.slice(0, -1) : list;
       return kept.filter((d) => !d.called).map((d) => d.tile);
     });
     let hand = sortTiles(parseTiles(p.hand));
@@ -165,8 +165,11 @@ class Editor {
       const drawn = p.drawn ?? hand[hand.length - 1] ?? null;
       this.afterCall = p.after_call;
       if (drawn) {
-        hand = [...hand];
-        hand.splice(hand.lastIndexOf(drawn), 1);
+        const idx = hand.lastIndexOf(drawn);
+        if (idx >= 0) {
+          hand = [...hand];
+          hand.splice(idx, 1);
+        }
       }
       this.drawn = drawn;
     }

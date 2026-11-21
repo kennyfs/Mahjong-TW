@@ -76,7 +76,11 @@ object Engine {
   }
 
   private fun handleOn(req: JsonObject): JsonObject {
-    val answer = EngineJson.parseToJsonElement(nativeHandle(handle, req.toString())).jsonObject
+    val answer = try {
+      EngineJson.parseToJsonElement(nativeHandle(handle, req.toString())).jsonObject
+    } catch (x: Exception) {
+      throw EngineException("The engine's answer does not read: ${x.message}")
+    }
     answer["error"]?.let { throw EngineException(it.jsonPrimitive.content) }
     return answer
   }

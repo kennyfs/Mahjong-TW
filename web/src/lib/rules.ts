@@ -26,10 +26,13 @@ export function ruleSpec(c: RuleChoice): string {
 export function parseChoice(raw: unknown): RuleChoice {
   const c = raw as Partial<RuleChoice> | null;
   if (!c || typeof c !== 'object') return { ...DEFAULT_RULES, overrides: {} };
+  const overrides = typeof c.overrides === 'object' && c.overrides && !Array.isArray(c.overrides)
+    ? Object.fromEntries(Object.entries(c.overrides).filter(([, v]) => typeof v === 'number' && Number.isFinite(v)))
+    : {};
   return {
     tai: TAI_PRESETS.includes(c.tai ?? '') ? c.tai! : 'simple1',
     flowers: FLOWER_PRESETS.includes(c.flowers ?? '') ? c.flowers! : 'none',
-    overrides: typeof c.overrides === 'object' && c.overrides ? { ...c.overrides } : {},
+    overrides,
   };
 }
 

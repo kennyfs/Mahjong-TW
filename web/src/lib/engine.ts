@@ -40,6 +40,10 @@ function start(): Worker {
     else w.resolve(e.data.line);
   };
   worker.onerror = (e) => {
+    const dead = worker;
+    worker = null;
+    model = null;
+    dead?.terminate();
     for (const w of waiting.values()) w.reject(new EngineError(e.message || 'The engine failed to start'));
     waiting.clear();
   };
@@ -80,7 +84,12 @@ export async function request(req: Record<string, unknown>): Promise<any> {
   const line = JSON.stringify(req);
   // A request that names the network: it is fetched first.
   if (line.includes(MODEL)) await loadModel();
-  const a = JSON.parse(await raw(line));
+  let a: any;
+  try {
+    a = JSON.parse(await raw(line));
+  } catch (e) {
+    throw new EngineError(`The engine's answer does not read: ${(e as Error)?.message ?? e}`);
+  }
   if (a.error !== undefined) throw new EngineError(a.error);
   return a;
 }

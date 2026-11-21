@@ -40,7 +40,7 @@ function table(): Table {
 export function t(name: string, ...args: (string | number)[]): string {
   const s = table()[name];
   if (typeof s !== 'string') return name;
-  if (!args.length) return s;
+  if (!args.length) return s.includes('%%') ? s.replace(/%%/g, '%') : s;
   let i = 0;
   return s.replace(/%(?:(\d+)\$)?([sd%])/g, (_, n: string | undefined, c: string) => {
     if (c === '%') return '%';
