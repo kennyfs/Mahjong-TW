@@ -1,6 +1,10 @@
 package io.github.kennyfs.mahjong.ui
 
 import io.github.kennyfs.mahjong.Words
+import androidx.compose.material3.SnackbarDefaults
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -92,6 +96,9 @@ private fun <T> Pick(label: String, options: List<Pair<T, String>>, selected: T,
   }
 }
 
+/** What 復原 puts back: the words of what was done (a string's id), the editor as it was, and as it was left. */
+private class Undo(val text: Int, val back: () -> Unit, val look: Any)
+
 /** The tiles left in the wall: a chip with the number, which opens a slider (and one tile fewer or more). */
 @Composable
 private fun WallPick(label: String, value: Int, onChange: (Int) -> Unit) {
@@ -134,6 +141,14 @@ fun AnalyzeScreen(vm: AppModel) {
   var tables by remember { mutableStateOf<WhatIf?>(null) }
   var error by remember { mutableStateOf<String?>(null) }
   var running by remember { mutableStateOf(false) }
+  // 清空 and 隨機發牌 drop what was there: for a few seconds, and until anything is edited, 復原 puts it back.
+  var undo by remember { mutableStateOf<Undo?>(null) }
+  LaunchedEffect(undo) { if (undo != null) { delay(6000); undo = null } }
+  fun act(text: Int, f: () -> Unit) {
+    val back = if (ed.isEmpty) null else ed.saved()
+    f()
+    undo = back?.let { Undo(text, it, ed.look()) }
+  }
   var meldTile by remember { mutableStateOf<String?>(null) }
   var showTables by remember { mutableStateOf(false) }
   /** The melds, flowers and discards of the table (a tall window folds them away while they are empty). */
@@ -312,8 +327,23 @@ fun AnalyzeScreen(vm: AppModel) {
       )
     }
     val titleActions = @Composable {
-      TextButton(onClick = { ed.random() }, Modifier.testTag("analyze_random")) { Text(stringResource(R.string.analysis_random), maxLines = 1) }
-      TextButton(onClick = { ed.clear() }, Modifier.testTag("analyze_clear")) { Text(stringResource(R.string.analysis_clear), maxLines = 1) }
+      TextButton(onClick = { act(R.string.analysis_dealt) { ed.random() } }, Modifier.testTag("analyze_random")) {
+        Text(stringResource(R.string.analysis_random), maxLines = 1)
+      }
+      TextButton(onClick = { act(R.string.analysis_cleared) { ed.clear() } }, Modifier.testTag("analyze_clear")) {
+        Text(stringResource(R.string.analysis_clear), maxLines = 1)
+      }
+    }
+    // The bar of 復原, over the foot of the editor (nothing moves), while nothing is edited after it.
+    val snack: @Composable BoxScope.() -> Unit = {
+      val u = undo
+      if (u != null && ed.look() == u.look) Snackbar(
+        Modifier.align(Alignment.BottomStart).padding(12.dp).widthIn(max = 480.dp),
+        action = {
+          TextButton(onClick = { u.back(); undo = null }, Modifier.testTag("analyze_undo"),
+            colors = ButtonDefaults.textButtonColors(contentColor = SnackbarDefaults.actionColor)) { Text(stringResource(R.string.analysis_undo)) }
+        },
+      ) { Text(stringResource(u.text)) }
     }
 
     val palette = @Composable {
@@ -407,14 +437,14 @@ fun AnalyzeScreen(vm: AppModel) {
         titleActions()
       }
       if (wide) Row(Modifier.weight(1f)) {
-        edit(Modifier.weight(1f).fillMaxHeight())
+        Box(Modifier.weight(1f).fillMaxHeight()) { edit(Modifier.fillMaxSize()); snack() }
         Column(Modifier.width(minOf(w * 0.48f, 560f).dp).fillMaxHeight().background(cs.surfaceContainer).verticalScroll(rememberScrollState())
           .padding(bottom = 16.dp)) {
           palette()
           Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) { results() }
         }
       } else {
-        edit(Modifier.weight(1f).fillMaxWidth())
+        Box(Modifier.weight(1f).fillMaxWidth()) { edit(Modifier.fillMaxSize()); snack() }
         Column(Modifier.fillMaxWidth().background(cs.surfaceContainer)) { palette() }
       }
     }

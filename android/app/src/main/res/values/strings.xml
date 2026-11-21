@@ -344,6 +344,9 @@
   <string name="analysis_round">圈風</string>
   <string name="analysis_wall_left">牌牆剩下</string>
   <string name="analysis_clear">清空</string>
+  <string name="analysis_cleared">已清空</string>
+  <string name="analysis_dealt">已隨機發牌</string>
+  <string name="analysis_undo">復原</string>
   <string name="analysis_random">隨機發牌</string>
   <string name="analysis_random_short">隨機</string>
   <string name="analysis_play_from">從這裡打</string>

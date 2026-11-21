@@ -181,6 +181,33 @@ class Editor {
     this.from = game ? { game, seat: p.me, table: this.table() } : null;
   }
 
+  /** Nothing in it: no tiles anywhere (the setup's numbers do not count). */
+  isEmpty(): boolean {
+    return !this.hand.length && this.drawn === null && this.claimTile === null
+      && [0, 1, 2, 3].every((s) => !this.melds[s].length && !this.flowers[s].length && !this.discards[s].length);
+  }
+
+  /** Everything it holds, put back by the function returned (the analysis page's 復原 after 清空 or 隨機發牌). */
+  saved(): () => void {
+    const s = {
+      hand: $state.snapshot(this.hand), drawn: this.drawn, mode: this.mode, claimSeat: this.claimSeat, claimTile: this.claimTile,
+      melds: $state.snapshot(this.melds), flowers: $state.snapshot(this.flowers), discards: $state.snapshot(this.discards),
+      dealer: this.dealer, round: this.round, wallLeft: this.wallLeft, section: $state.snapshot(this.section), rules: this.rules,
+      east: this.east, streak: this.streak, afterCall: this.afterCall, missed: this.missed, from: this.from,
+    };
+    return () => {
+      this.hand = s.hand; this.drawn = s.drawn; this.mode = s.mode; this.claimSeat = s.claimSeat; this.claimTile = s.claimTile;
+      this.melds = s.melds; this.flowers = s.flowers; this.discards = s.discards;
+      this.dealer = s.dealer; this.round = s.round; this.wallLeft = s.wallLeft; this.section = s.section; this.rules = s.rules;
+      this.east = s.east; this.streak = s.streak; this.afterCall = s.afterCall; this.missed = s.missed; this.from = s.from;
+    };
+  }
+
+  /** What it shows, in a string: unchanged while nothing is edited. */
+  look(): string {
+    return JSON.stringify([this.hand, this.drawn, this.section]) + this.table();
+  }
+
   /** A random hand of 16 and a drawn tile, nothing else seen. */
   random() {
     this.clear();

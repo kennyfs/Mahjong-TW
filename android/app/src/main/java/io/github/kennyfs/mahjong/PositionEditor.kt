@@ -129,6 +129,24 @@ class PositionEditor {
     }
   }
 
+  /** Nothing in it: no tiles anywhere (the setup's numbers do not count). */
+  val isEmpty: Boolean get() = hand.isEmpty() && drawn == null && claimTile == null &&
+    (0..3).all { melds[it].isEmpty() && flowers[it].isEmpty() && discards[it].isEmpty() }
+
+  /** Everything it holds, put back by the function returned (the analysis page's 復原 after 清空 or 隨機發牌). */
+  fun saved(): () -> Unit {
+    val h = hand; val d = drawn; val m = mode; val cs = claimSeat; val ct = claimTile; val ms = melds; val fs = flowers; val ds = discards
+    val de = dealer; val ro = round; val wl = wallLeft; val se = section; val ru = rules; val ea = east; val st = streak
+    val ac = afterCall; val mi = missed; val fr = from
+    return {
+      hand = h; drawn = d; mode = m; claimSeat = cs; claimTile = ct; melds = ms; flowers = fs; discards = ds
+      dealer = de; round = ro; wallLeft = wl; section = se; rules = ru; east = ea; streak = st; afterCall = ac; missed = mi; from = fr
+    }
+  }
+
+  /** What it shows: equal while nothing is edited. */
+  fun look(): Any = listOf(hand, drawn, section, table())
+
   fun clear() {
     hand = emptyList()
     drawn = null

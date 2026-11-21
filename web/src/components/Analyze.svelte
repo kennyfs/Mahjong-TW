@@ -53,6 +53,19 @@
   // (Sideways: 34 px or more, but no wider than nine fit in the side column, as it is laid out: a phone sideways at a
   // large display size.)
   let sideW = $state(0);
+  let sideH = $state(0);
+  // 清空 and 隨機發牌 drop what was there: a bar over the foot of the editor (nothing moves) puts it back, for a few
+  // seconds and until anything is edited.
+  let undo = $state<{ text: string; back: () => void; look: string } | null>(null);
+  let undoTimer: ReturnType<typeof setTimeout> | undefined;
+  function act(text: string, f: () => void) {
+    const back = ed.isEmpty() ? null : ed.saved();
+    f();
+    clearTimeout(undoTimer);
+    undo = back ? { text, back, look: ed.look() } : null;
+    if (back) undoTimer = setTimeout(() => (undo = null), 6000);
+  }
+  $effect(() => () => clearTimeout(undoTimer));
   const pw = $derived(ui.wide ? Math.min(48, Math.max(34, (ui.w * 0.42 - 24) / 9.4), sideW ? (sideW - 24) / 9.4 : 48)
     : Math.min(48, (ui.w - 24) / 9.4));
   const sw = $derived(Math.max(26, pw * 0.8));
@@ -211,8 +224,8 @@
   <TitleBar title={t('analyze_title')}>
     <button class="chip" class:on={!!ed.rules} title={ed.rules ? t('analysis_rules_of_hand') + t('colon') + t('analysis_rules_reset') : t('settings_rules')}
       onclick={() => { if (ed.rules) ed.rules = null; else nav.open('rules', 'SETTINGS'); }}><span data-full={rulesLabel} data-short={rulesShort}></span></button>
-    <button class="btn text" aria-label={t('analysis_random')} onclick={() => ed.random()}><span data-full={t('analysis_random')} data-short={t('analysis_random_short')}></span></button>
-    <button class="btn text" onclick={() => ed.clear()}>{t('analysis_clear')}</button>
+    <button class="btn text" aria-label={t('analysis_random')} onclick={() => act(t('analysis_dealt'), () => ed.random())}><span data-full={t('analysis_random')} data-short={t('analysis_random_short')}></span></button>
+    <button class="btn text" onclick={() => act(t('analysis_cleared'), () => ed.clear())}>{t('analysis_clear')}</button>
   </TitleBar>
   <div class="body" class:wide={ui.wide}>
     <div class="edit">
@@ -277,7 +290,7 @@
       {/if}
     </div>
 
-    <div class="side" bind:clientWidth={sideW}>
+    <div class="side" bind:clientWidth={sideW} bind:clientHeight={sideH}>
       <div class="palette">
         <div class="hint">
           {#if ui.wide || paletteOpen}<span class="body-small dim">{t('analysis_palette_hint')}</span>{/if}
@@ -299,6 +312,13 @@
       </div>
       {#if ui.wide}<div class="side-results">{@render results()}</div>{/if}
     </div>
+    {#if undo && ed.look() === undo.look}
+      {@const u = undo}
+      <div class="snack body-medium" role="status" style={ui.wide ? `right: ${sideW + 12}px; bottom: 12px` : `right: 12px; bottom: ${sideH + 8}px`}>
+        <span>{u.text}</span>
+        <button class="btn text" onclick={() => { u.back(); undo = null; }}>{t('analysis_undo')}</button>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -317,7 +337,11 @@
 
 <style>
   .page { height: 100%; display: flex; flex-direction: column; min-height: 0; }
-  .body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+  .snack { position: absolute; left: 12px; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    max-width: 480px; padding: 4px 4px 4px 16px; border-radius: 8px; background: var(--inverse-surface); color: var(--inverse-on-surface);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3); }
+  .snack .btn { color: var(--inverse-primary); }
   .body.wide { flex-direction: row; }
   .edit { flex: 1; min-height: 0; overflow: auto; padding: 0 12px 16px; }
   .side { flex: none; display: flex; flex-direction: column; background: var(--surface-container); }

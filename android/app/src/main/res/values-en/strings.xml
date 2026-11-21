@@ -337,6 +337,9 @@
   <string name="analysis_round">Round wind</string>
   <string name="analysis_wall_left">Left in the wall</string>
   <string name="analysis_clear">Clear</string>
+  <string name="analysis_cleared">Cleared</string>
+  <string name="analysis_dealt">Dealt at random</string>
+  <string name="analysis_undo">Undo</string>
   <string name="analysis_random">Random hand</string>
   <string name="analysis_random_short">Random</string>
   <string name="analysis_play_from">Play from here</string>
