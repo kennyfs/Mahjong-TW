@@ -277,10 +277,10 @@
   .bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 4px 8px; min-height: 48px; }
   .where { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .bar .chip { flex: none; white-space: nowrap; }
-  .mini { border: 1px solid var(--on-felt-dim); background: transparent; color: var(--on-felt); border-radius: 12px; padding: 1px 8px;
-    font-size: 0.75rem; cursor: pointer; position: relative; }
-  /* A larger place to tap than the drawn pill (about 20 px tall): sideways, up to the other button's half of the gap. */
-  .mini::before { content: ''; position: absolute; inset: -3px -12px; }
+  .mini { border: 1px solid var(--on-felt-dim); background: transparent; color: var(--on-felt); border-radius: 15px; padding: 3px 10px;
+    min-height: 30px; font-size: 0.8125rem; cursor: pointer; position: relative; }
+  /* A larger place to tap than the drawn pill (30 px tall): 44 px total vertical hit area. */
+  .mini::before { content: ''; position: absolute; inset: -7px -10px; }
   .spacer { flex: 1; }
   .hint-note { color: var(--on-surface-variant); margin-right: auto; }
   /* On the felt: the list on a card of the page's own colors (its rows are made for them; on the felt its words were

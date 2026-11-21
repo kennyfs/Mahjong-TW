@@ -172,8 +172,8 @@
   .readable { max-width: 720px; margin: 0 auto; }
   .block { padding: 8px 16px; display: flex; flex-direction: column; gap: 8px; }
   /* The name and its ⓘ: the row as high as a name alone (the button reaches over the gaps). */
-  .head { display: flex; align-items: center; gap: 2px; min-height: 24px; margin: -6px 0; }
-  .info { flex: none; width: 36px; min-height: 36px; border-radius: 18px; color: var(--on-surface-variant); }
+  .head { display: flex; align-items: center; gap: 2px; min-height: 24px; margin: -10px 0; }
+  .info { flex: none; width: 44px; min-height: 44px; border-radius: 22px; color: var(--on-surface-variant); }
   .help { margin: 0; line-height: 1.6; white-space: pre-line; }
   .about { padding: 8px 16px 0; line-height: 1.6; }
   .note { margin: 0; padding: 4px 16px; line-height: 1.5; }

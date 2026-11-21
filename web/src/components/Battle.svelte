@@ -489,10 +489,10 @@
   .clock { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 14px; font-weight: 700;
     background: var(--secondary-container); color: var(--on-secondary-container); white-space: nowrap; }
   .clock.bad { background: var(--error-container); color: var(--on-error-container); }
-  .mini { border: 1px solid var(--on-felt-dim); background: transparent; color: var(--on-felt); border-radius: 12px; padding: 1px 8px;
-    font-size: 0.75rem; cursor: pointer; position: relative; }
-  /* A larger place to tap than the drawn pill (about 20 px tall). */
-  .mini::before { content: ''; position: absolute; inset: -10px -12px; }
+  .mini { border: 1px solid var(--on-felt-dim); background: transparent; color: var(--on-felt); border-radius: 15px; padding: 3px 10px;
+    min-height: 30px; font-size: 0.8125rem; cursor: pointer; position: relative; }
+  /* A larger place to tap than the drawn pill (30 px tall): 44 px total vertical hit area. */
+  .mini::before { content: ''; position: absolute; inset: -7px -10px; }
   .mini-text { font-size: 0.75rem; color: var(--on-felt-dim); }
   .sheet { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 12px;
     background: rgba(0, 0, 0, 0.35); overflow: auto; }

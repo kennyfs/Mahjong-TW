@@ -170,7 +170,7 @@
   .text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .row { display: flex; align-items: center; gap: 12px; padding: 8px 16px; min-height: 56px; }
   .name { display: flex; align-items: center; gap: 2px; min-width: 0; }
-  .info { flex: none; width: 36px; min-height: 36px; border-radius: 18px; color: var(--on-surface-variant); }
+  .info { flex: none; width: 44px; min-height: 44px; border-radius: 22px; margin: -6px 0; color: var(--on-surface-variant); }
   .help { margin: 0; line-height: 1.6; white-space: pre-line; }
   .mark { align-self: flex-start; padding: 1px 8px; border-radius: 8px; background: var(--tertiary-container); color: var(--on-tertiary-container); }
   .mark.off { visibility: hidden; }
