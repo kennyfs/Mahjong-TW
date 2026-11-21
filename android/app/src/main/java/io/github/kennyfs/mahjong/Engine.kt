@@ -89,7 +89,12 @@ object Engine {
   /** One request line to one answer line, errors as {"error": ...}: for the battle rooms' EngineClient. NET_SPEC in it
    *  (a nearby room's bots) names the network's file. */
   suspend fun raw(line: String): String = withContext(dispatcher) {
-    nativeHandle(handle, if (MODEL_MARK in line) line.replace(MODEL_MARK, model()) else line)
+    val req = try {
+      if (MODEL_MARK in line) line.replace(MODEL_MARK, model()) else line
+    } catch (e: EngineException) {
+      return@withContext buildJsonObject { put("error", e.message ?: "The network could not be loaded") }.toString()
+    }
+    nativeHandle(handle, req)
   }
 
   /** An answer as the app's type; one that does not read is an engine error like any other (the screens catch those). */

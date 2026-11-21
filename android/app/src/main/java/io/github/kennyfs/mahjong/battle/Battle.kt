@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import io.github.kennyfs.mahjong.Action
 import io.github.kennyfs.mahjong.BattleGroup
 import io.github.kennyfs.mahjong.CalloutClock
+import io.github.kennyfs.mahjong.Claims
 import io.github.kennyfs.mahjong.Engine
 import io.github.kennyfs.mahjong.EngineJson
 import io.github.kennyfs.mahjong.GameRecord
@@ -115,6 +116,10 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
   private var host: NearbyHost? = null
   private var finder: NearbyFinder? = null
   private var retry: Job? = null
+  private var retrySeq = 0
+  private var forcedJob: Job? = null
+  private var session = 0
+  private val recording = HashSet<String>()
 
   private fun str(id: Int, vararg args: Any) = context.getString(id, *args)
   val playerName: String get() = settings.name.trim().ifEmpty { str(R.string.battle_default_name, 1000 + (android.os.Process.myUid() % 9000)) }
@@ -278,14 +283,13 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
    *  player's pace (bot_turn), as in practice. A win or a concealed kong it may make waits for the player. */
   private fun forcedDiscard() {
     val tb = table ?: return
-    val v = tb.view
-    if (!v.myTurn || v.phase != "self" || v.legal.size != 1 || v.legal[0].type != "discard") return
-    if (v.position.players.getOrNull(tb.seat)?.declared == null) return
-    val a = v.legal[0]
-    scope.launch {
+    val a = Claims.forcedDiscardAction(tb.view, tb.seat) ?: return
+    val sess = session
+    forcedJob?.cancel()
+    forcedJob = scope.launch {
       delay(Timing.ms("bot_turn"))
       val now = table
-      if (now != null && now.hand == tb.hand && now.step == tb.step && now.view.myTurn) act(a)
+      if (sess == session && now != null && now.hand == tb.hand && now.step == tb.step && now.view.myTurn) act(a)
     }
   }
 
@@ -308,8 +312,14 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
   fun dismiss() = clear()
 
   private fun clear() {
+    session++
+    retrySeq++
     retry?.cancel()
+    retry = null
+    forcedJob?.cancel()
+    forcedJob = null
     reconnecting = false
+    CalloutClock.release()
     link?.close()
     link = null
     joined = null
@@ -325,6 +335,7 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
     busy = false
     beforeAct = null
     views.clear()
+    recording.clear()
     via = "online"
     host?.stop()
     host = null
@@ -343,6 +354,9 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
         me = msg.you
         busy = false
         reconnecting = false
+        retrySeq++
+        retry?.cancel()
+        retry = null
         // A resume tells everything again.
         pending = Resume(msg.room, msg.token)
       }
@@ -406,23 +420,30 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
   private fun showViews() {
     if (showingViews) return
     showingViews = true
+    val sess = session
     scope.launch {
       try {
-        while (views.isNotEmpty()) {
+        while (sess == session && views.isNotEmpty()) {
           val (msg, at) = views.removeFirst()
           val v = runCatching { EngineJson.decodeFromJsonElement<View>(msg.view) }.getOrNull() ?: continue
           val cur = table
+          // Drop stale or duplicate incremental updates so events are never appended twice.
+          if (isStaleTableView(cur, msg.hand, msg.step, msg.full)) continue
           if (cur == null || cur.hand != msg.hand) CalloutClock.resetSeen()
           val view = if (msg.full || cur == null || cur.hand != msg.hand) v else v.copy(events = cur.view.events + v.events)
+          forcedJob?.cancel()
+          forcedJob = null
           table = MyTable(msg.hand, msg.seat, msg.step, msg.seats, view, msg.remainingMs?.takeIf { view.myTurn }?.let { at + it })
           beforeAct = null
           forcedDiscard()
           // (The table looks at it a composition later: what it brings is up then.) A view that comes meanwhile waits.
           CalloutClock.settle(view.eventCount)
+          if (sess != session) break
           CalloutClock.done()
         }
       } finally {
         showingViews = false
+        if (views.isNotEmpty()) showViews()
       }
     }
   }
@@ -444,20 +465,24 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
     if (reconnecting) return
     reconnecting = true
     busy = true
+    val sess = session
+    val seq = ++retrySeq
+    retry?.cancel()
     retry = scope.launch {
       for (attempt in 0 until 6) {
         delay(1000L shl minOf(attempt, 3))
-        if (!reconnecting) return@launch
+        if (!reconnecting || sess != session || seq != retrySeq) return@launch
         pending = Resume(j.room, j.token)
         open { WsLink(u, this@Battle) }
-        val mine = this@Battle.link
+        val mine = this@Battle.link ?: continue
         delay(8000)
-        if (!reconnecting) return@launch
+        if (!reconnecting || sess != session || seq != retrySeq) return@launch
         if (this@Battle.link === mine) {
           this@Battle.link = null
-          mine?.close()
+          mine.close()
         }
       }
+      if (sess != session || seq != retrySeq) return@launch
       reconnecting = false
       busy = false
       roomGone(str(R.string.battle_lost))
@@ -465,6 +490,10 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
   }
 
   private fun roomGone(message: String?) {
+    retrySeq++
+    retry?.cancel()
+    retry = null
+    reconnecting = false
     message?.let(onError)
     link?.close()
     link = null
@@ -483,20 +512,26 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
   private suspend fun recordHands(list: List<HandOutcome>) {
     val r = room ?: return
     val group = battleId ?: return
+    val myId = me
     for (o in list) {
       val index = o.index + 1
-      if (records.hands.any { it.group == group && it.index == index }) continue
+      val key = "$group/$index"
+      if (key in recording || records.hands.any { it.group == group && it.index == index }) continue
       val tp = myTable(o) ?: continue
-      val seat = tp.seats.indexOf(me)
+      val seat = tp.seats.indexOf(myId)
       if (seat < 0) continue
+      // Snapshot seat names and bots before awaiting the engine (the player may leave the room meanwhile).
+      val seatNames = namesAt(tp.seats, you = false)
+      val bots = tp.seats.map { id -> if (r.players.any { it.id == id && !it.bot }) null else r.settings.bot }
+      val kind = if (r.settings.mode == Mode.TABLE) RecordKind.table else RecordKind.contest
+      recording += key
       try {
         val game = EngineJson.decodeFromJsonElement<GameRecord>(tp.record)
         val v = Engine.view(game, seat, 0, reveal = true)
         val result = v.result ?: continue
-        val bots = tp.seats.map { id -> if (r.players.any { it.id == id && !it.bot }) null else r.settings.bot }
-        records.add(Records.handRecord(if (r.settings.mode == Mode.TABLE) RecordKind.table else RecordKind.contest, game, result, seat,
-          namesAt(tp.seats, you = false), bots, group, index))
+        records.add(Records.handRecord(kind, game, result, seat, seatNames, bots, group, index))
       } catch (e: Exception) {
+        recording -= key
         // Not kept: the engine could not replay it.
       }
     }
@@ -530,6 +565,12 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
   companion object {
     val TIME_LIMITS = listOf(5, 10, 15, 20, 30, 60)
     val HAND_CHOICES = listOf(1, 2, 4, 8, 12, 16)
+
+    /** Whether an incoming TableView is stale or a duplicate incremental update relative to `cur`. */
+    internal fun isStaleTableView(cur: MyTable?, hand: Int, step: Int, full: Boolean): Boolean {
+      if (cur == null || full) return false
+      return hand < cur.hand || (hand == cur.hand && step <= cur.step)
+    }
   }
 }
 

@@ -46,7 +46,8 @@ interface LinkListener {
   fun onDown(link: Link, reason: String)
 }
 
-private val main = Handler(Looper.getMainLooper())
+/** Made when first used so pure unit tests (serverUrl, isLocalNetwork) can load LinksKt without Android. */
+private val main by lazy { Handler(Looper.getMainLooper()) }
 
 private fun decode(text: String): ServerMsg? = runCatching { BattleJson.decodeFromString(ServerMsg.serializer(), text) }.getOrNull()
 
@@ -59,18 +60,24 @@ private fun encode(msg: ClientMsg) = BattleJson.encodeToString(ClientMsg.seriali
 fun serverUrl(input: String): String? {
   var s = input.trim()
   if (s.isEmpty() || s.any { it.isWhitespace() }) return null
+  val rawAuthority = s.substringBefore('/')
+  val rawHost = if (rawAuthority.startsWith("[")) rawAuthority.substringAfter("[").substringBefore("]") else rawAuthority.substringBefore(":")
   s = when {
     s.startsWith("wss://") || s.startsWith("ws://") -> s
     s.startsWith("https://") -> "wss://" + s.removePrefix("https://")
     s.startsWith("http://") -> "ws://" + s.removePrefix("http://")
     // A server on this device or the emulator's host (testing): no TLS.
-    s.substringBefore('/').substringBefore(':') in setOf("localhost", "127.0.0.1", "10.0.2.2") -> "ws://$s"
+    rawHost in setOf("localhost", "127.0.0.1", "10.0.2.2", "::1") -> "ws://$s"
     else -> "wss://$s"
   }
   val rest = s.substringAfter("://")
-  val host = rest.substringBefore("/").substringBefore(":").substringBefore("]").removePrefix("[")
+  val authority = rest.substringBefore("/")
+  val host = if (authority.startsWith("[")) {
+    if (']' !in authority) return null
+    authority.substringAfter("[").substringBefore("]")
+  } else authority.substringBefore(":")
   if (host.isEmpty()) return null
-  if (s.startsWith("ws://") && host !in setOf("localhost", "127.0.0.1", "10.0.2.2")) return null
+  if (s.startsWith("ws://") && host !in setOf("localhost", "127.0.0.1", "10.0.2.2", "::1")) return null
   return if ('/' in rest) s else "$s/ws"
 }
 

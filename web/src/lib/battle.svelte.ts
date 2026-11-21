@@ -5,7 +5,8 @@
 // A port of Thirteen's battle.svelte.ts to mahjong's tables; the app's battle screen is to follow it (docs/app.md).
 import { tick } from 'svelte';
 import { shared } from './app.svelte';
-import { calloutsDone } from './callouts';
+import { calloutsDone, calloutsSkipped } from './callouts';
+import { forcedDiscardAction } from './claims';
 import * as engine from './engine';
 import { t } from './i18n.svelte';
 import { handRecord, newId, records } from './records.svelte';
@@ -82,7 +83,10 @@ export function serverUrl(input: string): string | null {
   // A name alone: TLS, but not on this machine (a server run here, or reached through an SSH tunnel).
   else if (!s.startsWith('wss://') && !s.startsWith('ws://')) s = (/^(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(s) ? 'ws://' : 'wss://') + s;
   const rest = s.slice(s.indexOf('://') + 3);
-  const host = rest.split('/')[0].replace(/^\[/, '').split(/[\]:]/)[0];
+  const authority = rest.split('/')[0];
+  const host = authority.startsWith('[')
+    ? (authority.includes(']') ? authority.slice(1, authority.indexOf(']')) : '')
+    : authority.split(':')[0];
   if (!host) return null;
   // Without TLS only on this machine, or from a page itself served without it (a server on the local network).
   const local = ['localhost', '127.0.0.1', '::1'].includes(host);
@@ -151,6 +155,11 @@ class Battle {
   /** The room's views not shown yet (when each came), and whether they are being shown (showViews). */
   private views: { msg: Extract<ServerMsg, { t: 'table' }>; at: number }[] = [];
   private showingViews = false;
+  private session = 0;
+  private retrySeq = 0;
+  private retryCancel: (() => void) | undefined;
+  private forcedTimer: (() => void) | undefined;
+  private recording = new Set<string>();
 
   constructor() {
     let d = load<string>(DEFAULT_NAME_KEY, '');
@@ -297,13 +306,14 @@ class Battle {
   private forcedDiscard() {
     const tb = this.table;
     if (!tb) return;
-    const v = tb.view;
-    if (!v.my_turn || v.phase !== 'self' || v.legal.length !== 1 || v.legal[0].type !== 'discard') return;
-    if (!v.position.players[tb.seat]?.declared) return;
-    const a = v.legal[0];
-    later(() => {
+    const a = forcedDiscardAction(tb.view, tb.seat);
+    if (!a) return;
+    const sess = this.session;
+    this.forcedTimer?.();
+    this.forcedTimer = later(() => {
+      this.forcedTimer = undefined;
       const now = this.table;
-      if (now && now.hand === tb.hand && now.step === tb.step && now.view.my_turn) this.act(a);
+      if (sess === this.session && now && now.hand === tb.hand && now.step === tb.step && now.view.my_turn) this.act(a);
     }, ms('bot_turn'));
   }
 
@@ -325,7 +335,12 @@ class Battle {
 
   private clear() {
     saveSeat(null);
+    this.session++;
+    this.cancelRetry();
+    this.forcedTimer?.();
+    this.forcedTimer = undefined;
     this.reconnecting = false;
+    calloutsSkipped();
     const ws = this.ws;
     this.ws = null;
     ws?.close();
@@ -342,6 +357,27 @@ class Battle {
     this.busy = false;
     this.beforeAct = null;
     this.views = [];
+    this.recording.clear();
+  }
+
+  private cancelRetry() {
+    this.retrySeq++;
+    this.retryCancel?.();
+    this.retryCancel = undefined;
+  }
+
+  private retryWait(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        this.retryCancel = undefined;
+        resolve();
+      };
+      const stop = later(finish, ms);
+      this.retryCancel = () => { stop(); finish(); };
+    });
   }
 
   // ---- What the room says ----
@@ -357,6 +393,7 @@ class Battle {
         this.me = msg.you;
         this.busy = false;
         this.reconnecting = false;
+        this.cancelRetry();
         // A resume tells everything again.
         this.pending = { t: 'resume', room: msg.room, token: msg.token };
         this.keepSeat();
@@ -431,14 +468,19 @@ class Battle {
   private async showViews() {
     if (this.showingViews) return;
     this.showingViews = true;
+    const sess = this.session;
     try {
-      while (this.views.length) {
+      while (sess === this.session && this.views.length) {
         const { msg, at } = this.views.shift()!;
         const cur = this.table;
+        // Drop stale or duplicate incremental updates so events are never appended twice.
+        if (isStaleTableView(cur, msg.hand, msg.step, msg.full)) continue;
         // A view carries the events since the last one: they are added to what was shown (all of them when full).
         const view = msg.full || !cur || cur.hand !== msg.hand
           ? msg.view
           : { ...msg.view, events: [...cur.view.events, ...msg.view.events] };
+        this.forcedTimer?.();
+        this.forcedTimer = undefined;
         this.table = {
           hand: msg.hand, seat: msg.seat, step: msg.step, seats: msg.seats, view,
           deadline: msg.remainingMs != null && view.my_turn ? at + msg.remainingMs : null,
@@ -447,10 +489,12 @@ class Battle {
         this.forcedDiscard();
         // (The table's effects have run by then: what this view brings is up.) A view that comes meanwhile waits.
         await tick();
+        if (sess !== this.session) break;
         await calloutsDone();
       }
     } finally {
       this.showingViews = false;
+      if (this.views.length) void this.showViews();
     }
   }
 
@@ -470,20 +514,25 @@ class Battle {
     this.reconnecting = true;
     this.busy = true;
     const url = this.resumeUrl ?? serverUrl(this.server);
+    const sess = this.session;
+    this.cancelRetry();
+    const seq = this.retrySeq;
     (async () => {
       for (let attempt = 0; attempt < 6 && url; attempt++) {
-        await sleep(1000 * 2 ** Math.min(attempt, 3));
-        if (!this.reconnecting) return;
+        await this.retryWait(1000 * 2 ** Math.min(attempt, 3));
+        if (!this.reconnecting || sess !== this.session || seq !== this.retrySeq) return;
         this.pending = { t: 'resume', room: j.room, token: j.token };
         this.open(url);
         const mine = this.ws;
-        await sleep(8000);
-        if (!this.reconnecting) return;
+        if (!mine) continue;
+        await this.retryWait(8000);
+        if (!this.reconnecting || sess !== this.session || seq !== this.retrySeq) return;
         if (this.ws === mine) {
           this.ws = null;
-          mine?.close();
+          mine.close();
         }
       }
+      if (sess !== this.session || seq !== this.retrySeq) return;
       this.reconnecting = false;
       this.busy = false;
       this.roomGone(t('battle_lost'));
@@ -493,6 +542,8 @@ class Battle {
   /** The room is gone; what it showed stays when anything was played. */
   private roomGone(message: string | null) {
     saveSeat(null);
+    this.cancelRetry();
+    this.reconnecting = false;
     if (message) fail(message);
     const ws = this.ws;
     this.ws = null;
@@ -517,23 +568,31 @@ class Battle {
   private async recordHands(list: HandOutcome[]) {
     const r = this.room;
     const group = this.battleId;
+    const myId = this.me;
     if (!r || !group) return;
     for (const o of list) {
       const index = o.index + 1;
-      if (records.hands.some((h) => h.group === group && h.index === index)) continue;
+      const key = `${group}/${index}`;
+      if (this.recording.has(key) || records.hands.some((h) => h.group === group && h.index === index)) continue;
       const tp = this.myTable(o);
-      const seat = tp ? tp.seats.indexOf(this.me) : -1;
+      const seat = tp ? tp.seats.indexOf(myId) : -1;
       if (!tp || seat < 0) continue;
+      // Snapshot seat names and bots before awaiting the engine (the player may leave the room meanwhile).
+      const seatNames = this.namesAt(tp.seats, false);
+      const bots = tp.seats.map((id) => {
+        const p = r.players.find((x) => x.id === id);
+        return p && !p.bot ? null : r.settings.bot === 'net' ? NET_BOT : r.settings.bot;
+      });
+      const kind = r.settings.mode === 'TABLE' ? 'table' : 'contest';
+      this.recording.add(key);
       try {
         const v = await engine.view(tp.record, seat, 0, true);
         if (!v.result) continue;
-        const bots = tp.seats.map((id) => {
-          const p = r.players.find((x) => x.id === id);
-          return p && !p.bot ? null : r.settings.bot === 'net' ? NET_BOT : r.settings.bot;
-        });
-        records.add(handRecord(r.settings.mode === 'TABLE' ? 'table' : 'contest', tp.record, v.result, seat,
-          this.namesAt(tp.seats, false), bots, group, index));
-      } catch { /* not kept: the engine could not replay it */ }
+        records.add(handRecord(kind, tp.record, v.result, seat, seatNames, bots, group, index));
+      } catch {
+        this.recording.delete(key);
+        /* not kept: the engine could not replay it */
+      }
     }
     this.saveGroup();
   }
@@ -552,6 +611,12 @@ class Battle {
       totals: people.map((p) => p.total), hands: this.outcomes.length, left: left || undefined,
     });
   }
+}
+
+/** Whether an incoming TableView is stale or a duplicate incremental update relative to `cur`. */
+export function isStaleTableView(cur: Pick<MyTable, 'hand' | 'step'> | null, hand: number, step: number, full: boolean): boolean {
+  if (!cur || full) return false;
+  return hand < cur.hand || (hand === cur.hand && step <= cur.step);
 }
 
 /** The seat in a room, kept in this tab (sessionStorage) for a reload. */
@@ -573,8 +638,6 @@ function loadSeat(): Seat | null {
     return null;
   }
 }
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function fail(message: string) { shared.error = message; }
 
