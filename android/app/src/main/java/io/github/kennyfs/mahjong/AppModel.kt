@@ -37,10 +37,10 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
     FxClock.enabled = { android.animation.ValueAnimator.areAnimatorsEnabled() }
     StoreMode.rules?.let { s.rules = it; s.persist() }
   }
-  val records = Records(app)
+  var error by mutableStateOf<String?>(null)
+  val records = Records(app) { msg -> viewModelScope.launch { error = msg } }
   /** The AI coach: the player's hands read by a language model with the player's key (coach/Coach.kt). */
   val coach = io.github.kennyfs.mahjong.coach.Coach(app, viewModelScope, records)
-  var error by mutableStateOf<String?>(null)
 
   private fun names() = listOf(app.getString(R.string.you)) + (1..3).map { app.getString(R.string.cpu_n, it) }
   val practice = Practice(app, viewModelScope, settings, records, ::names) { error = app.getString(R.string.error_engine, it) }

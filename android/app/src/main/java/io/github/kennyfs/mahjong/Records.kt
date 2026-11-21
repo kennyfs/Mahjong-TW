@@ -81,7 +81,7 @@ data class BattleGroup(
 /** The records as exported (the records page's share and save buttons): the same on the web page. */
 @Serializable
 data class ExportedRecords(
-  val app: String, val version: String, val time: String, val hands: List<HandRecord>, val battles: List<BattleGroup>,
+  val app: String, val version: String = "", val time: String = "", val hands: List<HandRecord>, val battles: List<BattleGroup> = emptyList(),
 )
 
 /** What an import did (Records.import): the hands added, the hands already here, the oldest past MAX not kept. */
@@ -91,16 +91,21 @@ data class Imported(val added: Int, val had: Int, val dropped: Int)
 class BadRecordsFile(cause: Throwable? = null) : IllegalArgumentException(cause)
 
 @Serializable
-private data class StoredRecords(val hands: List<HandRecord> = emptyList(), val battles: List<BattleGroup> = emptyList())
+internal data class StoredRecords(val hands: List<HandRecord> = emptyList(), val battles: List<BattleGroup> = emptyList())
 
-class Records(context: Context) {
+class Records(private val context: Context, private val onError: (String) -> Unit = {}) {
   private val file = File(context.filesDir, "records.json")
-  private val stored = runCatching { EngineJson.decodeFromString<StoredRecords>(file.readText()) }.getOrDefault(StoredRecords())
+  private val loaded = loadFile(file)
+  private val stored = loaded.first
 
   var hands by mutableStateOf(stored.hands)
     private set
   var battles by mutableStateOf(stored.battles)
     private set
+
+  init {
+    if (loaded.second) onError(context.getString(R.string.records_load_failed))
+  }
 
   fun add(r: HandRecord) {
     if (hands.any { it.id == r.id }) return
@@ -171,14 +176,38 @@ class Records(context: Context) {
 
   private fun write() {
     val r = toWrite.getAndSet(null) ?: return
-    runCatching {
-      val tmp = File(file.parentFile, "records.json.tmp")
-      tmp.writeText(EngineJson.encodeToString(r))
-      tmp.renameTo(file)
-    }
+    val err = writeFile(file, r)
+    if (err != null) onError(context.getString(R.string.records_write_failed, err))
   }
 
   companion object {
+    /** Reads `file`, backing it up to `<name>.corrupt` if it exists but cannot be parsed so a later save does not
+     *  silently destroy the unreadable data. Returns the records and whether the file was corrupt. */
+    internal fun loadFile(file: File): Pair<StoredRecords, Boolean> {
+      if (!file.exists()) return StoredRecords() to false
+      return try {
+        EngineJson.decodeFromString<StoredRecords>(file.readText()) to false
+      } catch (_: Exception) {
+        val backup = File(file.parentFile, "${file.name}.corrupt")
+        runCatching { file.copyTo(backup, overwrite = true) }
+        StoredRecords() to true
+      }
+    }
+
+    /** Writes `r` atomically via a temporary file; returns an error message on failure, null on success. */
+    internal fun writeFile(file: File, r: StoredRecords): String? {
+      val tmp = File(file.parentFile, "${file.name}.tmp")
+      return try {
+        tmp.writeText(EngineJson.encodeToString(r))
+        if (!tmp.renameTo(file)) {
+          tmp.delete()
+          "rename failed"
+        } else null
+      } catch (e: Exception) {
+        tmp.delete()
+        e.message ?: e.javaClass.simpleName
+      }
+    }
     /** The thread the records are written on, one write after another. */
     private val writer = Executors.newSingleThreadExecutor { Thread(it, "records").apply { isDaemon = true } }
 

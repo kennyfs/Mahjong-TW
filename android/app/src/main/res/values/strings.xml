@@ -275,6 +275,8 @@
   <string name="records_save_failed">紀錄檔儲存失敗，請換個位置再試。</string>
   <string name="records_import_failed">無法讀取紀錄檔，請確認檔案還在且沒有損壞後再試一次。</string>
   <string name="records_import_bad">這個檔案不是台灣麻將匯出的紀錄檔。</string>
+  <string name="records_load_failed">之前的紀錄檔損壞了，已備份為 records.json.corrupt，目前從空白紀錄開始。</string>
+  <string name="records_write_failed">紀錄存不進去（%1$s），請確認儲存空間是否足夠。</string>
   <string name="records_dev_count">共 %1$d 局</string>
   <string name="records_reset_scores">分數歸零</string>
   <string name="records_reset_scores_confirm">把練習的分數歸零，從東風圈第 1 局重新開始？目前這場練習會放棄，紀錄不會刪除。</string>

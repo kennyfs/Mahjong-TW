@@ -84,8 +84,11 @@ export function parseRecords(text: string): { hands: HandRecord[]; battles: Batt
   }
   if (!o || typeof o !== 'object' || o.app !== 'mahjong-tw' || !Array.isArray(o.hands)) return null;
   const isHand = (h: any) => !!h && typeof h.id === 'string' && typeof h.time === 'string' && !!h.game && typeof h.game === 'object'
-    && typeof h.me === 'number' && Array.isArray(h.points) && Array.isArray(h.names);
-  const isBattle = (b: any) => !!b && typeof b.id === 'string' && typeof b.time === 'string' && Array.isArray(b.names);
+    && typeof h.game.rules === 'string' && Array.isArray(h.game.actions)
+    && typeof h.me === 'number' && Array.isArray(h.points) && Array.isArray(h.names)
+    && Array.isArray(h.winners) && Array.isArray(h.bots);
+  const isBattle = (b: any) => !!b && typeof b.id === 'string' && typeof b.time === 'string' && Array.isArray(b.names)
+    && Array.isArray(b.totals) && typeof b.me === 'number';
   return { hands: o.hands.filter(isHand), battles: Array.isArray(o.battles) ? o.battles.filter(isBattle) : [] };
 }
 
@@ -162,7 +165,9 @@ class Records {
     }
     const kept = list.length;
     this.hands = list;
-    this.persist();
+    // Flush synchronously so storage-full eviction happens now and `room`/`dropped` reflect what actually fit.
+    this.unsaved = true;
+    this.flush();
     this.battles = [...this.battles, ...freshBattles].sort((a, b) => when(a.time) - when(b.time));
     save(KEYS.battles, this.battles);
     return { added: fresh.length, had, dropped: all - this.hands.length, room: this.hands.length < kept };
@@ -205,12 +210,12 @@ class Records {
   private flush() {
     if (!this.unsaved) return;
     this.unsaved = false;
-    if (!save(KEYS.records, this.hands)) {
-      // Out of room: drop the oldest half that are not favorites and try again.
+    while (!save(KEYS.records, this.hands)) {
+      // Out of room: drop the oldest half that are not favorites and try again until it fits.
       const plain = this.hands.filter((h) => !h.fav);
+      if (!plain.length) break;
       const drop = new Set(plain.slice(0, Math.ceil(plain.length / 2)).map((h) => h.id));
       this.hands = this.hands.filter((h) => !drop.has(h.id));
-      save(KEYS.records, this.hands);
     }
   }
 }

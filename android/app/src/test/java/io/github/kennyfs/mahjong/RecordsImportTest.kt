@@ -2,10 +2,14 @@ package io.github.kennyfs.mahjong
 
 import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 /** Records.parse and Records.merge: a records file read, and its hands added to the ones kept. */
 class RecordsImportTest {
@@ -76,5 +80,38 @@ class RecordsImportTest {
     assertThrows(BadRecordsFile::class.java) { Records.parse("{\"hands\": []}") }
     assertThrows(BadRecordsFile::class.java) { Records.parse("""{"app": "thirteen", "version": "1", "time": "", "hands": [], "battles": []}""") }
     assertTrue(Records.parse("""{"app": "mahjong-tw", "version": "1", "time": "", "hands": [], "battles": [], "more": 1}""").hands.isEmpty())
+    // Minimal files omitting version/time/battles still load, matching the web page's parseRecords.
+    val minimal = Records.parse("""{"app": "mahjong-tw", "hands": []}""")
+    assertTrue(minimal.hands.isEmpty())
+    assertTrue(minimal.battles.isEmpty())
+  }
+
+  @Test fun corruptFileIsBackedUpAndValidFileRoundTrips() {
+    val dir = Files.createTempDirectory("records-test").toFile()
+    try {
+      val file = File(dir, "records.json")
+      // Missing file: empty, not corrupt.
+      val (empty, corrupt0) = Records.loadFile(file)
+      assertTrue(empty.hands.isEmpty())
+      assertFalse(corrupt0)
+
+      // Corrupt file: backed up to records.json.corrupt before returning empty.
+      file.writeText("{truncated json")
+      val (afterCorrupt, corrupt1) = Records.loadFile(file)
+      assertTrue(afterCorrupt.hands.isEmpty())
+      assertTrue(corrupt1)
+      val backup = File(dir, "records.json.corrupt")
+      assertTrue(backup.exists())
+      assertEquals("{truncated json", backup.readText())
+
+      // Valid write and reload round-trip.
+      val stored = StoredRecords(listOf(hand("a", "2026-11-10T10:00:00Z")), listOf(battle("g", "2026-11-10T10:00:00Z")))
+      assertNull(Records.writeFile(file, stored))
+      val (reloaded, corrupt2) = Records.loadFile(file)
+      assertFalse(corrupt2)
+      assertEquals(stored, reloaded)
+    } finally {
+      dir.deleteRecursively()
+    }
   }
 }
