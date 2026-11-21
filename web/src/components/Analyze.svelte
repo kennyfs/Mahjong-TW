@@ -27,6 +27,7 @@
   import type { Analysis, GameRecord, Meld, WhatIf } from '../lib/types';
   import { ui } from '../lib/ui.svelte';
   import DecisionPanel from './DecisionPanel.svelte';
+  import Dialog from './Dialog.svelte';
   import Icon from './Icon.svelte';
   import Tile from './Tile.svelte';
   import TitleBar from './TitleBar.svelte';
@@ -323,15 +324,15 @@
 </div>
 
 {#if meldTile}
-  <div class="scrim" role="presentation" onclick={() => (meldTile = null)}></div>
-  <div class="meld-pick" role="dialog" aria-label={t('analysis_meld_pick')}>
-    <div class="title-medium">{t('analysis_meld_pick')}</div>
-    {#if chiOk(meldTile)}<button class="btn tonal" onclick={() => addMeld('chi')}>{t('analysis_chi_from', tileName(meldTile))}</button>{/if}
-    <button class="btn tonal" onclick={() => addMeld('pon')}>{t('analysis_pon_of', tileName(meldTile))}</button>
-    <button class="btn tonal" onclick={() => addMeld('kan')}>{t('analysis_kan_of', tileName(meldTile))}</button>
-    <button class="btn tonal" onclick={() => addMeld('ankan')}>{t('analysis_ankan_of', tileName(meldTile))}</button>
-    <button class="btn text" onclick={() => (meldTile = null)}>{t('cancel')}</button>
-  </div>
+  <Dialog title={t('analysis_meld_pick')} onclose={() => (meldTile = null)}>
+    <div class="meld-pick">
+      {#if chiOk(meldTile)}<button class="btn tonal" onclick={() => addMeld('chi')}>{t('analysis_chi_from', tileName(meldTile))}</button>{/if}
+      <button class="btn tonal" onclick={() => addMeld('pon')}>{t('analysis_pon_of', tileName(meldTile))}</button>
+      <button class="btn tonal" onclick={() => addMeld('kan')}>{t('analysis_kan_of', tileName(meldTile))}</button>
+      <button class="btn tonal" onclick={() => addMeld('ankan')}>{t('analysis_ankan_of', tileName(meldTile))}</button>
+    </div>
+    {#snippet actions()}<button class="btn text" onclick={() => (meldTile = null)}>{t('cancel')}</button>{/snippet}
+  </Dialog>
 {/if}
 {/if}
 
@@ -384,7 +385,5 @@
   .results.stale { opacity: 0.7; }
   .play-row { display: flex; justify-content: flex-end; }
   .whatif { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-  .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 30; }
-  .meld-pick { position: fixed; z-index: 31; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 8px;
-    padding: 20px; border-radius: 20px; background: var(--surface-container-high); min-width: 240px; }
+  .meld-pick { display: flex; flex-direction: column; gap: 8px; min-width: 240px; }
 </style>
