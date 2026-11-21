@@ -87,9 +87,12 @@
   // Out of a room: the entry's first page again.
   $effect(() => { if (page !== 'entry') step = 'home'; });
 
-  // The clock: the time left to decide, and the countdown to the next hand.
+  // The clock: the time left to decide, and the countdown to the next hand (only ticks while a timer is active).
   let now = $state(Date.now());
+  const ticking = $derived(!!table?.deadline || (room?.phase === 'REVIEW' && room.remainingMs != null));
   $effect(() => {
+    if (!ticking) return;
+    now = Date.now();
     const id = setInterval(() => (now = Date.now()), 250);
     return () => clearInterval(id);
   });
