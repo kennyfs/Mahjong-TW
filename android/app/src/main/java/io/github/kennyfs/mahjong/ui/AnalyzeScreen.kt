@@ -48,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -149,12 +150,12 @@ fun AnalyzeScreen(vm: AppModel) {
     f()
     undo = back?.let { Undo(text, it, ed.look()) }
   }
-  var meldTile by remember { mutableStateOf<String?>(null) }
-  var showTables by remember { mutableStateOf(false) }
+  var meldTile by rememberSaveable { mutableStateOf<String?>(null) }
+  var showTables by rememberSaveable { mutableStateOf(false) }
   /** The melds, flowers and discards of the table (a tall window folds them away while they are empty). */
-  var tableOpen by remember { mutableStateOf(false) }
+  var tableOpen by rememberSaveable { mutableStateOf(false) }
   /** A tall window: the palette can be put away to read the figures (it is, when a whole position comes from a review). */
-  var paletteOpen by remember { mutableStateOf(ed.hand.size != ed.handSize || (if (ed.mode == EditMode.SELF) ed.drawn else ed.claimTile) == null) }
+  var paletteOpen by rememberSaveable { mutableStateOf(ed.hand.size != ed.handSize || (if (ed.mode == EditMode.SELF) ed.drawn else ed.claimTile) == null) }
 
   val seatName = listOf(stringResource(R.string.analysis_seat_you), stringResource(R.string.rel_next), stringResource(R.string.rel_opposite),
     stringResource(R.string.rel_prev))

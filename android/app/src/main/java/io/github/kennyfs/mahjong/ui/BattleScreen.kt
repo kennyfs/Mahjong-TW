@@ -123,7 +123,7 @@ fun BattleScreen(vm: AppModel) {
   val room = battle.room
   val table = battle.table
   val handOver = table?.view?.result != null
-  var confirmLeave by remember { mutableStateOf(false) }
+  var confirmLeave by rememberSaveable { mutableStateOf(false) }
   val page = when {
     room == null -> 0
     room.phase == Phase.LOBBY && !battle.finished -> 1
@@ -157,7 +157,7 @@ private fun EntryPage(vm: AppModel) {
   val settings = vm.settings
   val context = LocalContext.current
   val res = LocalResources.current
-  var editServer by remember { mutableStateOf(settings.server.isBlank()) }
+  var editServer by rememberSaveable { mutableStateOf(settings.server.isBlank()) }
   // What to do once the permissions asked for are granted, and what to say if they are not.
   var then by remember { mutableStateOf<(() -> Unit)?>(null) }
   var denied by remember { mutableIntStateOf(R.string.battle_permissions) }

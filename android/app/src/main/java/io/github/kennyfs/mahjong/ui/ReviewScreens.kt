@@ -177,7 +177,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
   var showAll by rememberSaveable { mutableStateOf(false) }
   var showResult by rememberSaveable(rec.id) { mutableStateOf(false) }
   /** A phone: the list in place of the table. */
-  var panelOpen by remember { mutableStateOf(false) }
+  var panelOpen by rememberSaveable(rec.id) { mutableStateOf(false) }
   var view by remember(rec.id) { mutableStateOf<View?>(null) }
   var final by remember(rec.id) { mutableStateOf<View?>(null) }
   var rev by remember(rec.id) { mutableStateOf<Review?>(null) }
@@ -277,7 +277,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
     if (mine != null && v != null && hasNet) Explain.explain(res, mine.analysis, mine.played, v, unit) else null
   }
   var explaining by rememberSaveable { mutableStateOf(false) }
-  var tipsOpen by remember { mutableStateOf(false) }
+  var tipsOpen by rememberSaveable { mutableStateOf(false) }
   val deciding = if (step < n) actions[step].let { (s, a) -> s to fullAction(a) } else null
   /** What the step's line adds to the action: who dealt in to a win; for a claim that was not made, whose came first. */
   val decidingNote = if (deciding == null) "" else {

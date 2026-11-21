@@ -469,9 +469,9 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
   val scope = rememberCoroutineScope()
   var full by remember { mutableStateOf<RulesInfo?>(null) }
   var presets by remember { mutableStateOf<RulesInfo?>(null) }
-  var advanced by remember { mutableStateOf(false) }
+  var advanced by rememberSaveable { mutableStateOf(false) }
   /** The parameter whose explanation is open (in a dialog, so that the page keeps its height). */
-  var helped by remember { mutableStateOf<String?>(null) }
+  var helped by rememberSaveable { mutableStateOf<String?>(null) }
   val c = settings.rules
   LaunchedEffect(c) {
     try {

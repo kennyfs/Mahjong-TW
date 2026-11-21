@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
@@ -35,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
@@ -152,7 +155,7 @@ fun DecisionPanel(
   val dim = cs.onSurfaceVariant
   val best = analysis.best ?: 0
   val rows = analysis.actions.indices.sortedWith(compareBy({ if (it == played) 0 else 1 }, { costOf(analysis, it) }, { it }))
-  var help by remember { mutableStateOf(false) }
+  var help by rememberSaveable { mutableStateOf(false) }
   val notable = notableOf(analysis, unit)
   val playedCost = if (played >= 0) costOf(analysis, played) else 0.0
   val relative = listOf(stringResource(R.string.rel_next), stringResource(R.string.rel_opposite), stringResource(R.string.rel_prev))
@@ -228,7 +231,7 @@ fun DecisionPanel(
       onDismissRequest = { help = false },
       confirmButton = { TextButton(onClick = { help = false }) { Text(stringResource(R.string.close)) } },
       title = { Text(stringResource(R.string.list_help)) },
-      text = { Text(stringResource(R.string.list_help_text), style = MaterialTheme.typography.bodyLarge) },
+      text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(stringResource(R.string.list_help_text), style = MaterialTheme.typography.bodyLarge) } },
     )
     // The row of the tile chosen in the hand comes into sight, kept off the list's edges by a fifth of the window's
     // height (the web page keeps it within 20% to 80% of the list's: lib/scroll.ts).

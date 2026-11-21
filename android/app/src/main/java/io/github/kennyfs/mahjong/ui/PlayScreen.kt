@@ -85,7 +85,7 @@ fun PlayScreen(vm: AppModel) {
   val practice = vm.practice
   val settings = vm.settings
   val names = listOf(stringResource(R.string.you)) + (1..3).map { stringResource(R.string.cpu_n, it) }
-  var confirmNew by remember { mutableStateOf(false) }
+  var confirmNew by rememberSaveable { mutableStateOf(false) }
   var hideResult by rememberSaveable { mutableStateOf(false) }
   LaunchedEffect(Unit) { if (practice.game == null) practice.resume() }
   val meta = practice.meta
