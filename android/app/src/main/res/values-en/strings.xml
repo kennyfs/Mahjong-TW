@@ -855,7 +855,7 @@
   <string name="explain_tile_number">%1$s (non-suji %2$s, %3$s)</string>
   <string name="explain_seen_none">none seen</string>
   <string name="explain_seen">%1$d seen</string>
-  <string name="explain_deal">Against a ready player %1$s deals in %2$s of the time; %3$s: %4$s.</string>
+  <string name="explain_deal">Against a ready player, %1$s deals in %2$s of the time, compared to %4$s for %3$s.</string>
   <string name="explain_deal_short">%1$s is more dangerous; %2$s is safer.</string>
   <string name="explain_t_defend">Time to defend</string>
   <string name="explain_defend_step">You are %1$s with %2$d tiles left: falling back with %3$s is slower, but your own chance to win is small now and a deal-in costs more.</string>
@@ -874,7 +874,7 @@
   <string name="explain_shape_ryanmen">an open wait</string>
   <string name="explain_shape_lone">a lone tile</string>
   <string name="explain_shape_extra">a spare tile</string>
-  <string name="explain_pair_wait">%2$d more %1$s are unseen: you can pung one from any of three players, or keep the pair as the eye; %3$s waits on one kind, which you must draw or chow from the player before you.</string>
+  <string name="explain_pair_wait">%2$d %1$s left unseen: you can pung from any opponent, or keep the pair as the eye; %3$s waits on only one tile, which you must draw or chow from the player on your left.</string>
   <string name="explain_pair_even">The improving tiles are about even, but a pair can be punged from any of three players and serves as the eye.</string>
   <string name="explain_pair_lone">%1$s does little for the hand; the pair of %2$s can still be punged (%3$d unseen) and serves as the eye.</string>
   <string name="explain_honor_tai">" An honor pung also scores a tai."</string>
@@ -905,9 +905,9 @@
   <string name="explain_lose_tiles">leaves three fewer tiles in your hand for no more wins</string>
   <string name="explain_rule_call_closed">Concealed and three or more away, be choosy with chows; two or fewer away, a call that brings you closer is almost always right.</string>
   <string name="explain_t_call_no">Not worth calling</string>
-  <string name="explain_call_no">This %1$s does not pay: %2$s after it, %3$s without, one step faster; but with three fewer tiles in hand you deal in more often, and win no more often.</string>
-  <string name="explain_call_no_same">This %1$s does not pay: %2$s after it and %2$s without, no faster; with three fewer tiles in hand fewer draws help, and you win less often.</string>
-  <string name="explain_call_no_more">This %1$s does not pay: the improving tiles go from %3$d to %4$d, but you are still %2$s, no faster; with three fewer tiles in hand you win less often.</string>
+  <string name="explain_call_no">This %1$s doesn\'t pay: %2$s after it, %3$s without, one step faster; but with three fewer tiles in hand you deal in more often, and win no more often.</string>
+  <string name="explain_call_no_same">This %1$s doesn\'t pay: %2$s after it and %2$s without, no faster; with three fewer tiles in hand fewer draws help, and you win less often.</string>
+  <string name="explain_call_no_more">This %1$s doesn\'t pay: the improving tiles go from %3$d to %4$d, but you are still %2$s, no faster; with three fewer tiles in hand you win less often.</string>
   <string name="explain_t_pon_honor">Pung the honor</string>
   <string name="explain_pon_honor">Pung %1$s%2$s; even without getting closer, it makes a win likelier.</string>
   <string name="explain_pon_tai">: the pung scores a tai</string>
@@ -954,7 +954,7 @@
   <string name="explain_list_sep">", "</string>
   <string name="explain_t_eff">Tile efficiency</string>
   <string name="explain_eff_steps">Throwing %1$s puts you a step further from ready (%2$s → %3$s); %4$s does not.</string>
-  <string name="explain_eff_more">After throwing %1$s, %2$d improving tiles move you forward; after %3$s only %4$d.</string>
+  <string name="explain_eff_more">Discarding %1$s leaves %2$d improving tiles; %3$s leaves only %4$d.</string>
   <string name="explain_rule_eff">Keep your distance from ready first, then keep the most improving tiles.</string>
   <string name="explain_t_slow">A step back for a better hand</string>
   <string name="explain_slow">%1$s is faster (%2$s), but the neural network would rather throw %3$s and be a step slower (%4$s): you are far from ready, and feeding the others less matters more now.</string>

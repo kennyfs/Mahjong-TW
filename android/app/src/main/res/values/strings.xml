@@ -837,8 +837,8 @@
   <!-- A decision explained by rules (逐手解說, lib/explain.ts and Explain.kt), and the table tips. -->
   <string name="explain_button">解說</string>
   <string name="explain_found">你打得好：這手不照牌效率打才對。</string>
-  <string name="explain_choice">你：%1$s · 建議：%2$s</string>
-  <string name="explain_choice_found">你：%1$s · 牌效率會：%2$s</string>
+  <string name="explain_choice">你：%1$s・建議：%2$s</string>
+  <string name="explain_choice_found">你：%1$s・牌效率：%2$s</string>
   <string name="explain_you">你</string>
   <string name="explain_better">建議</string>
   <string name="explain_eff_choice">牌效率</string>
