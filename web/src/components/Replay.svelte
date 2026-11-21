@@ -303,7 +303,7 @@
       sv = seatView ? { key, view: seatView } : null;
       if (analysis) other = { key, analysis };
       step = k;
-    }, (e) => { if (loaded === r.id) shared.error = String(e?.message ?? e); });
+    }, (e) => { if (loaded === r.id) shared.error = t('error_engine', String(e?.message ?? e)); });
   });
   const seatHand = $derived.by(() => {
     if (!deciding || sv?.key !== stepKey) return null;

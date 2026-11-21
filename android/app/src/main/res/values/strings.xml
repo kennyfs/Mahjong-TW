@@ -216,7 +216,7 @@
   <string name="speed_normal">中</string>
   <string name="speed_fast">快</string>
   <string name="speed_manual">手動</string>
-  <string name="speed_manual_hint">手動：電腦不會自己動，每按一次「下一步」才做一個動作。</string>
+  <string name="speed_help">慢、中、快：電腦每做一個動作之間停多久。\n手動：電腦不會自己動，每按一次「下一步」才做一個動作。</string>
   <string name="manual_next">下一步</string>
   <string name="claim_overridden">你的%1$s沒有成立：%2$s 的%3$s優先</string>
   <!-- A claim taken before the player was asked (it came before every claim they could make): the moment's word, and a note. -->
@@ -273,6 +273,7 @@
   <string name="records_import_room">瀏覽器的儲存空間不夠，最舊的 %1$d 局沒有保留。</string>
   <string name="records_import_empty">檔案裡沒有紀錄。</string>
   <string name="records_save_failed">紀錄檔沒有存成功，請換個位置再試。</string>
+  <string name="records_import_failed">紀錄檔讀不進來，請確認檔案還在、沒有損壞再試一次。</string>
   <string name="records_import_bad">這個檔案不是台灣麻將匯出的紀錄檔。</string>
   <string name="records_dev_count">共 %1$d 局</string>
   <string name="records_reset_scores">分數歸零</string>

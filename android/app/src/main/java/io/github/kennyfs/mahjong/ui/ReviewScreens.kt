@@ -334,7 +334,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         if (a != null) other = key to a
         step = k
       } catch (e: EngineException) {
-        vm.error = e.message
+        vm.engineError(e)
       }
     }
     val focus: Focus? = when {
@@ -404,7 +404,7 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
           vm.editor.load(Engine.view(cut, d.first).position, rec.game.rules, cut)
           vm.go(Screen.ANALYZE)
         } catch (e: EngineException) {
-          vm.error = e.message
+          vm.engineError(e)
         }
       }
     }

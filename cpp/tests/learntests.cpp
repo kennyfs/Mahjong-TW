@@ -75,7 +75,7 @@ namespace {
 void Tests::runLearn() {
   static const char* const PLAYERS[] = {"random", "greedy", "greedy:eps=0.25", "greedy:calls=more",
                                         "greedy:calls=none"};
-  // (A hand of several winners is rare: about one in 300 of these. The seed has two.)
+  // (A hand of several winners is rare, about one in 300 of these: the seed is one with some.)
   Rand rand("learn tests 5");
   int64_t numDecisions = 0, numMarks = 0, numDanger = 0, numSafe = 0, numSymmetric = 0, numMulti = 0;
   bool sawRob = false, sawChi = false, sawKong = false, sawFlowers = false;

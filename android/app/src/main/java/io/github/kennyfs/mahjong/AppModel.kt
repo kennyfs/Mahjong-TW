@@ -74,6 +74,11 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
     branch = null
   }
 
+  /** The engine failed (a bug): its words after what it is, in the window of errors. */
+  fun engineError(e: Exception) {
+    error = app.getString(R.string.error_engine, e.message ?: e.toString())
+  }
+
   fun open(p: Page) {
     if (pages.lastOrNull() != p) stacks = stacks + (tab to pages + p)
   }

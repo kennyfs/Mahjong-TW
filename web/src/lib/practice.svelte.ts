@@ -165,7 +165,7 @@ class Practice {
       this.game = game;
       this.dealt(`${this.meta.id}/0`);
     } catch (e) {
-      this.error = String((e as Error).message ?? e);
+      this.error = t('error_engine', String((e as Error).message ?? e));
       return;
     }
     this.persist();
@@ -312,7 +312,7 @@ class Practice {
         }
       }
     } catch (e) {
-      this.error = String((e as Error).message ?? e);
+      this.error = t('error_engine', String((e as Error).message ?? e));
     } finally {
       if (this.loop === my) {
         this.busy = false;
@@ -388,7 +388,7 @@ class Practice {
       }
       this.view = v;
     } catch (e) {
-      this.error = String((e as Error).message ?? e);
+      this.error = t('error_engine', String((e as Error).message ?? e));
       return;
     }
     this.persist();

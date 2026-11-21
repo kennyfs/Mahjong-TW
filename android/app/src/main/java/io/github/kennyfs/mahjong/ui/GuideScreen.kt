@@ -116,7 +116,7 @@ fun GuideScreen(vm: AppModel, onBack: () -> Unit, onPlay: () -> Unit, onTour: ()
     try {
       rules = Rules.info("$tai,$flowers")
     } catch (e: EngineException) {
-      vm.error = e.message
+      vm.engineError(e)
     }
   }
   val v = rules?.values ?: emptyMap()

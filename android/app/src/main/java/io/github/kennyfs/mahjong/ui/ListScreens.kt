@@ -193,7 +193,8 @@ fun RecordsScreen(vm: AppModel) {
         }
         records.import(file)
       }.onSuccess { imported = importedText(res, it) }
-        .onFailure { vm.error = if (it is BadRecordsFile) res.getString(R.string.records_import_bad) else it.message }
+        .onFailure { vm.error = if (it is BadRecordsFile) res.getString(R.string.records_import_bad)
+          else res.getString(R.string.records_import_failed) + (it.message?.let { m -> "\n$m" } ?: "") }
     }
   }
   val stats = stringResource(
@@ -472,7 +473,7 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
       full = Rules.info(c.spec)
       presets = Rules.info("${c.tai},${c.flowers}")
     } catch (e: EngineException) {
-      vm.error = e.message
+      vm.engineError(e)
     }
   }
   DisposableEffect(Unit) { onDispose { vm.practice.settingsChanged() } }
@@ -485,7 +486,7 @@ fun RulesScreen(vm: AppModel, onBack: (() -> Unit)?) {
       try {
         choose(Rules.withValue(settings.rules, param, value))
       } catch (e: EngineException) {
-        vm.error = e.message
+        vm.engineError(e)
       }
     }
   }
@@ -705,7 +706,7 @@ private fun SettingsList(vm: AppModel, desk: Boolean) {
           ToggleGroup(BOTS.map { it.first to stringResource(it.second) }, s.bot, { s.bot = it; save(); vm.practice.settingsChanged() },
             Modifier.fillMaxWidth().testTag("settings_bot"))
         }
-        Block(stringResource(R.string.settings_speed), stringResource(R.string.speed_manual_hint), help) {
+        Block(stringResource(R.string.settings_speed), stringResource(R.string.speed_help), help) {
           ToggleGroup(
             // From the slowest: 手動 (a step a tap), then slow, normal, fast.
             listOf(Speed.MANUAL to stringResource(R.string.speed_manual), Speed.SLOW to stringResource(R.string.speed_slow),

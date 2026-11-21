@@ -214,7 +214,7 @@
   <string name="speed_normal">Normal</string>
   <string name="speed_fast">Fast</string>
   <string name="speed_manual">Manual</string>
-  <string name="speed_manual_hint">Manual: the computer players wait, and move once each time you press Next.</string>
+  <string name="speed_help">Slow, normal, fast: how long the computer players pause between moves.\nManual: they wait, and move once each time you press Next.</string>
   <string name="manual_next">Next</string>
   <string name="claim_overridden">Your %1$s didn\'t go through: %2$s\'s %3$s comes first</string>
   <string name="rob_mark">Steal</string>
@@ -267,6 +267,7 @@
   <string name="records_import_room">The browser had no room for them all: the oldest %1$d were not kept.</string>
   <string name="records_import_empty">The file holds no records.</string>
   <string name="records_save_failed">The records file was not saved. Try another place.</string>
+  <string name="records_import_failed">The records file could not be read. Check that it is still there and whole, then try again.</string>
   <string name="records_import_bad">This isn\'t a records file exported by Taiwan Mahjong.</string>
   <string name="records_dev_count">Hands kept: %1$d</string>
   <string name="records_reset_scores">Reset scores</string>

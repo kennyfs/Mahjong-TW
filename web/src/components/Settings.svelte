@@ -102,7 +102,7 @@
         <Toggle options={bots} selected={settings.bot} onselect={setBot} />
       </div>
       <div class="block">
-        {@render head(t('settings_speed'), t('speed_manual_hint'))}
+        {@render head(t('settings_speed'), t('speed_help'))}
         <Toggle options={speeds} selected={settings.speed} onselect={setSpeed} />
       </div>
       <div class="block">
