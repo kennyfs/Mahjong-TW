@@ -84,9 +84,10 @@ export async function request(req: Record<string, unknown>): Promise<any> {
   const line = JSON.stringify(req);
   // A request that names the network: it is fetched first.
   if (line.includes(MODEL)) await loadModel();
+  const answer = await raw(line);
   let a: any;
   try {
-    a = JSON.parse(await raw(line));
+    a = JSON.parse(answer);
   } catch (e) {
     throw new EngineError(`The engine's answer does not read: ${(e as Error)?.message ?? e}`);
   }

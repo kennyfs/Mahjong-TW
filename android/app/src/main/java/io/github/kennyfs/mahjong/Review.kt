@@ -4,6 +4,8 @@ import android.content.res.Resources
 import io.github.kennyfs.mahjong.ui.SeatNote
 import io.github.kennyfs.mahjong.ui.actionLabel
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
@@ -242,15 +244,17 @@ internal suspend fun reviewCached(id: String, compute: suspend () -> Review): Re
   val deferred = CompletableDeferred<Review>()
   reviews[id] = deferred
   if (reviews.size > 40) reviews.remove(reviews.keys.first())
-  return try {
-    val r = compute()
-    deferred.complete(r)
-    r
-  } catch (e: Throwable) {
-    reviews.remove(id, deferred)
-    deferred.completeExceptionally(e)
-    throw e
+  // (Not cancelled with the caller: one that leaves, the review screen say, would otherwise fail the others sharing
+  // it, "review all" among them.)
+  withContext(NonCancellable) {
+    try {
+      deferred.complete(compute())
+    } catch (e: Throwable) {
+      reviews.remove(id, deferred)
+      deferred.completeExceptionally(e)
+    }
   }
+  return deferred.await()
 }
 
 /** Reviews a record and keeps the summary with it, unless this network's is there. Failures are left for a later try. */
