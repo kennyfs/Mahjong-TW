@@ -123,7 +123,8 @@ const LENGTH_OF = { hand: 'HAND', round: 'ROUND', game: 'GAME' } as const;
 class Battle {
   name = $state(load<string>(NAME_KEY, ''));
   /** The name of a player who gives none: "玩家" and a number of their own. */
-  readonly defaultName: string;
+  private readonly defaultNumber: number;
+  get defaultName(): string { return t('battle_default_name', this.defaultNumber); }
   /** Empty: the server of this page (the player cleared it); never set: DEFAULT_SERVER. */
   server = $state(load<string>(SERVER_KEY, DEFAULT_SERVER));
   pin = $state('');
@@ -162,12 +163,14 @@ class Battle {
   private recording = new Set<string>();
 
   constructor() {
-    let d = load<string>(DEFAULT_NAME_KEY, '');
-    if (!d) {
-      d = t('battle_default_name', 1000 + Math.floor(Math.random() * 9000));
-      save(DEFAULT_NAME_KEY, d);
-    }
-    this.defaultName = d;
+    // Its number is kept, and the words follow the page's language (once the whole name, in the language of then).
+    const kept = load<string | number>(DEFAULT_NAME_KEY, '');
+    let n = typeof kept === 'number' ? kept : Number(String(kept).match(/\d{4}/)?.[0] ?? NaN);
+    if (!(n >= 1000 && n <= 9999)) {
+      n = 1000 + Math.floor(Math.random() * 9000);
+      save(DEFAULT_NAME_KEY, n);
+    } else if (typeof kept !== 'number') save(DEFAULT_NAME_KEY, n);
+    this.defaultNumber = n;
     // A reload in a room: its seat is taken back.
     const saved = loadSeat();
     if (saved) {
