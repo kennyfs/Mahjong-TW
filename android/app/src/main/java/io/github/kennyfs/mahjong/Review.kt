@@ -227,10 +227,13 @@ fun levelOrWorse(res: Resources, level: Level): String =
 
 /** Mistakes at a level in words, each grade by its own name from the worst down: "大失誤 1・疑問手 2" (`grades`: how
  *  many were questionable, mistakes, blunders); "沒有失誤" when there are none. */
-fun mistakesText(res: Resources, level: Level, grades: List<Int>): String {
+fun mistakesText(res: Resources, level: Level, grades: List<Int>): String = mistakesParts(res, level, grades).joinToString(Words.sep)
+
+/** mistakesText's parts ("大失誤 1", "失誤 2"), to set on lines of their own when they do not fit on one. */
+fun mistakesParts(res: Resources, level: Level, grades: List<Int>): List<String> {
   val out = (3 downTo level.grade).filter { grades.getOrElse(it - 1) { 0 } > 0 }
     .map { res.getString(R.string.review_mistakes, res.getString(GRADE_NAME[it]), grades[it - 1].toString()) }
-  return if (out.isNotEmpty()) out.joinToString(Words.sep) else res.getString(R.string.review_count_none, levelWord(res, level))
+  return out.ifEmpty { listOf(res.getString(R.string.review_count_none, levelWord(res, level))) }
 }
 
 private val reviews = LinkedHashMap<String, CompletableDeferred<Review>>()

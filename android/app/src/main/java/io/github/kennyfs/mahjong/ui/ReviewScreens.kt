@@ -108,7 +108,7 @@ import io.github.kennyfs.mahjong.isKey
 import io.github.kennyfs.mahjong.isTaken
 import io.github.kennyfs.mahjong.keysOf
 import io.github.kennyfs.mahjong.meldTiles
-import io.github.kennyfs.mahjong.mistakesText
+import io.github.kennyfs.mahjong.mistakesParts
 import io.github.kennyfs.mahjong.notableText
 import io.github.kennyfs.mahjong.pct
 import io.github.kennyfs.mahjong.pts
@@ -445,8 +445,14 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
         val lost = @Composable { item(R.string.review_decisions, pts(-(r.loss ?: 0.0)), (r.loss ?: 0.0) >= EQUAL) }
         val luck = @Composable { item(R.string.review_luck, pts(r.luck ?: 0.0), false) }
         val count = @Composable {
-          Text(mistakesText(res, level, grades), style = small, fontWeight = FontWeight.Bold, maxLines = 1,
-            color = if (mistakes > 0) outcomeColors.bad else outcomeColors.good, modifier = Modifier.testTag("replay_mistakes"))
+          // (Several kinds: a line may end after a "・", never inside "大失誤 1".)
+          val parts = mistakesParts(res, level, grades)
+          FlowRow(Modifier.testTag("replay_mistakes")) {
+            parts.forEachIndexed { i, p ->
+              Text(if (i < parts.size - 1) p + Words.sep else p, style = small, fontWeight = FontWeight.Bold, maxLines = 1,
+                color = if (mistakes > 0) outcomeColors.bad else outcomeColors.good)
+            }
+          }
         }
         val graph = @Composable { mod: Modifier -> ValueGraph(points, stops, step, n, if (side) 44.dp else 38.dp, mod) { go(it) } }
         if (inlinePanel) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -460,7 +466,14 @@ fun ReplayScreen(vm: AppModel, onBack: () -> Unit) {
             }
           }
           if (side) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { grid(); graph(Modifier) }
-          else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) { grid(); graph(Modifier.weight(1f)) }
+          // (The graph keeps two fifths of the row at least: many kinds of mistakes take more lines, not its room.)
+          else BoxWithConstraints {
+            val most = maxWidth * 0.6f
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+              Box(Modifier.widthIn(max = most)) { grid() }
+              graph(Modifier.weight(1f))
+            }
+          }
         }
       } else if (revError != null) Text(stringResource(R.string.review_failed, revError ?: ""), style = small, color = outcomeColors.bad)
       else Text(stringResource(R.string.review_loading), style = small, color = cs.onSurfaceVariant)

@@ -37,9 +37,14 @@ export const levelOrWorse = (level: Level) => (LEVEL_GRADE[level] < 3 ? t('grade
 /** Mistakes at a level in words, each grade by its own name from the worst down: "大失誤 1・疑問手 2" (`grades`: how
  *  many were questionable, mistakes, blunders); "沒有失誤" when there are none. */
 export function mistakesText(grades: number[], level: Level): string {
+  return mistakesParts(grades, level).join(t('sep'));
+}
+
+/** mistakesText's parts ("大失誤 1", "失誤 2"), to set on lines of their own when they do not fit on one. */
+export function mistakesParts(grades: number[], level: Level): string[] {
   const out: string[] = [];
   for (let g = 3; g >= LEVEL_GRADE[level]; g--) if (grades[g - 1] > 0) out.push(t('review_mistakes', t(GRADE_NAME[g]), grades[g - 1]));
-  return out.length ? out.join(t('sep')) : t('review_count_none', levelWord(level));
+  return out.length ? out : [t('review_count_none', levelWord(level))];
 }
 
 /** "+0.31", "−1.20": points with two decimals (one from 10 up). */

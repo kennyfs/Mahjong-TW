@@ -34,7 +34,7 @@
   import { records } from '../lib/records.svelte';
   import { rulesText } from '../lib/rules';
   import { moreBelow } from '../lib/keepscroll';
-  import { costOf, EQUAL, gradeOf, GRADE_NAME, isKey, keysOf, mistakesText, notableText, pts, reasonOf, reviewOf, summarize,
+  import { costOf, EQUAL, gradeOf, GRADE_NAME, isKey, keysOf, mistakesParts, notableText, pts, reasonOf, reviewOf, summarize,
     tagCost, tileMarks, tilesShort, opponentNote, type TileMark } from '../lib/review';
   import { explain, mayPraise } from '../lib/explain';
   import { flowersOf, meldTiles } from '../lib/seats';
@@ -188,6 +188,7 @@
   const points = $derived(rev && hasNet ? rev.decisions.map((d) => ({ step: d.step, value: d.analysis.value ?? 0 })) : []);
   /** How many decisions were questionable, mistakes, blunders. */
   const grades = $derived([1, 2, 3].map((g) => keys.filter((k) => k.grade === g).length));
+  const mistakeParts = $derived(mistakesParts(grades, settings.level));
   const mistakes = $derived(grades.slice(settings.level === 'beginner' ? 2 : settings.level === 'mid' ? 1 : 0).reduce((a, b) => a + b, 0));
   const nextKeyStep = $derived(stops.find((k) => k.step > step)?.step ?? -1);
   const prevKeyStep = $derived([...stops].reverse().find((k) => k.step < step)?.step ?? -1);
@@ -407,7 +408,8 @@
         <span><span class="dim">{t('review_first')}</span> {pts(rev.first_value ?? 0)}</span>
         <span><span class="dim">{t('review_decisions')}</span> <b class:bad={(rev.loss ?? 0) >= EQUAL}>{pts(-(rev.loss ?? 0))}</b></span>
         <span><span class="dim">{t('review_luck')}</span> {pts(rev.luck ?? 0)}</span>
-        <span class="count" class:some={mistakes > 0}>{mistakesText(grades, settings.level)}</span>
+        <!-- (Several kinds: a line may end after a "・", never inside "大失誤 1".) -->
+        <span class="count" class:some={mistakes > 0}>{#each mistakeParts as p, i}<span>{i < mistakeParts.length - 1 ? p + t('sep') : p}</span>{/each}</span>
       </div>
       <ValueGraph {points} keys={stops} {step} {n} height={side ? 44 : 38} onpick={go} />
     {:else if revError}
@@ -638,7 +640,11 @@
   .side .sum { flex-direction: column; align-items: stretch; gap: 4px; }
   .sum-text { flex: none; display: grid; grid-template-columns: auto auto; gap: 0 10px; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .with-panel .sum-text { display: flex; flex-wrap: wrap; gap: 2px 14px; }
-  .count { font-weight: 700; color: var(--good); }
+  .count { font-weight: 700; color: var(--good); white-space: normal; }
+  .count > span { white-space: nowrap; }
+  /* The graph keeps two fifths of the row at least: many kinds of mistakes take more lines, not its room. */
+  .sum > .sum-text { max-width: 60%; }
+  .side .sum > .sum-text, .with-panel .sum > .sum-text { max-width: none; }
   .count.some { color: var(--bad); }
   /* One height, the room of four lines (scrolled in the rare step with more): the table above stays as it is from step
      to step. */
