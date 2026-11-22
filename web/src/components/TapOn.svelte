@@ -1,7 +1,7 @@
 <!--
   A hand's end: the table as it ended stays till the player's tap (anywhere over it), Space or Enter; then the result.
   While a moment plays, a tap (or a key) is the table's (a result's moment waits for it, or all of the hand's end goes:
-  Table.svelte). ≫ and 「按一下以繼續」 show at the bottom right once the result's moment starts (or at once
+  Table.svelte). ≫ and 「點一下繼續」 show at the bottom right once the result's moment starts (or at once
   without one), until the tap. Practice, a review's branch and a table
   battle (whose time to be ready runs from the hand's end all the same).
 -->

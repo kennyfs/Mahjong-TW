@@ -1199,7 +1199,7 @@ fun endHold(over: Boolean): Pair<Boolean, () -> Unit> {
 /**
  * Over the table at a hand's end: it waits for the player's tap (anywhere over it), then `onNext` (the result). A touch
  * that began over a moment only let the moment go (FxHost: a result's moment stopped for it goes on to its end, and the
- * result comes after it). Its words, ≫ 按一下以繼續, show over the moments (FxOverlay): from the start of a result's
+ * result comes after it). Its words, ≫ 點一下繼續, show over the moments (FxOverlay): from the start of a result's
  * moment, or at once without one. The web page's TapOn.svelte.
  */
 @Composable

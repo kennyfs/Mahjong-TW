@@ -218,7 +218,7 @@ def play_hand(limit=500):
     nodes = ui()
     if find(nodes, rid='result_next'):
       return True
-    # The pause at the end of the hand (the table as it ended) before the result: it waits for a tap (按一下以繼續).
+    # The pause at the end of the hand (the table as it ended) before the result: it waits for a tap (點一下繼續).
     skip = find(nodes, rid='result_skip')
     if skip:
       shot(f'play-end-{rotation_name()}')

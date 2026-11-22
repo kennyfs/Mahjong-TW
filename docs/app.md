@@ -234,7 +234,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     blue, quieter; another's win on another's discard, and a draw: graphite (the player loses nothing).
   - **A result's moment stops at 78%** (the light has run over the hand), its plaque and tiles still, the rays and
     speed lines going on, till a tap; a tap before that lets all of the hand's end go. The result then comes at
-    once; with no moment (words alone) the table waits for a tap. ≫ 按一下以繼續 at the bottom right once the
+    once; with no moment (words alone) the table waits for a tap. ≫ 點一下繼續 at the bottom right once the
     result's moment starts. Practice, a review's branch, a table battle (its 90 s to be ready run from the hand's
     end, as before). A review's hand's end: small by the player, × `review_end` (0.5); the player's own deal-in
     shows its tile; the winner's name clear of the word.
@@ -249,7 +249,7 @@ Both the app and the page have the same five screens, in Traditional Chinese (Ta
     first's end (the table told the moments over between them); a moment's words came after it at the manual pace.
   - **The app** alike: Timing.kt reads the pace (Speed keeps no times of its own). ui/Moments.kt: the moments
     (FxHost: the queue, the stop at 78% and the tap; FxOverlay draws them over the whole window, and ≫
-    按一下以繼續 at the table's bottom right), ui/SmallFx.kt, ui/SadFx.kt (the table's color taken by a Saturation
+    點一下繼續 at the table's bottom right), ui/SmallFx.kt, ui/SadFx.kt (the table's color taken by a Saturation
     blend over the window where Android 10 and up can, and darker), ui/CallFx.kt; TableView turns the events into
     words and moments (TableEvents) and times them (MomentsClock); ui/HandMotion.kt moves the hand (armed as the
     view with the discard is composed, before it is laid out: the tiles' places before are still known; each tile and

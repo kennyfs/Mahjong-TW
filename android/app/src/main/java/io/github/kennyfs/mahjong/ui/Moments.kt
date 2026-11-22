@@ -330,7 +330,7 @@ fun rememberFxTime(m: Moment, host: FxHost): FxTime {
 
 /**
  * Over the whole window, above every screen and bar (MainActivity): the moment of the table on the screen, if any, and
- * the words that the table waits for a tap (≫ 按一下以繼續, at the table's bottom right: from the start of a result's
+ * the words that the table waits for a tap (≫ 點一下繼續, at the table's bottom right: from the start of a result's
  * moment, or at once without one). Nothing here takes a touch: a touch anywhere lets a moment go (MainActivity,
  * CalloutClock's skips). (In the table it covered only the table: not the controls beside it, nor the felt's edges kept
  * clear of a camera.)
@@ -360,7 +360,7 @@ private fun FxLayer(h: FxHost) {
   }
 }
 
-/** ≫ 按一下以繼續, at the table's bottom right. */
+/** ≫ 點一下繼續, at the table's bottom right. */
 @Composable
 private fun TapHint(h: FxHost, origin: Offset) {
   val table = h.areas["table"] ?: return
