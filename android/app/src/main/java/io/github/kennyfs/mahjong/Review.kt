@@ -258,13 +258,14 @@ internal suspend fun reviewCached(id: String, compute: suspend () -> Review): Re
 }
 
 /** Reviews a record and keeps the summary with it, unless this network's is there. Failures are left for a later try. */
-suspend fun keepSummary(records: Records, rec: HandRecord) {
+suspend fun keepSummary(records: Records, rec: HandRecord, quiet: Boolean = true) {
   if (rec.rev?.m == Engine.REVIEW_ID) return
   try {
     val r = reviewOf(rec)
     if (r.firstValue != null) records.setReview(rec.id, summarize(r))
   } catch (e: EngineException) {
-    // No network: no summary.
+    // No network: no summary. Asked for (not quiet), the failure is the caller's to say.
+    if (!quiet) throw e
   }
 }
 

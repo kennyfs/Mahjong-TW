@@ -105,12 +105,18 @@
   });
   let progress = $state<{ done: number; of: number } | null>(null);
   async function reviewAll() {
+    if (progress) return;
     const list = pending.slice().reverse();
     progress = { done: 0, of: list.length };
-    for (const h of list) {
-      if (!progress) break;
-      await keepSummary(h);
-      progress = { done: progress.done + 1, of: list.length };
+    try {
+      for (const h of list) {
+        if (!progress) break;
+        await keepSummary(h, false);
+        progress = { done: progress.done + 1, of: list.length };
+      }
+    } catch (e) {
+      // (The network did not load, say: it stops, and says why, rather than counting hands it did not review.)
+      shared.error = t('error_engine', String((e as Error)?.message ?? e));
     }
     progress = null;
   }

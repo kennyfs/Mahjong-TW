@@ -195,12 +195,15 @@ export function reviewOf(rec: HandRecord): Promise<Review> {
 }
 
 /** Reviews a record and keeps the summary with it, unless this network's is there. Failures are left for a later try. */
-export async function keepSummary(rec: HandRecord): Promise<void> {
+export async function keepSummary(rec: HandRecord, quiet = true): Promise<void> {
   if (rec.rev?.m === engine.REVIEW_ID) return;
   try {
     const r = await reviewOf(rec);
     if (r.first_value !== undefined) records.setReview(rec.id, summarize(r));
-  } catch { /* no network: no summary */ }
+  } catch (e) {
+    // No network: no summary. Asked for (not quiet), the failure is the caller's to say.
+    if (!quiet) throw e;
+  }
 }
 
 /** What a tile of the hand shows at a decision: a tag over it, its tone, whether it is the tile played, its danger. */

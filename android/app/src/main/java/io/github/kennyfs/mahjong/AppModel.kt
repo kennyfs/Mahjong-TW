@@ -135,9 +135,12 @@ class AppModel(private val app: Application) : AndroidViewModel(app) {
     reviews = viewModelScope.launch {
       try {
         for ((i, h) in list.withIndex()) {
-          keepSummary(records, h)
+          keepSummary(records, h, quiet = false)
           reviewing = i + 1 to list.size
         }
+      } catch (e: EngineException) {
+        // (It stops, and says why, rather than counting hands it did not review.)
+        engineError(e)
       } finally {
         reviewing = null
       }
