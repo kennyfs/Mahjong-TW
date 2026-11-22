@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 
 /**
@@ -99,11 +100,15 @@ private data class StoredSettings(
   val coachEffort: Map<String, String> = emptyMap(),
 )
 
+private val SettingsJson = Json(EngineJson) { coerceInputValues = true }
+
 /** The settings, kept in the app's preferences. The web page's lib/settings.svelte.ts. */
 class Settings(context: Context) {
   private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
-  private val stored: StoredSettings = runCatching { EngineJson.decodeFromString<StoredSettings>(prefs.getString("settings", null) ?: "{}") }.getOrDefault(StoredSettings())
+  // (A value this version does not know, an option of a later one after going back, say, is that setting's default,
+  // not every setting's.)
+  private val stored: StoredSettings = runCatching { SettingsJson.decodeFromString<StoredSettings>(prefs.getString("settings", null) ?: "{}") }.getOrDefault(StoredSettings())
 
   var rules by mutableStateOf(stored.rules)
   var length by mutableStateOf(stored.length)
