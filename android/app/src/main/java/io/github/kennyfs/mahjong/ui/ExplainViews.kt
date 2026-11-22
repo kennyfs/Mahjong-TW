@@ -110,7 +110,7 @@ fun ExplainDialog(e: Explanation, onTips: () -> Unit, onDismiss: () -> Unit) {
 @Composable
 private fun ChoiceChip(label: String, value: String, alt: Boolean) {
   val cs = MaterialTheme.colorScheme
-  val bg = if (alt) cs.secondaryContainer else cs.surfaceContainerHigh
+  val bg = if (alt) cs.secondaryContainer else cs.surfaceContainerHighest
   val fg = if (alt) cs.onSecondaryContainer else cs.onSurface
   Surface(shape = RoundedCornerShape(10.dp), color = bg) {
     Row(Modifier.padding(horizontal = 10.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {

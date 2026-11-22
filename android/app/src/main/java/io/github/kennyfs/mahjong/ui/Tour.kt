@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -117,7 +118,7 @@ fun TourOverlay(tour: TourState, onGuide: () -> Unit) {
   val last = tour.step == TOUR_STEPS.size - 1
   BackHandler { tour.end() }
   val d = LocalDensity.current
-  val hole = step.target?.let { tour.anchors[it] }?.let { r -> with(d) { r.inflate(6.dp.toPx()) } }
+  val lit = step.target?.let { tour.anchors[it] }?.let { r -> with(d) { r.inflate(6.dp.toPx()) } }
   val highlight = LocalTable.current.highlight
   BoxWithConstraints(
     Modifier.fillMaxSize().testTag("tour")
@@ -126,6 +127,8 @@ fun TourOverlay(tour: TourState, onGuide: () -> Unit) {
   ) {
     val w = constraints.maxWidth.toFloat()
     val h = constraints.maxHeight.toFloat()
+    // Inside the screen, its border whole (a target as wide as the screen would put it past the edges).
+    val hole = lit?.let { with(d) { 1.5.dp.toPx() }.let { e -> Rect(maxOf(it.left, e), maxOf(it.top, e), minOf(it.right, w - e), minOf(it.bottom, h - e)) } }
     Canvas(Modifier.fillMaxSize()) {
       val path = Path().apply {
         fillType = PathFillType.EvenOdd
@@ -150,10 +153,11 @@ fun TourOverlay(tour: TourState, onGuide: () -> Unit) {
     }
     Surface(
       Modifier.offset { IntOffset(pos.x.roundToInt(), pos.y.roundToInt()) }.width(with(d) { cw.toDp() })
+        .heightIn(max = with(d) { (h - 2 * m).toDp() })
         .onSizeChanged { cardSize = it }.semantics { paneTitle = "tour" }.testTag("tour_card"),
       shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 6.dp,
     ) {
-      Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+      Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Text("${tour.step + 1} / ${TOUR_STEPS.size}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
           Spacer(Modifier.weight(1f))
