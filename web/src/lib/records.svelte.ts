@@ -1,7 +1,7 @@
 // Every finished hand, kept as its record (rules, setup, wall, decisions) with who played which seat, so it can be
 // replayed and each decision analyzed; battles as groups of their hands. In localStorage, newest last. A port of the
 // app's Records.kt.
-import { KEYS, load, save } from './store';
+import { KEYS, load, save, saveOrFull } from './store';
 import type { GameRecord, Result } from './types';
 
 export type RecordKind = 'practice' | 'table' | 'contest';
@@ -210,8 +210,9 @@ class Records {
   private flush() {
     if (!this.unsaved) return;
     this.unsaved = false;
-    while (!save(KEYS.records, this.hands)) {
-      // Out of room: drop the oldest half that are not favorites and try again until it fits.
+    // Out of room: drop the oldest half that are not favorites and try again until it fits. (Storage that cannot be
+    // written at all, a private window's say, drops nothing.)
+    while (saveOrFull(KEYS.records, this.hands) === 'full') {
       const plain = this.hands.filter((h) => !h.fav);
       if (!plain.length) break;
       const drop = new Set(plain.slice(0, Math.ceil(plain.length / 2)).map((h) => h.id));

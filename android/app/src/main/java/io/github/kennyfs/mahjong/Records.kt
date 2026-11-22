@@ -174,10 +174,16 @@ class Records(private val context: Context, private val onError: (String) -> Uni
     if (toWrite.getAndSet(StoredRecords(hands, battles)) == null) writer.execute(::write)
   }
 
+  @Volatile private var writeFailed = false
+
   private fun write() {
     val r = toWrite.getAndSet(null) ?: return
     val err = writeFile(file, r)
-    if (err != null) onError(context.getString(R.string.records_write_failed, err))
+    // (Said once a run: a full storage would otherwise say it after every hand.)
+    if (err != null && !writeFailed) {
+      writeFailed = true
+      onError(context.getString(R.string.records_write_failed, err))
+    }
   }
 
   companion object {

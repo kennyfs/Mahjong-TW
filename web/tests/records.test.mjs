@@ -14,7 +14,7 @@ const store = new Map();
 globalThis.localStorage = {
   getItem: (k) => store.get(k) ?? null,
   setItem: (k, v) => {
-    if (String(v).length > quota) throw new DOMException('QuotaExceededError');
+    if (String(v).length > quota) throw new DOMException('full', 'QuotaExceededError');
     store.set(k, String(v));
   },
   removeItem: (k) => store.delete(k),

@@ -20,6 +20,17 @@ export function save(key: string, value: unknown): boolean {
   }
 }
 
+/** Like `save`, but tells a full storage (worth making room for) from storage that cannot be written at all. */
+export function saveOrFull(key: string, value: unknown): 'saved' | 'full' | 'failed' {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return 'saved';
+  } catch (e) {
+    const full = e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+    return full ? 'full' : 'failed';
+  }
+}
+
 export const KEYS = {
   settings: 'mahjong.settings',
   practice: 'mahjong.practice',

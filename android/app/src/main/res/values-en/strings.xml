@@ -269,7 +269,7 @@
   <string name="records_save_failed">The records file was not saved. Try another place.</string>
   <string name="records_import_failed">The records file could not be read. Check that it is still there and whole, then try again.</string>
   <string name="records_import_bad">This isn\'t a records file exported by Taiwan Mahjong.</string>
-  <string name="records_load_failed">The saved records file was damaged and has been backed up to records.json.corrupt; starting with an empty list.</string>
+  <string name="records_load_failed">The saved records could not be read (the file is damaged); a copy was set aside, and the list starts empty.</string>
   <string name="records_write_failed">Could not save records (%1$s). Check that there is enough free storage.</string>
   <string name="records_dev_count">Hands kept: %1$d</string>
   <string name="records_reset_scores">Reset scores</string>
