@@ -53,7 +53,7 @@ object Glossary {
     GlossaryEntry("kanchan", R.string.glossary_t_kanchan, R.string.glossary_d_kanchan, listOf("嵌張", "中洞"), listOf("closed and edge waits", "closed wait", "inside wait")),
     GlossaryEntry("penchan", R.string.glossary_t_penchan, R.string.glossary_d_penchan, listOf("邊張"), listOf("edge waits", "edge wait")),
     GlossaryEntry("tanki", R.string.glossary_t_tanki, R.string.glossary_d_tanki, listOf("單吊"), listOf("single wait", "pair wait")),
-    GlossaryEntry("shanpon", R.string.glossary_t_shanpon, R.string.glossary_d_shanpon, listOf("雙碰"), listOf("dual-pair wait")),
+    GlossaryEntry("shanpon", R.string.glossary_t_shanpon, R.string.glossary_d_shanpon, listOf("對碰"), listOf("dual-pair wait")),
     GlossaryEntry("dead_pair", R.string.glossary_t_dead_pair, R.string.glossary_d_dead_pair, listOf("死對子"), listOf("dead pair")),
     GlossaryEntry("shanten", R.string.glossary_t_shanten, R.string.glossary_d_shanten, listOf("向聽數", "一向聽", "兩向聽", "三向聽", "四向聽", "五向聽", "六向聽", "七向聽", "向聽"), listOf("shanten")),
     GlossaryEntry("ukeire", R.string.glossary_t_ukeire, R.string.glossary_d_ukeire, listOf("進張"), listOf("improving tiles", "useful tiles")),

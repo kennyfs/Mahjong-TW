@@ -876,7 +876,7 @@
   <string name="explain_shape_ryanmen">an open wait</string>
   <string name="explain_shape_lone">a lone tile</string>
   <string name="explain_shape_extra">a spare tile</string>
-  <string name="explain_pair_wait">%2$d %1$s left unseen: you can pung from any opponent, or keep the pair as the eye; %3$s waits on only one tile, which you must draw or chow from the player on your left.</string>
+  <string name="explain_pair_wait">%2$d more %1$s unseen: you can pung from any opponent, or keep the pair as the eye; %3$s waits on only one kind, which you must draw or chow from the player on your left.</string>
   <string name="explain_pair_even">The improving tiles are about even, but a pair can be punged from any of three players and serves as the eye.</string>
   <string name="explain_pair_lone">%1$s does little for the hand; the pair of %2$s can still be punged (%3$d unseen) and serves as the eye.</string>
   <string name="explain_honor_tai">" An honor pung also scores a tai."</string>

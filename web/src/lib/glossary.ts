@@ -47,7 +47,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   { id: 'kanchan', zh: ['嵌張', '中洞'], en: ['closed and edge waits', 'closed wait', 'inside wait'] },
   { id: 'penchan', zh: ['邊張'], en: ['edge waits', 'edge wait'] },
   { id: 'tanki', zh: ['單吊'], en: ['single wait', 'pair wait'] },
-  { id: 'shanpon', zh: ['雙碰'], en: ['dual-pair wait'] },
+  { id: 'shanpon', zh: ['對碰'], en: ['dual-pair wait'] },
   { id: 'dead_pair', zh: ['死對子'], en: ['dead pair'] },
   { id: 'shanten', zh: ['向聽數', '一向聽', '兩向聽', '三向聽', '四向聽', '五向聽', '六向聽', '七向聽', '向聽'], en: ['shanten'] },
   { id: 'ukeire', zh: ['進張'], en: ['improving tiles', 'useful tiles'] },
