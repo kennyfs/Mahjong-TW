@@ -52,18 +52,23 @@ function base(): string {
   return b.endsWith('/') ? b : b + '/';
 }
 
+/** Failed loads of each file: one more try (a network back after a drop), then none (a file that is not there). */
+const failed = new Map<string, number>();
+
 function load(): Promise<void> {
   if (loading || !ctx) return loading ?? Promise.resolve();
   const c = ctx;
-  const names = [...new Set(Object.values(FILES).flatMap((f) => f.files))].filter((n) => !buffers.has(n));
+  const names = [...new Set(Object.values(FILES).flatMap((f) => f.files))]
+    .filter((n) => !buffers.has(n) && (failed.get(n) ?? 0) < 2);
   if (!names.length) return Promise.resolve();
   const p = Promise.all(names.map(async (n) => {
     try {
       const r = await fetch(`${base()}sounds/${n}.mp3`);
-      if (!r.ok) return;
+      if (!r.ok) throw new Error(String(r.status));
       buffers.set(n, await c.decodeAudioData(await r.arrayBuffer()));
     } catch {
       // (A sound that does not load is not played.)
+      failed.set(n, (failed.get(n) ?? 0) + 1);
     }
   })).then(() => { loading = null; });
   loading = p;

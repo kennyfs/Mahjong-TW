@@ -9,7 +9,6 @@ import android.os.Process
 import android.os.SystemClock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -111,7 +110,7 @@ object Sounds {
   /** Changes as `waits` do: wakes `awaitSynced`. */
   private val changed = MutableStateFlow(0)
 
-  private fun touch() { changed.update { it + 1 } }
+  private fun touch() { changed.value = tokens.incrementAndGet() }
 
   /**
    * Plays a sound `delay` ms from now (a discard's when it lands, a meld's tile as it lands in its gap, the web page's
