@@ -473,8 +473,6 @@ class Battle {
       while (sess === this.session && this.views.length) {
         const { msg, at } = this.views.shift()!;
         const cur = this.table;
-        // Drop stale or duplicate incremental updates so events are never appended twice.
-        if (isStaleTableView(cur, msg.hand, msg.step, msg.full)) continue;
         // A view carries the events since the last one: they are added to what was shown (all of them when full).
         const view = msg.full || !cur || cur.hand !== msg.hand
           ? msg.view
@@ -587,7 +585,10 @@ class Battle {
       this.recording.add(key);
       try {
         const v = await engine.view(tp.record, seat, 0, true);
-        if (!v.result) continue;
+        if (!v.result) {
+          this.recording.delete(key);
+          continue;
+        }
         records.add(handRecord(kind, tp.record, v.result, seat, seatNames, bots, group, index));
       } catch {
         this.recording.delete(key);
@@ -611,12 +612,6 @@ class Battle {
       totals: people.map((p) => p.total), hands: this.outcomes.length, left: left || undefined,
     });
   }
-}
-
-/** Whether an incoming TableView is stale or a duplicate incremental update relative to `cur`. */
-export function isStaleTableView(cur: Pick<MyTable, 'hand' | 'step'> | null, hand: number, step: number, full: boolean): boolean {
-  if (!cur || full) return false;
-  return hand < cur.hand || (hand === cur.hand && step <= cur.step);
 }
 
 /** The seat in a room, kept in this tab (sessionStorage) for a reload. */

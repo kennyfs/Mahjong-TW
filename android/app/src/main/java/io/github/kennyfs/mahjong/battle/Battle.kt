@@ -427,8 +427,6 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
           val (msg, at) = views.removeFirst()
           val v = runCatching { EngineJson.decodeFromJsonElement<View>(msg.view) }.getOrNull() ?: continue
           val cur = table
-          // Drop stale or duplicate incremental updates so events are never appended twice.
-          if (isStaleTableView(cur, msg.hand, msg.step, msg.full)) continue
           if (cur == null || cur.hand != msg.hand) CalloutClock.resetSeen()
           val view = if (msg.full || cur == null || cur.hand != msg.hand) v else v.copy(events = cur.view.events + v.events)
           forcedJob?.cancel()
@@ -528,7 +526,11 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
       try {
         val game = EngineJson.decodeFromJsonElement<GameRecord>(tp.record)
         val v = Engine.view(game, seat, 0, reveal = true)
-        val result = v.result ?: continue
+        val result = v.result
+        if (result == null) {
+          recording -= key
+          continue
+        }
         records.add(Records.handRecord(kind, game, result, seat, seatNames, bots, group, index))
       } catch (e: Exception) {
         recording -= key
@@ -565,12 +567,6 @@ class Battle(private val context: Context, private val scope: CoroutineScope, pr
   companion object {
     val TIME_LIMITS = listOf(5, 10, 15, 20, 30, 60)
     val HAND_CHOICES = listOf(1, 2, 4, 8, 12, 16)
-
-    /** Whether an incoming TableView is stale or a duplicate incremental update relative to `cur`. */
-    internal fun isStaleTableView(cur: MyTable?, hand: Int, step: Int, full: Boolean): Boolean {
-      if (cur == null || full) return false
-      return hand < cur.hand || (hand == cur.hand && step <= cur.step)
-    }
   }
 }
 

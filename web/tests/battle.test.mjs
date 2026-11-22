@@ -59,7 +59,7 @@ globalThis.Worker = FakeWorker;
 const { createServer } = await import(`${WEB}/node_modules/vite/dist/node/index.js`);
 const server = await createServer({ root: WEB, logLevel: 'error', server: { middlewareMode: true, hmr: false }, appType: 'custom' });
 try {
-  const { battle, isStaleTableView, serverUrl } = await server.ssrLoadModule('/src/lib/battle.svelte.ts');
+  const { battle, serverUrl } = await server.ssrLoadModule('/src/lib/battle.svelte.ts');
   const { records } = await server.ssrLoadModule('/src/lib/records.svelte.ts');
 
   // 1. serverUrl IPv6 + TLS rules
@@ -71,15 +71,8 @@ try {
   assert.equal(serverUrl('ws://example.com/ws'), null); // https page refuses non-local ws://
   assert.equal(serverUrl('ws://[::1'), null);
 
-  // 2. isStaleTableView
-  const cur = { hand: 2, step: 5 };
-  assert.equal(isStaleTableView(null, 0, 0, false), false);
-  assert.equal(isStaleTableView(cur, 1, 9, false), true);
-  assert.equal(isStaleTableView(cur, 2, 5, false), true);
-  assert.equal(isStaleTableView(cur, 2, 6, false), false);
-  assert.equal(isStaleTableView(cur, 2, 5, true), false);
-
-  // 3. Duplicate/out-of-order incremental TableViews do not duplicate events.
+  // 2. Incremental TableViews at the same step (the computer players' moves between the player's decisions: the
+  // server moves `step` only when it asks a person) all add their events.
   battle.server = '127.0.0.1:9';
   battle.create('TABLE');
   await new Promise((r) => setTimeout(r, 10));
@@ -104,11 +97,11 @@ try {
     phase: 'self', current: 0, seat_winds: [0, 1, 2, 3], my_turn: false, legal: [], event_count: 1, result: null,
   };
   ws.emit({ t: 'table', hand: 0, seat: 0, step: 1, seats: [10, 11, 12, 13], full: true, view: { ...baseView, events: [{ seat: 0, type: 'discard', tile: '1m' }] } });
-  ws.emit({ t: 'table', hand: 0, seat: 0, step: 1, seats: [10, 11, 12, 13], full: false, view: { ...baseView, events: [{ seat: 0, type: 'discard', tile: '1m' }] } });
+  ws.emit({ t: 'table', hand: 0, seat: 0, step: 1, seats: [10, 11, 12, 13], full: false, view: { ...baseView, event_count: 2, events: [{ seat: 1, type: 'discard', tile: '2m' }] } });
   await new Promise((r) => setTimeout(r, 20));
-  assert.equal(battle.table?.view.events.length, 1, 'duplicate incremental TableView must not duplicate events');
+  assert.equal(battle.table?.view.events.length, 2, 'a computer player\'s move at the same step must be shown');
 
-  // 4. Concurrent result + history for same hand does not duplicate record, and leaving mid-record keeps real names.
+  // 3. Concurrent result + history for same hand does not duplicate record, and leaving mid-record keeps real names.
   records.clear();
   const outcome = {
     index: 0,
