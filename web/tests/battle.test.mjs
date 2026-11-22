@@ -1,10 +1,10 @@
 // Battle tests: IPv6 serverUrl, stale/duplicate incremental TableView filtering, reconnect cancellation, and
 // concurrent outcome recording deduplication + post-leave name snapshot.
-// Run with Node from the repo root: node web/tests/battle.test.mjs
+// Run with Node: node web/tests/battle.test.mjs (or npm test in web/).
 import assert from 'node:assert/strict';
-import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const WEB = resolve('repo/web');
+const WEB = fileURLToPath(new URL('..', import.meta.url));
 globalThis.document = { baseURI: 'http://localhost/', documentElement: { lang: '' }, title: '', hidden: false, addEventListener() {} };
 globalThis.window = { addEventListener() {}, removeEventListener() {} };
 globalThis.location = { host: 'localhost:5173', protocol: 'https:', hash: '', search: '' };

@@ -11,7 +11,8 @@
     "build": "node scripts/strings.mjs && svelte-check && vite build",
     "preview": "vite preview",
     "check": "svelte-check",
-    "test": "node tests/engine-native.mjs engine-files/engine.js"
+    "test": "node tests/engine-native.mjs engine-files/engine.js",
+    "test:lib": "for f in tests/*.test.mjs; do node \"$f\" || exit 1; done"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "7.3.1",

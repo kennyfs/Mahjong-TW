@@ -25,6 +25,7 @@ to discard, keyboard play: ← → to choose, Enter to discard, H G P C and Spac
 | `src/components/` | The screens (`Play`, `Battle`, `Analyze`, `Records`, `Replay`, `DecisionAnalysis`, `Rules`, `Settings`, `Guide`: the rules explained) and their parts (`Table`, `MyHand`, `River`, `Melds`, `SeatBadge`, `ClaimBar`, `HandResult`, `AnalysisList`, `Tile`, `Tour`, ...). |
 | `src/lib/tour.svelte.ts` | The tour's steps (each lights an element marked `data-tour`) and the first start's welcome card (the app's `ui/Tour.kt`). |
 | `tests/engine-native.mjs` | The WebAssembly engine against the native one: the same requests, the same answers. |
+| `tests/*.test.mjs` | `src/lib` with a stand-in engine and storage (practice, battle, records, review, coach, sounds): `npm run test:lib`. |
 | `scripts/shots*.py` | Screenshots and the end-to-end battle test, in headless Firefox (Playwright). |
 
 ## Building
@@ -44,6 +45,8 @@ TMPDIR=$WORK/tmp JOBS=16 ORT_WASM_DIR=$THIRTEEN_WORK/ort-wasm \
   MODEL=$WORK/models/actor_50.fp16.onnx ./build-engine.sh 2>&1 | tee $WORK/logs/web-engine-build.log
 # The same answers as the native engine (built with ONNX Runtime), the network's figures to 0.002.
 node tests/engine-native.mjs engine-files/engine.js ../cpp/build/mahjong
+# src/lib's own tests (a stand-in engine worker, no WebAssembly).
+npm run test:lib
 # The dev server (http://127.0.0.1:5180/; /ws goes to BATTLE_SERVER, default ws://127.0.0.1:8091).
 npm run dev -- --host 127.0.0.1 --port 5180 > $WORK/logs/vite-dev.log 2>&1 &
 # The site: strings, type check (svelte-check), dist/.

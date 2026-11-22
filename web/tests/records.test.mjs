@@ -1,9 +1,9 @@
 // Records persistence, import/export round-trip, validation, and storage-full eviction tests.
-// Run with Node from the repo root: node web/tests/records.test.mjs
+// Run with Node: node web/tests/records.test.mjs (or npm test in web/).
 import assert from 'node:assert/strict';
-import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const WEB = resolve('repo/web');
+const WEB = fileURLToPath(new URL('..', import.meta.url));
 globalThis.document = { baseURI: 'http://localhost/', documentElement: { lang: '' }, title: '', hidden: false, addEventListener() {} };
 globalThis.window = { addEventListener() {}, removeEventListener() {} };
 globalThis.location = { host: 'localhost:5173', protocol: 'http:', hash: '', search: '' };
