@@ -104,6 +104,9 @@ fun PlayScreen(vm: AppModel) {
   val handLabel = meta?.let { stringResource(R.string.hand_n, it.hands + if (stage == Practice.Stage.PLAYING) 1 else 0) } ?: ""
   val chip = rulesChip(settings.rules.tai, settings.rules.flowers, settings.rules.overrides.isNotEmpty())
   val chipShort = rulesChip(settings.rules.tai, settings.rules.flowers, settings.rules.overrides.isNotEmpty(), short = true)
+  // (The narrowest: the scoring table alone, "Simple 1 · No flowers" not fitting a phone's corner sideways in English.)
+  val chipTai = stringResource(Rules.taiLabel(settings.rules.tai)) +
+    if (settings.rules.overrides.isNotEmpty()) Words.sep + stringResource(R.string.rules_custom) else ""
   // The hand in a few characters: the round's label as 東-3 where the full one has no room.
   val handNo = meta?.let { "${it.hands + if (stage == Practice.Stage.PLAYING) 1 else 0}" } ?: ""
   val totals = meta?.totals ?: listOf(0.0, 0.0, 0.0, 0.0)
@@ -182,7 +185,7 @@ fun PlayScreen(vm: AppModel) {
           // The table's top-right corner: the buttons one over the other (the tour lights them as one).
           corner = if (wide) ({
             Column(Modifier.tourAnchor("top"), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-              Shorten(2) { MiniButton(if (it == 0) chip else chipShort) { vm.open(Page.RULES) } }
+              Shorten(3) { MiniButton(listOf(chip, chipShort, chipTai)[it]) { vm.open(Page.RULES) } }
               MiniButton(stringResource(R.string.practice_new)) { confirmNew = true }
             }
           }) else null,
