@@ -130,6 +130,21 @@ The tiles show their traditional Chinese faces. No money or gambling of any kind
 Each version's notes are one block in Google Play's own multi-language form: copy the whole block into the release's
 notes box. Inside a language, a paragraph is one line; a blank line between paragraphs is kept as written.
 
+### Next (the version is the user's to choose)
+
+```text
+<zh-TW>
+修正天聽、地聽、報聽後，摸到不能胡的牌不會自動打出的問題。對戰斷線重連更穩，同一局不會記兩次；匯入紀錄時空間不夠會說明，紀錄檔損壞時保留一份、不再默默清空。字體或顯示大小調大時，歡迎卡、紀錄的統計和對戰頁不再被擠壞或切掉；旋轉螢幕後，展開的選項和面板維持原樣。
+
+網頁可以全程用鍵盤操作。AI 講評的摘要寫對你的門風。按「全部覆盤」失敗時會停下並說明原因。規則說明和術語表一律用「對碰」。
+</zh-TW>
+<en-US>
+A declared ready hand now discards a drawn tile it cannot win with by itself. Online games reconnect more reliably and never record a hand twice; a full storage on import is reported, and a damaged records file is kept, not wiped. With large text or display size, the welcome card, statistics and online pages are no longer cut off; rotating keeps open panels open.
+
+The page works fully from the keyboard. The AI coach names your seat wind correctly. Review all stops and says why when it fails.
+</en-US>
+```
+
 ### 2.1.0
 
 ```text
