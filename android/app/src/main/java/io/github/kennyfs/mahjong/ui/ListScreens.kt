@@ -844,7 +844,7 @@ private fun Block(title: String, help: String? = null, onHelp: ((String, String)
     if (help != null && onHelp != null) Row(verticalAlignment = Alignment.CenterVertically) {
       Text(title, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
       // ⓘ: the setting's longer words in a small window (the page stays short).
-      IconButton(onClick = { onHelp(title, help) }) {
+      IconButton(onClick = { onHelp(title, help) }, Modifier.size(40.dp)) {
         Icon(Icons.Outlined.Info, stringResource(R.string.rules_help) + Words.colon + title, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
       }
     } else Text(title, style = MaterialTheme.typography.bodyLarge)
