@@ -67,7 +67,17 @@ def main():
             w, h, scale, dark, mobile = SIZES[size]
             ctx = browser.new_context(viewport={'width': w, 'height': h}, device_scale_factor=scale, locale='zh-TW',
                                       has_touch=mobile, color_scheme='dark' if dark else 'light')
+            # The server of this page (Vite's /ws, passed on to BATTLE_SERVER), never the default public one: an empty
+            # server field means the page's own. A socket to anywhere else is closed before it opens, and said.
+            ctx.add_init_script("localStorage.setItem('mahjong.battle.server', JSON.stringify(''))")
             page = ctx.new_page()
+            page_host = url.split('//', 1)[1].split('/', 1)[0]
+
+            def guard(ws):
+                if ws.url.split('//', 1)[1].split('/', 1)[0].split('?')[0] != page_host:
+                    print(f'refused: a socket to {ws.url}, not this page\'s server', flush=True)
+            ctx.route_web_socket(lambda u: u.split('//', 1)[1].split('/', 1)[0] != page_host, lambda ws: ws.close())
+            page.on('websocket', guard)
             logs = []
             page.on('console', lambda m: logs.append(f'{m.type}: {m.text}') if m.type in ('error', 'warning') else None)
             page.on('pageerror', lambda e: logs.append(f'pageerror: {e}'))
@@ -84,6 +94,16 @@ def main():
 
         def state(page):
             return page.evaluate(STATE)
+
+        def sheet(page):
+            """The result's button: a table battle's hand end first stays till a tap (TapOn), a moment ending at it."""
+            for _ in range(4):
+                if page.locator('.sheet button.filled').count():
+                    break
+                if page.locator('.tap-on').count():
+                    page.click('.tap-on')
+                page.wait_for_timeout(700)
+            page.click('.sheet button.filled')
 
         def play(pages, until, shots=None, timeout=600):
             """Both decide until `until(states)`; `shots`: {(page index, own decisions made): callback}."""
@@ -154,10 +174,10 @@ def main():
         a.wait_for_timeout(800)
         shot(a, 'battle-result-phone')
         shot(b, 'battle-result-fhd')
-        a.click('.sheet button.filled')
+        sheet(a)
         a.wait_for_selector('.summary', timeout=20000)
         shot(a, 'battle-over-phone')
-        b.click('.sheet button.filled')
+        sheet(b)
         b.wait_for_selector('.summary', timeout=20000)
         shot(b, 'battle-over-fhd')
         # A hand of it, reviewed (its decisions open to analysis).
@@ -173,6 +193,7 @@ def main():
 
         # A contest of two hands; the computer's player reloads in the middle of the first.
         a.click('button.tile >> nth=0')  # 建立房間
+        a.wait_for_selector('.field input')
         a.click('button.tile >> nth=1')  # 同牌賽
         a.wait_for_selector('.pin-big', timeout=20000)
         pin = state(a)['pin']
@@ -203,12 +224,12 @@ def main():
         a.wait_for_timeout(800)
         shot(a, 'contest-review-phone-land')
         shot(b, 'contest-review-laptop')
-        a.click('.sheet button.filled')
-        b.click('.sheet button.filled')
+        sheet(a)
+        sheet(b)
         states = play([a, b], lambda ss: all(s['phase'] == 'OVER' and s['result'] for s in ss))
         print('contest over', states, flush=True)
-        a.click('.sheet button.filled')
-        b.click('.sheet button.filled')
+        sheet(a)
+        sheet(b)
         a.wait_for_selector('.summary', timeout=20000)
         b.wait_for_selector('.summary', timeout=20000)
         shot(a, 'contest-over-phone', 'phone')
